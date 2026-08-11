@@ -5,9 +5,57 @@ apartment-block charging hubs — allocating limited connection capacity across 
 under dynamic tariffs, `§14a EnWG` dimming, peak-charge exposure and hard departure
 commitments.**
 
+## 0. Implementation status
+
+Session generator, tariff (including all three `§14a` modules), the safety layer with an
+**EDF feasibility reserve**, and B0/B1/B3 implemented and running on real DE-LU 2024 prices.
+14 tests pass.
+
+```bash
+pip install -e ".[dev]" && python -m pytest tests/ -q
+python -m evc.cli ladder     --archetype depot
+python -m evc.cli modules    --archetype depot     # §14a module comparison
+python -m evc.cli dimming    --archetype depot     # cost vs dimming frequency
+python -m evc.cli archetypes                       # depot / workplace / apartment
+```
+
+**Depot archetype, 40 connectors, 250 kW site limit, 14 days of 2024:**
+
+| Controller | Net cost € | Energy kWh | Peak kW | THG € | Missed | Fairness |
+|---|---:|---:|---:|---:|---:|---:|
+| B0 uncontrolled | 5,424.84 | 28,215 | 250.0 | 1,692.88 | 18 | 0.99 |
+| B1 equal share | 5,379.85 | 28,215 | 250.0 | 1,692.88 | 18 | 0.99 |
+| B3 price greedy | 5,208.16 | 28,214 | 250.0 | 1,692.82 | 19 | 0.99 |
+
+**The technical core: the EDF feasibility reserve.** The obvious safety layer — check each
+connector's own minimum required power — is insufficient, and the failure mode is instructive.
+A set of vehicles can be *individually* comfortable and *collectively* impossible: three cars
+each needing 40 kWh in two hours each require 20 kW, comfortably under an 22 kW connector, but
+together demand 60 kW from a 44 kW site. The per-connector test sees nothing wrong until it is
+far too late.
+
+The correct condition is the classical earliest-deadline-first test — for every horizon `h`,
+`Σ_{deadline ≤ h} E_i ≤ limit · h · Δt` — which yields a floor on total power now. The first
+version of this project lacked it, and the price-aware controller consequently deferred
+charging into a corner it could not escape, **missing more departures (108) than doing nothing
+at all (53)**. With the aggregate floor and slack-ordered shedding, misses fall to 18–19.
+
+**Why not zero.** The residual misses concentrate in sessions with literally zero slack —
+where the declared departure leaves only just enough time at full connector power, so any
+contention at all is unrecoverable. The run header now reports site utilisation against the
+*deliverable window* (72 %, "feasible") rather than against the clock, because a site can have
+ample daily energy capacity and still be infeasible if all the dwell time is at night. That
+diagnostic is what turns a mysterious miss count into a sizing statement.
+
+**Not yet built:** the peak-tracking MILP (B2/B3 proper — the current B3 is a documented greedy
+stand-in), the RL policy with a permutation-invariant set encoder, and the fitted ACN-Data /
+ElaadNL session distributions. Sessions are currently synthesised from archetype parameters.
+
+---
+
 | | |
 |---|---|
-| **Status** | Design dossier complete · implementation not started |
+| **Status** | **Safety layer + B0/B1/B3 implemented** · MILP and RL policy not yet built |
 | **Method** | Constrained RL (PPO with action masking) + projection safety layer · MILP-MPC benchmark |
 | **Asset** | 10–100 non-public charging points, 50 kW–1 MW connection, optional on-site PV and buffer battery |
 | **Resolution** | 15 min |
