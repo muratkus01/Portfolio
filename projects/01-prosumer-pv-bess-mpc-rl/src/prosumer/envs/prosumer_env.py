@@ -72,7 +72,8 @@ class ProsumerEnv(gym.Env if _HAS_GYM else object):              # type: ignore[
                  terminal_price: float = 0.0,
                  reward_scale: float = 10.0,
                  random_start: bool = True,
-                 norm_stats: dict[str, float] | None = None):
+                 norm_stats: dict[str, float] | None = None,
+                 episode_starts: np.ndarray | None = None):
         if not _HAS_GYM:                                          # pragma: no cover
             raise ImportError("gymnasium is required: pip install '.[rl]'")
         super().__init__()
@@ -88,6 +89,10 @@ class ProsumerEnv(gym.Env if _HAS_GYM else object):              # type: ignore[
         self.terminal_price = terminal_price
         self.reward_scale = reward_scale
         self.random_start = random_start
+        # Permitted episode start indices. When the underlying data is a concatenation of
+        # non-contiguous measured periods, an episode must not straddle a discontinuity -
+        # the agent would otherwise learn a transition that does not exist.
+        self.episode_starts = None if episode_starts is None else np.asarray(episode_starts)
 
         # Normalisation statistics must come from the TRAINING data only. Passing them in
         # explicitly makes that a visible decision rather than an accident.
@@ -144,8 +149,12 @@ class ProsumerEnv(gym.Env if _HAS_GYM else object):              # type: ignore[
     # ------------------------------------------------------------------ gym API
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
-        max_start = max(1, self.n - self.episode_steps)
-        self.t0 = int(self.np_random.integers(0, max_start)) if self.random_start else 0
+        if not self.random_start:
+            self.t0 = 0
+        elif self.episode_starts is not None:
+            self.t0 = int(self.np_random.choice(self.episode_starts))
+        else:
+            self.t0 = int(self.np_random.integers(0, max(1, self.n - self.episode_steps)))
         self.t = self.t0
         self.soc = self.cfg.soc_init
         self.steps_since_dim = 999

@@ -37,13 +37,27 @@ from prosumer.safety import project_series
 DATA_DIR = Path(__file__).parent / "data" / "raw" / "legacy"
 
 
-def load_all_weeks(run: RunConfig) -> pd.DataFrame:
-    """Concatenate every available measured week, in chronological order."""
-    frames = [load_legacy_csv(p) for p in sorted(DATA_DIR.glob("*.csv"))]
-    df = pd.concat(frames).sort_index()
-    df = df[~df.index.duplicated(keep="first")]
-    df = to_resolution(df, run.dt)
-    return tariff.build_prices(df, run.tariff)
+def load_all_weeks(run: RunConfig) -> tuple[pd.DataFrame, np.ndarray]:
+    """Load every measured week and concatenate them, preserving the gaps between them.
+
+    The four available weeks are scattered across 2024 (January, June, August, December). They
+    must be resampled INDIVIDUALLY and then concatenated: resampling the concatenation instead
+    builds one continuous date range from January to December and fills the eleven months in
+    between with interpolated values - fabricating roughly 30 000 quarter-hours of data that
+    was never measured. That bug produced a 33 600-step "dataset" from 672 hours of real
+    measurement before it was caught.
+
+    Returns the frame plus the array of indices at which a new week begins, so that training
+    episodes can be prevented from straddling a four-month discontinuity.
+    """
+    frames, starts, offset = [], [], 0
+    for p in sorted(DATA_DIR.glob("*.csv")):
+        w = to_resolution(load_legacy_csv(p), run.dt)
+        frames.append(w)
+        starts.append(offset)
+        offset += len(w)
+    df = pd.concat(frames)
+    return tariff.build_prices(df, run.tariff), np.array(starts)
 
 
 def evaluate_dispatch(p_bat, load, pv, pi, pe, run) -> dict:
@@ -70,10 +84,13 @@ def main() -> None:
     if args.para_14a:
         run = run.with_(para_14a=run.para_14a.__class__(enabled=True))
 
-    df = load_all_weeks(run)
+    df, week_starts = load_all_weeks(run)
     n = len(df)
-    split = int(n * args.train_frac)
-    print(f"{n} steps total | train {split} | test {n - split} | dt={run.dt} h")
+    # split on a week boundary so neither window contains a partial, discontinuous week
+    split = int(week_starts[np.searchsorted(week_starts, n * args.train_frac) - 1]) \
+        if len(week_starts) > 1 else int(n * args.train_frac)
+    print(f"{n} steps total ({len(week_starts)} measured weeks) | "
+          f"train {split} | test {n - split} | dt={run.dt} h")
     print(tariff.describe(run.tariff, float(df["spot_eur_per_kwh"].mean())))
 
     load = df["load_kw"].to_numpy()
@@ -121,12 +138,17 @@ def main() -> None:
     }
 
     def make_env(sl, random_start: bool):
-        return ProsumerEnv(load[sl], pv[sl], pi[sl], pe[sl], load_fc[sl], pv_fc[sl],
+        sub = load[sl]
+        # week boundaries expressed relative to this slice, so episodes stay inside one week
+        rel = week_starts[(week_starts >= (sl.start or 0)) & (week_starts < len(load))]
+        rel = rel - (sl.start or 0)
+        rel = rel[(rel >= 0) & (rel < len(sub))]
+        return ProsumerEnv(sub, pv[sl], pi[sl], pe[sl], load_fc[sl], pv_fc[sl],
                            run, dim_limit=None if dim is None else dim[sl],
                            terminal_price=term_price, random_start=random_start,
-                           episode_steps=min(7 * run.steps_per_day,
-                                             len(load[sl])),
-                           norm_stats=norm_stats)
+                           episode_steps=min(7 * run.steps_per_day, len(sub)),
+                           norm_stats=norm_stats,
+                           episode_starts=rel if len(rel) else None)
 
     seed_costs = []
     for seed in range(args.seeds):
