@@ -5,9 +5,70 @@ generation, storage and flexibility across the members of a German energy commun
 `§42b EnWG` collective building supply, `§21 EEG` Mieterstrom, and the energy-sharing rules
 being transposed from RED II.**
 
+## 0. Implementation status
+
+Community profiles, four allocation mechanisms, four legal regimes, settlement with
+per-member bills, and individual-rationality/stability checks implemented. 19 tests pass.
+
+```bash
+pip install -e ".[dev]" && python -m pytest tests/ -q
+python -m rec.cli mechanisms   # the four allocation families
+python -m rec.cli regimes      # individual / Mieterstrom / §42b / energy sharing
+python -m rec.cli policy       # RQ5: charges on shared energy — the decisive parameter
+python -m rec.cli correlation  # how much benefit is a profile-generator artefact
+```
+
+**The headline result — RQ5, network charges on shared energy** (20 members, 14 days):
+
+| Shared network charge €/kWh | Community cost € | vs individual € | Members worse off | Min saving € |
+|---:|---:|---:|---:|---:|
+| 0.000 | 1,426.64 | +584.35 | 0 | +0.88 |
+| 0.010 | 1,460.23 | +550.76 | 0 | +0.53 |
+| 0.020 | 1,493.81 | +517.18 | 0 | +0.18 |
+| **0.030** | 1,527.39 | +483.59 | **20** | −3.52 |
+| 0.050 | 1,594.56 | +416.43 | 20 | −17.58 |
+| 0.085 | 1,712.11 | +298.88 | 20 | −42.20 |
+
+There is a **cliff between 0.02 and 0.03 €/kWh**. Below it every member gains; above it *every
+single member* is worse off than on individual supply — while the community-level column still
+reports a healthy saving. Both numbers are correct: the community total includes export
+revenue accruing to the *operator*, whereas members pay their own bills. Above the threshold
+the community only holds together if that surplus is explicitly redistributed, which is
+precisely the mechanism-design question this project exists to ask. **A study reporting only
+the community total would conclude energy sharing works at 0.085 €/kWh. It does not.**
+
+**Mechanisms differ in distribution, not in aggregate** — under obedient members. With one
+shared generation pool and no binding per-member constraint, energy shared in a step is
+`min(generation, total consumption)`, a function of the aggregate alone; the mechanism only
+moves money between members. The four families produce Gini coefficients from 0.458
+(static key) to 0.540 (market) on identical totals. This is the clean baseline against which
+the *obedience gap* — how much survives individually-rational members — will be measured.
+
+**A design trap found by testing:** if the internal price sits too low relative to the
+feed-in tariff, the community is better off **exporting than sharing**. At the `§42b` defaults
+(shared 0.238, grid 0.286, export 0.0786 €/kWh) sharing saves only 0.048 €/kWh, so the static
+key — which shares *less* and exports more — beats the adaptive mechanisms on community cost.
+The internal price is a decision variable, not a constant.
+
+> **Limitation, asserted in the test suite so it cannot be quietly forgotten.** The
+> inter-member correlation parameter currently changes neither the total nor the distribution
+> materially, because member benefit is dominated by member *size* (1,800–25,000 kWh/a) and
+> inter-member variation is modelled as multiplicative noise around a shared diurnal shape.
+> Real heterogeneity is in the *shape* — shift workers, empty daytime flats, a bakery starting
+> at 04:00 — and that does change overlap with PV. Until per-member shapes are fitted from the
+> measured HTW Berlin profiles, any claim about the *size* of the community benefit from this
+> generator is indicative only. `test_correlation_moves_the_distribution_not_the_total` will
+> fail loudly the day that changes.
+
+**Not yet built:** the PettingZoo multi-agent environment with individually-rational members
+(the obedience gap, H3), cooperative game analysis (core membership, Shapley estimation), and
+the pandapower LV feeder model — the current feeder check is a transformer-level flow limit.
+
+---
+
 | | |
 |---|---|
-| **Status** | Design dossier complete · implementation not started |
+| **Status** | **Mechanisms + regimes + settlement implemented** · multi-agent RL and game analysis not yet built |
 | **Method** | Cooperative multi-agent RL (PettingZoo) + allocation mechanism comparison + cooperative game theory |
 | **Actors** | 20–200 members: households, small commercial, shared PV, shared battery, heat pumps, wallboxes |
 | **Resolution** | 15 min |

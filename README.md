@@ -152,16 +152,37 @@ level of a fundable work package: problem, prior art, formal specification, data
 architecture, evaluation protocol and milestones. Implementations are being developed
 project by project; the status table below is the single source of truth.
 
-| Project | Design dossier | Data secured | Digital model | Baselines B1–B3 | Learned policy |
-|---------|:--------------:|:------------:|:-------------:|:---------------:|:--------------:|
-| 01 Prosumer PV + BESS | ✅ | ✅ measured site weeks + DE-LU prices | ✅ validated vs. thesis MILP | ✅ running | ◐ env built, training |
-| 02 Pumped storage | ✅ | ◐ market data public, asset data synthetic | ○ | ○ | ○ |
-| 03 Smart EV charging | ✅ | ◐ open session datasets identified | ○ | ○ | ○ |
-| 04 Energy sharing / REC | ✅ | ◐ | ○ | ○ | ○ |
-| 05 Utility hybrid plant | ✅ | ◐ | ○ | ○ | ○ |
-| 06 Forecast-to-bid | ✅ | ✅ fully open data | ○ | ○ | ○ |
+| Project | Design dossier | Data | Digital model | Baselines | Learned policy | Tests |
+|---------|:--------------:|:----:|:-------------:|:---------:|:--------------:|:-----:|
+| 01 Prosumer PV + BESS | ✅ | ✅ measured weeks + DE-LU prices | ✅ validated vs. thesis MILP | ✅ B1/B2/B3 | ◐ env + SAC run | 23 |
+| 02 Pumped storage | ✅ | ✅ real 2024 prices | ✅ | ✅ B1/B2/B3 | ◐ env built | 13 |
+| 03 Smart EV charging | ✅ | ◐ real prices, synthetic sessions | ✅ | ◐ B0/B1/B3 | ○ | 14 |
+| 04 Energy sharing / REC | ✅ | ◐ synthetic profiles | ✅ | ✅ 4 mechanisms | ○ | 19 |
+| 05 Utility hybrid plant | ✅ | ✅ real 2024 wind/PV/prices | ✅ | ✅ B0/B1/B2/B3 | ○ | 11 |
+| 06 Forecast-to-bid | ✅ | ✅ fully open data | ✅ | ✅ 5 policies | ○ | 14 |
 
-`✅ complete · ◐ in progress · ○ not started`
+`✅ complete · ◐ in progress · ○ not started` — **94 tests passing across the portfolio.**
+
+Shared open-data access lives in [`datakit/`](datakit/) (4/4 endpoints verified live).
+The MILP→MPC→RL conversion method is documented in
+[`docs/08-milp-to-rl-roadmap.md`](docs/08-milp-to-rl-roadmap.md).
+
+### Bugs the invariants caught
+
+Every project asserts a structural invariant at runtime, and each one caught a real defect
+that would otherwise have produced a plausible-looking but wrong result. They are documented
+in the project READMEs rather than quietly fixed, because *which* invariant caught *what* is
+the most transferable thing here:
+
+| Project | Invariant | What it caught |
+|---|---|---|
+| 01 | B2 ≤ B3 ≤ B1; zero violations under random actions | Terminal value priced stored energy at full retail import, so MPC bought from the grid at every horizon end |
+| 01 | — | Concatenating four scattered measured weeks before resampling fabricated 11 months of data |
+| 02 | Zero violations under random actions | Reservoir bounds overrode the ramp limit (fixed by adding spill); ramp was defined on signed net power rather than per mode |
+| 03 | Departure guarantee | Per-connector feasibility is insufficient — the price-aware policy missed *more* departures (108) than doing nothing (53) until the EDF aggregate floor was added |
+| 05 | Every rung ≤ perfect foresight | EEG monthly market value was derived from the plant's own export, so correct curtailment cut its own premium and B2 scored below do-nothing |
+| 06 | Ceiling dominates all policies | "Perfect foresight" was not an upper bound at all — signed imbalance means deviating can pay |
+| 06 | — | Calibration metric was structurally biased; a test fixture used a stateful RNG so the forecast store was scored against a different realisation than it was built from |
 
 No result numbers appear anywhere in this repository that were not produced by a run that
 is reproducible from the committed code and a documented data snapshot. Placeholders are
