@@ -64,3 +64,7 @@ desktop.ini
 
 # Generated reports are committed selectively; drafts are not
 reports/**/draft/
+
+# datakit downloads
+datakit/cache/
+datakit/processed/
