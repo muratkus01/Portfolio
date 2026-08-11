@@ -5,9 +5,55 @@ co-optimises energy arbitrage, balancing capacity and system-security services a
 day-ahead, intraday and balancing markets — with an explicit, switchable operating philosophy
 between revenue maximisation, grid-security priority and a hybrid mode.**
 
+## 0. Implementation status
+
+Ladder implemented and running on **real DE-LU 2024 day-ahead prices** (via `datakit`).
+13 tests pass. `src/psw/` contains the plant physics + safety layer, the market/settlement
+module, B1/B2/B3, and the Gymnasium environment with the two-timescale capacity/energy action.
+
+```bash
+pip install -e ".[rl,dev]" && python -m pytest tests/ -q
+python -m psw.cli ladder --year 2024 --days 10      # B1/B2/B3
+python -m psw.cli exempt --year 2024 --days 14      # §118(6) EnWG sensitivity
+python -m psw.cli lambda --year 2024 --days 14      # revenue vs grid-security sweep
+```
+
+**10 days of 2024, 300 MW / 2400 MWh reference plant, static 15 % aFRR capacity offer:**
+
+| Controller | Net € | Energy € | Capacity € | Wear € | Security idx | Violations |
+|---|---:|---:|---:|---:|---:|---:|
+| B1 price threshold | 547,041 | 318,358 | 219,456 | 23,700 | 0.671 | 0 |
+| B2 perfect foresight | 902,658 | 689,575 | 219,456 | 39,300 | 0.762 | 0 |
+| B3 rolling MPC | 784,639 | 579,655 | 219,456 | 47,400 | 0.790 | 0 |
+
+B3 recovers **66.8 %** of the B1→B2 headroom at 69 ms/decision; **118,020 €** of headroom
+remains for a learned policy to play for. Note B3 scores *higher* on security readiness than
+B2 — being less aggressive leaves more reserve available, which is exactly the trade-off the
+λ sweep is meant to price.
+
+**Two physics bugs found and fixed by the zero-violation stress test**, both worth recording
+because each would have quietly let a "safe" controller breach a water permit:
+
+1. **Reservoir bounds were overriding the ramp limit.** When the upper reservoir filled, the
+   bound *forced* turbining faster than the ramp allowed. Real plants spill. The reservoir now
+   restricts an action but never forces the opposite one, and spilled energy is tracked.
+2. **The ramp was defined on signed net power.** Backing the pumps off is a large positive
+   change in net power but a *reduction* in machine loading, and is always possible. The rate
+   limit belongs to each mode separately — turbine-up and pump-up — with unloading free.
+
+**Known simplifications in this groundwork** (each is a documented next step, and every one
+of them makes B3 *weaker* than it should be, so the eventual RL comparison is currently
+biased in RL's favour and must not be reported until they are closed): the LP is continuous
+rather than mixed-integer (no per-unit commitment, min up/down times represented only by the
+mode-change cost); capacity prices are exogenous constants rather than auction outcomes;
+reBAP is a synthetic heavy-tailed series rather than the real netztransparenz.de data; and
+B3 re-solves hourly rather than every quarter-hour.
+
+---
+
 | | |
 |---|---|
-| **Status** | Design dossier complete · implementation not started |
+| **Status** | **Ladder implemented** on real price data · RL environment built · not yet trained |
 | **Method** | Multi-objective RL (PPO/SAC) with safety layer · MILP-MPC benchmark |
 | **Asset** | Publicly-derived reference PSW, ~300 MW / ~1–8 GWh, multi-unit, reversible pump-turbines |
 | **Markets** | Day-ahead · intraday · FCR · aFRR (capacity + energy) · mFRR · imbalance |

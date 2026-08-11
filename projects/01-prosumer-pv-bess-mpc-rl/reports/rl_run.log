@@ -1,0 +1,23 @@
+﻿2688 steps total (4 measured weeks) | train 1344 | test 1344 | dt=0.25 h
+import ~0.2992 EUR/kWh | export ~0.0786 EUR/kWh | spread 0.2206 | export_mode=feed_in_tariff | s14a=none | neg_price_rule=none
+
+running baselines on the held-out window ...
+
+training SAC seed 0 for 15000 steps ...
+  seed 0: net cost -11.561 EUR | violations 0
+
+training SAC seed 1 for 15000 steps ...
+  seed 1: net cost -11.578 EUR | violations 0
+
+training SAC seed 2 for 15000 steps ...
+  seed 2: net cost -11.525 EUR | violations 0
+
+controller                          net cost EUR  violations
+------------------------------------------------------------
+B1 rule-based                            -24.796           0
+B2 perfect foresight                     -26.333           0
+B3 rolling MPC                           -24.286           0
+RL SAC (median of 3 seeds)               -11.561           0
+
+B3-gap closure: -621.7%   (0% = matches MPC, 100% = reaches the perfect-foresight ceiling)
+seed IQR: [-11.569, -11.543] EUR
