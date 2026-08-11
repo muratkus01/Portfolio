@@ -5,9 +5,60 @@ connection point in Germany — under EEG direct marketing, the negative-price r
 2.0 obligations and a binding connection capacity limit. Evaluated across the full benchmark
 ladder B0 → B3 and against a learned policy.**
 
+## 0. Implementation status
+
+Ladder B0/B1/B2/B3 implemented and running on **real German 2024 wind, PV and price data**
+(national capacity factors from Energy-Charts via `datakit`). 11 tests pass.
+
+```bash
+pip install -e ".[rl,dev]" && python -m pytest tests/ -q
+python -m hybrid.cli ladder    --year 2024 --days 30
+python -m hybrid.cli sizing    --year 2024 --days 20   # RQ2 connection-ratio sweep
+python -m hybrid.cli negprice  --year 2024 --days 20   # RQ4 negative-price rule by vintage
+python -m hybrid.cli decompose --year 2024 --days 20   # RQ1 battery value decomposition
+```
+
+**Connection-capacity sweep** (80 MW installed, 20 days of 2024, perfect foresight):
+
+| Connection MW | Overbuild | B0 no battery € | B2 € | Battery value € | Forced curtailment MWh |
+|---:|---:|---:|---:|---:|---:|
+| 20 | 4.00× | 501,190 | 524,344 | 23,154 | 578 |
+| 25 | 3.20× | 523,584 | 548,727 | 25,143 | 127 |
+| 30 | 2.67× | 527,322 | 555,750 | 28,428 | 28 |
+| 40 | 2.00× | 528,640 | 558,169 | 29,529 | 0 |
+| 60 | 1.33× | 528,640 | 558,221 | 29,581 | 0 |
+
+The battery is worth **more** at a wider connection, not less — the opposite of hypothesis
+H1's expected direction. The mechanism is visible in the table: at a tight connection the
+battery can absorb spill but then has no headroom to discharge into, so curtailment avoidance
+and arbitrage compete for the same MW. Worth pursuing, with the caveat below.
+
+**Negative-price rule by vintage** (20 days of 2024): for a recent onshore plant
+(applicable value 73.5 €/MWh) the 2024 market value *exceeded* it, so no premium was payable
+and the rule was economically irrelevant. For an older vintage (95 €/MWh, premium 10.58
+€/MWh) the mechanism appears exactly as expected — self-chosen curtailment rises
+**0 → 2.4 → 206.6 MWh** across `none` → `six_hour` → `new_2025`.
+
+**A real bug the ladder invariant caught.** The EEG monthly market value was initially derived
+from the plant's *own* export. A controller that correctly curtails during negative prices
+concentrates output into high-price hours, raising its own apparent market value and cutting
+its own premium — so perfect foresight scored *below* a do-nothing baseline. The market value
+is a technology-wide national figure that one plant cannot move; it is now exogenous, and the
+invariant check was widened from "B3 ≤ B2" to "every rung ≤ B2", which is what would have
+caught it immediately.
+
+> **Principal caveat on this dataset.** Wind and PV profiles are *national* capacity factors,
+> which are far smoother than any single site: the combined factor rarely exceeds ~0.45, so a
+> connection at 75 % of nameplate never binds and the curtailment problem disappears. That is
+> why the sweep above runs down to 25 % of nameplate. On site-level data the whole curve sits
+> much further right, and curtailment — the effect this project is about — is substantially
+> larger. Site-level generation data is the top acquisition priority.
+
+---
+
 | | |
 |---|---|
-| **Status** | Design dossier complete · implementation not started |
+| **Status** | **Ladder implemented** on real 2024 wind/PV/price data · RL environment not yet built |
 | **Method** | Full benchmark ladder (B0–B3) + PPO/SAC with safety layer |
 | **Asset** | ~50 MW wind + ~30 MW PV + ~20 MW / 40 MWh battery behind a ~60 MW connection |
 | **Markets** | Day-ahead · intraday · imbalance · optional aFRR · EEG market premium |
