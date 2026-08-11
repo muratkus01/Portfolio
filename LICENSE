@@ -1,0 +1,53 @@
+# Licence
+
+This repository is dual-licensed.
+
+## Documentation, diagrams and written content
+
+Licensed under the **Creative Commons Attribution 4.0 International Licence (CC BY 4.0)**.
+You may share and adapt the material for any purpose, including commercially, provided you
+give appropriate credit.
+
+Full text: https://creativecommons.org/licenses/by/4.0/legalcode
+
+## Code
+
+Licensed under the **MIT Licence**:
+
+```
+MIT License
+
+Copyright (c) 2026 Murat Kus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Third-party data
+
+No third-party data is redistributed in this repository. Data sources retain their own
+licences, recorded per dataset in `data/*/SOURCE.md` and catalogued in
+[`docs/02-data-sources.md`](docs/02-data-sources.md). Users are responsible for complying
+with those terms — note in particular that some sources (e.g. Renewables.ninja) are
+non-commercial only.
+
+## Disclaimer
+
+Statements about German energy law and market rules in this repository are the author's
+working understanding for research purposes and are **not legal advice**. Verify against the
+current consolidated legal texts and the relevant regulatory decisions before relying on them.

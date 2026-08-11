@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+title: "AI for Renewable Energy Systems — Applied Research Portfolio"
+message: "If you refer to this work, please cite it as below."
+type: software
+authors:
+  - given-names: Murat
+    family-names: Kus
+abstract: >-
+  Six engineering research projects applying reinforcement learning, model
+  predictive control and probabilistic forecasting to the German electricity
+  system: prosumer PV and battery energy management at 15-minute resolution,
+  multi-market pumped-storage dispatch, smart EV charging under grid-orientated
+  control, energy sharing in renewable energy communities, utility-scale hybrid
+  wind-PV-battery plant dispatch, and probabilistic forecast-to-bid intraday
+  trading. Each project treats the German regulatory framework as part of the
+  environment specification and evaluates learned controllers against a
+  deployable rolling-horizon MILP-MPC baseline.
+keywords:
+  - reinforcement learning
+  - model predictive control
+  - energy systems
+  - electricity markets
+  - renewable energy
+  - probabilistic forecasting
+  - German energy regulation
+  - battery storage
+  - pumped storage
+  - smart charging
+license: CC-BY-4.0
+date-released: 2026-08-11
