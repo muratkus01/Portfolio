@@ -6,12 +6,89 @@ operating under dynamic tariffs (`§41a EnWG`) and grid-orientated control (`§1
 
 | | |
 |---|---|
-| **Status** | Design dossier complete · implementation not started |
+| **Status** | **Implemented** — ladder B1/B2/B3 running on measured data; RL environment built |
 | **Type** | Extension and generalisation of the author's M.Sc. thesis configuration |
 | **Method** | Rolling-horizon MILP-MPC · Soft Actor-Critic with a safety layer |
-| **Asset** | 5–30 kWp PV, 5–30 kWh battery, heat pump, 11 kW wallbox |
+| **Asset** | 8.9 kWh battery, 5.51 kW inverter (thesis reference site) |
 | **Resolution** | **15 min** (previously 60 min) |
 | **Horizon** | **1–3 days** (96–288 steps), previously single-day |
+
+---
+
+## 0. Implementation status and first results
+
+The package in `src/prosumer/` implements Phases 1–4 and the Phase-6 environment of
+[`../../docs/08-milp-to-rl-roadmap.md`](../../docs/08-milp-to-rl-roadmap.md). Everything below
+was produced by a run of the committed code; nothing is estimated.
+
+```bash
+pip install -e ".[rl,dev]"
+python -m pytest tests/ -q                                          # 16 passed
+python -m prosumer.cli legacy     --data data/raw/legacy/12-18_08_2024.csv
+python -m prosumer.cli ladder     --data data/raw/legacy/09-15_12_2024.csv --dt 0.25
+python -m prosumer.cli resolution --data data/raw/legacy/09-15_12_2024.csv
+python train_rl.py --steps 50000 --seeds 5
+```
+
+**Gate 1 — the port is faithful.** Run in `LEGACY_RUN` configuration (hourly, day-by-day,
+single price, hard throughput cap), the package reproduces the original thesis MILP's
+objective exactly: **8.563975 €**, matching the original `_summary_report.txt` to all six
+reported decimals.
+
+**Two properties of the original model, found by testing rather than by reading:**
+
+1. **The LP is degenerate.** The objective is uniquely determined but the dispatch is not —
+   whenever prices are flat across consecutive hours, shifting charging between them leaves
+   the objective unchanged. The trajectory in the original output file scores exactly the same
+   8.563975 € as the one this port finds by a different path. *Consequence: SoC trajectories
+   plotted from the original results are one arbitrary choice among ties.* Pricing throughput
+   (`c_deg > 0`) instead of capping it breaks the ties and makes the solution unique.
+2. **Every day ends at minimum SoC** in the original results — the horizon-end drain (defect
+   D4) is not hypothetical, it is visible in the thesis output. `test_original_drains_battery_every_midnight`
+   asserts it.
+
+**Benchmark ladder, measured winter week (09–15 Dec 2024), 15 min, 24 h horizon:**
+
+| Controller | Net cost € | Import kWh | Export kWh | Cycles | Violations |
+|---|---:|---:|---:|---:|---:|
+| B1 rule-based | 2.523 | 10.89 | 46.17 | 4.93 | 0 |
+| B2 perfect foresight | 1.584 | 11.21 | 46.94 | 5.32 | 0 |
+| B3 rolling MPC | 2.281 | 14.55 | 46.87 | 5.14 | 0 |
+
+B3 recovers **25.8 %** of the B1→B2 headroom, at a mean **69 ms** per decision. The ladder
+invariant `B2 ≤ B3` is asserted at runtime.
+
+**Resolution study (RQ1), same week, same tariff, same method:**
+
+| Controller | 15 min € | 60 min € | Bias € | Bias % |
+|---|---:|---:|---:|---:|
+| B1 rule-based | 2.523 | 3.194 | +0.671 | **+26.6 %** |
+| B2 perfect foresight | 1.584 | 1.900 | +0.316 | +19.9 % |
+| B3 rolling MPC | 2.281 | 2.456 | +0.175 | +7.7 % |
+
+Peak import rose from 3.66 kW (hourly) to 5.76 kW (15 min) under B2 — the hourly model
+**understates the peak power requirement by 58 %**, which is a battery- and connection-sizing
+error, not merely an accounting one.
+
+> **Read this result with its caveat.** The measured profiles are hourly, so the 15-minute
+> series is upsampled. What is isolated here is therefore the **control**-resolution effect
+> (four times as many decision points), not the **data**-resolution effect (true sub-hourly
+> variability), and the two push cost in opposite directions. Measured sub-hourly load and PV
+> — the HTW Berlin profiles, or metering from the site — are needed to separate them, and
+> that is the single most valuable data acquisition for this project.
+
+**A negative result worth recording.** On a PV-rich August week under a *fixed* feed-in
+tariff, B3 loses to the price-blind B1 heuristic (−27.11 € vs −27.76 €). With a constant
+export price and a site that already imports nothing, there is almost no headroom to
+optimise (B1 is within 0.59 € of the perfect-foresight ceiling), and 15 % forecast error is
+enough to make price-aware control a liability. **Model predictive control is not free.**
+
+**Also fixed during implementation:** the first terminal-value estimator valued stored energy
+at the full retail import price, which made B3 buy from the grid at every horizon end to bank
+value it could never realise. The corrected estimator blends import and export prices by the
+share of the horizon in which the site is a net importer. This is recorded because it is the
+kind of defect that silently weakens a baseline — and a weak baseline is how RL results get
+overclaimed.
 
 ---
 

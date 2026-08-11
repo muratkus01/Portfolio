@@ -128,7 +128,8 @@ ai-renewables-portfolio/
 │   ├── 04-evaluation-protocol.md               Metrics, splits, statistics, reproducibility
 │   ├── 05-tech-stack.md                        Tooling, solvers, MLOps conventions
 │   ├── 06-idea-backlog.md                      Vetted but not-yet-started project concepts
-│   └── 07-glossary.md                          DE ↔ EN energy & market terminology
+│   ├── 07-glossary.md                          DE ↔ EN energy & market terminology
+│   └── 08-milp-to-rl-roadmap.md                Converting an existing MILP into MPC + RL
 ├── projects/
 │   ├── 01-prosumer-pv-bess-mpc-rl/
 │   ├── 02-pumped-storage-rl-multimarket/
@@ -153,7 +154,7 @@ project by project; the status table below is the single source of truth.
 
 | Project | Design dossier | Data secured | Digital model | Baselines B1–B3 | Learned policy |
 |---------|:--------------:|:------------:|:-------------:|:---------------:|:--------------:|
-| 01 Prosumer PV + BESS | ✅ | ◐ public data identified | ○ | ○ | ○ |
+| 01 Prosumer PV + BESS | ✅ | ✅ measured site weeks + DE-LU prices | ✅ validated vs. thesis MILP | ✅ running | ◐ env built, training |
 | 02 Pumped storage | ✅ | ◐ market data public, asset data synthetic | ○ | ○ | ○ |
 | 03 Smart EV charging | ✅ | ◐ open session datasets identified | ○ | ○ | ○ |
 | 04 Energy sharing / REC | ✅ | ◐ | ○ | ○ | ○ |
