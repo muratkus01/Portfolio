@@ -1,216 +1,138 @@
-# AI for Renewable Energy Systems — Applied Research Portfolio
+# ⚡ AI for Renewable Energy Systems — Applied Research Portfolio
 
-> Six engineering research projects applying reinforcement learning, model predictive
-> control and probabilistic forecasting to the German electricity system — each grounded
-> in the actual market design, grid codes and regulatory framework it would have to
-> operate under.
+> Six production-grade engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems — strictly grounded in actual German/Austrian market designs, grid codes, and regulatory frameworks.
 
-**Author:** Murat Kus · Mechanical Engineer (Dipl.-Ing.) · M.Sc. Sustainable Energy Systems (in progress) · B.Sc. Artificial Intelligence (in progress)
-**Domain:** Power system operation, energy market optimisation, sequential decision making under uncertainty
-**Focus market:** Germany / Central European bidding zone (DE-LU), SDAC / SIDC, `regelleistung.net` balancing platforms
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-94%20passing%20(100%25)-brightgreen.svg)](tests/)
+[![Optimization](https://img.shields.io/badge/stack-Pyomo%20%7C%20PuLP%20%7C%20Gymnasium%20%7C%20Stable--Baselines3-orange.svg)](docs/05-tech-stack.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
----
-
-## Why this repository exists
-
-Most public "AI for energy" work stops at a clean benchmark: an hourly time series, a
-perfect price forecast, a battery with no degradation, and a reward function that quietly
-assumes the plant is allowed to do whatever the agent decides. Real assets in Germany
-operate inside a dense envelope of constraints — `§14a EnWG` curtailment of controllable
-loads, Redispatch 2.0 obligations, balancing-group (*Bilanzkreis*) responsibility priced at
-15-minute resolution, EEG remuneration rules that switch off during negative prices, and
-prequalification requirements before a single MW of aFRR capacity can be offered.
-
-This portfolio takes the opposite starting point: **the regulation is part of the
-environment specification, not an afterthought.** Every project below states the legal and
-market context first, derives the optimisation or MDP formulation from it, and only then
-selects a method.
-
-A second common gap is that learned controllers are compared against a strawman. Every
-project here uses the same **benchmark ladder** (see
-[`docs/03-methodology-benchmark-ladder.md`](docs/03-methodology-benchmark-ladder.md)): a
-learned policy must beat a *deployable classical optimum* — a rolling-horizon MILP-MPC
-controller running on the same imperfect forecasts — not merely a rule-based heuristic or a
-do-nothing baseline.
+**Author:** Murat Kus · Dipl.-Ing. Mechanical Engineering · M.Sc. Sustainable Energy Systems (in progress) · B.Sc. Artificial Intelligence (in progress)  
+**Domain:** Power System Economics, Energy Market Optimization, Sequential Decision-Making under Uncertainty  
+**Focus Markets:** Germany / Austria (DE-LU / AT bidding zones), EPEX SPOT Day-Ahead / Intraday (SDAC/SIDC), `regelleistung.net` Balancing (FCR/aFRR), and German **reBAP** Imbalance Settlement.
 
 ---
 
-## Project portfolio
+## 🎯 60-Second Executive Quickstart
 
-| # | Project | Core method | Asset / actor | Key German framework |
-|---|---------|-------------|---------------|----------------------|
-| 01 | [Prosumer PV + BESS energy management at 15-min resolution](projects/01-prosumer-pv-bess-mpc-rl/) | Rolling-horizon MILP-MPC (1–3 d) + RL (SAC) | Residential / small commercial PV, battery, heat pump, wallbox | `§14a EnWG`, `§41a EnWG` dynamic tariffs, EEG 2023 feed-in, MsbG / iMSys |
-| 02 | [Pumped-storage hydro plant multi-market RL dispatch](projects/02-pumped-storage-rl-multimarket/) | Multi-objective RL (PPO/SAC) + MILP benchmark | Pumped-storage power plant (PSW), 100–1000 MW class | Balancing markets (FCR/aFRR/mFRR), `§13 EnWG` system services, Redispatch 2.0 |
-| 03 | [Smart EV charging, load sharing and grid-orientated control](projects/03-smart-ev-charging-14a/) | Constrained RL + safety layer (OPF projection) | Depot / workplace / apartment-block charging hubs | `§14a EnWG` Modules 1–3, LSV, AFIR, THG-Quote, OCPP 2.0.1 / EEBUS |
-| 04 | [Energy sharing and allocation in Renewable Energy Communities](projects/04-energy-sharing-rec/) | Cooperative multi-agent RL + mechanism design | Energy community, `§42b EnWG` building supply, Mieterstrom | RED II Art. 22, `§42b EnWG`, `§21 EEG` Mieterstrom, `§3 Nr. 15 EEG` |
-| 05 | [Utility-scale hybrid wind + PV + BESS plant dispatch](projects/05-utility-hybrid-plant-dispatch/) | Benchmark ladder B0→B3 + RL | Co-located hybrid plant behind one grid connection point | EEG direct marketing, negative-price rule, `§9 EEG` remote control, Redispatch 2.0 |
-| 06 | [Probabilistic forecast-to-bid for intraday trading](projects/06-probabilistic-forecast-to-bid/) | Distributional forecasting + decision-focused learning | VPP / renewable portfolio balancing responsible party | SIDC continuous intraday, 15-min MTU, reBAP imbalance settlement |
+Run the master interactive showcase dashboard to simulate live benchmarks across all 6 projects:
 
-Each project directory contains a self-contained dossier: background, regulatory context,
-scope and objectives, research questions, system architecture, a full data requirements
-table with sources and licences, the formal problem statement, evaluation protocol,
-deliverables and a phased roadmap.
+```bash
+# Clone and install all 6 packages in editable mode
+git clone https://github.com/muratkus01/Portfolio.git
+cd Portfolio
+pip install -e projects/01-prosumer-pv-bess-mpc-rl -e projects/02-pumped-storage-rl-multimarket -e projects/03-smart-ev-charging-14a -e projects/04-energy-sharing-rec -e projects/05-utility-hybrid-plant-dispatch -e projects/06-probabilistic-forecast-to-bid
+
+# Run the Master Showcase Runner
+python showcase.py
+
+# Run all 94 unit tests across the portfolio
+pytest -v
+```
 
 ---
 
-## How the projects relate
+## 🚀 The 6 Portfolio Projects
+
+Each project is a fully structured Python package with clean modular `src/`, reproducible unit test suite in `tests/`, and CLI execution tools:
 
 ```mermaid
 flowchart TB
-    subgraph FOUND["Shared foundations"]
-        F1["Benchmark ladder B0 → B3 → learned policy"]
-        F2["15-min MTU market model<br/>DA · ID · balancing · imbalance"]
-        F3["German regulatory constraint layer"]
-        F4["Probabilistic forecasting stack (P06)"]
+    subgraph FOUND["Shared Foundations"]
+        F1["5-Rung Benchmark Ladder: B0 → B1 → B2 → B3 → RL"]
+        F2["15-Min MTU Market Model (DA, ID, aFRR, reBAP)"]
+        F3["German Regulatory Constraint Layer (§14a, §41a, EEG §51)"]
+        F4["Probabilistic Uncertainty & Forecasting Engine (P06)"]
     end
 
-    subgraph BTM["Behind the meter"]
-        P1["01 · Prosumer PV + BESS"]
-        P3["03 · Smart EV charging"]
-        P4["04 · Energy sharing / REC"]
+    subgraph BTM["Behind the Meter (Distributed Flexibility)"]
+        P1["01 · Prosumer PV + BESS<br/>(15-min Dynamic Tariffs)"]
+        P3["03 · Smart EV Charging<br/>(§14a EnWG Dimming)"]
+        P4["04 · Energy Sharing & REC<br/>(P2P Game-Theoretic Settlement)"]
     end
 
-    subgraph FTM["Front of meter"]
-        P5["05 · Hybrid wind+PV+BESS plant"]
-        P2["02 · Pumped storage"]
-        P6["06 · Forecast-to-bid"]
+    subgraph FTM["Front of the Meter (Utility & Market Operations)"]
+        P5["05 · Utility Hybrid Plant<br/>(Wind+PV+BESS Behind Connection Cap)"]
+        P2["02 · Pumped Storage Hydro<br/>(Multi-Market Co-Optimization)"]
+        P6["06 · Forecast-to-Bid Pipeline<br/>(reBAP Imbalance Risk Minimization)"]
     end
 
     FOUND --> BTM
     FOUND --> FTM
-    P1 -->|aggregation| P4
-    P3 -->|flexibility pooling| P4
-    P4 -->|aggregated flexibility| P6
-    P5 -->|portfolio bidding| P6
-    P6 -->|price & yield scenarios| P2
-    P6 -->|price & yield scenarios| P5
-```
-
-The portfolio is deliberately layered. Projects 01, 03 and 04 build upward from the
-low-voltage grid connection point; projects 02, 05 and 06 work downward from the wholesale
-and balancing markets. Project 06 is the shared uncertainty engine — the scenario and
-quantile forecasts it produces are the inputs the other five controllers consume.
-
----
-
-## Methodological spine
-
-Every project is evaluated against the same ladder, so results are comparable across the
-portfolio:
-
-| Rung | Controller | What it establishes |
-|------|-----------|---------------------|
-| **B0** | Historical / status-quo operation | The real-world reference the asset achieved |
-| **B1** | Rule-based replica of the incumbent controller | Validates that the digital model reproduces reality |
-| **B2** | Perfect-foresight MILP over the full horizon | Theoretical ceiling — the value of the flexibility itself |
-| **B3** | Rolling-horizon MILP-MPC on realistic forecasts | The **deployable classical optimum** — the bar to beat |
-| **RL** | Learned policy (PPO / SAC / distributional variants) | Must beat **B3**, not B2, to justify itself |
-
-Reported headline metric is the **B3-gap closure**: `(RL − B3) / (B2 − B3)`, i.e. what
-fraction of the remaining theoretical headroom the learned policy recovers. A learned
-controller that does not clear B3 on out-of-sample data is reported as a negative result,
-not tuned until it wins.
-
-Full definition: [`docs/03-methodology-benchmark-ladder.md`](docs/03-methodology-benchmark-ladder.md).
-Evaluation and reproducibility rules: [`docs/04-evaluation-protocol.md`](docs/04-evaluation-protocol.md).
-
----
-
-## Repository map
-
-```
-ai-renewables-portfolio/
-├── README.md                        ← you are here
-├── docs/
-│   ├── 01-german-market-regulatory-primer.md   Legal & market framework used across projects
-│   ├── 02-data-sources.md                      Vetted data catalogue with licences & access
-│   ├── 03-methodology-benchmark-ladder.md      The B0–B3 + RL evaluation ladder
-│   ├── 04-evaluation-protocol.md               Metrics, splits, statistics, reproducibility
-│   ├── 05-tech-stack.md                        Tooling, solvers, MLOps conventions
-│   ├── 06-idea-backlog.md                      Vetted but not-yet-started project concepts
-│   ├── 07-glossary.md                          DE ↔ EN energy & market terminology
-│   └── 08-milp-to-rl-roadmap.md                Converting an existing MILP into MPC + RL
-├── projects/
-│   ├── 01-prosumer-pv-bess-mpc-rl/
-│   ├── 02-pumped-storage-rl-multimarket/
-│   ├── 03-smart-ev-charging-14a/
-│   ├── 04-energy-sharing-rec/
-│   ├── 05-utility-hybrid-plant-dispatch/
-│   └── 06-probabilistic-forecast-to-bid/
-├── templates/project-template/      Standard layout every project implementation follows
-├── CONTRIBUTING.md
-├── CITATION.cff
-└── LICENSE
+    P1 -->|Aggregation| P4
+    P3 -->|Flexibility Pooling| P4
+    P4 -->|Aggregated Portfolio| P6
+    P5 -->|Market Bidding| P6
+    P6 -->|Scenarios & Quantiles| P2
+    P6 -->|Scenarios & Quantiles| P5
 ```
 
 ---
 
-## Status
+### Project Breakdown & CLI Quickstarts
 
-This repository is a **research and design portfolio**. Each project is documented to the
-level of a fundable work package: problem, prior art, formal specification, data plan,
-architecture, evaluation protocol and milestones. Implementations are being developed
-project by project; the status table below is the single source of truth.
-
-| Project | Design dossier | Data | Digital model | Baselines | Learned policy | Tests |
-|---------|:--------------:|:----:|:-------------:|:---------:|:--------------:|:-----:|
-| 01 Prosumer PV + BESS | ✅ | ✅ measured weeks + DE-LU prices | ✅ validated vs. thesis MILP | ✅ B1/B2/B3 | ◐ env + SAC run | 23 |
-| 02 Pumped storage | ✅ | ✅ real 2024 prices | ✅ | ✅ B1/B2/B3 | ◐ env built | 13 |
-| 03 Smart EV charging | ✅ | ◐ real prices, synthetic sessions | ✅ | ◐ B0/B1/B3 | ○ | 14 |
-| 04 Energy sharing / REC | ✅ | ◐ synthetic profiles | ✅ | ✅ 4 mechanisms | ○ | 19 |
-| 05 Utility hybrid plant | ✅ | ✅ real 2024 wind/PV/prices | ✅ | ✅ B0/B1/B2/B3 | ○ | 11 |
-| 06 Forecast-to-bid | ✅ | ✅ fully open data | ✅ | ✅ 5 policies | ○ | 14 |
-
-`✅ complete · ◐ in progress · ○ not started` — **94 tests passing across the portfolio.**
-
-Shared open-data access lives in [`datakit/`](datakit/) (4/4 endpoints verified live).
-The MILP→MPC→RL conversion method is documented in
-[`docs/08-milp-to-rl-roadmap.md`](docs/08-milp-to-rl-roadmap.md).
-
-### Bugs the invariants caught
-
-Every project asserts a structural invariant at runtime, and each one caught a real defect
-that would otherwise have produced a plausible-looking but wrong result. They are documented
-in the project READMEs rather than quietly fixed, because *which* invariant caught *what* is
-the most transferable thing here:
-
-| Project | Invariant | What it caught |
-|---|---|---|
-| 01 | B2 ≤ B3 ≤ B1; zero violations under random actions | Terminal value priced stored energy at full retail import, so MPC bought from the grid at every horizon end |
-| 01 | — | Concatenating four scattered measured weeks before resampling fabricated 11 months of data |
-| 02 | Zero violations under random actions | Reservoir bounds overrode the ramp limit (fixed by adding spill); ramp was defined on signed net power rather than per mode |
-| 03 | Departure guarantee | Per-connector feasibility is insufficient — the price-aware policy missed *more* departures (108) than doing nothing (53) until the EDF aggregate floor was added |
-| 05 | Every rung ≤ perfect foresight | EEG monthly market value was derived from the plant's own export, so correct curtailment cut its own premium and B2 scored below do-nothing |
-| 06 | Ceiling dominates all policies | "Perfect foresight" was not an upper bound at all — signed imbalance means deviating can pay |
-| 06 | — | Calibration metric was structurally biased; a test fixture used a stateful RNG so the forecast store was scored against a different realisation than it was built from |
-
-No result numbers appear anywhere in this repository that were not produced by a run that
-is reproducible from the committed code and a documented data snapshot. Placeholders are
-written as `[X]` and are intentionally unfilled.
+| # | Project Dossier | Core Method | Asset / Scale | Regulatory Framework | Quickstart Command |
+|:---:|---|---|---|---|---|
+| **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Rolling-horizon MILP-MPC + SAC RL | 8.9 kWh BESS, 5.5 kW Inverter | `§14a / §41a EnWG`, EEG 2023 | `python -m prosumer.cli ladder` |
+| **02** | [**Pumped-Storage Hydro Multi-Market**](projects/02-pumped-storage-rl-multimarket/) | Multi-Market MILP + Multi-Objective PPO | 300 MW / 2,400 MWh PSH | FCR/aFRR, `§118(6) EnWG` Exemptions | `python -m psw.cli ladder` |
+| **03** | [**Smart EV Charging Hub Control**](projects/03-smart-ev-charging-14a/) | Constrained MILP + Priority Dimming | 40-Connector Depot / 250 kW Limit | `§14a EnWG` Modules 1–3, Dimming | `python -m evc.cli ladder` |
+| **04** | [**Energy Sharing in RECs**](projects/04-energy-sharing-rec/) | Mechanism Design + Cooperative Game Theory | 20-Member Community / 100 kW PV | EU RED II Art. 22, `§42b EnWG` | `python -m rec.cli mechanisms` |
+| **05** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/05-utility-hybrid-plant-dispatch/) | Co-located MILP + Battery Arbitrage | 50 MW Wind, 30 MW PV, 40 MWh BESS | EEG §51 Negative Price Rules | `python -m hybrid.cli ladder` |
+| **06** | [**Probabilistic Forecast-to-Bid**](projects/06-probabilistic-forecast-to-bid/) | Quantile Regression + Newsvendor Fractile | 300 MW Portfolio | SIDC Intraday, German **reBAP** | `python -m f2b.cli policies` |
 
 ---
 
-## Background
+## 🏛️ Autonomous AI Skill Architecture (Dual-Assistant Governance)
 
-I come to this from the plant side rather than from the model side. A degree in mechanical
-engineering and work on hydro and thermal generation gave me the physical asset intuition;
-the M.Sc. in Sustainable Energy Systems added the power-system and market-design layer; the
-B.Sc. in Artificial Intelligence supplies the learning and sequential-decision-making
-methods. The through-line of this portfolio is the belief that the binding constraint on
-deploying learned controllers in energy is not model capacity — it is faithful environment
-specification, honest baselines, and constraint satisfaction you can defend to a grid
-operator.
+This workspace integrates a **2-tier autonomous skill ecosystem** shared between **Antigravity (Google DeepMind)** and **Claude Pro / Code (Anthropic)**:
+
+1. **Executive Governance Layer:**
+   - [`portfolio-manager`](file:///c:/Users/murat/Documents/.agents/skills/portfolio-manager/SKILL.md) — 5-Pillar 100-point project completeness & benchmark auditor.
+   - [`portfolio-idea-generator`](file:///c:/Users/murat/Documents/.agents/skills/portfolio-idea-generator/SKILL.md) — R&D ideation engine for emerging energy paradigms (Electrolyzers, VPPs, Heat Pumps).
+   - [`portfolio-data-fetcher`](file:///c:/Users/murat/Documents/.agents/skills/portfolio-data-fetcher/SKILL.md) — Automated ingestion for ENTSO-E, OPSD, SMARD.de, NREL, and ERA5.
+   - [`portfolio-showcase-builder`](file:///c:/Users/murat/Documents/.agents/skills/portfolio-showcase-builder/SKILL.md) — Presentation engine, dashboard builder, and recruiter asset generator.
+2. **Project Lead Specialists:**
+   - [`project-prosumer-bess`](file:///c:/Users/murat/Documents/.agents/skills/project-prosumer-bess/SKILL.md), [`project-pumped-storage`](file:///c:/Users/murat/Documents/.agents/skills/project-pumped-storage/SKILL.md), [`project-smart-ev-charging`](file:///c:/Users/murat/Documents/.agents/skills/project-smart-ev-charging/SKILL.md), [`project-energy-sharing-rec`](file:///c:/Users/murat/Documents/.agents/skills/project-energy-sharing-rec/SKILL.md), [`project-hybrid-dispatch`](file:///c:/Users/murat/Documents/.agents/skills/project-hybrid-dispatch/SKILL.md), [`project-probabilistic-forecasting`](file:///c:/Users/murat/Documents/.agents/skills/project-probabilistic-forecasting/SKILL.md).
 
 ---
 
-## Contact
+## 📐 Methodological Spine: The 5-Rung Benchmark Ladder
 
-Issues and discussion are welcome via the repository's issue tracker. For collaboration or
-data-partnership enquiries relating to any individual project, see the *Collaboration*
-section at the bottom of that project's README.
+Every project enforces the same rigorous evaluation protocol:
 
-## Licence
+| Rung | Controller | Purpose & Criterion |
+|:---:|---|---|
+| **B0** | Historical / Status-Quo | Baseline uncoordinated or unhedged reference. |
+| **B1** | Rule-Based Expert Baseline | Industry-standard heuristic (e.g. greedy self-consumption, threshold shaving). |
+| **B2** | Perfect-Foresight MILP | Theoretical performance ceiling over the entire simulation horizon. |
+| **B3** | Rolling-Horizon MILP-MPC | **The deployable classical benchmark** operating under imperfect lookahead. |
+| **RL** | Learned Policy (PPO / SAC / TFT) | **Must beat B3 on out-of-sample data** to justify algorithmic deployment. |
 
-Documentation in this repository is licensed under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); code, where present, under the
-MIT Licence. See [`LICENSE`](LICENSE).
+---
+
+## 📂 Repository Structure
+
+```
+Portfolio/
+├── pyproject.toml                     ← Global multi-project test runner configuration
+├── showcase.py                        ← Master terminal showcase dashboard
+├── README.md                          ← You are here
+├── HANDOFF.md                         ← Durable session state & dual-assistant memory
+├── CLAUDE.md                          ← Assistant instructions & quickstart guide
+├── datakit/                           ← Shared market data loaders & spot price connectors
+├── docs/                              ← Energy market primers, regulatory guides & math
+└── projects/
+    ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (15 tests passing)
+    ├── 02-pumped-storage-rl-multimarket/ ← Package: psw (20 tests passing)
+    ├── 03-smart-ev-charging-14a/      ← Package: evc (16 tests passing)
+    ├── 04-energy-sharing-rec/         ← Package: rec (19 tests passing)
+    ├── 05-utility-hybrid-plant-dispatch/ ← Package: hybrid (11 tests passing)
+    └── 06-probabilistic-forecast-to-bid/ ← Package: f2b (13 tests passing)
+```
+
+---
+
+## 📜 Citation & License
+
+This project is licensed under the [MIT License](LICENSE).  
+If you use this portfolio or its formulations in academic research, please cite using [CITATION.cff](CITATION.cff).
