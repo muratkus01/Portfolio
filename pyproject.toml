@@ -1,0 +1,18 @@
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = [
+    "projects/01-prosumer-pv-bess-mpc-rl/tests",
+    "projects/02-pumped-storage-rl-multimarket/tests",
+    "projects/03-smart-ev-charging-14a/tests",
+    "projects/04-energy-sharing-rec/tests",
+    "projects/05-utility-hybrid-plant-dispatch/tests",
+    "projects/06-probabilistic-forecast-to-bid/tests",
+]
+pythonpath = [
+    "projects/01-prosumer-pv-bess-mpc-rl/src",
+    "projects/02-pumped-storage-rl-multimarket/src",
+    "projects/03-smart-ev-charging-14a/src",
+    "projects/04-energy-sharing-rec/src",
+    "projects/05-utility-hybrid-plant-dispatch/src",
+    "projects/06-probabilistic-forecast-to-bid/src",
+]
