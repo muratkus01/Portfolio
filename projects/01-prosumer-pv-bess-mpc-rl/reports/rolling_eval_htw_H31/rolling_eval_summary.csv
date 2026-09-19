@@ -1,0 +1,9 @@
+,net cost EUR,capture of B1->B2 %,cycles,violations,mean_solve_ms,mean_horizon_h
+B1 rule-based,-322.0519,0.0,307.133,0.0,,
+B2 perfect foresight,-710.2636,100.0,514.1867,0.0,,
+"B3 perfect PV+load, fitted TV",-702.1217,97.9027,508.0348,0.0,5.5579,23.1067
+"B3 perfect PV, SLP load, no TV",-656.8635,86.2446,497.4082,0.0,5.1477,23.1067
+"B3 perfect PV, SLP load, fitted TV",-662.1682,87.611,501.4019,0.0,5.3289,23.1067
+"B3 NWP PV, SLP load, no TV",-646.7701,83.6446,489.6738,0.0,4.9107,23.1067
+"B3 NWP PV, SLP load, blend TV",-646.7851,83.6485,493.3688,0.0,5.4041,23.1067
+"B3 NWP PV, SLP load, fitted TV",-651.3314,84.8196,493.0339,0.0,6.5997,23.1067
