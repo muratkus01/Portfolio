@@ -66,7 +66,8 @@ def solve_window(load: np.ndarray, pv: np.ndarray,
     for t in range(n):
         prev = soc0 if t == 0 else soc[t - 1]
         # D1: the `* dt` that the original model omitted
-        m += soc[t] == prev + (cfg.eta_c * p_ch[t] - p_dis[t] / cfg.eta_d) * dt
+        # named so its dual can be read back: the marginal value of a stored kWh at step t
+        m += (soc[t] == prev + (cfg.eta_c * p_ch[t] - p_dis[t] / cfg.eta_d) * dt, f"soc_{t}")
 
         # site power balance: import - export == load - pv - (discharge - charge)
         m += (p_imp[t] - p_exp[t]
@@ -100,6 +101,10 @@ def solve_window(load: np.ndarray, pv: np.ndarray,
         "p_exp": np.array([p_exp[t].value() or 0.0 for t in range(n)]),
         "throughput": (ch + dis) * dt,
         "objective": np.array([pulp.value(m.objective)]),
+        # Shadow price of each SoC balance, sign-flipped so it reads as EUR per extra stored
+        # kWh. Meaningful only for the LP (use_binaries=False); with binaries CBC returns the
+        # duals of the final LP relaxation, which are not marginal values of the MILP.
+        "soc_value": np.array([-(m.constraints[f"soc_{t}"].pi or 0.0) for t in range(n)]),
     }
 
 

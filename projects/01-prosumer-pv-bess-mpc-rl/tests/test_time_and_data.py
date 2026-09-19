@@ -36,7 +36,10 @@ def _frame(index) -> pd.DataFrame:
 
 
 def test_index_is_utc_and_sorted():
-    for p in sorted(DATA_DIR.glob("*.csv")):
+    files = sorted(DATA_DIR.glob("*.csv"))
+    if not files:
+        pytest.skip("measured thesis weeks not present (data/raw/legacy/ is not redistributed)")
+    for p in files:
         df = load_legacy_csv(p)
         assert str(df.index.tz) == "UTC"
         assert df.index.is_monotonic_increasing

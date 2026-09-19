@@ -28,6 +28,13 @@ REFERENCE = Path(__file__).parent / "reference" / "12-18_08_2024_hourly_optimiza
 # The original objective, from the script's own summary report.
 LEGACY_OBJECTIVE_EUR = 8.563975
 
+# The measured site week is not redistributed with the repository, so on a fresh clone this
+# module skips rather than erroring. The physics, safety-layer and resampling properties it
+# relies on are covered by synthetic tests in `test_safety_and_physics.py`, which always run.
+pytestmark = pytest.mark.skipif(
+    not DATA.exists(),
+    reason="measured thesis week not present (data/raw/legacy/ is not redistributed)")
+
 
 def _run_legacy_day_by_day():
     """Exactly the original driver: 24-hour windows, SoC handed over between days."""

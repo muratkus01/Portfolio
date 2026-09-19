@@ -1,5 +1,9 @@
 [tool.pytest.ini_options]
 minversion = "7.0"
+# importlib mode: test directories are not packages, so identically named test files in
+# different projects would otherwise collide at collection time.
+addopts = "--import-mode=importlib"
+filterwarnings = ["ignore::DeprecationWarning:pulp.*"]
 testpaths = [
     "projects/01-prosumer-pv-bess-mpc-rl/tests",
     "projects/02-pumped-storage-rl-multimarket/tests",
@@ -16,3 +20,11 @@ pythonpath = [
     "projects/05-utility-hybrid-plant-dispatch/src",
     "projects/06-probabilistic-forecast-to-bid/src",
 ]
+
+[tool.coverage.run]
+source = ["prosumer", "psw", "evc", "rec", "hybrid", "f2b"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

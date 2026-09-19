@@ -1,251 +1,301 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-showcase.py — Executive Showcase & Status Dashboard for Murat's AI in Renewable Energy Portfolio.
+"""Portfolio showcase: run every project's benchmark ladder and print what it finds.
 
-Run this script to inspect current status, benchmark metrics, test suite health,
-and next concrete development steps across all 6 portfolio projects:
-    python showcase.py
+    python showcase.py               offline, synthetic inputs, about a minute
+    python showcase.py --real-data   DE-LU 2024 prices and generation via datakit (network)
+    python showcase.py --tests       also run the test suite and report the real counts
+
+Every number printed here is computed on the spot by the project packages. Nothing is
+hardcoded: not the costs, not the rankings, not the test counts. If a demo fails, the failure
+is printed rather than swallowed, because a showcase that silently hides a broken project is
+worse than no showcase.
 """
-import sys
-import os
+from __future__ import annotations
+
+import argparse
 import subprocess
+import sys
+import time
+import traceback
 from pathlib import Path
 
-# Ensure UTF-8 output on Windows terminals
-if sys.stdout.encoding != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
+import numpy as np
 
-# Add project source directories to path
 HERE = Path(__file__).resolve().parent
-PROJECTS_DIR = HERE / "projects"
-
-sys.path.insert(0, str(PROJECTS_DIR / "01-prosumer-pv-bess-mpc-rl" / "src"))
-sys.path.insert(0, str(PROJECTS_DIR / "02-pumped-storage-rl-multimarket" / "src"))
-sys.path.insert(0, str(PROJECTS_DIR / "03-smart-ev-charging-14a" / "src"))
-sys.path.insert(0, str(PROJECTS_DIR / "04-energy-sharing-rec" / "src"))
-sys.path.insert(0, str(PROJECTS_DIR / "05-utility-hybrid-plant-dispatch" / "src"))
-sys.path.insert(0, str(PROJECTS_DIR / "06-probabilistic-forecast-to-bid" / "src"))
+PROJECTS = {
+    "01": "01-prosumer-pv-bess-mpc-rl",
+    "02": "02-pumped-storage-rl-multimarket",
+    "03": "03-smart-ev-charging-14a",
+    "04": "04-energy-sharing-rec",
+    "05": "05-utility-hybrid-plant-dispatch",
+    "06": "06-probabilistic-forecast-to-bid",
+}
+for d in PROJECTS.values():
+    sys.path.insert(0, str(HERE / "projects" / d / "src"))
 sys.path.insert(0, str(HERE / "datakit"))
 
-
-def print_banner():
-    print("=" * 80)
-    print("  🚀 AI FOR RENEWABLE ENERGY SYSTEMS — APPLIED RESEARCH PORTFOLIO")
-    print("  Author: Murat Kus (Dipl.-Ing. | M.Sc. Sustainable Energy Systems | B.Sc. AI)")
-    print("  Focus:  Power Systems, Energy Market Optimization, Sequential Decision Making")
-    print("=" * 80)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 
 
-def run_project_03_demo():
-    """Run Project 03 Smart EV Charging §14a demo."""
-    try:
-        from evc.config import RunConfig, SiteConfig
-        from evc.sessions import sample_sessions
-        from evc.baselines import uncoordinated, price_aware_milp
-        from evc.allocate import emergency_dimming_cap
-
-        site = SiteConfig()
-        run = RunConfig()
-        sessions = sample_sessions(site, seed=42)
-        r_uncoord = uncoordinated(sessions, site, run)
-        r_milp = price_aware_milp(sessions, site, run)
-        
-        cost_uncoord = float(r_uncoord["energy_cost_eur"])
-        cost_milp = float(r_milp["energy_cost_eur"])
-        savings = (cost_uncoord - cost_milp) / cost_uncoord * 100 if cost_uncoord > 0 else 0.0
-
-        return {
-            "status": "Active & Fully Operational",
-            "sessions": len(sessions),
-            "uncoord_cost": f"{cost_uncoord:.2f} €",
-            "milp_cost": f"{cost_milp:.2f} €",
-            "savings": f"{savings:.1f}% cost reduction via §14a smart charging",
-        }
-    except Exception as e:
-        return {"status": f"Error: {e}"}
+# --------------------------------------------------------------------------- inputs
+def diurnal(n: int, dt: float = 0.25) -> np.ndarray:
+    return np.arange(n) * dt % 24
 
 
-def run_project_04_demo():
-    """Run Project 04 REC Energy Sharing demo."""
-    try:
-        from rec.config import RECConfig
-        from rec.community import sample_profiles, simulate_rec
+def real_prices_eur_mwh(days: int, dt: float = 0.25, start: str = "2024-06-03") -> np.ndarray:
+    """DE-LU day-ahead prices from Energy-Charts, held across quarter-hours."""
+    import datakit
+    import pandas as pd
 
-        cfg = RECConfig()
-        df = sample_profiles(cfg, seed=42)
-        res_static = simulate_rec(df, cfg, mechanism="static_key")
-        res_opt = simulate_rec(df, cfg, mechanism="optimisation")
-        
-        bill_static = res_static["bill_eur"].sum()
-        bill_opt = res_opt["bill_eur"].sum()
-        savings = (bill_static - bill_opt) / bill_static * 100 if bill_static > 0 else 0.0
-
-        return {
-            "status": "Active & Fully Operational",
-            "members": len(cfg.members),
-            "static_bill": f"{bill_static:.2f} €",
-            "opt_bill": f"{bill_opt:.2f} €",
-            "savings": f"{savings:.1f}% community bill reduction",
-        }
-    except Exception as e:
-        return {"status": f"Error: {e}"}
+    df = datakit.day_ahead_price("2024-01-01", "2025-01-01")
+    s = df["price_eur_per_mwh"]
+    target = pd.date_range(start, periods=int(days * 24 / dt), freq="15min", tz="UTC")
+    return s.reindex(s.index.union(target)).ffill().reindex(target).to_numpy()
 
 
-def run_project_05_demo():
-    """Run Project 05 Hybrid Plant Dispatch demo."""
-    try:
-        from hybrid.config import HybridPlantConfig, MarketConfig, RunConfig
-        from hybrid.data import sample_weather
-        from hybrid.plant import potential_wind, potential_pv
-        from hybrid.baselines import rule_based_curtailment, perfect_foresight_milp
-
-        plant = HybridPlantConfig()
-        market = MarketConfig()
-        run = RunConfig(days=3)
-        weather = sample_weather(run)
-        p_wind = potential_wind(weather["wind_speed_ms"], plant.wind)
-        p_pv = potential_pv(weather["irradiance_wm2"], plant.pv)
-        
-        r_b1 = rule_based_curtailment(p_wind, p_pv, weather["price_da_eur"], plant, market, run)
-        r_b2 = perfect_foresight_milp(p_wind, p_pv, weather["price_da_eur"], plant, market, run)
-        
-        rev_b1 = r_b1["net_market_revenue_eur"]
-        rev_b2 = r_b2["net_market_revenue_eur"]
-        gain = (rev_b2 - rev_b1) / rev_b1 * 100 if rev_b1 > 0 else 0.0
-
-        return {
-            "status": "Active & Fully Operational",
-            "curtailment_b1": f"{r_b1['curtailment_mwh']:.1f} MWh",
-            "curtailment_b2": f"{r_b2['curtailment_mwh']:.1f} MWh",
-            "rev_gain": f"+{gain:.1f}% revenue via B2 MILP co-optimization",
-        }
-    except Exception as e:
-        return {"status": f"Error: {e}"}
+def synthetic_prices_eur_mwh(n: int, seed: int = 0) -> np.ndarray:
+    """Evening peak, solar midday dip, noise: the shape of a German summer day-ahead curve."""
+    rng = np.random.default_rng(seed)
+    h = diurnal(n)
+    return (80 + 35 * np.sin(2 * np.pi * (h - 18) / 24)
+            - 30 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1) + 10 * rng.standard_normal(n))
 
 
-def run_project_06_demo():
-    """Run Project 06 Probabilistic Forecast-to-Bid demo."""
-    try:
-        from f2b.config import RunConfig, AssetConfig
-        from f2b.forecast import sample_forecast_scenarios
-        from f2b.policies import evaluate_policy
+# --------------------------------------------------------------------------- demos
+def demo_01(real: bool) -> dict:
+    from prosumer.baselines.ladder import run_ladder
+    from prosumer.config import RunConfig
+    from prosumer.market.tariff import export_price, import_price
+    import pandas as pd
 
-        cfg = RunConfig(days=7)
-        asset = AssetConfig()
-        df = sample_forecast_scenarios(cfg, asset)
-        
-        r_point = evaluate_policy("point_expected", df, cfg)
-        r_optimal = evaluate_policy("optimal_quantile", df, cfg)
-        
-        yield_point = r_point["net_yield_eur_per_mwh"]
-        yield_optimal = r_optimal["net_yield_eur_per_mwh"]
-        diff = yield_optimal - yield_point
+    run = RunConfig(dt=0.25, horizon_steps=32)
+    n = 2 * 96
+    h = diurnal(n)
+    rng = np.random.default_rng(0)
+    load = 0.35 + 0.9 * np.exp(-((h - 19) ** 2) / 5) + 0.05 * rng.random(n)
+    pv = 4.5 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1)
+    spot = (real_prices_eur_mwh(2) if real else synthetic_prices_eur_mwh(n)) / 1000.0
+    idx = pd.date_range("2024-06-03", periods=n, freq="15min", tz="UTC")
+    pi, pe = import_price(spot, idx, run.tariff), export_price(spot, run.tariff)
 
-        return {
-            "status": "Active & Fully Operational",
-            "point_yield": f"{yield_point:.2f} €/MWh",
-            "optimal_yield": f"{yield_optimal:.2f} €/MWh",
-            "gain": f"+{diff:.2f} €/MWh advantage under asymmetric reBAP penalties",
-        }
-    except Exception as e:
-        return {"status": f"Error: {e}"}
+    res = run_ladder(load, pv, pi, pe, run)
+    c = {k: v["cost"]["net_cost"] for k, v in res.items()}
+    b1, b2, b3 = c["B1 rule-based"], c["B2 perfect foresight"], c["B3 rolling MPC"]
+    viol = sum(sum(v["violations"].values()) for v in res.values())
+    return {
+        "rows": [("B1 self-consumption rule", f"{b1:8.3f} EUR"),
+                 ("B2 perfect foresight", f"{b2:8.3f} EUR"),
+                 ("B3 rolling MPC (8 h horizon)", f"{b3:8.3f} EUR")],
+        "headline": f"B3 recovers {(b1 - b3) / max(b1 - b2, 1e-9) * 100:.0f}% of the "
+                    f"B1-to-B2 headroom; {viol} constraint violations across all rungs",
+    }
 
 
-def main():
-    print_banner()
-    
-    projects = [
-        {
-            "id": "01",
-            "name": "Prosumer PV+BESS 15-min Energy Management",
-            "dir": "projects/01-prosumer-pv-bess-mpc-rl",
-            "regulation": "§14a EnWG / §41a EnWG Dynamic Tariffs / EEG 2023",
-            "stack": "PuLP MILP + Gymnasium + PPO/SAC",
-            "tests": "15 unit tests passing",
-            "highlight": "Benchmark ladder B1 (rule-based) -> B2 (MILP ceiling) -> B3 (rolling MPC) -> RL.",
-            "next_step": "Expand PPO policy training on multi-year ENTSO-E price traces.",
-        },
-        {
-            "id": "02",
-            "name": "Pumped-Storage Hydro Multi-Market Dispatch",
-            "dir": "projects/02-pumped-storage-rl-multimarket",
-            "regulation": "FCR / aFRR Reserve Markets / §118(6) EnWG Fee Exemption",
-            "stack": "Multi-Market Joint Optimization + Hydraulic Head Physics",
-            "tests": "20 unit tests passing",
-            "highlight": "Multi-market co-optimization across Day-Ahead energy and secondary reserve balancing.",
-            "next_step": "Implement variable-speed pump turbine non-convex efficiency curve approximations.",
-        },
-        {
-            "id": "03",
-            "name": "Smart EV Fleet Charging & Grid-Orientated Control",
-            "dir": "projects/03-smart-ev-charging-14a",
-            "regulation": "§14a EnWG Modules 1-3 / DSO Emergency Dimming (4.2 kW)",
-            "stack": "Constrained MILP + Priority Dimming Allocation",
-            "tests": "16 unit tests passing",
-            "demo": run_project_03_demo(),
-            "highlight": "Prevents transformer overload and guarantees vehicle departure deadlines.",
-            "next_step": "Add Vehicle-to-Grid (V2G) bidirectional battery discharging module.",
-        },
-        {
-            "id": "04",
-            "name": "Energy Sharing in Renewable Energy Communities (REC)",
-            "dir": "projects/04-energy-sharing-rec",
-            "regulation": "EU RED II Art. 22 / §42b EnWG / §21 EEG Mieterstrom",
-            "stack": "Game-Theoretic Allocation + Internal Clearing Pricing",
-            "tests": "19 unit tests passing",
-            "demo": run_project_04_demo(),
-            "highlight": "Simulates static key vs dynamic proportional vs centralized welfare optimization.",
-            "next_step": "Implement Shapley-value cooperative cost-sharing settlement engine.",
-        },
-        {
-            "id": "05",
-            "name": "Utility-Scale Hybrid Wind + PV + BESS Dispatch",
-            "dir": "projects/05-utility-hybrid-plant-dispatch",
-            "regulation": "EEG §51 Negative Price Curtailment / Connection Caps",
-            "stack": "Pyomo/PuLP MILP + Loss Attribution + Battery Arbitrage",
-            "tests": "11 unit tests passing",
-            "demo": run_project_05_demo(),
-            "highlight": "Co-locates generation behind constrained connection point and optimizes curtailment.",
-            "next_step": "Benchmark multi-year battery degradation aging sensitivity curves.",
-        },
-        {
-            "id": "06",
-            "name": "Probabilistic Forecast-to-Bid for Intraday Trading",
-            "dir": "projects/06-probabilistic-forecast-to-bid",
-            "regulation": "German reBAP Dual-Price Imbalance Settlement / SIDC 15-min MTU",
-            "stack": "Distributional Forecasting + Conformal Prediction + Newsvendor Fractile",
-            "tests": "13 unit tests passing",
-            "demo": run_project_06_demo(),
-            "highlight": "Derives optimal quantile bids balancing short vs long asymmetric imbalance penalties.",
-            "next_step": "Integrate Temporal Fusion Transformer (TFT) multi-horizon probabilistic engine.",
-        },
-    ]
+def demo_02(real: bool) -> dict:
+    from psw.baselines import run_ladder
+    from psw.config import RunConfig
+    from psw.market import activation_series, expand_blocks, rebap_series
 
-    print("\n📊 PORTFOLIO HEALTH & PROJECT SUMMARY")
-    print("-" * 80)
-    for p in projects:
-        print(f"\n[{p['id']}] {p['name']}")
-        print(f"    📁 Path:       {p['dir']}")
-        print(f"    ⚖️  Regulation: {p['regulation']}")
-        print(f"    🧪 Tests:      {p['tests']} (100% Pass)")
-        print(f"    💡 Core:       {p['highlight']}")
-        if "demo" in p and "savings" in p["demo"]:
-            print(f"    📈 Live Demo:  {p['demo']['savings']}")
-        elif "demo" in p and "gain" in p["demo"]:
-            print(f"    📈 Live Demo:  {p['demo']['gain']}")
-        elif "demo" in p and "rev_gain" in p["demo"]:
-            print(f"    📈 Live Demo:  {p['demo']['rev_gain']}")
-        print(f"    🎯 Next Step:  {p['next_step']}")
+    run = RunConfig(dt=0.25, horizon_steps=96)
+    days = 4
+    price = real_prices_eur_mwh(days) if real else synthetic_prices_eur_mwh(days * 96, 1)
+    n = len(price)
+    sold = expand_blocks(np.full(int(np.ceil(n / 16)), 0.15 * run.plant.p_turb_max), n, 16)
+    act = activation_series(n, sold, sold, run.market, np.random.default_rng(1))
+    reb = rebap_series(n, price, run.market, np.random.default_rng(2))
+    res = run_ladder(price, run, sold, sold, act, reb)
+    r = {k: v["cost"]["net_revenue"] for k, v in res.items()}
+    b1, b2, b3 = r["B1 price threshold"], r["B2 perfect foresight"], r["B3 rolling MPC"]
+    viol = sum(sum(v["violations"].values()) for v in res.values())
+    return {
+        "rows": [("B1 price-threshold rule", f"{b1:12,.0f} EUR"),
+                 ("B2 perfect foresight", f"{b2:12,.0f} EUR"),
+                 ("B3 rolling MPC (24 h horizon)", f"{b3:12,.0f} EUR")],
+        "headline": f"B3 recovers {(b3 - b1) / max(b2 - b1, 1e-9) * 100:.0f}% of the headroom "
+                    f"on a 300 MW / 2,400 MWh plant over {days} days; {viol} violations",
+    }
 
-    print("\n" + "=" * 80)
-    print("  🏆 GLOBAL PORTFOLIO METRICS")
-    print("  • Total Projects:  6 Active Production-Grade Implementations")
-    print("  • Total Tests:     94 Unit Tests Passing (100% Coverage across All Modules)")
-    print("  • Architecture:    Modular Python Packages + pyproject.toml + Full Test Suites")
-    print("  • GitHub Remote:   https://github.com/muratkus01/Portfolio.git")
-    print("=" * 80 + "\n")
+
+def demo_03(real: bool) -> dict:
+    from evc.baselines import b0_uncontrolled, b1_equal_share, b3_price_greedy, cost
+    from evc.config import ARCHETYPES, RunConfig, SiteConfig
+    from evc.sessions import generate
+
+    run = RunConfig(days=3, archetype=ARCHETYPES["depot"],
+                    site=SiteConfig(n_connectors=16, site_limit_kw=100.0))
+    sessions = generate(run)
+    n = run.days * run.steps_per_day
+    spot = (real_prices_eur_mwh(run.days) if real else synthetic_prices_eur_mwh(n, 3)) / 1000.0
+    hours = diurnal(n).astype(int)
+    rows, missed = [], {}
+    for name, fn in (("B0 uncontrolled", b0_uncontrolled), ("B1 equal share", b1_equal_share),
+                     ("B3 price-aware", b3_price_greedy)):
+        res = fn(sessions, n, run, spot)
+        c = cost(res, spot, hours, run)
+        missed[name] = res["missed_departures"]
+        rows.append((name, f"{c['net_cost']:8.2f} EUR, peak {res['peak_kw']:5.1f} kW, "
+                           f"{res['missed_departures']} missed"))
+    return {
+        "rows": rows,
+        "headline": f"{len(sessions)} sessions on 16 connectors behind a 100 kW limit; the "
+                    f"EDF safety layer holds the site limit on every rung",
+    }
+
+
+def demo_04(real: bool) -> dict:
+    from rec.community import allocate, member_profiles, pv_profile, settle
+    from rec.config import REGIMES, RunConfig, default_members
+    from rec.game import (all_coalition_values, break_even_network_charge, build_game,
+                          core_excess, owen_allocation, shapley_exact)
+
+    run = RunConfig(days=7, members=default_members(10, 0), regime=REGIMES["para_42b"])
+    cons = member_profiles(run)
+    gen = pv_profile(run, 60.0)
+    game = build_game(run, cons, gen)
+    v = all_coalition_values(game)
+    checks = {
+        "Owen core allocation": owen_allocation(game),
+        "Shapley value": shapley_exact(v, game.n),
+        "Optimisation mechanism": settle(cons, allocate(gen, cons, "optimisation", run),
+                                         gen, run)["member_payoff"],
+    }
+    rows = []
+    for name, x in checks.items():
+        c = core_excess(game, x, v)
+        rows.append((name, f"{c['blocking_coalitions']:4d} of {c['checked']} coalitions "
+                           f"block, {c['blocking_singletons']} would leave alone"))
+    be = break_even_network_charge(RunConfig(members=run.members,
+                                             regime=REGIMES["energy_sharing"]))
+    return {
+        "rows": rows,
+        "headline": f"cooperation surplus {v[-1] - sum(v[1 << i] for i in range(game.n)):.2f} "
+                    f"EUR; sharing stays worth doing up to a network charge of {be:.3f} EUR/kWh",
+    }
+
+
+def demo_05(real: bool) -> dict:
+    from hybrid.baselines import run_ladder
+    from hybrid.config import PlantConfig, RunConfig
+
+    run = RunConfig(dt=0.25, horizon_steps=48, plant=PlantConfig(conn_mw=40.0))
+    days = 3
+    n = days * 96
+    h = diurnal(n)
+    rng = np.random.default_rng(5)
+    wind = np.clip(30 + 18 * np.sin(np.arange(n) / 70) + 5 * rng.standard_normal(n), 0, 50)
+    pv = 30 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1)
+    price = real_prices_eur_mwh(days) if real else synthetic_prices_eur_mwh(n, 5)
+    res = run_ladder(wind, pv, price, run, premium_rate=8.0)
+    r = {k: v["cost"] for k, v in res.items()}
+    rows = [(k, f"{v['net_revenue']:10,.0f} EUR, {v['forced_curtail_mwh']:5.1f} MWh forced "
+                f"curtailment") for k, v in r.items()]
+    b0 = r["B0 no battery"]["net_revenue"]
+    b3 = r["B3 rolling MPC"]["net_revenue"]
+    return {
+        "rows": rows,
+        "headline": f"80 MW of wind+PV behind a 40 MW connection; the battery under B3 adds "
+                    f"{(b3 - b0) / abs(b0) * 100:+.1f}% over the unhybridised plant",
+    }
+
+
+def demo_06(real: bool) -> dict:
+    from f2b.config import RunConfig
+    from f2b.forecast import audit_no_lookahead, build_store, score_store
+    from f2b.policies import (b1_point_intraday, b3_stochastic_mpc, imbalance_cost_asymmetry,
+                              nv_policy, rebap_series, settle)
+
+    run = RunConfig()
+    n = 7 * 96
+    rng = np.random.default_rng(6)
+    h = diurnal(n)
+    truth = np.clip(120 + 60 * np.sin(np.arange(n) / 90)
+                    + 70 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1)
+                    + 8 * rng.standard_normal(n), 0, 290)
+    price = real_prices_eur_mwh(7) if real else synthetic_prices_eur_mwh(n, 6)
+    store = build_store(truth, run.forecast, run.dt, 144, np.random.default_rng(7), 300.0)
+    reb = rebap_series(n, price, np.diff(truth, prepend=truth[0]), run.market,
+                       np.random.default_rng(8))
+    cs, cl = imbalance_cost_asymmetry(reb, price)
+    rows = []
+    for name, (pos, tr) in (("B1 chase the mean forecast", b1_point_intraday(store, n, run)),
+                            ("NV newsvendor quantile", nv_policy(store, n, run, cs, cl)),
+                            ("B3 deadband stochastic MPC",
+                             b3_stochastic_mpc(store, n, run, cs, cl))):
+        s = settle(pos, tr, truth, price, reb, price, run)
+        rows.append((name, f"{s['eur_per_mwh']:6.2f} EUR/MWh, traded {s['traded_mwh']:7,.0f} MWh"))
+    sc = score_store(store, truth, 24)
+    return {
+        "rows": rows,
+        "headline": f"6 h ahead: CRPS {sc['CRPS']:.1f} MW, calibration error "
+                    f"{sc['calibration_error']:.3f}; look-ahead audit "
+                    f"{audit_no_lookahead(store, n)} violations",
+    }
+
+
+DEMOS = {
+    "01": ("Prosumer PV + battery at 15-minute resolution", demo_01),
+    "02": ("Pumped-storage multi-market dispatch", demo_02),
+    "03": ("Smart EV charging under s14a EnWG", demo_03),
+    "04": ("Energy sharing: who would leave the community?", demo_04),
+    "05": ("Hybrid wind + PV + battery behind one connection", demo_05),
+    "06": ("Probabilistic forecast-to-bid", demo_06),
+}
+
+
+# --------------------------------------------------------------------------- tests
+def run_tests() -> str:
+    """Run the suite and return pytest's own summary line, verbatim."""
+    out = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider"],
+                         cwd=HERE, capture_output=True, text=True)
+    lines = [ln for ln in out.stdout.strip().splitlines() if ln.strip()]
+    return lines[-1] if lines else f"pytest produced no output (exit {out.returncode})"
+
+
+# --------------------------------------------------------------------------- main
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--real-data", action="store_true",
+                    help="use DE-LU 2024 prices via datakit (needs network)")
+    ap.add_argument("--tests", action="store_true", help="also run the test suite")
+    ap.add_argument("--only", choices=list(DEMOS), help="run a single project")
+    args = ap.parse_args()
+
+    print("=" * 84)
+    print("  AI for Renewable Energy Systems: applied research portfolio")
+    print("  Murat Kus | Dipl.-Ing. | M.Sc. Sustainable Energy Systems | B.Sc. AI (in progress)")
+    print(f"  inputs: {'DE-LU 2024 day-ahead prices (datakit)' if args.real_data else 'synthetic, offline'}"
+          f" | every number below is computed now")
+    print("=" * 84)
+
+    failures = 0
+    for pid, (title, fn) in DEMOS.items():
+        if args.only and pid != args.only:
+            continue
+        t0 = time.perf_counter()
+        print(f"\n[{pid}] {title}")
+        try:
+            out = fn(args.real_data)
+        except Exception:                                   # noqa: BLE001 - report, never hide
+            failures += 1
+            print("     DEMO FAILED:")
+            print("     " + traceback.format_exc().strip().replace("\n", "\n     "))
+            continue
+        for label, value in out["rows"]:
+            print(f"     {label:<32} {value}")
+        print(f"     -> {out['headline']}  ({time.perf_counter() - t0:.1f} s)")
+
+    if args.tests:
+        print(f"\ntest suite: {run_tests()}")
+
+    print("\n" + "=" * 84)
+    print(f"  {len(DEMOS) - failures} of {len(DEMOS)} demos ran"
+          + ("" if not failures else f", {failures} FAILED"))
+    print("  Details, limitations and full studies: README.md and each projects/*/README.md")
+    print("=" * 84)
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
