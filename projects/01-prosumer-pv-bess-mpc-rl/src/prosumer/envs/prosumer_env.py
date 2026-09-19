@@ -33,7 +33,7 @@ except ImportError:                                              # pragma: no co
 
 from ..config import RunConfig
 from ..market.settlement import step_cost
-from ..model.site import soc_next, split_battery_power
+from ..model.site import soc_next, split_battery_power, wear_energy
 from ..safety import feasible_interval
 
 # Horizon windows (in steps) over which forecasts are compressed into the observation.
@@ -173,7 +173,7 @@ class ProsumerEnv(gym.Env if _HAS_GYM else object):              # type: ignore[
         p_ch, p_dis = split_battery_power(p)
         net = self.load[t] - self.pv[t] - p
         p_imp, p_exp = max(net, 0.0), max(-net, 0.0)
-        cost = step_cost(p_imp, p_exp, (p_ch + p_dis) * self.dt,
+        cost = step_cost(p_imp, p_exp, wear_energy(p_ch, p_dis, self.dt, self.cfg),
                          float(self.pi[t]), float(self.pe[t]), self.dt, self.cfg.c_deg)
 
         self.soc = soc_next(self.soc, p, self.dt, self.cfg)

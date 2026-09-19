@@ -34,11 +34,31 @@ def b1_rule_based(load: np.ndarray, pv: np.ndarray, dt: float, run: RunConfig,
     reasons. Price-blind by design: this is what an off-the-shelf hybrid inverter does, and it
     is the status quo the whole exercise is measured against.
 
-    The safety layer does all the clipping, so B1 is genuinely three lines of intent.
+    The safety layer does all the clipping, so B1 is genuinely three lines of intent. If the
+    site has a daily wear cap (`e_throughput_max_per_day`), B1 respects it too, as the thesis
+    rule-based controller did.
     """
     surplus = pv - load                     # >0 -> PV surplus, <0 -> deficit
     proposed = -surplus                     # charge the surplus, discharge the deficit
-    p_bat = project_series(proposed, load, pv, dt, run.site, soc0, dim_limit)
+    cap = run.site.e_throughput_max_per_day
+    if cap is None:
+        p_bat = project_series(proposed, load, pv, dt, run.site, soc0, dim_limit)
+        return site.simulate(p_bat, load, pv, dt, run.site, soc0)
+
+    p_bat = np.empty(len(load))
+    s = run.site.soc_init if soc0 is None else soc0
+    used = 0.0
+    for t in range(len(load)):
+        if t % run.steps_per_day == 0:
+            used = 0.0
+        d = None if dim_limit is None else float(dim_limit[t])
+        p = project(float(proposed[t]), s, float(load[t]), float(pv[t]), dt, run.site, d)
+        counts = p > 0 or run.site.wear_basis == "throughput"
+        if counts:
+            p = float(np.sign(p)) * min(abs(p), max(0.0, cap - used) / dt)
+            used += abs(p) * dt
+        p_bat[t] = p
+        s = site.soc_next(s, p, dt, run.site)
     return site.simulate(p_bat, load, pv, dt, run.site, soc0)
 
 

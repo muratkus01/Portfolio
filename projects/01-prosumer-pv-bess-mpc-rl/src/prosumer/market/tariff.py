@@ -64,6 +64,7 @@ def export_price(spot: np.ndarray, cfg: TariffConfig) -> np.ndarray:
       feed_in_tariff - fixed EEG rate, independent of the spot price
       market_premium - spot-linked, less the direct-marketing fee
       spot           - raw spot price (the original model's implicit assumption)
+      spot_gross_floored - max(0, (1 + vat) * spot - fee): the published thesis's EP_sell
 
     The negative-price rule (EEG s51 as tightened for new plants) suspends remuneration in
     any step with a negative spot price. Note that under `spot` mode a negative price already
@@ -75,6 +76,8 @@ def export_price(spot: np.ndarray, cfg: TariffConfig) -> np.ndarray:
         price = np.full(len(spot), cfg.feed_in_tariff, dtype=float)
     elif cfg.export_mode == "market_premium":
         price = spot - cfg.market_premium_fee
+    elif cfg.export_mode == "spot_gross_floored":
+        price = np.maximum(0.0, (1.0 + cfg.vat) * spot - cfg.market_premium_fee)
     else:
         price = spot.copy()
 

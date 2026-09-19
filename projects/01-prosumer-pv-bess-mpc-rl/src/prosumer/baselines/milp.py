@@ -27,6 +27,11 @@ import pulp
 from ..config import RunConfig, SiteConfig
 
 
+def _wear(p_ch, p_dis, cfg: SiteConfig):
+    """Linear wear term per `cfg.wear_basis` (see model.site.wear_energy)."""
+    return p_dis if cfg.wear_basis == "discharge" else p_ch + p_dis
+
+
 def solve_window(load: np.ndarray, pv: np.ndarray,
                  price_import: np.ndarray, price_export: np.ndarray,
                  dt: float, cfg: SiteConfig, soc0: float,
@@ -58,7 +63,7 @@ def solve_window(load: np.ndarray, pv: np.ndarray,
     m += (
         pulp.lpSum(p_imp[t] * float(price_import[t]) * dt for t in range(n))
         - pulp.lpSum(p_exp[t] * float(price_export[t]) * dt for t in range(n))
-        + pulp.lpSum((p_ch[t] + p_dis[t]) * dt * cfg.c_deg for t in range(n))
+        + pulp.lpSum(_wear(p_ch[t], p_dis[t], cfg) * dt * cfg.c_deg for t in range(n))
         - terminal_price * soc[n - 1]
     )
 
@@ -84,7 +89,8 @@ def solve_window(load: np.ndarray, pv: np.ndarray,
     if throughput_cap is not None and steps_per_day:
         for d0 in range(0, n, steps_per_day):
             d1 = min(d0 + steps_per_day, n)
-            m += pulp.lpSum((p_ch[t] + p_dis[t]) * dt for t in range(d0, d1)) <= throughput_cap
+            m += pulp.lpSum(_wear(p_ch[t], p_dis[t], cfg) * dt
+                            for t in range(d0, d1)) <= throughput_cap
 
     m.solve(pulp.PULP_CBC_CMD(msg=msg))
     if pulp.LpStatus[m.status] != "Optimal":
@@ -100,6 +106,7 @@ def solve_window(load: np.ndarray, pv: np.ndarray,
         "p_imp": np.array([p_imp[t].value() or 0.0 for t in range(n)]),
         "p_exp": np.array([p_exp[t].value() or 0.0 for t in range(n)]),
         "throughput": (ch + dis) * dt,
+        "wear": (dis if cfg.wear_basis == "discharge" else ch + dis) * dt,
         "objective": np.array([pulp.value(m.objective)]),
         # Shadow price of each SoC balance, sign-flipped so it reads as EUR per extra stored
         # kWh. Meaningful only for the LP (use_binaries=False); with binaries CBC returns the

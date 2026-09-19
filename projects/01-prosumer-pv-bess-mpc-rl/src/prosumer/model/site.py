@@ -73,6 +73,11 @@ def step(soc: float, p_bat: float, load: float, pv: float, dt: float,
     )
 
 
+def wear_energy(p_ch, p_dis, dt: float, cfg: SiteConfig):
+    """Energy that the wear price `c_deg` and the daily cap apply to, per `cfg.wear_basis`."""
+    return (p_dis * dt) if cfg.wear_basis == "discharge" else (p_ch + p_dis) * dt
+
+
 def simulate(p_bat: np.ndarray, load: np.ndarray, pv: np.ndarray, dt: float,
              cfg: SiteConfig, soc0: float | None = None) -> dict[str, np.ndarray]:
     """Run a whole dispatch trajectory. Returns arrays aligned with the input.
@@ -95,6 +100,7 @@ def simulate(p_bat: np.ndarray, load: np.ndarray, pv: np.ndarray, dt: float,
         "soc": soc, "p_bat": np.asarray(p_bat, dtype=float),
         "p_ch": p_ch, "p_dis": p_dis, "p_imp": p_imp, "p_exp": p_exp,
         "throughput": (p_ch + p_dis) * dt,
+        "wear": wear_energy(p_ch, p_dis, dt, cfg),
     }
 
 

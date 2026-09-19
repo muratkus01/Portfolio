@@ -31,7 +31,7 @@ def settle(res: dict[str, np.ndarray], price_import: np.ndarray, price_export: n
     """Total cost of a trajectory, decomposed. All values in EUR over the period."""
     import_cost = float(np.sum(res["p_imp"] * price_import) * dt)
     export_revenue = float(np.sum(res["p_exp"] * price_export) * dt)
-    degradation = float(np.sum(res["throughput"]) * cfg.c_deg)
+    degradation = float(np.sum(res.get("wear", res["throughput"])) * cfg.c_deg)
     return {
         "import_cost": import_cost,
         "export_revenue": export_revenue,

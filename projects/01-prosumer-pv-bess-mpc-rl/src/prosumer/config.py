@@ -38,10 +38,16 @@ class SiteConfig:
     # The original model capped daily throughput at E_max = 28.288 kWh. That is a hard cap
     # standing in for wear. Here it is replaced by an explicit price on throughput, which is
     # both more realistic and differentiable; the hard cap remains available for comparison.
-    c_deg: float = 0.03          # EUR per kWh of throughput (charge + discharge)
+    c_deg: float = 0.03          # EUR per kWh of wear energy (see wear_basis)
     e_throughput_max_per_day: float | None = None   # kWh/day, None = disabled (use c_deg)
+    # Which energy c_deg and the daily cap apply to:
+    #   "throughput" - charged + discharged energy (default)
+    #   "discharge"  - discharged energy only (the published thesis MILP: C_MBCC * P_dc)
+    wear_basis: str = "throughput"
 
     def __post_init__(self) -> None:
+        if self.wear_basis not in {"throughput", "discharge"}:
+            raise ValueError(f"unknown wear_basis {self.wear_basis!r}")
         if not 0 < self.eta_c <= 1 or not 0 < self.eta_d <= 1:
             raise ValueError("efficiencies must be in (0, 1]")
         if not self.soc_min <= self.soc_init <= self.soc_max:
@@ -77,7 +83,8 @@ class TariffConfig:
     fixed_energy_price: float = 0.090     # EUR/kWh, used when spot_passthrough is False
 
     # --- export side ---
-    export_mode: str = "feed_in_tariff"   # "feed_in_tariff" | "market_premium" | "spot"
+    # "feed_in_tariff" | "market_premium" | "spot" | "spot_gross_floored"
+    export_mode: str = "feed_in_tariff"
     feed_in_tariff: float = 0.0786        # EUR/kWh, EEG Teileinspeisung class
     market_premium_fee: float = 0.005     # EUR/kWh direct-marketing fee, market_premium mode
 
@@ -100,7 +107,8 @@ class TariffConfig:
     module_3_low_hours: tuple[int, ...] = (0, 1, 2, 3, 4, 5, 11, 12, 13, 14)
 
     def __post_init__(self) -> None:
-        if self.export_mode not in {"feed_in_tariff", "market_premium", "spot"}:
+        if self.export_mode not in {"feed_in_tariff", "market_premium", "spot",
+                                    "spot_gross_floored"}:
             raise ValueError(f"unknown export_mode {self.export_mode!r}")
         if self.negative_price_rule not in {"none", "new_2025"}:
             raise ValueError(f"unknown negative_price_rule {self.negative_price_rule!r}")
