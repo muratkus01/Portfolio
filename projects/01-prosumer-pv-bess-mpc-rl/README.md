@@ -6,16 +6,114 @@ operating under dynamic tariffs (`§41a EnWG`) and grid-orientated control (`§1
 
 | | |
 |---|---|
-| **Status** | **Implemented** — ladder B1/B2/B3 running on measured data; RL environment built |
-| **Type** | Extension and generalisation of the author's M.Sc. thesis configuration |
-| **Method** | Rolling-horizon MILP-MPC · Soft Actor-Critic with a safety layer |
-| **Asset** | 8.9 kWh battery, 5.51 kW inverter (thesis reference site) |
-| **Resolution** | **15 min** (previously 60 min) |
-| **Horizon** | **1–3 days** (96–288 steps), previously single-day |
+| **Status** | **Implemented and evaluated** on 2025/2026 out-of-sample data, 73 measured households |
+| **Type** | Extension of the author's M.Sc. thesis ([`muratkus01/optimization`](https://github.com/muratkus01/optimization), tag `thesis-v1.0`) |
+| **Method** | Rolling-horizon LP-MPC on a realistic information set · Soft Actor-Critic with a safety layer |
+| **Asset** | 8 kWp PV, 9.37 kWh battery, 5.63 kW inverter (the thesis household, Munich) |
+| **Resolution** | **15 min**, including the quarter-hour day-ahead market since 2025-10-01 |
+| **Horizon** | Until the last published price: 11 to 35 h |
 
 ---
 
-## 0. Implementation status and first results
+## Thesis extension: results
+
+The thesis optimised one household over 2024 at hourly resolution with perfect foresight.
+This extension asks what a controller that could actually be deployed achieves, and what the
+switch of the EPEX day-ahead market to quarter-hour products on 1 October 2025 is worth.
+Every number below comes from a committed script and a committed CSV in `reports/`.
+
+```bash
+pip install -e ".[rl,data,dev]"
+prosumer build-data                         # 15-min load, PV, PV forecast, prices 2024-2026
+prosumer rolling-eval --data <household>    # B1 / B2 / B3 variants, train 2024, test 2025-2026
+prosumer household-sweep                    # the deployable B3 for 73 measured households
+prosumer quarter-hour-study                 # value of quarter-hour prices after 2025-10-01
+prosumer rl-eval                            # SAC on the same information set as B3
+```
+
+### Gate 0: the published thesis is reproduced
+
+`tests/test_thesis_reproduction.py` runs the three thesis scenarios (PV only, rule-based,
+perfect-foresight MILP over 2024) on this package's own controllers and matches all 25
+published yearly figures of each scenario within 0.01 EUR. The retail tariff was recovered
+from the published data exactly: `EP_buy = 1.19 * EPEX + 0.1937`,
+`EP_sell = max(0, 1.19 * EPEX - 0.01)` EUR/kWh.
+
+**Found while validating:** the thesis PV profile is one hour early. Its source, a company
+ERA5 model export, has UTC timestamps and is correct; during data preparation they were
+written into the CET column one to one (8778 of 8784 hours identical under that reading).
+Correcting it lowers the optimised scenario's annual profit by 2 % (1039.0 to 1018.2 EUR);
+the thesis conclusions hold. The thesis data is kept as published so Gate 0 still
+reproduces it; everything new uses correctly timed PV.
+
+### Data, 2024 to 2026, 15 minutes
+
+| Input | Source | Check |
+|---|---|---|
+| Prices | EPEX DE-LU day-ahead, Energy-Charts | 2024 matches the thesis exactly; hourly products until 2025-09-30, quarter-hour after |
+| PV | pvlib on Open-Meteo 15-min weather, loss calibrated to the thesis 2024 yield | daily correlation with the thesis PV 0.95; with measured German PV 0.77 (2024), 0.83 (2025), 0.82 (2026), same level as the company data (0.78) |
+| PV forecast | the same model on the weather forecast issued a day earlier (Open-Meteo previous runs) | nRMSE 0.30 to 0.38 in daytime, bias within 1.5 % |
+| Load | 74 measured households, HTW Berlin (Tjaden et al. 2015), scaled to 3221 kWh/a | one household shows PV behind the meter and is excluded ([screen](reports/htw_pv_screen.csv)) |
+| Load forecast | BDEW H0 standard profile with Bavarian holidays | nRMSE 1.03 at 15 min for a single household |
+
+### How much of the perfect-foresight gain does a deployable controller capture?
+
+The controller re-plans every quarter-hour. Day D+1 prices become known at 13:00 on day D,
+and the window ends at the last published price. Stored energy at the window end is valued
+with a monthly price learned on 2024 from the perfect-foresight LP's shadow prices, so no
+information from the test period is used.
+
+![capture ladder](docs/figures/capture_ladder.png)
+
+For the most typical household (H28, closest to the median of all 73 on five load-shape
+features), the deployable B3 captures **87.9 %** of the gain that perfect foresight would
+achieve over the rule-based controller, 342 of 389 EUR over 20.5 months. The gap
+decomposes cleanly: the price-limited horizon costs about 2 points, the household's load
+not following the standard profile about 8, and PV forecast error about 3. Zero
+constraint violations in every run.
+
+![household sweep](docs/figures/household_sweep.png)
+
+Across all 73 measured households the deployable B3 captures a **median 85.2 %** (middle
+half 83.5 to 87.3 %, range 75.0 to 91.4 %). That is the headline figure; H28 sits above the
+median. Households with high peaks capture less: H31, likely with an instantaneous electric
+water heater, reaches 97.9 % with perfect forecasts but 84.8 % with the standard-profile
+load forecast.
+
+### What is the quarter-hour day-ahead market worth?
+
+On the period after the switch, the same controller either sees the real quarter-hour
+prices or their hourly means, and both are settled at the real quarter-hour prices.
+
+![quarter-hour value](docs/figures/quarter_hour_value.png)
+
+Reacting to quarter-hour prices is worth **26.3 EUR** in the first year for the deployable
+B3 (22.7 EUR with perfect foresight), about 11 % of the whole optimisation gain. It is
+earned mostly from March to October. The standard-profile household gives nearly the same
+values (24.9 and 22.3 EUR). An hourly model of the same household, as in the thesis,
+overstates the rule-based result by 12.0 EUR, because hourly averaging hides the
+mismatch between PV and load inside the hour, and understates the optimised result by
+9.2 EUR.
+
+### Does reinforcement learning beat B3?
+
+SAC, trained on 2024 with exactly the information B3 uses (published prices only, the day-ahead PV forecast, the standard-profile load forecast) and tested on the same 20.5 months, captures a **median -5.9 %** of the perfect-foresight gain over 3 seeds (range -7.1 to -1.8 %), against **87.9 %** for the deployable B3 on the same household. The learned policy does not beat B3 here (93.8 points behind). With one training year and a load forecast that is the main source of error for both controllers, the MPC's explicit optimisation over the known price window remains the stronger baseline; this is recorded as a result, not hidden. The safety layer kept violations at 0 (it clipped 77.5 % of the proposed actions); training took about 72 minutes per seed on CPU (500 000 steps). Per-seed results: `reports/rl_eval_H28/`.
+
+### Limitations
+
+- The "actual" weather and the forecast come from the same provider's model family, so the
+  PV forecast problem is slightly easier than against measurements (irradiance nRMSE 0.27
+  against its own analysis, 0.31 against independent ERA5).
+- The measured households are from 2010 (no heat pumps or electric vehicles) and from one
+  unknown region; they are replayed on the 2024 to 2026 calendar by weekday and local clock.
+- The hourly counterfactual uses the hourly mean of the quarter-hour prices; bidding under
+  hourly products would have differed, so the study measures the value of the finer
+  signal, not a market counterfactual.
+- 2026 ends on 17 September.
+
+---
+
+## 0. Earlier results on four measured weeks (superseded by the section above)
 
 The package in `src/prosumer/` implements Phases 1–4 and the Phase-6 environment of
 [`../../docs/08-milp-to-rl-roadmap.md`](../../docs/08-milp-to-rl-roadmap.md). Everything below
