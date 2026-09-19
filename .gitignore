@@ -1,6 +1,11 @@
-# Data — never committed. Reconstructed via DVC / documented manifest.
-data/
-!data/**/SOURCE.md
+# Data: never committed. Reconstructed via datakit or a documented manifest.
+#
+# Anchored on purpose. An unanchored `data/` pattern also matched the SOURCE package
+# `src/prosumer/data/`, so `loaders.py` was silently never committed and Project 01 could not
+# be imported from a fresh clone. Keep dataset directories and code packages distinguishable.
+/data/
+/projects/*/data/
+!/projects/*/data/**/SOURCE.md
 *.parquet
 *.nc
 *.grib
