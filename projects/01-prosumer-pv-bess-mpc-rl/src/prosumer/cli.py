@@ -289,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
     sp = sub.add_parser("quarter-hour-study",
                         help="value of 15-min day-ahead prices after 2025-10-01")
     sp.add_argument("--data", default="data/processed/site_2024_2026_htw_H28.parquet")
-    sp.add_argument("--out", default="reports/quarter_hour_study")
+    sp.add_argument("--out", default="reports/quarter_hour_study_H28")
     sp.set_defaults(func=cmd_quarter_hour_study)
 
     sp = sub.add_parser("rl-eval", help="train SAC on 2024, test on 2025-2026 against B3")

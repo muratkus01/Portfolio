@@ -1,0 +1,4 @@
+controller,cost 15-min EUR,cost hourly signal EUR,value of 15-min signal EUR,hourly model reports EUR,hourly model error EUR,value of 15-min signal EUR/yr,value as % of B1->B2 headroom
+B1,-219.1942,-219.1942,0.0,-229.0978,-9.9036,0.0,0.0
+B2,-456.7913,-434.4672,22.3241,-445.0596,11.7317,22.3241,9.3958
+B3,-444.2567,-419.3829,24.8738,,,24.8738,10.4689
