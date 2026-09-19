@@ -1,0 +1,8 @@
+,net cost EUR,capture of B1->B2 %,cycles,violations,mean_solve_ms,mean_horizon_h
+B1 rule-based,-340.6919,0.0,268.8489,0.0,,
+B2 perfect foresight,-735.1162,100.0,501.5662,0.0,,
+"B3 perfect fc, no TV",-723.2744,96.9977,492.7734,0.0,3.4331,23.1067
+"B3 perfect fc, fitted TV",-728.8406,98.4089,497.2674,0.0,3.4351,23.1067
+"B3 NWP fc, no TV",-707.9366,93.109,482.9926,0.0,3.3177,23.1067
+"B3 NWP fc, blend TV",-707.805,93.0757,487.2876,0.0,3.3858,23.1067
+"B3 NWP fc, fitted TV",-712.7636,94.3329,486.9105,0.0,3.4067,23.1067

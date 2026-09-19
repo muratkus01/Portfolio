@@ -58,6 +58,31 @@ def build_site_dataset(start: str = "2024-01-01", end: str = "2026-09-18",
     return df
 
 
+HTW_MAIN_PROFILE = "H31"   # recommended by HTW for its fit to the seasonal SLP shape
+
+
+def with_measured_load(df: pd.DataFrame, htw_profiles: pd.DataFrame,
+                       household: str = HTW_MAIN_PROFILE, annual_kwh: float = 3221.0
+                       ) -> pd.DataFrame:
+    """Make a measured HTW household the TRUE load and the SLP its forecast.
+
+    `load_kw` becomes the HTW profile replayed on the dataset's calendar and scaled to
+    `annual_kwh`, so only the shape and variability differ from the thesis household.
+    The standard load profile moves to `load_fc_kw`, which B3 and the RL agent use as the
+    load forecast. Screen profiles with `htw.pv_screen` first.
+    """
+    from .htw import replay_on_calendar
+    local = df.index.tz_convert("Europe/Berlin")
+    start = local[0].normalize().tz_localize(None).date().isoformat()
+    end = (local[-1].normalize().tz_localize(None) + pd.Timedelta(days=1)).date().isoformat()
+    true_load = replay_on_calendar(htw_profiles[household], start, end, annual_kwh)
+    out = df.copy()
+    out["load_fc_kw"] = df["load_kw"]
+    out["load_kw"] = true_load.reindex(df.index).to_numpy()
+    out.attrs["household"] = household
+    return out
+
+
 def save_dataset(df: pd.DataFrame, path: str | Path = "data/processed/site_2024_2026.parquet"
                  ) -> Path:
     path = Path(path)

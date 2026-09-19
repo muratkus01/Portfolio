@@ -195,6 +195,16 @@ def cmd_build_data(args) -> None:
     print(f"written: {path}")
 
 
+def cmd_rolling_eval(args) -> None:
+    from .data.dataset import load_dataset
+    from .experiments.rolling_eval import run_rolling_eval
+    res = run_rolling_eval(load_dataset(args.data), out_dir=args.out)
+    with pd.option_context("display.width", 140, "display.max_columns", 20):
+        print(res["summary"].round(2).to_string())
+        print()
+        print(res["capture"].round(1).to_string())
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="prosumer", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -234,6 +244,11 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--cache", default="data/raw")
     sp.add_argument("--out", default="data/processed/site_2024_2026.parquet")
     sp.set_defaults(func=cmd_build_data)
+
+    sp = sub.add_parser("rolling-eval", help="B1/B2/B3 on 2025-2026, trained on 2024")
+    sp.add_argument("--data", default="data/processed/site_2024_2026.parquet")
+    sp.add_argument("--out", default="reports/rolling_eval")
+    sp.set_defaults(func=cmd_rolling_eval)
 
     args = p.parse_args(argv)
     args.func(args)
