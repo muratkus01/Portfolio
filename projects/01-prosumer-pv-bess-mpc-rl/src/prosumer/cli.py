@@ -198,11 +198,21 @@ def cmd_build_data(args) -> None:
 def cmd_rolling_eval(args) -> None:
     from .data.dataset import load_dataset
     from .experiments.rolling_eval import run_rolling_eval
-    res = run_rolling_eval(load_dataset(args.data), out_dir=args.out)
+    from .experiments.rolling_eval import DEFAULT_VARIANTS, MAIN_VARIANTS
+    variants = MAIN_VARIANTS if args.variants == "main" else DEFAULT_VARIANTS
+    res = run_rolling_eval(load_dataset(args.data), variants=variants, out_dir=args.out)
     with pd.option_context("display.width", 140, "display.max_columns", 20):
         print(res["summary"].round(2).to_string())
         print()
         print(res["capture"].round(1).to_string())
+
+
+def cmd_household_sweep(args) -> None:
+    from .experiments.household_sweep import run_household_sweep
+    screen = pd.read_csv(args.screen, index_col=0)
+    households = [h for h in screen.index if not screen.loc[h, "pv_suspect"]]
+    res = run_household_sweep(households, args.data, args.htw, args.out, args.workers)
+    print(res["capture_b3_pct"].describe().round(1).to_string())
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -248,7 +258,16 @@ def main(argv: list[str] | None = None) -> int:
     sp = sub.add_parser("rolling-eval", help="B1/B2/B3 on 2025-2026, trained on 2024")
     sp.add_argument("--data", default="data/processed/site_2024_2026.parquet")
     sp.add_argument("--out", default="reports/rolling_eval")
+    sp.add_argument("--variants", default="all", choices=["all", "main"])
     sp.set_defaults(func=cmd_rolling_eval)
+
+    sp = sub.add_parser("household-sweep", help="rolling evaluation for all HTW households")
+    sp.add_argument("--data", default="data/processed/site_2024_2026.parquet")
+    sp.add_argument("--htw", default="data/processed/htw_74_15min_2010.parquet")
+    sp.add_argument("--screen", default="reports/htw_pv_screen.csv")
+    sp.add_argument("--out", default="reports/household_sweep.csv")
+    sp.add_argument("--workers", type=int, default=4)
+    sp.set_defaults(func=cmd_household_sweep)
 
     args = p.parse_args(argv)
     args.func(args)

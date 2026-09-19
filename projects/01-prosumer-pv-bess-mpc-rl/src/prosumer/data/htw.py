@@ -106,6 +106,35 @@ def pv_screen(profiles: pd.DataFrame, ghi_daily: pd.Series,
     return out
 
 
+def household_features(profiles: pd.DataFrame) -> pd.DataFrame:
+    """Shape features used to pick a representative household (all scale-free but the first)."""
+    local = profiles.index.tz_convert(HTW_TZ)
+    total = profiles.sum()
+    share = lambda m: profiles[m].sum() / total
+    winter = local.month.isin([11, 12, 1, 2])
+    summer = local.month.isin([5, 6, 7, 8])
+    return pd.DataFrame({
+        "annual_kwh": total * 0.25,
+        "peak_to_mean": profiles.max() / profiles.mean(),
+        "midday_share": share((local.hour >= 11) & (local.hour < 15)),
+        "evening_share": share((local.hour >= 18) & (local.hour < 22)),
+        "winter_to_summer": profiles[winter].mean() / profiles[summer].mean(),
+    })
+
+
+def representative_household(profiles: pd.DataFrame, exclude=()) -> tuple[str, pd.DataFrame]:
+    """The household closest to the median on every feature (robust z-score distance).
+
+    Distances use median and MAD per feature, so one extreme household (for example one
+    with an instantaneous electric water heater) does not move the reference.
+    """
+    f = household_features(profiles.drop(columns=list(exclude)))
+    z = (f - f.median()) / (1.4826 * (f - f.median()).abs().median())
+    f["distance"] = np.sqrt((z ** 2).sum(axis=1))
+    f = f.sort_values("distance")
+    return f.index[0], f
+
+
 def replay_on_calendar(profile_2010: pd.Series, start: str, end: str,
                        annual_kwh: float | None = 3221.0) -> pd.Series:
     """Replay a 2010 profile on local dates [start, end), UTC 15-minute index.

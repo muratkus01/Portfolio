@@ -39,13 +39,22 @@ class Variant:
     terminal: str                         # "none" | "blend" | "fitted"
 
 
+_PERFECT = InformationModel(pv_forecast="perfect", load_forecast="perfect")
+_PERFECT_PV = InformationModel(pv_forecast="perfect")
+
 DEFAULT_VARIANTS = (
-    Variant("B3 perfect fc, no TV", InformationModel(pv_forecast="perfect"), "none"),
-    Variant("B3 perfect fc, fitted TV", InformationModel(pv_forecast="perfect"), "fitted"),
-    Variant("B3 NWP fc, no TV", InformationModel(), "none"),
-    Variant("B3 NWP fc, blend TV", InformationModel(), "blend"),
-    Variant("B3 NWP fc, fitted TV", InformationModel(), "fitted"),
+    Variant("B3 perfect PV+load, fitted TV", _PERFECT, "fitted"),
+    Variant("B3 perfect PV, SLP load, no TV", _PERFECT_PV, "none"),
+    Variant("B3 perfect PV, SLP load, fitted TV", _PERFECT_PV, "fitted"),
+    Variant("B3 NWP PV, SLP load, no TV", InformationModel(), "none"),
+    Variant("B3 NWP PV, SLP load, blend TV", InformationModel(), "blend"),
+    Variant("B3 NWP PV, SLP load, fitted TV", InformationModel(), "fitted"),
 )
+"""Ordered from most to least information. With the standard-profile household the load
+forecast is exact, so the 'perfect PV+load' and 'perfect PV' variants coincide there."""
+
+MAIN_VARIANTS = (Variant("B3 NWP PV, SLP load, fitted TV", InformationModel(), "fitted"),)
+"""The deployable controller only; used for the 73-household robustness run."""
 
 
 def _prices(df: pd.DataFrame, run: RunConfig):
