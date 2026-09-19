@@ -185,6 +185,16 @@ def cmd_fetch(args) -> None:
     print(f"written: {args.out}")
 
 
+def cmd_build_data(args) -> None:
+    from .data.dataset import build_site_dataset, save_dataset
+    df = build_site_dataset(args.start, args.end, raw_dir=args.cache)
+    path = save_dataset(df, args.out)
+    years = df.groupby(df.index.tz_convert("Europe/Berlin").year)
+    print(f"{len(df)} quarter-hours {df.index[0]} .. {df.index[-1]}")
+    print((years[["load_kw", "pv_kw"]].sum() * 0.25).round(0).to_string())
+    print(f"written: {path}")
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="prosumer", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -218,6 +228,12 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--cache", default="data/raw")
     sp.add_argument("--out", default="data/processed/spot_de_lu.parquet")
     sp.set_defaults(func=cmd_fetch)
+
+    sp = sub.add_parser("build-data", help="15-min load, PV, PV forecast and prices")
+    sp.add_argument("--start", default="2024-01-01"); sp.add_argument("--end", default="2026-09-18")
+    sp.add_argument("--cache", default="data/raw")
+    sp.add_argument("--out", default="data/processed/site_2024_2026.parquet")
+    sp.set_defaults(func=cmd_build_data)
 
     args = p.parse_args(argv)
     args.func(args)
