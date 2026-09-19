@@ -87,3 +87,20 @@ def test_perfect_foresight_milp(year, reference):
     assert res is not None
     _assert_matches(_summary(res, year, run, COSTS_OPTIMIZED, "load_met"),
                     reference.loc["optimized_pv_bess"])
+
+
+def test_thesis_pv_is_one_hour_early_and_the_correction_fixes_it():
+    """Published PV peaks before solar noon; the corrected series is centred on it."""
+    from prosumer.data.thesis_data import fetch_thesis_year, load_thesis_year
+
+    def centroid_cet(pv):
+        loc = pv.index.tz_convert("Etc/GMT-1")
+        h = loc.hour + 0.5
+        return float(((pv * h).groupby(loc.date).sum() / pv.groupby(loc.date).sum()).mean())
+
+    path = fetch_thesis_year(CACHE)
+    published = load_thesis_year(path)["pv_kw"]
+    corrected = load_thesis_year(path, correct_pv_timing=True)["pv_kw"]
+    assert centroid_cet(published) < 11.5                   # solar noon in Munich ~12:15 CET
+    assert 11.9 < centroid_cet(corrected) < 12.5
+    assert corrected.sum() == pytest.approx(published.sum(), rel=1e-4)
