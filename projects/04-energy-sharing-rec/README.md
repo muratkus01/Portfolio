@@ -7,68 +7,120 @@ being transposed from RED II.**
 
 ## 0. Implementation status
 
-Community profiles, four allocation mechanisms, four legal regimes, settlement with
-per-member bills, and individual-rationality/stability checks implemented. 19 tests pass.
+Community profiles, four allocation mechanisms, four legal regimes, three-perspective
+settlement, and a **cooperative game module** (Shapley value, Owen core allocation, exhaustive
+core check) implemented. 41 tests pass.
 
 ```bash
 pip install -e ".[dev]" && python -m pytest tests/ -q
 python -m rec.cli mechanisms   # the four allocation families
 python -m rec.cli regimes      # individual / Mieterstrom / §42b / energy sharing
-python -m rec.cli policy       # RQ5: charges on shared energy — the decisive parameter
+python -m rec.cli policy       # RQ5: charges on shared energy, three perspectives
+python -m rec.cli game         # Shapley, Owen, and which allocations are stable
 python -m rec.cli correlation  # how much benefit is a profile-generator artefact
 ```
 
-**The headline result — RQ5, network charges on shared energy** (20 members, 14 days):
+### One identity organises everything
 
-| Shared network charge €/kWh | Community cost € | vs individual € | Members worse off | Min saving € |
-|---:|---:|---:|---:|---:|
-| 0.000 | 1,426.64 | +584.35 | 0 | +0.88 |
-| 0.010 | 1,460.23 | +550.76 | 0 | +0.53 |
-| 0.020 | 1,493.81 | +517.18 | 0 | +0.18 |
-| **0.030** | 1,527.39 | +483.59 | **20** | −3.52 |
-| 0.050 | 1,594.56 | +416.43 | 20 | −17.58 |
-| 0.085 | 1,712.11 | +298.88 | 20 | −42.20 |
+Three parties see a shared kWh differently. The consumer saves the gap between the grid price
+and what it pays for shared energy. The PV owner earns the internal price instead of the
+feed-in tariff. The state collects charges and VAT. With all three on the same footing:
 
-There is a **cliff between 0.02 and 0.03 €/kWh**. Below it every member gains; above it *every
-single member* is worse off than on individual supply — while the community-level column still
-reports a healthy saving. Both numbers are correct: the community total includes export
-revenue accruing to the *operator*, whereas members pay their own bills. Above the threshold
-the community only holds together if that surplus is explicitly redistributed, which is
-precisely the mechanism-design question this project exists to ask. **A study reporting only
-the community total would conclude energy sharing works at 0.085 €/kWh. It does not.**
+```
+coalition value  =  consumer saving  +  owner gain  =  s × shared kWh
 
-**Mechanisms differ in distribution, not in aggregate** — under obedient members. With one
-shared generation pool and no binding per-member constraint, energy shared in a step is
-`min(generation, total consumption)`, a function of the aggregate alone; the mechanism only
-moves money between members. The four families produce Gini coefficients from 0.458
-(static key) to 0.540 (market) on identical totals. This is the clean baseline against which
-the *obedience gap* — how much survives individually-rational members — will be measured.
+s  =  p_grid  −  (network charge + levies + tax) × (1 + VAT)  −  internal price × VAT
+                 −  p_export  +  Mieterstrom surcharge
+```
 
-**A design trap found by testing:** if the internal price sits too low relative to the
-feed-in tariff, the community is better off **exporting than sharing**. At the `§42b` defaults
-(shared 0.238, grid 0.286, export 0.0786 €/kWh) sharing saves only 0.048 €/kWh, so the static
-key — which shares *less* and exports more — beats the adaptive mechanisms on community cost.
-The internal price is a decision variable, not a constant.
+The internal price is a transfer between consumers and the owner. It splits the value; it
+does not create it. `s` alone decides whether sharing is worth doing, and the test suite
+asserts the identity for every mechanism.
+
+### RQ5: the network charge on shared energy (20 members, 14 days, `energy_sharing` regime)
+
+| Charge €/kWh | s €/kWh | Coalition € | Consumers € | Owner € | Consumers worse off | Owen min payoff € |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0.000 | 0.131 | 370.13 | +83.96 | 286.17 | 0 | 4.70 |
+| 0.020 | 0.107 | 302.96 | +16.79 | 286.17 | 0 | 3.84 |
+| **0.030** | 0.095 | 269.38 | **−16.79** | 286.17 | **20** | 3.42 |
+| 0.050 | 0.072 | 202.21 | −83.96 | 286.17 | 20 | 2.57 |
+| 0.085 | 0.030 | 84.67 | −201.50 | 286.17 | 20 | 1.07 |
+| **0.110** | **0.000** | 0.71 | −285.46 | 286.17 | 20 | 0.01 |
+
+Consumers turn negative between 0.02 and 0.03 €/kWh: at the default internal price of
+0.18 €/kWh the shared price overtakes the grid price there. The community as a whole keeps
+creating value up to a **break-even charge of 0.110 €/kWh**, derived in closed form by
+`game.break_even_network_charge`. The gap between the two thresholds is a **settlement
+failure, not a value failure**. The Owen core allocation keeps every member above what they
+could achieve alone right up to break-even; above it, no settlement can help.
+
+### Stability: which allocations would members actually accept?
+
+The community is a **linear production game** (Owen, 1975): each quarter-hour the coalition
+solves `max min(generation, consumption)` with resources its members own additively. Such games
+always have a non-empty core, and the dual of the grand coalition's programme gives a core
+allocation constructively. In a step where generation is scarce, the value goes to the PV
+owners; where consumption is scarce, it goes to the consumers. That is also the easiest rule to
+explain to a member.
+
+`§42b` regime, 14 days. At 12 members all 4,095 coalitions are checked exactly; at 20 members
+the core check samples 19,095 coalitions, which can refute core membership but not prove it.
+
+| Allocation | 12 members: blocking coalitions | Single members who would leave | Largest excess € | 20 members: blocking (sampled) |
+|---|---:|---:|---:|---:|
+| **Owen (core)** | **0 / 4,095** | 0 | 0.00 | 0 / 19,095 |
+| Shapley value | 1,712 / 4,095 | 0 | 2.48 | 7,316 / 19,095 |
+| Optimisation / market | 2,043 / 4,095 | 2 | 77.81 | 9,042 / 19,095 |
+| Dynamic proportional | 2,042 / 4,095 | 2 | 79.16 | 9,047 / 19,095 |
+| Static key | 3,019 / 4,095 | 2 | 104.61 | 13,373 / 19,095 |
+
+Three findings:
+
+- **The Shapley value is not in the core here**, but it misses narrowly: no member would leave
+  alone, and no coalition gains more than 2.48 €. Fair by its axioms, nearly stable in practice.
+- **Individual rationality is the wrong test.** Every mechanism leaves every member better off
+  than *no sharing at all*. Measured against keeping one's own PV share and self-consuming it,
+  the two commercial members are underpaid by 27 to 38 € (standalone value about 74 €, paid 36
+  to 48 €; Owen pays them 95 to 98 €) and would leave on their own. A flat
+  internal price pays PV ownership evenly and underpays the members whose daytime demand
+  absorbs the surplus.
+- **A static key creates no pooling surplus at all.** Its total equals the sum of standalone
+  values exactly (260.82 €), because each member receives only what its own share could have
+  covered. `test_static_key_creates_no_pooling_surplus` asserts it.
+
+The game assumes a leaving member takes its PV ownership share with it. If the legal form does
+not allow that, the weaker no-sharing counterfactual is the right one, and the mechanisms pass.
+
+### Two corrections to the previous version of this section
+
+The earlier table reported a "community total" that counted export revenue as the community's
+but treated internal-price payments to the PV owner as money leaving the community. That mixed
+two perspectives, made the internal price look like a real cost, and produced a claim that the
+static key beats the adaptive mechanisms. It does not: correctly accounted, the static key is
+the worst of the four (417 € against 479 € at 20 members). Separately, the Mieterstrom
+surcharge was credited on *exported* kWh; under `§21(3) EEG` it is paid on energy supplied to
+tenants, so it now attaches to shared kWh.
 
 > **Limitation, asserted in the test suite so it cannot be quietly forgotten.** The
 > inter-member correlation parameter currently changes neither the total nor the distribution
-> materially, because member benefit is dominated by member *size* (1,800–25,000 kWh/a) and
-> inter-member variation is modelled as multiplicative noise around a shared diurnal shape.
-> Real heterogeneity is in the *shape* — shift workers, empty daytime flats, a bakery starting
-> at 04:00 — and that does change overlap with PV. Until per-member shapes are fitted from the
-> measured HTW Berlin profiles, any claim about the *size* of the community benefit from this
-> generator is indicative only. `test_correlation_moves_the_distribution_not_the_total` will
-> fail loudly the day that changes.
+> materially, because member benefit is dominated by member *size* (1,800 to 25,000 kWh/a) and
+> inter-member variation is modelled as multiplicative noise around a shared daily shape. Real
+> heterogeneity is in the *shape*: shift workers, empty daytime flats, a bakery starting at
+> 04:00. That does change overlap with PV. Until per-member shapes are fitted from the measured
+> HTW Berlin profiles, any claim about the *size* of the community benefit from this generator
+> is indicative only. `test_correlation_moves_the_distribution_not_the_total` will fail loudly
+> the day that changes.
 
-**Not yet built:** the PettingZoo multi-agent environment with individually-rational members
-(the obedience gap, H3), cooperative game analysis (core membership, Shapley estimation), and
-the pandapower LV feeder model — the current feeder check is a transformer-level flow limit.
+**Not yet built:** the PettingZoo multi-agent environment with individually rational members
+(the obedience gap, H3), the nucleolus, and the pandapower LV feeder model. The current feeder
+check is a transformer-level flow limit.
 
 ---
 
 | | |
 |---|---|
-| **Status** | **Mechanisms + regimes + settlement implemented** · multi-agent RL and game analysis not yet built |
+| **Status** | **Mechanisms, regimes, settlement and cooperative game analysis implemented** · multi-agent RL not yet built |
 | **Method** | Cooperative multi-agent RL (PettingZoo) + allocation mechanism comparison + cooperative game theory |
 | **Actors** | 20–200 members: households, small commercial, shared PV, shared battery, heat pumps, wallboxes |
 | **Resolution** | 15 min |

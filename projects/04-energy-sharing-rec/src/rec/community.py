@@ -119,58 +119,131 @@ def allocate(generation_kw: np.ndarray, consumption_kw: np.ndarray,
 
 # --------------------------------------------------------------------- settlement
 def member_prices(regime: RegimeConfig) -> tuple[float, float, float]:
-    """(price of shared energy, price of grid energy, export remuneration) in EUR/kWh."""
+    """(price of shared energy, price of grid energy, export remuneration) in EUR/kWh.
+
+    The Mieterstrom surcharge is NOT part of the export price. Under s21(3) EEG it is paid on
+    electricity supplied to and consumed by tenants, so it attaches to SHARED kWh and is
+    credited to the plant operator in `settle`. An earlier version added it to the export
+    remuneration, which rewarded exporting for a subsidy that exists to reward the opposite.
+    """
     shared = (regime.internal_price + regime.shared_network_charge + regime.shared_levies
               + regime.shared_electricity_tax) * (1 + regime.shared_vat)
     grid = (regime.grid_energy + regime.grid_margin + regime.grid_network_charge
             + regime.grid_levies + regime.grid_electricity_tax) * (1 + regime.grid_vat)
-    export = regime.feed_in_tariff + regime.mieterstrom_surcharge
+    export = regime.feed_in_tariff
     return shared, grid, export
+
+
+def external_charge_on_shared(regime: RegimeConfig) -> float:
+    """EUR per shared kWh that leaves the community: charges, levies, tax, and VAT.
+
+    The internal price itself is a transfer between members and the PV owner and cancels out
+    at community level. The VAT levied on it does not, because it goes to the state; that is
+    the one channel through which the internal price level changes the community's total.
+    """
+    charges = (regime.shared_network_charge + regime.shared_levies
+               + regime.shared_electricity_tax)
+    return charges * (1 + regime.shared_vat) + regime.internal_price * regime.shared_vat
+
+
+def sharing_spread(regime: RegimeConfig) -> float:
+    """Value created by one shared kWh versus buying it and exporting the PV kWh separately.
+
+        s = p_grid - external_charge_on_shared - p_export + mieterstrom_surcharge
+
+    This single number decides whether sharing creates value at all. If s <= 0 a rational
+    community does not share, whatever the allocation mechanism.
+    """
+    _, p_grid, p_export = member_prices(regime)
+    return p_grid - external_charge_on_shared(regime) - p_export + regime.mieterstrom_surcharge
+
+
+def ownership_shares(run: RunConfig) -> np.ndarray:
+    """Each member's share of the community PV, from `share_key`, normalised to sum to 1."""
+    k = np.array([m.share_key for m in run.members], dtype=float)
+    return k / k.sum()
 
 
 def settle(consumption_kw: np.ndarray, alloc_kw: np.ndarray, generation_kw: np.ndarray,
            run: RunConfig) -> dict:
-    """Per-member and community-level economics.
+    """Per-member and community-level economics, from three explicit perspectives.
 
-    Returns per-member bills, so the DISTRIBUTION is reportable - not just the collective
-    total. A community whose aggregate saving is large but which leaves one member worse off
-    than going alone is not a community that survives, and that fact is invisible in a single
-    number.
+    **Consumers** pay the grid for what is not shared and the internal price (plus charges) for
+    what is. **The PV owner** receives the internal price and the Mieterstrom surcharge on
+    shared kWh and the feed-in tariff on the rest. **The community** is both, so internal-price
+    payments cancel and only external charges remain.
+
+    The identity that ties them together, and that the test suite asserts:
+
+        coalition value = consumer saving + owner gain = sharing_spread * shared kWh
+
+    An earlier version reported a "community total" that counted export revenue as the
+    community's but treated internal-price payments as money leaving it. Mixing the two
+    perspectives made the internal price look like a real cost rather than a transfer.
+
+    The individual counterfactual: every member buys all consumption from the grid, and the PV
+    is exported at the feed-in tariff.
     """
     dt = run.dt
-    p_shared, p_grid, p_export = member_prices(run.regime)
+    reg = run.regime
+    p_shared, p_grid, p_export = member_prices(reg)
 
     from_grid = np.clip(consumption_kw - alloc_kw, 0.0, None)
     bills = (alloc_kw.sum(axis=0) * dt * p_shared
              + from_grid.sum(axis=0) * dt * p_grid)
+    baseline_bills = consumption_kw.sum(axis=0) * dt * p_grid
 
+    shared_kwh = float(alloc_kw.sum() * dt)
+    gen_kwh = float(np.asarray(generation_kw).sum() * dt)
     surplus = np.clip(generation_kw - alloc_kw.sum(axis=1), 0.0, None)
     export_revenue = float(surplus.sum() * dt * p_export)
 
-    baseline = consumption_kw.sum(axis=0) * dt * p_grid      # everyone buys from the grid
+    owner_receipts = (shared_kwh * (reg.internal_price + reg.mieterstrom_surcharge)
+                      + export_revenue)
+    owner_baseline = gen_kwh * p_export
+    owner_gain = owner_receipts - owner_baseline
+
+    consumer_saving = baseline_bills - bills
+    # If the members own the PV (a genuine energy community), the owner's gain is theirs too,
+    # distributed by ownership share. A member's full payoff is consumer saving plus dividend.
+    dividend = ownership_shares(run) * owner_gain
+
+    community_baseline = float(baseline_bills.sum()) - owner_baseline
+    net_community_cost = float(bills.sum()) - owner_receipts
     return {
         "member_bills": bills,
-        "member_baseline": baseline,
-        "member_saving": baseline - bills,
+        "member_baseline": baseline_bills,
+        "member_saving": consumer_saving,                  # consumer perspective only
+        "member_dividend": dividend,
+        "member_payoff": consumer_saving + dividend,       # member-owned community
+        "consumer_saving": float(consumer_saving.sum()),
+        "owner_gain": float(owner_gain),
+        "coalition_value": float(consumer_saving.sum() + owner_gain),
         "community_bill": float(bills.sum()),
-        "community_baseline": float(baseline.sum()),
+        "community_baseline": community_baseline,
         "export_revenue": export_revenue,
-        "net_community_cost": float(bills.sum()) - export_revenue,
-        "shared_kwh": float(alloc_kw.sum() * dt),
+        "owner_receipts": float(owner_receipts),
+        "net_community_cost": net_community_cost,
+        "shared_kwh": shared_kwh,
         "grid_kwh": float(from_grid.sum() * dt),
         "export_kwh": float(surplus.sum() * dt),
-        "self_consumption": float(alloc_kw.sum() / max(generation_kw.sum(), 1e-9)),
+        "self_consumption": float(alloc_kw.sum() / max(np.asarray(generation_kw).sum(), 1e-9)),
         "self_sufficiency": float(alloc_kw.sum() / max(consumption_kw.sum(), 1e-9)),
     }
 
 
-def individual_rationality(res: dict) -> dict:
+def individual_rationality(res: dict, key: str = "member_saving") -> dict:
     """Is every member at least as well off as going alone?
 
     The stability question. A mechanism that is collectively efficient but leaves members
     worse off than individual supply will lose them, and then it is not efficient either.
+
+    `key` selects the perspective: `member_saving` judges members as consumers only (the PV
+    belongs to a third party, as in Mieterstrom); `member_payoff` adds each member's
+    ownership dividend (a member-owned energy community). The two can give opposite answers
+    for the same dispatch, which is the point of reporting both.
     """
-    saving = res["member_saving"]
+    saving = res[key]
     worse = int(np.sum(saving < -1e-9))
     return {
         "members_worse_off": worse,
