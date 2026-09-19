@@ -215,6 +215,23 @@ def cmd_household_sweep(args) -> None:
     print(res["capture_b3_pct"].describe().round(1).to_string())
 
 
+def cmd_quarter_hour_study(args) -> None:
+    from .data.dataset import load_dataset
+    from .experiments.resolution_study import run_resolution_study
+    res = run_resolution_study(load_dataset(args.data), out_dir=args.out)
+    with pd.option_context("display.width", 160, "display.max_columns", 20):
+        print(res["summary"].round(2).to_string())
+
+
+def cmd_rl_eval(args) -> None:
+    from .experiments.rl_eval import run_rl_eval
+    res = run_rl_eval(args.data, steps=args.steps, seeds=args.seeds, workers=args.workers,
+                      b3_monthly_csv=args.b3, out_dir=args.out)
+    print(res["summary"].round(2).to_string())
+    print(res["seeds"].round(3).to_string())
+    print(f"RL median capture: {res['summary'].attrs['rl_median_capture']:.1f} %")
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="prosumer", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -268,6 +285,21 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--out", default="reports/household_sweep.csv")
     sp.add_argument("--workers", type=int, default=4)
     sp.set_defaults(func=cmd_household_sweep)
+
+    sp = sub.add_parser("quarter-hour-study",
+                        help="value of 15-min day-ahead prices after 2025-10-01")
+    sp.add_argument("--data", default="data/processed/site_2024_2026_htw_H28.parquet")
+    sp.add_argument("--out", default="reports/quarter_hour_study")
+    sp.set_defaults(func=cmd_quarter_hour_study)
+
+    sp = sub.add_parser("rl-eval", help="train SAC on 2024, test on 2025-2026 against B3")
+    sp.add_argument("--data", default="data/processed/site_2024_2026_htw_H28.parquet")
+    sp.add_argument("--b3", default="reports/rolling_eval_htw_H28/rolling_eval_monthly_cost.csv")
+    sp.add_argument("--out", default="reports/rl_eval_H28")
+    sp.add_argument("--steps", type=int, default=500_000)
+    sp.add_argument("--seeds", type=int, default=3)
+    sp.add_argument("--workers", type=int, default=3)
+    sp.set_defaults(func=cmd_rl_eval)
 
     args = p.parse_args(argv)
     args.func(args)
