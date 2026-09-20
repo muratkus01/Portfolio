@@ -8,7 +8,7 @@ ladder B0 → B3 and against a learned policy.**
 ## 0. Implementation status
 
 Ladder B0/B1/B2/B3 implemented and running on **real German 2024 wind, PV and price data**
-(national capacity factors from Energy-Charts via `datakit`). 11 tests pass.
+(national capacity factors from Energy-Charts via `datakit`). 26 tests pass.
 
 ```bash
 pip install -e ".[rl,dev]" && python -m pytest tests/ -q
@@ -27,6 +27,8 @@ python -m hybrid.cli decompose --year 2024 --days 20   # RQ1 battery value decom
 | 30 | 2.67× | 527,322 | 555,750 | 28,428 | 28 |
 | 40 | 2.00× | 528,640 | 558,169 | 29,529 | 0 |
 | 60 | 1.33× | 528,640 | 558,221 | 29,581 | 0 |
+
+![Hybrid Plant Dispatch Benchmarks under B3 Rolling MPC](docs/figures/hybrid_dispatch_benchmark.png)
 
 The battery is worth **more** at a wider connection, not less — the opposite of hypothesis
 H1's expected direction. The mechanism is visible in the table: at a tight connection the

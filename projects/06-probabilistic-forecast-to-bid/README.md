@@ -8,7 +8,7 @@ resolution.**
 ## 0. Implementation status
 
 Forecast store, probabilistic scoring and the trading-policy layer implemented and running on
-**real German 15-minute wind + PV generation and DE-LU day-ahead prices**. 14 tests pass.
+**real German 15-minute wind + PV generation and DE-LU day-ahead prices**. 18 tests pass.
 Installs from `numpy` + `pandas` alone — the normal quantile function is vendored — so the
 benchmark is trivially reproducible.
 

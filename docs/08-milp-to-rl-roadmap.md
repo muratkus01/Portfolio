@@ -274,7 +274,7 @@ often skipped.
 | Step | Action |
 |------|--------|
 | 5.1 | Build a forecast **store**: a table keyed by `(issue_time, target_time)`. Written once, read by every controller |
-| 5.2 | Start with the cheap honest version: truth + autocorrelated AR(1) noise with a horizon-growing σ. The existing `_ar_noise` in `baseline_rl_fair.py` is already the right idea and can be lifted directly |
+| 5.2 | Start with an honest baseline version: truth + autocorrelated AR(1) noise with a horizon-growing standard deviation sigma |
 | 5.3 | Upgrade PV to a real forecast: DWD MOSMIX/ICON-D2 irradiance → `pvlib` → power, at true issue times |
 | 5.4 | Load forecast: a seasonal-naive baseline, then a quantile gradient-boosting or small NN model |
 | 5.5 | Prices: day-ahead prices are **known** from ~13:00 D-1 — model the information set correctly rather than treating them as forecast |

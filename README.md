@@ -73,26 +73,27 @@ flowchart TB
 
 | # | Project Dossier | Core Method | Asset / Scale | Regulatory Framework | Quickstart Command |
 |:---:|---|---|---|---|---|
-| **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Rolling-horizon MILP-MPC + SAC RL | 8.9 kWh BESS, 5.5 kW Inverter | `§14a / §41a EnWG`, EEG 2023 | `python -m prosumer.cli ladder` |
-| **02** | [**Pumped-Storage Hydro Multi-Market**](projects/02-pumped-storage-rl-multimarket/) | Multi-Market MILP + Multi-Objective PPO | 300 MW / 2,400 MWh PSH | FCR/aFRR, `§118(6) EnWG` Exemptions | `python -m psw.cli ladder` |
-| **03** | [**Smart EV Charging Hub Control**](projects/03-smart-ev-charging-14a/) | Constrained MILP + Priority Dimming | 40-Connector Depot / 250 kW Limit | `§14a EnWG` Modules 1–3, Dimming | `python -m evc.cli ladder` |
-| **04** | [**Energy Sharing in RECs**](projects/04-energy-sharing-rec/) | Mechanism Design + Cooperative Game Theory | 20-Member Community / 100 kW PV | EU RED II Art. 22, `§42b EnWG` | `python -m rec.cli mechanisms` |
-| **05** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/05-utility-hybrid-plant-dispatch/) | Co-located MILP + Battery Arbitrage | 50 MW Wind, 30 MW PV, 40 MWh BESS | EEG §51 Negative Price Rules | `python -m hybrid.cli ladder` |
-| **06** | [**Probabilistic Forecast-to-Bid**](projects/06-probabilistic-forecast-to-bid/) | Quantile Regression + Newsvendor Fractile | 300 MW Portfolio | SIDC Intraday, German **reBAP** | `python -m f2b.cli policies` |
+| **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Fast LP-MPC + Rescaled SAC RL | 8.9 kWh BESS, 5.5 kW Inverter | §14a / §41a EnWG, EEG 2023 | `python -m prosumer.cli ladder` |
+| **02** | [**Pumped-Storage Hydro Multi-Market**](projects/02-pumped-storage-rl-multimarket/) | Multi-Market LP + Mode-Reversal Wear | 300 MW / 2,400 MWh PSH | FCR/aFRR, §118(6) EnWG Exemptions | `python -m psw.cli ladder` |
+| **03** | [**Smart EV Charging Hub Control**](projects/03-smart-ev-charging-14a/) | Constrained Greedy/LP + EDF Reserve | 40-Connector Depot / 250 kW Limit | §14a EnWG Modules 1-3, Dimming | `python -m evc.cli ladder` |
+| **04** | [**Energy Sharing in RECs**](projects/04-energy-sharing-rec/) | Mechanism Design + Cooperative Game Theory | 20-Member Community / 100 kW PV | EU RED II Art. 22, §42b EnWG | `python -m rec.cli mechanisms` |
+| **05** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/05-utility-hybrid-plant-dispatch/) | Co-located LP + B3 Rolling MPC | 50 MW Wind, 30 MW PV, 40 MWh BESS | EEG §51 / §51a Negative Price Rules | `python -m hybrid.cli ladder` |
+| **06** | [**Probabilistic Forecast-to-Bid**](projects/06-probabilistic-forecast-to-bid/) | Quantile Loss + Newsvendor Fractile | 300 MW Portfolio | SIDC Intraday, German reBAP | `python -m f2b.cli policies` |
 
 ---
 
-## 🏛️ Autonomous AI Skill Architecture (Dual-Assistant Governance)
+## 🛡️ Bugs the Invariants Caught
 
-This workspace integrates a **2-tier autonomous skill ecosystem** shared between **Antigravity (Google DeepMind)** and **Claude Pro / Code (Anthropic)**:
+Every project asserts structural physical, electrical, and market invariants at runtime. Each invariant caught a real defect that would otherwise have produced plausible but invalid optimization results:
 
-1. **Executive Governance Layer:**
-   - [`portfolio-manager`](file:///c:/Users/murat/Documents/.agents/skills/portfolio-manager/SKILL.md) — 5-Pillar 100-point project completeness & benchmark auditor.
-   - [`portfolio-idea-generator`](file:///c:/Users/murat/Documents/.agents/skills/portfolio-idea-generator/SKILL.md) — R&D ideation engine for emerging energy paradigms (Electrolyzers, VPPs, Heat Pumps).
-   - [`portfolio-data-fetcher`](file:///c:/Users/murat/Documents/.agents/skills/portfolio-data-fetcher/SKILL.md) — Automated ingestion for ENTSO-E, OPSD, SMARD.de, NREL, and ERA5.
-   - [`portfolio-showcase-builder`](file:///c:/Users/murat/Documents/.agents/skills/portfolio-showcase-builder/SKILL.md) — Presentation engine, dashboard builder, and recruiter asset generator.
-2. **Project Lead Specialists:**
-   - [`project-prosumer-bess`](file:///c:/Users/murat/Documents/.agents/skills/project-prosumer-bess/SKILL.md), [`project-pumped-storage`](file:///c:/Users/murat/Documents/.agents/skills/project-pumped-storage/SKILL.md), [`project-smart-ev-charging`](file:///c:/Users/murat/Documents/.agents/skills/project-smart-ev-charging/SKILL.md), [`project-energy-sharing-rec`](file:///c:/Users/murat/Documents/.agents/skills/project-energy-sharing-rec/SKILL.md), [`project-hybrid-dispatch`](file:///c:/Users/murat/Documents/.agents/skills/project-hybrid-dispatch/SKILL.md), [`project-probabilistic-forecasting`](file:///c:/Users/murat/Documents/.agents/skills/project-probabilistic-forecasting/SKILL.md).
+| Project | Invariant | What It Caught |
+|:---:|---|---|
+| **01** | B2 <= B3 <= B1; zero violations under random actions | Linear terminal storage valuation priced stored energy at full retail import, driving MPC to buy from the grid at every horizon boundary. Continuous action clipping truncated policy outputs at 80% (resolved via action rescaling). |
+| **02** | Zero violations; symmetrical reservation across rungs | Reservoir bounds overrode ramp limits during overtopping (resolved by modeling spill). Capacity sold in aFRR auctions was previously omitted from heuristic baselines, letting B1 trade through reserved headroom and artificially depressing B3 recovery. |
+| **03** | Zero missed declared departures | Per-connector feasibility checks failed to detect collective contention: the price-aware policy missed 108 departures until the Earliest Deadline First (EDF) aggregate floor was implemented. Truncating boundary arrivals at horizon termination falsely scored uncompleted visits as misses (resolved via right-censoring). |
+| **04** | Core non-emptiness & individual rationality | Coalition value formulation previously mixed retail import savings with operator feed-in revenue; correcting the cooperative surplus proved cooperation remains viable up to a 0.110 EUR/kWh network charge. |
+| **05** | B3 >= B1; every rung <= perfect foresight | B3 applied a planned curtailment fraction from forecast generation to actual generation, discarding deliverable energy. Voluntarily gating curtailment to negative prices lifted B3 to +5.4% over the unhybridized plant. |
+| **06** | Lookahead audit clean; monotonic quantiles | Test fixtures previously shared stateful RNG instances between forecast synthesis and evaluation. Adding strict `IssueTimeStore` prevents any feature from leaking future market states. |
 
 ---
 
@@ -104,9 +105,9 @@ Every project enforces the same rigorous evaluation protocol:
 |:---:|---|---|
 | **B0** | Historical / Status-Quo | Baseline uncoordinated or unhedged reference. |
 | **B1** | Rule-Based Expert Baseline | Industry-standard heuristic (e.g. greedy self-consumption, threshold shaving). |
-| **B2** | Perfect-Foresight MILP | Theoretical performance ceiling over the entire simulation horizon. |
-| **B3** | Rolling-Horizon MILP-MPC | **The deployable classical benchmark** operating under imperfect lookahead. |
-| **RL** | Learned Policy (PPO / SAC / TFT) | **Must beat B3 on out-of-sample data** to justify algorithmic deployment. |
+| **B2** | Perfect-Foresight Optimization | Theoretical performance ceiling over the entire simulation horizon. |
+| **B3** | Rolling-Horizon MPC | **The deployable classical benchmark** operating under imperfect lookahead. |
+| **RL** | Learned Policy (PPO / SAC) | **Must beat B3 on out-of-sample data** to justify algorithmic deployment. |
 
 ---
 
@@ -125,9 +126,9 @@ Portfolio/
     ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (75 tests, 67 passing, 8 skipped)
     ├── 02-pumped-storage-rl-multimarket/ ← Package: psw (27 tests passing)
     ├── 03-smart-ev-charging-14a/      ← Package: evc (20 tests passing)
-    ├── 04-energy-sharing-rec/         ← Package: rec (37 tests passing)
+    ├── 04-energy-sharing-rec/         ← Package: rec (41 tests passing)
     ├── 05-utility-hybrid-plant-dispatch/ ← Package: hybrid (26 tests passing)
-    └── 06-probabilistic-forecast-to-bid/ ← Package: f2b (22 tests passing)
+    └── 06-probabilistic-forecast-to-bid/ ← Package: f2b (18 tests passing)
 ```
 
 ---

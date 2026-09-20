@@ -27,6 +27,8 @@ python -m evc.cli archetypes                       # depot / workplace / apartme
 | B1 equal share | 5,378.09 | 28,201 | 250.0 | 1,692.08 | **0** | 0.99 |
 | B3 price greedy | **5,200.49** | 28,172 | 250.0 | 1,690.30 | **0** | 0.99 |
 
+![Smart EV Depot Charging Dispatch Benchmarks](docs/figures/ev_charging_benchmark.png)
+
 Every declared departure is met on every rung, and the price-aware controller is cheapest,
 4.2% below uncontrolled charging. The run header reports site utilisation against the
 *deliverable charging window* (71%, "feasible") rather than against the clock, because a site

@@ -8,7 +8,7 @@ between revenue maximisation, grid-security priority and a hybrid mode.**
 ## 0. Implementation status
 
 Ladder implemented and running on **real DE-LU 2024 day-ahead prices** (via `datakit`).
-13 tests pass. `src/psw/` contains the plant physics + safety layer, the market/settlement
+27 tests pass. `src/psw/` contains the plant physics + safety layer, the market/settlement
 module, B1/B2/B3, and the Gymnasium environment with the two-timescale capacity/energy action.
 
 ```bash
@@ -29,6 +29,8 @@ python -m psw.cli lambda --year 2024 --days 14      # revenue vs grid-security s
 B3 recovers **85.4%** of the B1-to-B2 headroom at 44 ms/decision; **47,332 EUR** of headroom
 remains for a learned policy to play for. Note B3 scores close to B2 on security readiness
 while enforcing every physical and market boundary.
+
+![Pumped Storage Hydro Multi-Market Dispatch Benchmarks](docs/figures/psw_dispatch_benchmark.png)
 
 **Four physics, market and settlement fixes validated across all rungs:**
 
