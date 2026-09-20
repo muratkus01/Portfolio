@@ -37,7 +37,7 @@ def h0_table():
     from prosumer.data.slp import fetch_h0_table
     try:
         return fetch_h0_table(ROOT / "data" / "raw" / "slp")
-    except OSError as exc:                                          # pragma: no cover
+    except (OSError, ImportError) as exc:                                          # pragma: no cover
         pytest.skip(f"BDEW table not available offline: {exc}")
 
 
