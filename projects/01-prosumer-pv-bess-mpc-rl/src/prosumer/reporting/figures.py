@@ -17,6 +17,7 @@ INK_2 = "#52514e"
 GRID = "#e4e3df"
 BLUE, ORANGE, AQUA = "#2a78d6", "#eb6834", "#1baf7a"
 NEUTRAL = "#b8b7b1"
+LOCAL_TZ = "Europe/Berlin"
 
 
 def _style(ax):
@@ -126,82 +127,87 @@ def quarter_hour_value(reports: Path, out: Path) -> Path:
     return path
 
 
-def example_day_dispatch(dataset_path: str | Path | None = None, out: Path | None = None) -> Path:
-    """Plot a 24-hour example day dispatch comparing B1 and B3."""
+def example_day_dispatch(dataset_path: str | Path | None = None, out: Path | None = None,
+                         day: str = "2025-06-18", warmup_days: int = 3) -> Path:
+    """One day of real dispatch: the price-blind B1 against the deployable B3.
+
+    B3 here is the controller the results are about: rolling, re-planned every quarter-hour,
+    seeing only published prices and the day-ahead forecasts, with the terminal values fitted
+    on 2024. It is run from `warmup_days` before the plotted day so its state of charge
+    enters the day as it would in continuous operation, and it is scored on the project's own
+    tariff. Plotting a single-day perfect-foresight solve instead, or a zero export price,
+    would show a dispatch that no result in this README refers to.
+    """
     import matplotlib.pyplot as plt
+
     from ..baselines.ladder import b1_rule_based
-    from ..baselines.lp_fast import solve_window_fast
-    from ..config import RunConfig
-    from ..market.tariff import import_price
-    from ..model import site
+    from ..baselines.rolling import InformationModel, b3_rolling_realistic, fit_terminal_values
+    from ..experiments.rolling_eval import _prices
     from ..scenarios import EXTENSION_RUN
 
     run = EXTENSION_RUN
     dt = run.dt
+    if dataset_path is None or not Path(dataset_path).exists():
+        raise FileNotFoundError(
+            f"dataset {dataset_path} not found; build it with `prosumer build-data` first")
 
-    # Try loading real dataset day; fallback to synthetic day if not found
-    day_df = None
-    if dataset_path and Path(dataset_path).exists():
-        df = pd.read_parquet(dataset_path)
-        local_idx = df.index.tz_convert("Europe/Berlin")
-        target_day = "2025-06-18"
-        mask = local_idx.strftime("%Y-%m-%d") == target_day
-        if mask.sum() == 96:
-            day_df = df[mask].copy()
+    df = pd.read_parquet(dataset_path)
+    train = df[df.index < pd.Timestamp("2025-01-01").tz_localize(LOCAL_TZ)]
+    tv = fit_terminal_values(train, *_prices(train, run), run)
 
-    if day_df is None:
-        idx = pd.date_range("2025-06-18 00:00", periods=96, freq="15min", tz="Europe/Berlin").tz_convert("UTC")
-        h = np.arange(96) * dt % 24
-        load = 0.35 + 0.9 * np.exp(-((h - 19.0) ** 2) / 5) + 0.1 * np.sin(np.pi * h / 12)
-        pv = 5.2 * np.clip(np.sin(np.pi * (h - 5.5) / 13), 0, 1)
-        spot = 0.07 + 0.08 * np.sin(2 * np.pi * (h - 18) / 24) - 0.03 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1)
-        day_df = pd.DataFrame({"load_kw": load, "pv_kw": pv, "spot_eur_per_kwh": spot}, index=idx)
-
-    load = day_df["load_kw"].to_numpy()
-    pv = day_df["pv_kw"].to_numpy()
-    spot = day_df["spot_eur_per_kwh"].to_numpy()
-    pi = import_price(spot, day_df.index, run.tariff)
-    pe = day_df["spot_eur_per_kwh"].to_numpy() * 0.0  # reference export
-
+    d0 = pd.Timestamp(day, tz=LOCAL_TZ)
+    window = df[(df.index >= d0 - pd.Timedelta(days=warmup_days))
+                & (df.index < d0 + pd.Timedelta(days=1))]
+    pi, pe = _prices(window, run)
+    load, pv = window["load_kw"].to_numpy(), window["pv_kw"].to_numpy()
     b1 = b1_rule_based(load, pv, dt, run)
-    sol_b3 = solve_window_fast(load, pv, pi, pe, dt, run.site, run.site.soc_init)
-    b3 = site.simulate(sol_b3["p_bat"], load, pv, dt, run.site) if sol_b3 else b1
+    b3 = b3_rolling_realistic(window, pi, pe, run, InformationModel(), terminal=tv)
 
-    local_hours = np.arange(96) * dt
-    fig, (ax_price, ax_power, ax_soc) = plt.subplots(3, 1, figsize=(9.0, 6.2), sharex=True, facecolor=SURFACE)
+    m = window.index.tz_convert(LOCAL_TZ).strftime("%Y-%m-%d") == day
+    hours = np.arange(int(m.sum())) * dt
+    soc = lambda r: 100 * (r["soc"][m] - run.site.soc_min) / run.site.usable_kwh
+    bat = lambda r: r["p_dis"][m] - r["p_ch"][m]
 
-    for ax in (ax_price, ax_power, ax_soc):
+    fig, (ax_price, ax_power, ax_bat, ax_soc) = plt.subplots(
+        4, 1, figsize=(9.0, 7.4), sharex=True, facecolor=SURFACE,
+        gridspec_kw={"height_ratios": [1, 1, 1, 1]})
+    for ax in (ax_price, ax_power, ax_bat, ax_soc):
         _style(ax)
         ax.grid(axis="x", visible=False)
         ax.grid(axis="y", color=GRID, linewidth=0.8)
 
-    # 1. Price
-    ax_price.plot(local_hours, pi * 100, color=INK, linewidth=1.5, label="Import tariff (ct/kWh)")
+    ax_price.plot(hours, pi[m] * 100, color=INK, linewidth=1.5, label="import price")
+    ax_price.plot(hours, pe[m] * 100, color=INK_2, linewidth=1.2, linestyle="--",
+                  label="export price")
     ax_price.set_ylabel("ct/kWh", color=INK_2)
-    ax_price.set_title("Operational dispatch over 24 hours (B1 vs B3 price-aware controller)",
+    ax_price.legend(loc="upper left", frameon=False, fontsize=8.5, ncol=2)
+    ax_price.set_title(f"One day of real dispatch, {day}, household H28\n"
+                       "price-blind B1 against the deployable B3",
                        loc="left", color=INK, fontsize=11)
-    ax_price.legend(loc="upper left", frameon=False, fontsize=8.5)
 
-    # 2. PV and Load
-    ax_power.plot(local_hours, load, color=INK_2, linestyle="--", linewidth=1.2, label="Load (kW)")
-    ax_power.plot(local_hours, pv, color=ORANGE, linewidth=1.5, label="PV generation (kW)")
-    ax_power.set_ylabel("Power (kW)", color=INK_2)
-    ax_power.legend(loc="upper left", frameon=False, fontsize=8.5)
+    ax_power.plot(hours, pv[m], color=ORANGE, linewidth=1.5, label="PV")
+    ax_power.plot(hours, load[m], color=INK_2, linewidth=1.2, linestyle="--", label="load")
+    ax_power.set_ylabel("kW", color=INK_2)
+    ax_power.legend(loc="upper left", frameon=False, fontsize=8.5, ncol=2)
 
-    # 3. Battery SoC
-    soc_b1_pct = 100 * (b1["soc"] - run.site.soc_min) / run.site.usable_kwh
-    soc_b3_pct = 100 * (b3["soc"] - run.site.soc_min) / run.site.usable_kwh
-    ax_soc.plot(local_hours, soc_b1_pct, color=NEUTRAL, linewidth=1.4, linestyle=":", label="B1 Rule-based SoC (%)")
-    ax_soc.plot(local_hours, soc_b3_pct, color=BLUE, linewidth=1.8, label="B3 LP-MPC SoC (%)")
-    ax_soc.set_ylabel("SoC (%)", color=INK_2)
-    ax_soc.set_xlabel("Local clock hour (CET)", color=INK_2)
+    ax_bat.axhline(0, color=GRID, linewidth=1)
+    ax_bat.plot(hours, bat(b1), color=NEUTRAL, linewidth=1.4, linestyle=":", label="B1")
+    ax_bat.plot(hours, bat(b3), color=BLUE, linewidth=1.8, label="B3")
+    ax_bat.set_ylabel("battery kW\n(+ discharge)", color=INK_2)
+    ax_bat.legend(loc="upper left", frameon=False, fontsize=8.5, ncol=2)
+
+    ax_soc.plot(hours, soc(b1), color=NEUTRAL, linewidth=1.4, linestyle=":", label="B1")
+    ax_soc.plot(hours, soc(b3), color=BLUE, linewidth=1.8, label="B3")
+    ax_soc.set_ylabel("state of charge %", color=INK_2)
+    ax_soc.set_xlabel("local clock hour (CEST)", color=INK_2)
     ax_soc.set_xlim(0, 24)
     ax_soc.set_xticks(range(0, 25, 3))
-    ax_soc.legend(loc="upper left", frameon=False, fontsize=8.5)
+    ax_soc.set_ylim(-5, 108)
+    ax_soc.legend(loc="upper left", frameon=False, fontsize=8.5, ncol=2)
 
     fig.tight_layout()
-    path = out / "example_day_dispatch.png" if out else Path("docs/figures/example_day_dispatch.png")
-    path.parent.mkdir(parents=True, exist_ok=True)
+    out = Path(out) if out else Path("docs/figures")
+    path = out / "example_day_dispatch.png"
     fig.savefig(path, dpi=160, facecolor=SURFACE)
     plt.close(fig)
     return path

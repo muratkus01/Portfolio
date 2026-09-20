@@ -6,7 +6,7 @@
 |---|---|
 | **Status** | **Implemented and evaluated** on 2025/2026 out-of-sample data, 73 measured households |
 | **Type** | Extension of the author's M.Sc. thesis ([`muratkus01/optimization`](https://github.com/muratkus01/optimization), tag `thesis-v1.0`) |
-| **Method** | Rolling-horizon LP-MPC on realistic information set · Soft Actor-Critic / PPO with safety layer |
+| **Method** | Rolling-horizon LP-MPC on a realistic information set · Soft Actor-Critic with a safety layer |
 | **Asset** | 8 kWp PV, 9.37 kWh battery, 5.63 kW inverter (Munich residential prosumer) |
 | **Resolution** | **15 min**, including the quarter-hour day-ahead market since 2025-10-01 |
 | **Horizon** | Until the last published price: 11 to 35 h (re-solved every 15 min) |
@@ -57,7 +57,7 @@ reproduces it; everything new uses correctly timed PV.
 
 ### Master benchmark comparison: 20.5-month out-of-sample evaluation
 
-Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kWh battery, 5.63 kW inverter) across the out-of-sample test period from 2025-01-01 to 2026-09-17 (600 days, 57,600 decision steps at 15-minute resolution). Net costs are negative (net export revenue exceeds import cost).
+Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kWh battery, 5.63 kW inverter) across the out-of-sample test period from 2025-01-01 to 2026-09-17 (625 days, 59,996 decision steps at 15-minute resolution). Net costs are negative (net export revenue exceeds import cost).
 
 | Rung | Controller | Net Cost (20.5m) | Net Cost (€/a) | Headroom % | Annual Cycles | Violations | Mean Solve | Payback | ROCE |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -76,10 +76,28 @@ The figure below isolates the physical dispatch of the price-blind rule-based he
 
 ![example day dispatch](docs/figures/example_day_dispatch.png)
 
-- **Morning Surplus Window (06:00 to 11:00):** B1 charges immediately upon the first appearance of solar surplus, filling the battery to 100 % SoC before midday. B3 recognizes that midday wholesale prices will collapse and modulates charging, keeping storage headroom available.
-- **Midday Negative-Price Arbitrage (11:00 to 15:00):** When spot prices dip to near-zero or negative levels, B1 is already saturated at 100 % SoC and forced to export surplus solar into an unremunerative or penalized grid. B3 absorbs excess generation at peak generation hours and opportunistically charges from the grid during negative-price intervals.
-- **Evening Peak Window (18:00 to 22:00):** As solar generation drops and household demand rises, spot prices spike. B1 begins discharging early to cover low baseline demand, exhausting stored energy before peak price intervals. B3 holds charge until retail price peaks, discharging at maximum inverter rating (5.63 kW) to displace expensive retail imports.
-- **Midnight Boundary:** Unlike unconstrained finite-horizon models that dump stored energy to zero at midnight, B3 preserves a healthy state of charge via the fitted shadow terminal value function ($V_T$).
+This is a real run of both controllers, warmed up over the three preceding days, on the
+project's own tariff. On this day the export price falls to **0 ct/kWh between 11:00 and
+16:00** (16 quarter-hours of negative spot price), while the evening peak reaches
+**40 ct/kWh** around 21:00.
+
+- **Morning (06:00 to 11:00).** B1 charges on the first PV surplus and is full by 08:45. B3
+  leaves the battery almost empty: it entered the day at 7 % and stays there, because
+  surplus in the morning is still worth 12 ct/kWh on export while the evening peak is worth
+  far more to displace.
+- **Midday (11:00 to 16:00).** B1 is already full and exports 45.7 kWh over the day, of
+  which **33.0 kWh earn nothing at all**. B3 waits until the export price has collapsed to
+  zero and only then charges, taking 8.9 kWh of otherwise worthless surplus and reaching
+  full charge at 17:45. Its zero-price export is 24.3 kWh, a third less than B1's.
+- **Evening (18:00 to 23:00).** B3 discharges 6.1 kWh into the expensive hours, at up to the
+  full 5.63 kW inverter rating during the 40 ct peak. B1, having spent the day full and
+  trickled into its own base load, contributes only 0.8 kWh there.
+- **Neither controller charges from the grid**, not even in the negative-price hours: the
+  retail import price never drops below 19 ct/kWh, since taxes, levies and network charges
+  dominate the spot component. Grid arbitrage does not pay for a German household.
+- **Result for the day:** -1.69 EUR for B3 against -0.68 EUR for B1 (negative is revenue), a
+  difference of about 1 EUR on a single summer day, earned purely by *when* the battery is
+  used rather than by using it more.
 
 ### How much of the perfect-foresight gain does a deployable controller capture?
 
@@ -125,9 +143,9 @@ mismatch between PV and load inside the hour, and understates the optimised resu
 The preliminary RL benchmark (Soft Actor-Critic trained on 2024 data and tested over the 20.5-month out-of-sample period) captured a median of -5.9 % of the B1 to B2 gap (-7.1 % to -1.8 % across 3 seeds). A systematic failure mode audit revealed two architectural bottlenecks in standard home energy management RL formulations:
 
 1. **Dead Gradient from Action Clipping (73 to 80 % clipping rate):** In raw action formulations where the policy outputs a normalized battery power setpoint $a \in [-1, 1]$ scaled to $[-P_{max}, P_{max}]$, the physical state of charge and grid limits frequently prevent the requested action. The safety layer clipped 73 to 80 % of actions. When actions are clipped by an external projection, policy gradient updates produce zero or misdirected gradient steps.
-2. **Signal-to-Noise Ratio in Step Rewards:** The raw reward formulation used total step electricity cost:
+2. **Uncontrollable term in the step reward:** The raw reward was the total step electricity cost:
    $$r_t = - \left( c_{imp}(t) \cdot p_{imp}(t) - c_{exp}(t) \cdot p_{exp}(t) \right) \Delta t$$
-   In a residential setting, 90 to 95 % of step electricity cost is dictated by uncontrollable household load and weather-driven solar irradiance. The controllable battery dispatch accounts for under 5 % of the reward signal variance, creating severe credit assignment hurdles.
+   Most of that cost is set by household load and irradiance, which the battery cannot influence. Measured on the test period, the no-battery step cost has a standard deviation of 4.5 ct while the battery's own contribution under B1 dispatch has 2.9 ct, so the uncontrollable part adds noise of roughly one and a half times the signal the agent is trying to learn from. It does not swamp the signal, but it does make credit assignment harder than it needs to be.
 
 #### Implemented Solutions
 

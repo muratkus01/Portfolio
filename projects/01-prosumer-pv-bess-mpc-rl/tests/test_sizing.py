@@ -28,19 +28,35 @@ def test_investment_metrics_calculation():
     assert metrics.opt_profit_annual_eur == pytest.approx(500.0 - COSTS_OPTIMIZED.annual_fixed)
 
 
-def test_sizing_grid_runs_on_synthetic():
-    idx = pd.date_range("2024-06-01", periods=96, freq="15min", tz="UTC")
-    h = np.arange(96) * 0.25 % 24
+def _synthetic_two_periods(days=12):
+    """Half in the training year, half after it, so both split halves are non-empty."""
+    idx = pd.date_range("2024-12-26", periods=days * 96, freq="15min",
+                        tz="Europe/Berlin").tz_convert("UTC")
+    h = (np.arange(len(idx)) * 0.25) % 24
     load = 0.4 + 0.8 * np.exp(-((h - 19) ** 2) / 6)
     pv = 4.0 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1)
     spot = 0.08 + 0.04 * np.sin(2 * np.pi * (h - 18) / 24)
+    return pd.DataFrame({"load_kw": load, "pv_kw": pv, "pv_fc_kw": pv,
+                         "spot_eur_per_kwh": spot}, index=idx)
 
-    df = pd.DataFrame({"load_kw": load, "pv_kw": pv, "spot_eur_per_kwh": spot}, index=idx)
-    res = run_sizing_grid(df, capacities=(5.0, 10.0), inverters=(3.0, 5.0))
 
-    assert len(res) == 4
-    assert set(res.columns) >= {"battery_kwh", "inverter_kw", "capex_eur", "annual_savings_eur",
-                                "simple_payback_years", "roce_pct"}
-    assert (res["battery_kwh"] > 0).all()
+def test_sizing_grid_runs_on_synthetic():
+    res = run_sizing_grid(_synthetic_two_periods(), capacities=(5.0, 10.0),
+                          inverters=(3.0, 5.0), controllers=("b3", "b2"), workers=1,
+                          progress=False, train=("2024-12-26", "2025-01-01"))
+
+    assert len(res) == 8                      # two controllers x four configurations
+    assert set(res.columns) >= {"controller", "battery_kwh", "inverter_kw", "capex_eur",
+                                "annual_savings_eur", "simple_payback_years", "roce_pct"}
     assert (res["capex_eur"] > 0).all()
     assert (res["annual_savings_eur"] >= 0).all()
+
+
+def test_deployable_sizing_never_beats_perfect_foresight():
+    """Per configuration, B3 cannot save more than B2, so its payback cannot be shorter."""
+    res = run_sizing_grid(_synthetic_two_periods(), capacities=(5.0,), inverters=(3.0, 5.0),
+                          controllers=("b3", "b2"), workers=1, progress=False,
+                          train=("2024-12-26", "2025-01-01"))
+    piv = res.pivot(index=["battery_kwh", "inverter_kw"], columns="controller",
+                    values="annual_savings_eur")
+    assert (piv["b3"] <= piv["b2"] + 1e-6).all()
