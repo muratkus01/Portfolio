@@ -103,7 +103,11 @@ class MarketConfig:
 class RunConfig:
     dt: float = 0.25
     horizon_steps: int = 192          # 48 h - a PSW reservoir cycle is longer than a day
-    terminal_value: bool = True
+    # Off by default, on evidence: with it, B3 ended every run with the reservoir nearly full
+    # (2,220 of 2,300 MWh) and recovered about 22% of the headroom; without it, 83%. A linear
+    # terminal value drives storage to a bound. Re-solving every step instead of hourly moved
+    # the result by under one point, so `resolve_every=4` stays the default for speed.
+    terminal_value: bool = False
     terminal_price: float | None = None
     lam: float = 0.0                  # 0 = pure revenue, 1 = pure grid-security posture
     forecast_sigma: float = 0.12

@@ -9,7 +9,7 @@ commitments.**
 
 Session generator, tariff (including all three `§14a` modules), the safety layer with an
 **EDF feasibility reserve**, and B0/B1/B3 implemented and running on real DE-LU 2024 prices.
-14 tests pass.
+20 tests pass.
 
 ```bash
 pip install -e ".[dev]" && python -m pytest tests/ -q
@@ -23,29 +23,46 @@ python -m evc.cli archetypes                       # depot / workplace / apartme
 
 | Controller | Net cost € | Energy kWh | Peak kW | THG € | Missed | Fairness |
 |---|---:|---:|---:|---:|---:|---:|
-| B0 uncontrolled | 5,424.84 | 28,215 | 250.0 | 1,692.88 | 18 | 0.99 |
-| B1 equal share | 5,379.85 | 28,215 | 250.0 | 1,692.88 | 18 | 0.99 |
-| B3 price greedy | 5,208.16 | 28,214 | 250.0 | 1,692.82 | 19 | 0.99 |
+| B0 uncontrolled | 5,431.06 | 28,263 | 250.0 | 1,695.81 | **0** | 0.99 |
+| B1 equal share | 5,378.09 | 28,201 | 250.0 | 1,692.08 | **0** | 0.99 |
+| B3 price greedy | **5,200.49** | 28,172 | 250.0 | 1,690.30 | **0** | 0.99 |
 
-**The technical core: the EDF feasibility reserve.** The obvious safety layer — check each
-connector's own minimum required power — is insufficient, and the failure mode is instructive.
+Every declared departure is met on every rung, and the price-aware controller is cheapest,
+4.2% below uncontrolled charging. The run header reports site utilisation against the
+*deliverable charging window* (71%, "feasible") rather than against the clock, because a site
+can have ample daily energy capacity and still be infeasible if all the dwell time is at night.
+
+**The technical core: the EDF feasibility reserve.** The obvious safety layer, checking each
+connector's own minimum required power, is insufficient, and the failure mode is instructive.
 A set of vehicles can be *individually* comfortable and *collectively* impossible: three cars
-each needing 40 kWh in two hours each require 20 kW, comfortably under an 22 kW connector, but
+each needing 40 kWh in two hours each require 20 kW, comfortably under a 22 kW connector, but
 together demand 60 kW from a 44 kW site. The per-connector test sees nothing wrong until it is
 far too late.
 
-The correct condition is the classical earliest-deadline-first test — for every horizon `h`,
-`Σ_{deadline ≤ h} E_i ≤ limit · h · Δt` — which yields a floor on total power now. The first
+The correct condition is the classical earliest-deadline-first test: for every horizon `h`,
+`Σ_{deadline ≤ h} E_i ≤ limit · h · Δt`, which yields a floor on total power now. The first
 version of this project lacked it, and the price-aware controller consequently deferred
 charging into a corner it could not escape, **missing more departures (108) than doing nothing
-at all (53)**. With the aggregate floor and slack-ordered shedding, misses fall to 18–19.
+at all (53)**.
 
-**Why not zero.** The residual misses concentrate in sessions with literally zero slack —
-where the declared departure leaves only just enough time at full connector power, so any
-contention at all is unrecoverable. The run header now reports site utilisation against the
-*deliverable window* (72 %, "feasible") rather than against the clock, because a site can have
-ample daily energy capacity and still be infeasible if all the dwell time is at night. That
-diagnostic is what turns a mysterious miss count into a sizing statement.
+**How the last misses were eliminated.** With the reserve in place, 18 to 19 misses remained,
+and this README previously blamed "zero-slack sessions". That explanation was wrong. The
+misses were identical across every controller, which pointed away from scheduling, and two
+causes turned up:
+
+1. **Truncation at the end of the simulated window.** A depot car arriving at 16:30 on the
+   final day would naturally leave the next morning; the generator cut its stay at the last
+   simulated step and squeezed its energy into seven hours. Several such cars then demanded
+   full power at once. These sessions are now **right-censored**: simulated, drawing power,
+   keeping their natural deadline, and never scored, because their outcome is unobserved.
+2. **Minimum current undid the reserve.** A car past its *declared* departure but still plugged
+   in has a per-connector requirement of zero, so the "off or at least 6 A" rule switched off
+   the small top-up the aggregate floor had just assigned it, and shedding treated it as
+   optional. Power the floor requires is now protected from both.
+
+Both have regression tests. The general lesson: a miss count that does not change across
+controllers is a property of the *environment*, not of the controllers, and deserves
+suspicion before interpretation.
 
 **Not yet built:** the peak-tracking MILP (B2/B3 proper — the current B3 is a documented greedy
 stand-in), the RL policy with a permutation-invariant set encoder, and the fitted ACN-Data /

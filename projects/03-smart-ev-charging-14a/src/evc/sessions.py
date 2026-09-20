@@ -23,6 +23,10 @@ class Session:
     depart_declared: int   # what the driver said - the deadline the site must honour
     energy_kwh: float      # energy required by departure
     p_max_kw: float
+    # True when the vehicle's natural departure lies beyond the simulated window. It is still
+    # simulated (it occupies a connector and draws power) but its outcome is never observed,
+    # so it must not be scored as a missed departure. See `generate`.
+    censored: bool = False
 
     def active(self, t: int) -> bool:
         return self.arrive <= t < self.depart_true
@@ -51,10 +55,18 @@ def generate(run: RunConfig, arch: ArchetypeConfig | None = None) -> list[Sessio
             conn = int(free[0])
 
             dwell = max(run.dt, rng.normal(arch.dwell_hours_mean, arch.dwell_hours_sd))
-            depart_true = min(n_steps, arrive + max(1, int(dwell / run.dt)))
+            # Right-censoring. The departure is drawn from the vehicle's natural dwell and is
+            # NOT truncated at the end of the simulated window. Truncating it (the first
+            # version did) squeezed a depot car arriving at 16:30 on the final day into the
+            # last seven hours, so every such car demanded full power at once and the site
+            # "missed" departures that no controller could have met. Those misses were an
+            # artefact of where the simulation stops, and identical across every controller.
+            natural_depart = arrive + max(1, int(dwell / run.dt))
+            depart_true = min(n_steps, natural_depart)
             # declared departure is EARLIER than the truth (drivers are pessimistic)
             bias = arch.declaration_bias_h + rng.normal(0, arch.declaration_noise_h)
-            depart_decl = int(np.clip(depart_true - bias / run.dt, arrive + 1, depart_true))
+            depart_decl = int(np.clip(natural_depart - bias / run.dt, arrive + 1,
+                                      natural_depart))
 
             energy = float(np.clip(rng.normal(arch.energy_kwh_mean, arch.energy_kwh_sd),
                                    2.0, 100.0))
@@ -63,7 +75,8 @@ def generate(run: RunConfig, arch: ArchetypeConfig | None = None) -> list[Sessio
             energy = min(energy, max_deliverable)
 
             sessions.append(Session(conn, arrive, depart_true, depart_decl, energy,
-                                    run.site.p_connector_kw))
+                                    run.site.p_connector_kw,
+                                    censored=natural_depart > n_steps))
             free_at[conn] = depart_true
     return sessions
 

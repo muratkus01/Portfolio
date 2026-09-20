@@ -72,6 +72,16 @@ def dispatch_step(wind_avail: float, pv_avail: float, soc: float, p_bat_proposed
     import_p = max(0.0, -export)          # only possible when grid charging is allowed
     export = max(0.0, export)
     p_ch, p_dis = max(-p_bat, 0.0), max(p_bat, 0.0)
+
+    # Classify curtailment by CAUSE, not by who asked for it. Whatever the connection would
+    # have forced anyway, given the battery power actually applied, is forced; only the rest
+    # is a genuine economic choice. Labelling every requested curtailment as "chosen" made a
+    # perfect-foresight plan report 622 MWh of chosen curtailment over a period with two
+    # negative-price quarter-hours, and the split matters because ordered and self-chosen
+    # curtailment settle differently under Redispatch 2.0.
+    total_curt = gen_avail - gen
+    forced_curt = min(total_curt, max(0.0, gen_avail + p_bat - cap))
+    chosen_curt = total_curt - forced_curt
     return {
         "export": export, "import": import_p, "gen": gen, "p_bat": p_bat,
         "p_ch": p_ch, "p_dis": p_dis,

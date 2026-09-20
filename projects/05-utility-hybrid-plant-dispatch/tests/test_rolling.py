@@ -36,11 +36,29 @@ def test_rolling_mpc_respects_the_ceiling(ladder):
         assert r["cost"]["net_revenue"] <= b2 + 1e-3, name
 
 
-def test_b3_beats_b1_curtailment_avoidance(ladder):
+def test_rolling_mpc_beats_the_rule_based_baseline(ladder):
+    """The invariant whose absence let two B3 defects through.
+
+    B3 once lost to the curtailment-avoidance rule for two reasons: it applied a curtailment
+    fraction planned on forecast generation to the true generation, and a linear terminal
+    value made it hoard energy. A deployable classical optimum that loses to a heuristic is
+    not a baseline worth beating, so this is asserted rather than hoped for.
+    """
     _, res = ladder
-    b1 = res["B1 curtailment avoidance"]["cost"]["net_revenue"]
-    b3 = res["B3 rolling MPC"]["cost"]["net_revenue"]
-    assert b3 >= b1
+    assert (res["B3 rolling MPC"]["cost"]["net_revenue"]
+            >= res["B1 curtailment avoidance"]["cost"]["net_revenue"])
+
+
+def test_chosen_curtailment_only_under_negative_prices():
+    """With strictly positive prices, any curtailment B3 does must be forced by the connection."""
+    run = RunConfig(dt=0.25, horizon_steps=32, plant=PlantConfig(conn_mw=35.0))
+    wind, pv, price = synth(192, seed=3)
+    price = np.abs(price) + 5.0
+    res = run_ladder(wind, pv, price, run, premium_rate=8.0, include_b3=True)
+    for name in ("B2 perfect foresight", "B3 rolling MPC"):
+        c = res[name]["cost"]
+        assert c["forced_curtail_mwh"] > 0, f"{name}: scenario should hit the connection limit"
+        assert c["chosen_curtail_mwh"] == pytest.approx(0.0, abs=1e-6), name
 
 
 def test_rolling_mpc_is_feasible_and_timed(ladder):

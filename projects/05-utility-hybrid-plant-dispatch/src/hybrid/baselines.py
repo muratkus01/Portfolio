@@ -103,11 +103,23 @@ def solve_window(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray, dt: fl
 
 
 def default_terminal_price(eff_price: np.ndarray, run: RunConfig) -> float:
-    """Value of energy left in the battery at the horizon end.
+    """Value of energy left in the battery at the horizon end. OFF by default; read this first.
 
-    Stored energy will be exported later, at a price the controller can partly choose, so the
-    upper quartile of the effective price - discounted by discharge efficiency - is a better
-    estimate than the median. Without this the battery empties at every horizon end.
+    The idea: stored energy will be exported later at a price the controller can partly
+    choose, so value it at the upper quartile of the effective price times the discharge
+    efficiency, to stop the battery emptying at every horizon end.
+
+    The evidence says otherwise for this plant. On a receding horizon of 12 h or more,
+    re-solved every step, the "horizon end" never arrives: only the first action is applied,
+    and the drain it would cause is always one re-solve away. Adding this linear term instead
+    made B3 hoard 34 to 38 MWh and fall from 100% of the B1-to-B2 headroom to -138% under
+    perfect forecasts, and from 88% to -179% at 15% forecast error.
+
+    The deeper reason is structural. A LINEAR terminal value pushes the end-of-horizon state of
+    charge to a bound, because its slope is the right marginal value at one SoC level only. If
+    a terminal value is needed (short horizons, long storage cycles), it should be concave and
+    SoC-dependent: piecewise linear, fitted from perfect-foresight shadow prices on a
+    separate training window. The same finding holds for Project 01.
     """
     if not run.terminal_value:
         return 0.0
@@ -128,7 +140,7 @@ def b2_perfect(wind, pv, eff_price, run: RunConfig,
 
 
 def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
-               export_cap=None, resolve_every: int = 4,
+               export_cap=None, resolve_every: int = 1,
                progress: bool = False) -> dict[str, np.ndarray]:
     """Rolling-horizon MPC on forecast generation and prices."""
     cfg = run.plant
@@ -148,9 +160,8 @@ def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
             pr = np.concatenate([[eff_price[t]], price_fc[t + 1:t + h]])
             ec = None if export_cap is None else export_cap[t:t + h]
             t0 = time.perf_counter()
-            tp = default_terminal_price(pr, run) if (t + h < n) else 0.0
             sol = solve_window(w, s, pr, run.dt, run, soc,
-                               terminal_price=tp,
+                               terminal_price=default_terminal_price(pr, run),
                                export_cap=ec)
             solve_times.append(time.perf_counter() - t0)
             plan = sol if sol is not None else (np.zeros(h), np.zeros(h))
@@ -158,8 +169,15 @@ def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
 
         k = t - offset
         pb = float(plan[0][k]) if k < len(plan[0]) else 0.0
-        cf_raw = float(plan[1][k]) if k < len(plan[1]) else 0.0
-        cf = cf_raw if eff_price[t] < 0 else 0.0
+        cf = float(plan[1][k]) if k < len(plan[1]) else 0.0
+        # Execute planned curtailment only where it is economically motivated. The plan's
+        # curtailment fraction was computed on FORECAST generation and includes curtailment
+        # the connection limit forced in the plan; applying that fraction to the true
+        # generation discarded energy the connection could have taken. With a non-negative
+        # effective price, exporting more is never worse, so the point-of-interconnection
+        # enforcement in `dispatch_step` handles the cap on its own.
+        if eff_price[t] >= 0.0:
+            cf = 0.0
 
         from .plant import dispatch_step
         r = dispatch_step(float(wind[t]), float(pv[t]), soc, pb, cf, run.dt, cfg,

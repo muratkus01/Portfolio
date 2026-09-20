@@ -121,32 +121,69 @@ def project(p_proposed: float, e_res: float, dt: float, cfg: PlantConfig, **kw) 
 
 
 def simulate(p: np.ndarray, dt: float, cfg: PlantConfig, e0: float | None = None,
-             activation: np.ndarray | None = None) -> dict[str, np.ndarray]:
+             activation: np.ndarray | None = None,
+             reserved_pos: np.ndarray | None = None,
+             reserved_neg: np.ndarray | None = None) -> dict[str, np.ndarray]:
     """Run a dispatch trajectory. `activation` is signed MW of called balancing energy.
 
     Activation is obligatory once capacity is sold, so it is added to the commercial setpoint
     and the RESULT is what moves the reservoir. That is the mechanism by which selling
     capacity makes the reservoir state stochastic - the property a point-forecast MPC
     systematically mis-values.
+
+    `reserved_pos` / `reserved_neg` are the aFRR capacities sold per step. The COMMERCIAL
+    setpoint must leave that headroom free; activation may then use it. Every rung of the
+    ladder passes the same reservations, so none of them can trade through capacity it has
+    already sold. An earlier version applied them only to B3, which let B1 use headroom it had
+    sold and inflated the B2 ceiling: B3 then topped out at 83% of the headroom even with
+    perfect price forecasts.
     """
     n = len(p)
     e = np.empty(n)
     spill = np.zeros(n)
     p_real = np.empty(n)
+    p_sched = np.empty(n)
     s = cfg.e_init if e0 is None else e0
     for t in range(n):
-        pt = float(p[t]) + (0.0 if activation is None else float(activation[t]))
-        lo, hi = feasible_interval(s, dt, cfg, prev_p=p_real[t - 1] if t else 0.0)
+        prev = p_real[t - 1] if t else 0.0
+        rp = 0.0 if reserved_pos is None else float(reserved_pos[t])
+        rn = 0.0 if reserved_neg is None else float(reserved_neg[t])
+        lo_c, hi_c = feasible_interval(s, dt, cfg, prev_p=prev, reserved_pos=rp, reserved_neg=rn)
+        pt = float(np.clip(float(p[t]), lo_c, hi_c))
+        p_sched[t] = pt
+        pt += 0.0 if activation is None else float(activation[t])
+        lo, hi = feasible_interval(s, dt, cfg, prev_p=prev)
         pt = float(np.clip(pt, lo, hi))
         p_real[t] = pt
         s, spill[t] = e_next(s, pt, dt, cfg)
         e[t] = s
     p_t, p_p = np.maximum(p_real, 0.0), np.maximum(-p_real, 0.0)
-    mode = np.sign(p_real)
     return {
         "e_res": e, "p": p_real, "p_turb": p_t, "p_pump": p_p, "spill_mwh": spill,
-        "mode_changes": np.abs(np.diff(mode, prepend=mode[0])) > 0,
+        "p_sched": p_sched,
+        "mode_changes": reversals(p_real),
     }
+
+
+def reversals(p: np.ndarray, tol: float = 1e-6) -> np.ndarray:
+    """Boolean per step: did the machine reverse direction (pump <-> turbine) here?
+
+    Idle steps carry the last direction forward, so pump -> idle -> turbine is one reversal and
+    turbine -> idle -> turbine is none. That is the physically expensive event for a reversible
+    pump-turbine (the rotor changes direction), and it is what `PlantConfig.mode_change_cost`
+    is documented to price. An earlier version counted every change among pump, idle and
+    turbine, so merely pausing the turbine was charged as a mode change, and no optimiser could
+    represent that cost without extra binaries.
+    """
+    sign = np.where(p > tol, 1, np.where(p < -tol, -1, 0))
+    last = np.zeros_like(sign)
+    cur = 0
+    for i, v in enumerate(sign):
+        if v != 0:
+            cur = v
+        last[i] = cur
+    prev = np.concatenate([[0], last[:-1]])
+    return (last != 0) & (prev != 0) & (last != prev)
 
 
 def check_feasible(res: dict[str, np.ndarray], cfg: PlantConfig,

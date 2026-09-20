@@ -100,7 +100,11 @@ class MarketConfig:
 class RunConfig:
     dt: float = 0.25
     horizon_steps: int = 96
-    terminal_value: bool = True
+    # Off by default, on evidence. With a receding horizon of 12 h or more and re-solving every
+    # step, B3 reached the perfect-foresight ceiling exactly under perfect forecasts (100%)
+    # and 88% of the headroom at 15% forecast error. The linear terminal value turned that
+    # into -179%: it hoarded 34 to 38 MWh in the battery. See `default_terminal_price`.
+    terminal_value: bool = False
     terminal_price: float | None = None
     forecast_sigma: float = 0.15
     forecast_rho: float = 0.8

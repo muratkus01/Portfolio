@@ -1,9 +1,9 @@
-# ⚡ AI for Renewable Energy Systems — Applied Research Portfolio
+# ⚡ AI for Renewable Energy Systems: Applied Research Portfolio
 
-> Six production-grade engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems — strictly grounded in actual German/Austrian market designs, grid codes, and regulatory frameworks.
+> Six production-grade engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems: strictly grounded in actual German/Austrian market designs, grid codes, and regulatory frameworks.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-94%20passing%20(100%25)-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-199%20passing%20(100%25)-brightgreen.svg)](tests/)
 [![Optimization](https://img.shields.io/badge/stack-Pyomo%20%7C%20PuLP%20%7C%20Gymnasium%20%7C%20Stable--Baselines3-orange.svg)](docs/05-tech-stack.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -26,7 +26,7 @@ pip install -e projects/01-prosumer-pv-bess-mpc-rl -e projects/02-pumped-storage
 # Run the Master Showcase Runner
 python showcase.py
 
-# Run all 94 unit tests across the portfolio
+# Run all 199 unit tests across the portfolio
 pytest -v
 ```
 
@@ -122,12 +122,12 @@ Portfolio/
 ├── datakit/                           ← Shared market data loaders & spot price connectors
 ├── docs/                              ← Energy market primers, regulatory guides & math
 └── projects/
-    ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (15 tests passing)
-    ├── 02-pumped-storage-rl-multimarket/ ← Package: psw (20 tests passing)
-    ├── 03-smart-ev-charging-14a/      ← Package: evc (16 tests passing)
-    ├── 04-energy-sharing-rec/         ← Package: rec (19 tests passing)
-    ├── 05-utility-hybrid-plant-dispatch/ ← Package: hybrid (11 tests passing)
-    └── 06-probabilistic-forecast-to-bid/ ← Package: f2b (13 tests passing)
+    ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (75 tests, 67 passing, 8 skipped)
+    ├── 02-pumped-storage-rl-multimarket/ ← Package: psw (27 tests passing)
+    ├── 03-smart-ev-charging-14a/      ← Package: evc (20 tests passing)
+    ├── 04-energy-sharing-rec/         ← Package: rec (37 tests passing)
+    ├── 05-utility-hybrid-plant-dispatch/ ← Package: hybrid (26 tests passing)
+    └── 06-probabilistic-forecast-to-bid/ ← Package: f2b (22 tests passing)
 ```
 
 ---

@@ -169,3 +169,41 @@ def test_dimming_series_shape_and_cap():
     assert np.all((caps == np.inf) | (caps == cfg.p_min_total_kw))
     assert np.isfinite(caps).any(), "with this frequency some events must occur"
     assert dimming_series(n, hours, run, Para14aConfig(enabled=False)) is None
+
+
+# ------------------------------------------------------------------ regressions (2026-09-19)
+def test_sessions_past_the_window_are_censored_not_missed():
+    """Regression: departures were truncated at the end of the simulated window.
+
+    A depot car arriving on the final evening was squeezed into the last few hours, every such
+    car demanded full power at once, and the site "missed" departures no controller could meet.
+    The miss count was identical across all controllers, which is what gave it away. Such
+    sessions are now right-censored: simulated, never scored.
+    """
+    run = RunConfig(days=2, seed=0, archetype=ARCHETYPES["depot"],
+                    site=SiteConfig(n_connectors=16, site_limit_kw=100.0))
+    sessions = generate(run)
+    n_steps = run.days * run.steps_per_day
+    censored = [s for s in sessions if s.censored]
+    assert censored, "evening depot arrivals on the last day must run past the window"
+    for s in censored:
+        assert s.depart_true == n_steps
+        assert s.depart_declared > s.arrive
+    for s in sessions:
+        if not s.censored:
+            assert s.depart_true <= n_steps and s.depart_declared <= s.depart_true
+
+    spot = np.full(n_steps, 0.08)
+    res = b0_uncontrolled(sessions, n_steps, run, spot)
+    assert res["censored_sessions"] == len(censored)
+    assert res["missed_departures"] == 0
+
+
+def test_min_current_does_not_undo_the_reserve():
+    """Regression: a car past its DECLARED departure but still plugged in has per-connector
+    need zero, so the minimum-current rule switched off the small top-up the aggregate floor
+    had just assigned it. Power the floor requires must survive rounding and shedding."""
+    run = make_run(site=SiteConfig(n_connectors=1, site_limit_kw=50.0))
+    p = project(np.array([0.0]), remaining_kwh=np.array([0.5]), steps_left=np.array([0]),
+                active=np.array([True]), run=run)
+    assert p[0] == pytest.approx(0.5 / run.dt), "the last 0.5 kWh must be delivered, not dropped"

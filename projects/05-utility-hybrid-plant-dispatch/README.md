@@ -47,6 +47,27 @@ is a technology-wide national figure that one plant cannot move; it is now exoge
 invariant check was widened from "B3 ≤ B2" to "every rung ≤ B2", which is what would have
 caught it immediately.
 
+**Two B3 defects, found when the showcase started printing live numbers** (2026-09-19). The
+rolling MPC lost to the curtailment-avoidance rule, which a deployable classical optimum must
+never do. Neither cause was a solver problem:
+
+1. **Plan execution.** B3 applied the curtailment *fraction* its plan computed on *forecast*
+   generation to the *true* generation, discarding energy the connection could have taken. It
+   now executes planned curtailment only when the effective price is negative; otherwise the
+   point-of-interconnection limit handles the cap.
+2. **Terminal value.** A linear value on end-of-horizon storage made B3 hoard 34 to 38 MWh.
+   With it removed and B3 re-solving every quarter-hour, B3 reaches the perfect-foresight
+   ceiling **exactly** under perfect forecasts, and recovers **88%** of the B1-to-B2 headroom
+   at 15% forecast error (it was **-179%**). A linear terminal value pushes storage to a bound
+   because its slope is right at one state of charge only; if one is ever needed it should be
+   concave and SoC-dependent. Project 01 shows the same effect.
+
+Curtailment is also now classified by cause: whatever the connection would have forced anyway
+is *forced*, and only the remainder is *chosen*. Previously a perfect-foresight plan reported
+622 MWh of "chosen" curtailment over a period with two negative-price quarter-hours. The
+negative-price table above is unaffected, because on national data the connection never binds.
+`test_rolling_mpc_beats_the_rule_based_baseline` now asserts the ordering.
+
 > **Principal caveat on this dataset.** Wind and PV profiles are *national* capacity factors,
 > which are far smoother than any single site: the combined factor rarely exceeds ~0.45, so a
 > connection at 75 % of nameplate never binds and the curtailment problem disappears. That is

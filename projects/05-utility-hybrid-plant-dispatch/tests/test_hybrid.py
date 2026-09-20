@@ -56,13 +56,31 @@ def test_battery_interval_respects_soc():
     assert lo == pytest.approx(0.0, abs=1e-9), "full battery cannot charge"
 
 
-def test_curtailment_is_split_into_chosen_and_forced():
-    """The two kinds settle differently and must be reported separately."""
-    cfg = PlantConfig(conn_mw=20.0, bess_mw=0.0, bess_mwh=1e-6)
-    r = dispatch_step(40.0, 20.0, 0.0, 0.0, 0.25, 0.25, cfg)
-    assert r["chosen_curtail"] == pytest.approx(15.0)     # 25% of 60 MW
-    assert r["forced_curtail"] > 0                         # the rest hits the 20 MW cap
+def test_curtailment_is_classified_by_cause():
+    """Chosen and forced curtailment settle differently, so the split must follow the CAUSE.
+
+    Regression test. Curtailment used to be labelled "chosen" whenever the controller asked
+    for it, even when the connection would have forced it anyway, which made a
+    perfect-foresight plan report 622 MWh of chosen curtailment over two negative-price
+    quarter-hours.
+    """
+    no_bess = dict(bess_mw=0.0, bess_mwh=1e-6)
+
+    # asked to curtail 15 of 60 MW, but a 20 MW connection forces 40 anyway: nothing chosen
+    r = dispatch_step(40.0, 20.0, 0.0, 0.0, 0.25, 0.25, PlantConfig(conn_mw=20.0, **no_bess))
     assert r["export"] == pytest.approx(20.0)
+    assert r["forced_curtail"] == pytest.approx(40.0)
+    assert r["chosen_curtail"] == pytest.approx(0.0)
+
+    # same request on an 80 MW connection: all 15 MW is a genuine choice
+    r = dispatch_step(40.0, 20.0, 0.0, 0.0, 0.25, 0.25, PlantConfig(conn_mw=80.0, **no_bess))
+    assert r["chosen_curtail"] == pytest.approx(15.0)
+    assert r["forced_curtail"] == pytest.approx(0.0)
+
+    # partly each: 60 MW available, 50 MW connection, 25% requested -> 10 forced, 5 chosen
+    r = dispatch_step(40.0, 20.0, 0.0, 0.0, 0.25, 0.25, PlantConfig(conn_mw=50.0, **no_bess))
+    assert r["forced_curtail"] == pytest.approx(10.0)
+    assert r["chosen_curtail"] == pytest.approx(5.0)
 
 
 # ------------------------------------------------------------------ EEG mechanics

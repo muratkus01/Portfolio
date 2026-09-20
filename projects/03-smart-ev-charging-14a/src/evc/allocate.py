@@ -144,6 +144,11 @@ def project(proposed_kw: np.ndarray, remaining_kwh: np.ndarray, steps_left: np.n
     # declared deadline reachable, allocating the extra to the tightest deadlines first.
     limit_now = cfg.site_limit_kw if dim_cap is None else min(cfg.site_limit_kw, dim_cap)
     floor_total = aggregate_floor(remaining_kwh, steps_left, active, run, limit_now)
+    # `required` is the power that must NOT be removed later: the per-connector minimum plus
+    # whatever the aggregate floor assigns. Later steps (minimum current, shedding) previously
+    # consulted only the per-connector `need`, so they switched off or shed exactly the power
+    # the floor had just added, quietly undoing the reserve.
+    required = need.copy()
     if p.sum() < floor_total - 1e-9:
         deficit = floor_total - p.sum()
         # earliest deadline first, then largest remaining energy
@@ -155,19 +160,22 @@ def project(proposed_kw: np.ndarray, remaining_kwh: np.ndarray, steps_left: np.n
             room = max(0.0, min(deliverable[i], cfg.p_connector_kw) - p[i])
             add = min(room, deficit)
             p[i] += add
+            required[i] = max(required[i], p[i])
             deficit -= add
 
     if cfg.enforce_min_current:
         # a connector is either off or at least at the minimum current
         below = (p > 0) & (p < cfg.p_min_kw)
-        # keep it on (at p_min) if it actually needs the energy, otherwise switch it off
-        p = np.where(below, np.where(need > 0, np.minimum(cfg.p_min_kw, deliverable), 0.0), p)
+        # keep it on (rounded UP to p_min) if the power is required, otherwise switch it off
+        on = np.minimum(cfg.p_min_kw, deliverable)
+        p = np.where(below, np.where(required > 0, on, 0.0), p)
+        required = np.where(below & (required > 0), np.maximum(required, on), required)
 
     limit = limit_now
     total = p.sum()
     if total > limit:
         # shed from the connectors with the most slack first
-        slack = np.where(active, np.maximum(p - need, 0.0), 0.0)
+        slack = np.where(active, np.maximum(p - required, 0.0), 0.0)
         order = np.argsort(-slack)          # most slack first
         excess = total - limit
         for i in order:

@@ -36,6 +36,7 @@ class SiteState:
         self.required: dict[int, float] = {}
         self._live: dict[int, Session] = {}
         self.missed = 0
+        self.censored = 0
         self.shortfall_kwh = 0.0
 
     def begin_step(self, t: int) -> None:
@@ -62,7 +63,10 @@ class SiteState:
         for s in self.by_end.get(t + 1, []):
             c = s.connector
             short = max(0.0, self.required[id(s)] - self.delivered[id(s)])
-            if short > 1e-6:
+            if s.censored:
+                # still plugged in when the simulation ends: outcome unobserved, not a miss
+                self.censored += 1
+            elif short > 1e-6:
                 self.missed += 1
                 self.shortfall_kwh += short
             self.active[c] = False
@@ -89,6 +93,7 @@ def _run(sessions: list[Session], n_steps: int, run: RunConfig,
         "power": P, "site_kw": total, "peak_kw": float(total.max()),
         "energy_kwh": float(total.sum() * run.dt),
         "missed_departures": st.missed, "shortfall_kwh": st.shortfall_kwh,
+        "censored_sessions": st.censored,
         "forced_infeasible_steps": infeas,
         "switching": int(np.sum(np.abs(np.diff((P > 0).astype(int), axis=0)))),
     }

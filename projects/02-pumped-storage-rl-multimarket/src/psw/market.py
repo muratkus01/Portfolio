@@ -49,12 +49,20 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
            activation: np.ndarray | None = None,
            schedule: np.ndarray | None = None,
            rebap: np.ndarray | None = None) -> dict[str, float]:
-    """Decompose the operating result. All values EUR over the evaluated period."""
-    p = res["p"]
-    p_t, p_p = res["p_turb"], res["p_pump"]
+    """Decompose the operating result. All values EUR over the evaluated period.
 
-    energy_revenue = float(np.sum(p_t * price) * dt)
-    pump_cost = float(np.sum(p_p * price) * dt)
+    Two legs, never mixed. The COMMERCIAL schedule (`res["p_sched"]`) earns or pays the
+    day-ahead price. Activated balancing energy, the physical output minus the schedule, earns
+    the aFRR energy price. An earlier version paid day-ahead on the PHYSICAL output, which
+    already contains the activation, and then paid activation again on top: every activated
+    MWh was settled twice. Network charges and wear follow the physical machine.
+    """
+    p = res["p"]
+    p_p = res["p_pump"]
+    sched = np.asarray(res.get("p_sched", p), dtype=float)
+
+    energy_revenue = float(np.sum(np.maximum(sched, 0.0) * price) * dt)
+    pump_cost = float(np.sum(np.maximum(-sched, 0.0) * price) * dt)
 
     network_cost = 0.0
     if not plant.para_118_6_exempt:
@@ -66,10 +74,12 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
             np.sum(sold_pos) * dt * market.afrr_pos_capacity_eur_mw_h
             + np.sum(sold_neg) * dt * market.afrr_neg_capacity_eur_mw_h)
 
+    # energy actually delivered for balancing: what the machine did beyond its schedule
+    delivered = (p - sched) if "p_sched" in res else activation
     activation_revenue = 0.0
-    if activation is not None:
-        up = np.maximum(activation, 0.0)
-        dn = np.maximum(-activation, 0.0)
+    if delivered is not None:
+        up = np.maximum(delivered, 0.0)
+        dn = np.maximum(-delivered, 0.0)
         activation_revenue = float(
             np.sum(up * (price + market.afrr_pos_energy_premium)) * dt
             - np.sum(dn * (price - market.afrr_neg_energy_discount)) * dt)

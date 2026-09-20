@@ -27,7 +27,9 @@ from .plant import e_next, feasible_interval, simulate
 # ------------------------------------------------------------------ B1
 def b1_price_threshold(price: np.ndarray, run: RunConfig,
                        e0: float | None = None,
-                       activation: np.ndarray | None = None) -> dict[str, np.ndarray]:
+                       activation: np.ndarray | None = None,
+                       reserved_pos: np.ndarray | None = None,
+                       reserved_neg: np.ndarray | None = None) -> dict[str, np.ndarray]:
     """Turbine when the price is high, pump when it is low, otherwise idle.
 
     Thresholds are the rolling 30th/70th percentiles of the price over the past day - a
@@ -46,7 +48,7 @@ def b1_price_threshold(price: np.ndarray, run: RunConfig,
             p[t] = cfg.p_turb_max
         elif price[t] <= q30:
             p[t] = -cfg.p_pump_max
-    return simulate(p, run.dt, cfg, e0, activation)
+    return simulate(p, run.dt, cfg, e0, activation, reserved_pos, reserved_neg)
 
 
 # ------------------------------------------------------------------ LP core
@@ -55,8 +57,22 @@ def solve_window(price: np.ndarray, dt: float, run: RunConfig, e0: float,
                  reserved_pos: np.ndarray | None = None,
                  reserved_neg: np.ndarray | None = None,
                  activation: np.ndarray | None = None,
+                 prev_p: float = 0.0,
                  msg: bool = False) -> np.ndarray | None:
-    """Maximise revenue over a window. Returns the planned net power, or None if infeasible."""
+    """Maximise revenue over a window. Returns the planned net power, or None if infeasible.
+
+    The LP must describe the SAME plant as `plant.feasible_interval`, or perfect foresight is
+    not a ceiling. It once did not: it kept a symmetric ramp on net power after the plant model
+    had moved to per-mode up-ramps with free unloading, it had no spillway, and it charged
+    downward activation at the turbine efficiency. The rolling controller, executed on the
+    real plant, then beat "perfect foresight" by 1,249 EUR, and the ladder invariant stopped
+    the run. The constraints below mirror the plant one for one:
+
+      per-mode up-ramp  turbine output and pump load may each rise by at most `ramp` per step,
+                        starting from `prev_p`; unloading is free
+      spill             inflow that would overtop the operating ceiling may be spilled
+      activation        upward calls drain at 1/eta_turb, downward calls fill at eta_pump
+    """
     cfg = run.plant
     n = len(price)
     m = pulp.LpProblem("psw", pulp.LpMaximize)
@@ -65,6 +81,7 @@ def solve_window(price: np.ndarray, dt: float, run: RunConfig, e0: float,
     p_p = pulp.LpVariable.dicts("pp", range(n), lowBound=0, upBound=cfg.p_pump_max)
     e = pulp.LpVariable.dicts("e", range(n), lowBound=cfg.e_reserve_low,
                               upBound=cfg.e_reserve_high)
+    spill = pulp.LpVariable.dicts("spill", range(n), lowBound=0)
 
     pump_price_adder = 0.0 if cfg.para_118_6_exempt else cfg.network_charge_pump
 
@@ -72,11 +89,13 @@ def solve_window(price: np.ndarray, dt: float, run: RunConfig, e0: float,
           - pulp.lpSum(p_p[t] * (float(price[t]) + pump_price_adder) * dt for t in range(n))
           + terminal_price * e[n - 1])
 
+    prev_turb, prev_pump = max(prev_p, 0.0), max(-prev_p, 0.0)
     for t in range(n):
         prev_e = e0 if t == 0 else e[t - 1]
         act = 0.0 if activation is None else float(activation[t])
-        m += e[t] == prev_e + (-p_t[t] / cfg.eta_turb + p_p[t] * cfg.eta_pump
-                               + cfg.inflow_mw - act / cfg.eta_turb) * dt
+        act_up, act_dn = max(act, 0.0), max(-act, 0.0)
+        m += e[t] == prev_e + (-p_t[t] / cfg.eta_turb + p_p[t] * cfg.eta_pump + cfg.inflow_mw
+                               - act_up / cfg.eta_turb + act_dn * cfg.eta_pump) * dt - spill[t]
 
         # headroom reserved for sold balancing capacity
         if reserved_pos is not None:
@@ -84,10 +103,11 @@ def solve_window(price: np.ndarray, dt: float, run: RunConfig, e0: float,
         if reserved_neg is not None:
             m += p_p[t] <= cfg.p_pump_max - float(reserved_neg[t])
 
-        # ramp on the net position
-        if t > 0:
-            m += (p_t[t] - p_p[t]) - (p_t[t - 1] - p_p[t - 1]) <= cfg.ramp_mw_per_step
-            m += (p_t[t - 1] - p_p[t - 1]) - (p_t[t] - p_p[t]) <= cfg.ramp_mw_per_step
+        # per-mode up-ramp, matching feasible_interval; unloading is unconstrained
+        last_t = prev_turb if t == 0 else p_t[t - 1]
+        last_p = prev_pump if t == 0 else p_p[t - 1]
+        m += p_t[t] - last_t <= cfg.ramp_mw_per_step
+        m += p_p[t] - last_p <= cfg.ramp_mw_per_step
 
     m.solve(pulp.PULP_CBC_CMD(msg=msg))
     if pulp.LpStatus[m.status] != "Optimal":
@@ -114,12 +134,15 @@ def default_terminal_price(price: np.ndarray, run: RunConfig) -> float:
 
 # ------------------------------------------------------------------ B2 / B3
 def b2_perfect(price: np.ndarray, run: RunConfig, e0: float | None = None,
-               activation: np.ndarray | None = None) -> dict[str, np.ndarray]:
+               activation: np.ndarray | None = None,
+               reserved_pos: np.ndarray | None = None,
+               reserved_neg: np.ndarray | None = None) -> dict[str, np.ndarray]:
     e0 = run.plant.e_init if e0 is None else e0
-    plan = solve_window(price, run.dt, run, e0, terminal_price=0.0, activation=activation)
+    plan = solve_window(price, run.dt, run, e0, terminal_price=0.0, activation=activation,
+                        reserved_pos=reserved_pos, reserved_neg=reserved_neg)
     if plan is None:
         raise RuntimeError("B2 infeasible - check reservoir bounds against inflow")
-    return simulate(plan, run.dt, run.plant, e0, activation)
+    return simulate(plan, run.dt, run.plant, e0, activation, reserved_pos, reserved_neg)
 
 
 def b3_rolling(price: np.ndarray, price_fc: np.ndarray, run: RunConfig,
@@ -150,7 +173,7 @@ def b3_rolling(price: np.ndarray, price_fc: np.ndarray, run: RunConfig,
             t0 = time.perf_counter()
             sol = solve_window(pw, run.dt, run, e,
                                terminal_price=default_terminal_price(pw, run),
-                               reserved_pos=rp, reserved_neg=rn)
+                               reserved_pos=rp, reserved_neg=rn, prev_p=prev_p)
             solve_times.append(time.perf_counter() - t0)
             plan, offset = (sol if sol is not None else np.zeros(h)), t
 
@@ -195,8 +218,10 @@ def run_ladder(price: np.ndarray, run: RunConfig, sold_pos: np.ndarray | None = 
     price_fc = make_price_forecast(price, run, rng)
 
     out: dict[str, dict] = {
-        "B1 price threshold": b1_price_threshold(price, run, activation=activation),
-        "B2 perfect foresight": b2_perfect(price, run, activation=activation),
+        "B1 price threshold": b1_price_threshold(price, run, activation=activation,
+                                                 reserved_pos=sold_pos, reserved_neg=sold_neg),
+        "B2 perfect foresight": b2_perfect(price, run, activation=activation,
+                                           reserved_pos=sold_pos, reserved_neg=sold_neg),
     }
     if include_b3:
         out["B3 rolling MPC"] = b3_rolling(price, price_fc, run, activation=activation,
