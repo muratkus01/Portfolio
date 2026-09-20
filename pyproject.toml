@@ -13,6 +13,8 @@ testpaths = [
     "projects/06-probabilistic-forecast-to-bid/tests",
 ]
 pythonpath = [
+    ".",
+    "datakit",
     "projects/01-prosumer-pv-bess-mpc-rl/src",
     "projects/02-pumped-storage-rl-multimarket/src",
     "projects/03-smart-ev-charging-14a/src",

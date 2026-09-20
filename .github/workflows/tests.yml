@@ -25,8 +25,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update && sudo apt-get install -y coinor-cbc
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov gymnasium
           pip install -e "projects/01-prosumer-pv-bess-mpc-rl[dev]"
           pip install -e "projects/02-pumped-storage-rl-multimarket[dev]"
           pip install -e "projects/03-smart-ev-charging-14a[dev]"
