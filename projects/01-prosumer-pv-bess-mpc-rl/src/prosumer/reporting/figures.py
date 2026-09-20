@@ -126,10 +126,96 @@ def quarter_hour_value(reports: Path, out: Path) -> Path:
     return path
 
 
+def example_day_dispatch(dataset_path: str | Path | None = None, out: Path | None = None) -> Path:
+    """Plot a 24-hour example day dispatch comparing B1 and B3."""
+    import matplotlib.pyplot as plt
+    from ..baselines.ladder import b1_rule_based
+    from ..baselines.lp_fast import solve_window_fast
+    from ..config import RunConfig
+    from ..market.tariff import import_price
+    from ..model import site
+    from ..scenarios import EXTENSION_RUN
+
+    run = EXTENSION_RUN
+    dt = run.dt
+
+    # Try loading real dataset day; fallback to synthetic day if not found
+    day_df = None
+    if dataset_path and Path(dataset_path).exists():
+        df = pd.read_parquet(dataset_path)
+        local_idx = df.index.tz_convert("Europe/Berlin")
+        target_day = "2025-06-18"
+        mask = local_idx.strftime("%Y-%m-%d") == target_day
+        if mask.sum() == 96:
+            day_df = df[mask].copy()
+
+    if day_df is None:
+        idx = pd.date_range("2025-06-18 00:00", periods=96, freq="15min", tz="Europe/Berlin").tz_convert("UTC")
+        h = np.arange(96) * dt % 24
+        load = 0.35 + 0.9 * np.exp(-((h - 19.0) ** 2) / 5) + 0.1 * np.sin(np.pi * h / 12)
+        pv = 5.2 * np.clip(np.sin(np.pi * (h - 5.5) / 13), 0, 1)
+        spot = 0.07 + 0.08 * np.sin(2 * np.pi * (h - 18) / 24) - 0.03 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1)
+        day_df = pd.DataFrame({"load_kw": load, "pv_kw": pv, "spot_eur_per_kwh": spot}, index=idx)
+
+    load = day_df["load_kw"].to_numpy()
+    pv = day_df["pv_kw"].to_numpy()
+    spot = day_df["spot_eur_per_kwh"].to_numpy()
+    pi = import_price(spot, day_df.index, run.tariff)
+    pe = day_df["spot_eur_per_kwh"].to_numpy() * 0.0  # reference export
+
+    b1 = b1_rule_based(load, pv, dt, run)
+    sol_b3 = solve_window_fast(load, pv, pi, pe, dt, run.site, run.site.soc_init)
+    b3 = site.simulate(sol_b3["p_bat"], load, pv, dt, run.site) if sol_b3 else b1
+
+    local_hours = np.arange(96) * dt
+    fig, (ax_price, ax_power, ax_soc) = plt.subplots(3, 1, figsize=(9.0, 6.2), sharex=True, facecolor=SURFACE)
+
+    for ax in (ax_price, ax_power, ax_soc):
+        _style(ax)
+        ax.grid(axis="x", visible=False)
+        ax.grid(axis="y", color=GRID, linewidth=0.8)
+
+    # 1. Price
+    ax_price.plot(local_hours, pi * 100, color=INK, linewidth=1.5, label="Import tariff (ct/kWh)")
+    ax_price.set_ylabel("ct/kWh", color=INK_2)
+    ax_price.set_title("Operational dispatch over 24 hours (B1 vs B3 price-aware controller)",
+                       loc="left", color=INK, fontsize=11)
+    ax_price.legend(loc="upper left", frameon=False, fontsize=8.5)
+
+    # 2. PV and Load
+    ax_power.plot(local_hours, load, color=INK_2, linestyle="--", linewidth=1.2, label="Load (kW)")
+    ax_power.plot(local_hours, pv, color=ORANGE, linewidth=1.5, label="PV generation (kW)")
+    ax_power.set_ylabel("Power (kW)", color=INK_2)
+    ax_power.legend(loc="upper left", frameon=False, fontsize=8.5)
+
+    # 3. Battery SoC
+    soc_b1_pct = 100 * (b1["soc"] - run.site.soc_min) / run.site.usable_kwh
+    soc_b3_pct = 100 * (b3["soc"] - run.site.soc_min) / run.site.usable_kwh
+    ax_soc.plot(local_hours, soc_b1_pct, color=NEUTRAL, linewidth=1.4, linestyle=":", label="B1 Rule-based SoC (%)")
+    ax_soc.plot(local_hours, soc_b3_pct, color=BLUE, linewidth=1.8, label="B3 LP-MPC SoC (%)")
+    ax_soc.set_ylabel("SoC (%)", color=INK_2)
+    ax_soc.set_xlabel("Local clock hour (CET)", color=INK_2)
+    ax_soc.set_xlim(0, 24)
+    ax_soc.set_xticks(range(0, 25, 3))
+    ax_soc.legend(loc="upper left", frameon=False, fontsize=8.5)
+
+    fig.tight_layout()
+    path = out / "example_day_dispatch.png" if out else Path("docs/figures/example_day_dispatch.png")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=160, facecolor=SURFACE)
+    plt.close(fig)
+    return path
+
+
 def make_all(reports: str | Path = "reports", out: str | Path = "docs/figures") -> list[Path]:
     import matplotlib
     matplotlib.use("Agg")
     reports, out = Path(reports), Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    return [capture_ladder(reports, out), household_sweep(reports, out),
+    figs = [capture_ladder(reports, out), household_sweep(reports, out),
             quarter_hour_value(reports, out)]
+    dataset = reports.parent / "data" / "processed" / "site_2024_2026_htw_H28.parquet"
+    if not dataset.exists():
+        dataset = reports.parents[1] / "data" / "processed" / "site_2024_2026_htw_H28.parquet"
+    figs.append(example_day_dispatch(dataset if dataset.exists() else None, out))
+    return figs

@@ -229,7 +229,13 @@ def cmd_rl_eval(args) -> None:
                       b3_monthly_csv=args.b3, out_dir=args.out)
     print(res["summary"].round(2).to_string())
     print(res["seeds"].round(3).to_string())
-    print(f"RL median capture: {res['summary'].attrs['rl_median_capture']:.1f} %")
+def cmd_sizing(args) -> None:
+    from .data.dataset import load_dataset
+    from .experiments.sizing import run_sizing_grid
+    res = run_sizing_grid(load_dataset(args.data), out_dir=args.out)
+    print("\nBattery & Inverter Sizing Grid:")
+    with pd.option_context("display.width", 140, "display.max_columns", 15):
+        print(res.to_string(index=False))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -300,6 +306,11 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--seeds", type=int, default=3)
     sp.add_argument("--workers", type=int, default=3)
     sp.set_defaults(func=cmd_rl_eval)
+
+    sp = sub.add_parser("sizing", help="evaluate battery and inverter sizing grid")
+    sp.add_argument("--data", default="data/processed/site_2024_2026_htw_H28.parquet")
+    sp.add_argument("--out", default="reports/sizing_grid")
+    sp.set_defaults(func=cmd_sizing)
 
     args = p.parse_args(argv)
     args.func(args)

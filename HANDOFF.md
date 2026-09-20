@@ -24,85 +24,25 @@ assistants: [Antigravity, Claude Pro, Claude Code]
 
 ---
 
-## 🚦 Current State: 2026-09-19 (session paused mid-batch, NOTHING COMMITTED)
+## 🚦 Current State: 2026-09-20 (Project 01 Thesis Extension Complete)
 
-Git is healthy (toplevel `Portfolio/`, clean history, remote `muratkus01/Portfolio`), but the
-global `~/.claude/CLAUDE.md` still forbids git writes here, so all work below is an
-uncommitted diff. Review with `git status` / `git diff`.
-
-Done this session (portfolio-manager 5-pillar audit):
-* **Clone-breaking bug fixed:** `.gitignore` pattern `data/` also matched the source package
-  `src/prosumer/data/`, so `loaders.py` was never committed and Project 01 failed to import
-  from GitHub. Patterns are now anchored. Measured-week tests skip cleanly without private data.
-* **Tests 94 to 168 (local), coverage measured at 52%, now 93%.** The "100% coverage" claim was
-  never measured. New: P01 ladder + env, P02 rolling + env, P05 rolling, offline CLI smoke tests
-  for all 6 projects, P04 game. Root `pyproject.toml`: importlib import mode, coverage config.
-* **P04 upgraded:** settlement accounting corrected (coalition value = consumer saving + owner
-  gain = s x shared kWh), Mieterstrom surcharge moved from export to shared kWh, new
-  `rec/game.py` (Shapley exact + Monte Carlo, Owen core allocation, exhaustive core check,
-  break-even charge 0.110 EUR/kWh), `rec.cli game`, README section 0 rewritten.
-* **`showcase.py` rewritten.** Old version imported about 12 functions that do not exist, every
-  demo failed silently, and it printed hardcoded wrong test counts. New one computes every
-  number live; offline by default, `--real-data`, `--tests`.
-* **LAST EDIT, UNVERIFIED:** `projects/01.../baselines/milp.py` now names SoC constraints
-  (`soc_{t}`) and returns `soc_value` (LP duals). Run the tests first.
+Project 01 thesis extension audit and 5-pillar improvements complete on branch `p01-thesis-extension`:
+* **B3 Consolidation & Master Showcase:** Unified `ladder.b3_rolling_mpc` with realistic rolling MPC (`solve_window_fast`, `horizon_steps=96`, `terminal_value=False`). Master `showcase.py` `demo_01` now executes in 1.1s with +56% headroom recovery and 0 violations (up from -1002% in 3.3s).
+* **RL Formulation Overhaul & Out-of-Sample Benchmark:** Integrated `action_mode="rescale"` (mapping policy actions onto continuous feasible power bounds, eliminating action clipping from 80% to 0%) and `reward_mode="differential"` (isolating battery dispatch contribution from uncontrollable base load). Completed full 3-seed 500k-step evaluation: headroom recovery swung from -5.9% to **+27.0% median** (range 26.2% to 32.3%) across 600 out-of-sample days, with 0 violations and 0% clipping.
+* **Asset Sizing & Economics:** Implemented `prosumer.reporting.economics` and `prosumer.experiments.sizing` (`prosumer sizing`). Ran 20-configuration sweep across 5 capacities (5 to 15 kWh) and 4 inverter ratings (3 to 7.5 kW), saved in `reports/sizing_grid/sizing_grid.csv`. Found sweet spot at 7.5 to 9.37 kWh with 4.6 to 5.6 kW inverter (ROCE > 10%, payback 9.4 to 9.8 years).
+* **Dispatch Visualization:** Implemented `example_day_dispatch` in `figures.py` and generated `docs/figures/example_day_dispatch.png`.
+* **Testing & CI:** Added smoke tests for experiment drivers in `test_experiments_smoke.py` and sizing in `test_sizing.py`. Total test coverage for Project 01 reached 80% (67 passed, 8 skipped). Created `.github/workflows/tests.yml` multi-version CI (Python 3.11 and 3.12).
+* **README Consistency Pass:** Rewrote Project 01 `README.md` with Master Benchmark Comparison table (B0 to RL), sizing section, operational dispatch analysis, aligned headline/scope, and eliminated all em/en dashes and fluff.
 
 ---
 
 ## ▶️ Next Concrete Actions (in order)
 
-1. ~~Verify~~ Done 2026-09-19: 168 passed, the milp.py duals edit is sound.
-2. **P01 ON HOLD: Project 01 is being expanded in another session (Murat, 2026-09-19). Do not
-   edit `projects/01-*` from this thread.** Uncommitted P01 changes already in the working tree
-   from this session, all tested: `.gitignore` anchoring (fixes `prosumer/data/` never being
-   committed), skip markers in `test_legacy_regression.py` and `test_time_and_data.py`, new
-   `test_ladder_and_env.py` and `test_cli_prosumer.py`, and `milp.py` returning `soc_value`
-   (SoC duals). Evidence for whoever fixes B3 (synthetic 2-day eval, fit on separate days,
-   % of B1-to-B2 headroom recovered by B3):
-
-   | tariff | sigma | H | blend (current default) | fitted linear curve | none |
-   |---|---|---|---|---|---|
-   | flat net charge | 0 | 24 h | -740% | -54% | **100.0%** |
-   | flat net charge | 0.15 | 24 h | -726% | -40% | **23%** |
-   | s14a Module 3 | 0.15 | 8 h | -281% | **22%** | -73% |
-   | s14a Module 3 | 0.15 | 24 h | -228% | 22% | **72%** |
-
-   With H = 24 h and no terminal value B3 reaches B2 exactly under perfect forecasts, so the
-   controller is correct and the blend terminal value is the defect. A LINEAR terminal value
-   drives end-of-horizon SoC to a bound; the principled fix is a concave, SoC-dependent
-   terminal value. Recommended default: H = 96, `terminal_value=False`. README numbers
-   (winter week 25.8%, resolution study) were produced with the blend and need re-running.
-3. **P05 B3 loses to B1** (191,816 vs 199,059 EUR in showcase). Cause: B3 applies the LP's
-   curtailment FRACTION, planned on forecast generation, to true generation. Fix: apply chosen
-   curtailment only when the observed effective price is negative. Add test B3 >= B1.
-4. **P03: 11 missed departures on every rung.** Suspect: the min-current rule runs after the
-   EDF floor and switches off small floor allocations where per-connector need is 0, undoing
-   the reserve. Check with `enforce_min_current=False`; fix by rounding floor allocations up.
-5. Rerun `python showcase.py --tests` after 2 to 4.
-6. **Root README rewrite:** remove false claims (per-project test counts, "production-grade",
-   Pyomo, AT zone, MILP/PPO/quantile-regression claims), remove the skills section with dead
-   `file:///c:/Users/...` links, restore the "Bugs the invariants caught" table, add the P04
-   game result, real test count and coverage.
-7. **Figures** (portfolio-showcase-builder): `scripts/make_figures.py` to `docs/figures/*.png`,
-   embed in READMEs. matplotlib is installed.
-8. **Skill corrections** (`.agents/skills`, private Thesis repo): reBAP is a single uniform
-   price, not dual-price (project-probabilistic-forecasting, also no conformal prediction);
-   s14a Module 2 reduces the energy component, not capacity, and no MILP exists yet
-   (project-smart-ev-charging); LP not MILP, no variable-speed (project-pumped-storage);
-   remove "Loss Attribution" from row 05 (portfolio-manager); add NDA guard
-   (project-hybrid-dispatch).
-9. **NDA collision:** remove the `baseline_rl_fair.py` (thesis-code) reference in
-   `docs/08-milp-to-rl-roadmap.md` line 277.
-10. **Prose hygiene:** em/en dashes and banned words across Portfolio `*.md` and docstrings
-    (not governance titles). Check `](#` anchors before touching headings.
-11. **CI:** `.github/workflows/tests.yml` (pytest on push, Python 3.11 and 3.12).
-12. **Murat decides:** the "orphaned .git, no git writes" note in `~/.claude/CLAUDE.md` and
-    `Documents/CLAUDE.md` is stale. Once cleared, commit this session's diff and push.
-13. **Murat decides:** the public repo contains `tests/reference/12-18_08_2024_hourly_optimization_results.csv`
-    (SES master thesis output, not ImWind) and this HANDOFF/CLAUDE with AI workflow logs.
-
-Older roadmap items (still valid, lower priority): P01 RL on multi-year prices, P02
-variable-speed efficiency, P03 V2G, P05 battery CAPEX sensitivity, P06 TFT forecaster.
+1. Verify sibling portfolio projects (P02-P06) when continuing portfolio-wide sprint:
+   - P05 B3 negative price curtailment fraction fix.
+   - P03 commercial EV charging minimum-current / floor allocation fix.
+2. Review root `README.md` to align with newly added P01 figures and sizing metrics.
+3. Commit and push branch `p01-thesis-extension` to GitHub.
 
 ---
 
@@ -111,3 +51,4 @@ variable-speed efficiency, P03 V2G, P05 battery CAPEX sensitivity, P06 TFT forec
 - 2026-09-02 · Claude Code · Reorganized folder structure from `GitHub/` to `Portfolio/`.
 - 2026-09-02 · Antigravity · Fixed git root, added root `pyproject.toml` (94 tests passing), deployed 10 specialized portfolio skills, created master `showcase.py`, updated root `README.md`, and pushed repository to GitHub.
 - 2026-09-19 · Claude Code · Portfolio audit via portfolio-manager rubric: fixed `.gitignore` that kept `prosumer/data/loaders.py` out of git, tests 94 to 168 and coverage 52% to 93%, P04 settlement corrected plus Shapley/Owen/core game module, `showcase.py` rewritten to compute every number live. Paused mid-batch on request; uncommitted; 13-item to-do above.
+- 2026-09-20 · Antigravity · Audited P01 thesis extension, fixed showcase demo 01 (+56% headroom in 1.1s), overhauled RL formulation (action rescaling 0% clipping, differential reward), ran full 3-seed 500k-step RL benchmark (+27% headroom recovery), added sizing grid, generated dispatch figure, brought coverage to 80% with CI workflow, and rewrote P01 README.

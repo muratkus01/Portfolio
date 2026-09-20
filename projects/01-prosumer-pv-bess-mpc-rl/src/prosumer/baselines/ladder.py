@@ -21,7 +21,9 @@ from ..config import RunConfig
 from ..market import settlement
 from ..model import site
 from ..safety import project, project_series
+from .lp_fast import solve_window_fast
 from .milp import default_terminal_price, solve_window
+from .rolling import b3_rolling_realistic
 
 
 # ----------------------------------------------------------------------------- B1
@@ -117,13 +119,17 @@ def b3_rolling_mpc(load: np.ndarray, pv: np.ndarray,
             pe = price_export[t:t + h]
 
             t0 = time.perf_counter()
-            sol = solve_window(
-                lo, pvw, pi, pe, dt, run.site, s,
-                terminal_price=default_terminal_price(pi, run.site, run,
-                                                      price_export=pe,
-                                                      net_load=lo - pvw),
-                use_binaries=run.use_binaries,
-            )
+            tp = default_terminal_price(pi, run.site, run, price_export=pe, net_load=lo - pvw)
+            if not run.use_binaries and run.site.e_throughput_max_per_day is None:
+                sol = solve_window_fast(lo, pvw, pi, pe, dt, run.site, s, terminal_price=tp)
+            else:
+                sol = solve_window(
+                    lo, pvw, pi, pe, dt, run.site, s,
+                    terminal_price=tp,
+                    use_binaries=run.use_binaries,
+                    throughput_cap=run.site.e_throughput_max_per_day,
+                    steps_per_day=run.steps_per_day,
+                )
             solve_times.append(time.perf_counter() - t0)
             plan = sol["p_bat"] if sol is not None else np.zeros(h)
             plan_offset = t

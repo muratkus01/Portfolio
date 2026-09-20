@@ -32,6 +32,7 @@ checkpoints/
 *.lp
 *.mps
 *.sol
+*.log
 gurobi.log
 
 # Python

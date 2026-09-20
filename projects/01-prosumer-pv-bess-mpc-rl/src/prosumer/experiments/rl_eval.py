@@ -63,11 +63,14 @@ def _train_one(seed: int, dataset_path: str, steps: int, model_dir: str) -> dict
                 batch_size=256, buffer_size=1_000_000, learning_starts=10_000,
                 train_freq=1, gradient_steps=1, policy_kwargs={"net_arch": [256, 256]})
     t0 = time.perf_counter()
+    print(f"[Seed {seed}] Starting training for {steps} steps...", flush=True)
     model.learn(total_timesteps=steps, progress_bar=False)
     train_s = time.perf_counter() - t0
+    print(f"[Seed {seed}] Training completed in {train_s / 60:.1f} min. Saving model...", flush=True)
     Path(model_dir).mkdir(parents=True, exist_ok=True)
     model.save(Path(model_dir) / f"sac_seed{seed}")
 
+    print(f"[Seed {seed}] Evaluating on out-of-sample test period ({len(te)} steps)...", flush=True)
     test_env = _make_env(te, run, tv, stats, random_start=False, episode_steps=len(te))
     obs, _ = test_env.reset()
     p_bat, clipped = [], 0
@@ -81,6 +84,7 @@ def _train_one(seed: int, dataset_path: str, steps: int, model_dir: str) -> dict
     load, pv = te["load_kw"].to_numpy(), te["pv_kw"].to_numpy()
     res = site.simulate(np.array(p_bat), load, pv, run.dt, run.site)
     pi, pe = _prices(te, run)
+    print(f"[Seed {seed}] Evaluation complete.", flush=True)
     return {"seed": seed, "step_costs": _step_costs(res, pi, pe, run),
             "cycles": res["p_dis"].sum() * run.dt / run.site.usable_kwh,
             "violations": sum(site.check_feasible(res, run.dt, run.site).values()),
@@ -101,6 +105,7 @@ def run_rl_eval(dataset_path: str, steps: int = 500_000, seeds: int = 3, workers
     costs["B2 perfect foresight"] = _step_costs(
         site.simulate(b2["p_bat"], load, pv, run.dt, run.site), pi, pe, run)
 
+    print(f"Launching RL evaluation: {seeds} seeds, {steps} steps each, {workers} parallel workers...", flush=True)
     with ProcessPoolExecutor(max_workers=workers) as pool:
         results = list(pool.map(_train_one, range(seeds), [dataset_path] * seeds,
                                 [steps] * seeds, [model_dir] * seeds))

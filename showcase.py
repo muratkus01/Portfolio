@@ -69,7 +69,7 @@ def demo_01(real: bool) -> dict:
     from prosumer.market.tariff import export_price, import_price
     import pandas as pd
 
-    run = RunConfig(dt=0.25, horizon_steps=32)
+    run = RunConfig(dt=0.25, horizon_steps=96, terminal_value=False)
     n = 2 * 96
     h = diurnal(n)
     rng = np.random.default_rng(0)
@@ -86,7 +86,7 @@ def demo_01(real: bool) -> dict:
     return {
         "rows": [("B1 self-consumption rule", f"{b1:8.3f} EUR"),
                  ("B2 perfect foresight", f"{b2:8.3f} EUR"),
-                 ("B3 rolling MPC (8 h horizon)", f"{b3:8.3f} EUR")],
+                 ("B3 rolling MPC (24 h horizon)", f"{b3:8.3f} EUR")],
         "headline": f"B3 recovers {(b1 - b3) / max(b1 - b2, 1e-9) * 100:.0f}% of the "
                     f"B1-to-B2 headroom; {viol} constraint violations across all rungs",
     }

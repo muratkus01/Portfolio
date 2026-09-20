@@ -44,3 +44,26 @@ def test_calendar_follows_local_clock():
     env = _env(np.full(3 * 96, 0.3))
     o = _obs_at(env, "12:00")
     assert o[4] == pytest.approx(np.sin(2 * np.pi * 48 / 96), abs=1e-6)   # quarter-hour 48
+
+
+def test_differential_reward_and_action_rescaling():
+    env = _env(np.full(3 * 96, 0.35))
+    obs, _ = env.reset()
+    assert env.reward_mode == "differential"
+    assert env.action_mode == "rescale"
+
+    # Step with 0 action (battery idle): differential reward must be 0
+    obs, r_idle, _, _, info_idle = env.step(np.array([0.0], dtype=np.float32))
+    assert info_idle["p_bat"] == pytest.approx(0.0)
+    assert not info_idle["clipped"]
+    assert r_idle == pytest.approx(0.0)
+
+    # Step with max positive action (discharge): power is strictly <= hi, clipped is False
+    obs, r_dis, _, _, info_dis = env.step(np.array([1.0], dtype=np.float32))
+    assert not info_dis["clipped"]
+    assert info_dis["p_bat"] > 0.0
+
+    # Step with max negative action (charge): power is strictly >= lo, clipped is False
+    obs, r_ch, _, _, info_ch = env.step(np.array([-1.0], dtype=np.float32))
+    assert not info_ch["clipped"]
+    assert info_ch["p_bat"] < 0.0

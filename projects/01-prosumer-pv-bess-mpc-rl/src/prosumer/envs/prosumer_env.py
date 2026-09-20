@@ -73,10 +73,18 @@ class ProsumerEnv(gym.Env if _HAS_GYM else object):              # type: ignore[
                  reward_scale: float = 10.0,
                  random_start: bool = True,
                  norm_stats: dict[str, float] | None = None,
-                 episode_starts: np.ndarray | None = None):
+                 episode_starts: np.ndarray | None = None,
+                 reward_mode: str = "net_cost",
+                 action_mode: str = "clip"):
         if not _HAS_GYM:                                          # pragma: no cover
             raise ImportError("gymnasium is required: pip install '.[rl]'")
         super().__init__()
+        if reward_mode not in {"net_cost", "differential"}:
+            raise ValueError(f"unknown reward_mode {reward_mode!r}")
+        if action_mode not in {"clip", "rescale"}:
+            raise ValueError(f"unknown action_mode {action_mode!r}")
+        self.reward_mode = reward_mode
+        self.action_mode = action_mode
         self.load, self.pv = np.asarray(load, float), np.asarray(pv, float)
         self.pi, self.pe = np.asarray(price_import, float), np.asarray(price_export, float)
         self.load_fc, self.pv_fc = np.asarray(load_fc, float), np.asarray(pv_fc, float)
@@ -162,13 +170,23 @@ class ProsumerEnv(gym.Env if _HAS_GYM else object):              # type: ignore[
 
     def step(self, action):
         t = self.t
-        proposed = float(np.clip(action[0], -1.0, 1.0)) * self.cfg.p_inv
-
         d = None if self.dim is None else (
             None if not np.isfinite(self.dim[t]) else float(self.dim[t]))
         lo, hi = feasible_interval(self.soc, float(self.load[t]), float(self.pv[t]),
                                    self.dt, self.cfg, d)
-        p = float(np.clip(proposed, lo, hi))
+
+        a_raw = float(np.clip(action[0], -1.0, 1.0))
+        if self.action_mode == "rescale":
+            # Map [-1, 0) to [lo, 0] and [0, 1] to [0, hi] without clipping
+            if a_raw >= 0:
+                p = a_raw * hi
+            else:
+                p = (-a_raw) * lo  # lo <= 0, so (-a_raw)*lo is <= 0 (charging)
+            clipped = False
+        else:
+            proposed = a_raw * self.cfg.p_inv
+            p = float(np.clip(proposed, lo, hi))
+            clipped = abs(p - proposed) > 1e-9
 
         p_ch, p_dis = split_battery_power(p)
         net = self.load[t] - self.pv[t] - p
@@ -181,16 +199,24 @@ class ProsumerEnv(gym.Env if _HAS_GYM else object):              # type: ignore[
         self.t += 1
 
         truncated = (self.t - self.t0) >= self.episode_steps or self.t >= self.n
-        reward = -cost * self.reward_scale
-        if truncated:
-            # Value the energy left in the battery, so the agent does not learn to dump it
-            # at the episode boundary - the RL counterpart of the MPC terminal value (D4).
-            reward += self.terminal_price * self.soc * self.reward_scale
+        if self.reward_mode == "differential":
+            # Baseline cost without battery (p = 0)
+            net0 = self.load[t] - self.pv[t]
+            p_imp0, p_exp0 = max(net0, 0.0), max(-net0, 0.0)
+            cost0 = step_cost(p_imp0, p_exp0, 0.0, float(self.pi[t]), float(self.pe[t]),
+                              self.dt, self.cfg.c_deg)
+            reward = (cost0 - cost) * self.reward_scale
+            if truncated:
+                reward += self.terminal_price * (self.soc - self.cfg.soc_init) * self.reward_scale
+        else:
+            reward = -cost * self.reward_scale
+            if truncated:
+                reward += self.terminal_price * self.soc * self.reward_scale
 
         obs = self._obs() if not truncated else np.zeros(self.observation_space.shape,
                                                          dtype=np.float32)
         info = {"p_bat": p, "p_imp": p_imp, "p_exp": p_exp, "soc": self.soc, "cost": cost,
-                "clipped": abs(p - proposed) > 1e-9}
+                "clipped": clipped}
         return obs, float(reward), False, bool(truncated), info
 
 

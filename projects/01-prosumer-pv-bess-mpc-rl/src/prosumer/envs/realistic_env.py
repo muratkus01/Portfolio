@@ -34,7 +34,10 @@ class RealisticProsumerEnv(ProsumerEnv):
 
     def __init__(self, index: pd.DatetimeIndex, load, pv, price_import, price_export,
                  load_fc, pv_fc, run: RunConfig, terminal_values: dict[int, float],
-                 price_publication: str = "13:00", **kwargs):
+                 price_publication: str = "13:00",
+                 reward_mode: str = "differential",
+                 action_mode: str = "rescale",
+                 **kwargs):
         self.index = index
         self.known_end = price_known_end(index, price_publication)
         local = index.tz_convert(LOCAL_TZ)
@@ -47,7 +50,8 @@ class RealisticProsumerEnv(ProsumerEnv):
         ]).astype(np.float32)
         self.month = local.month.to_numpy()
         self.terminal_values = terminal_values
-        super().__init__(load, pv, price_import, price_export, load_fc, pv_fc, run, **kwargs)
+        super().__init__(load, pv, price_import, price_export, load_fc, pv_fc, run,
+                         reward_mode=reward_mode, action_mode=action_mode, **kwargs)
 
     def _obs_dim(self) -> int:
         return 4 + 6 + 2 + len(PRICE_WINDOWS) + 4 + 2 * len(FORECAST_WINDOWS) + 1

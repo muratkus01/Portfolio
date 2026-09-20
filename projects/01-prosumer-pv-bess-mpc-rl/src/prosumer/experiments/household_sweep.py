@@ -36,11 +36,16 @@ def run_household_sweep(households, dataset_path: str, htw_path: str, out_csv: s
     out = Path(out_csv)
     done = set(pd.read_csv(out)["household"]) if out.exists() else set()
     todo = [h for h in households if h not in done]
-    print(f"{len(done)} done, {len(todo)} to run with {workers} workers", flush=True)
-    with ProcessPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(_one, h, dataset_path, htw_path): h for h in todo}
-        for fut in as_completed(futures):
-            row = fut.result()
+    if workers <= 1:
+        for h in todo:
+            row = _one(h, dataset_path, htw_path)
             pd.DataFrame([row]).to_csv(out, mode="a", header=not out.exists(), index=False)
             print(f"  {row['household']}: B3 captures {row['capture_b3_pct']:.1f} %", flush=True)
+    else:
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_one, h, dataset_path, htw_path): h for h in todo}
+            for fut in as_completed(futures):
+                row = fut.result()
+                pd.DataFrame([row]).to_csv(out, mode="a", header=not out.exists(), index=False)
+                print(f"  {row['household']}: B3 captures {row['capture_b3_pct']:.1f} %", flush=True)
     return pd.read_csv(out)
