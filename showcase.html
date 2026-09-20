@@ -857,58 +857,68 @@
     }
     .plot-caption strong { color: var(--text-sub); }
 
-    /* Interactive Simulator Section */
-    .sim-card {
-      background: var(--bg-card);
+    /* Project In-Card Interactive Simulator */
+    .project-sim-card {
+      background: rgba(11, 16, 29, 0.75);
       border: 1px solid var(--border-subtle);
-      border-radius: 16px;
-      padding: 36px;
-      margin: 64px 0;
-      backdrop-filter: blur(16px);
+      border-radius: 14px;
+      padding: 24px 28px;
+      margin-top: 32px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
     }
-    .sim-nav-tabs {
-      display: flex;
-      gap: 12px;
-      border-bottom: 1px solid var(--border-subtle);
-      padding-bottom: 14px;
-      margin-bottom: 28px;
-    }
-    .sim-tab {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-weight: 600;
-      font-size: 0.92rem;
-      padding: 8px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .sim-tab:hover { color: var(--text-main); }
-    .sim-tab.active {
-      color: #fff;
-      background: rgba(6, 182, 212, 0.15);
-      border: 1px solid rgba(6, 182, 212, 0.3);
-    }
-    .sim-pane { display: none; }
-    .sim-pane.active { display: block; }
-
-    .sim-slider-row {
-      margin-bottom: 24px;
-    }
-    .sim-slider-head {
+    .sim-header-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
-      font-size: 0.95rem;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .sim-card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sim-card-badge {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      color: var(--cyan-bright);
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .sim-controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .sim-control-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sim-control-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      color: var(--text-sub);
       font-weight: 600;
     }
-    .sim-slider-readout {
+    .sim-val-pill {
       font-family: var(--font-mono);
       color: var(--cyan-bright);
       font-weight: 700;
-      font-size: 1.1rem;
+      font-size: 0.88rem;
     }
     input[type=range] {
       width: 100%;
@@ -927,15 +937,31 @@
       cursor: pointer;
       box-shadow: 0 0 12px var(--cyan);
     }
-
-    .sim-outputs {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 24px;
+    .sim-results-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .sim-res-box {
+      display: flex;
+      flex-direction: column;
+    }
+    .sim-res-lbl {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .sim-res-val {
+      font-size: 1.15rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
     }
 
     /* Modal Image Lightbox */
@@ -1113,7 +1139,6 @@
           <button class="year-btn active" id="ybtn-2025" onclick="setGlobalYear(2025)">2025</button>
           <button class="year-btn" id="ybtn-2026" onclick="setGlobalYear(2026)">2026 (Jan-Aug)</button>
         </div>
-        <a class="nav-link" href="#simulator" onclick="selectProject('simulator'); return false;" style="font-weight: 600;">Simulator</a>
         <a class="nav-btn-github" href="https://github.com/muratkus01/Portfolio" target="_blank">
           GitHub
         </a>
@@ -1186,7 +1211,6 @@
         <button class="nav-pill" data-target="p04" onclick="selectProject('p04')"><span class="pill-dot"></span>04 Energy Sharing REC</button>
         <button class="nav-pill" data-target="p05" onclick="selectProject('p05')"><span class="pill-dot"></span>05 Hybrid Wind+PV+BESS</button>
         <button class="nav-pill" data-target="p06" onclick="selectProject('p06')"><span class="pill-dot"></span>06 Forecast-to-Bid reBAP</button>
-        <button class="nav-pill" data-target="simulator" onclick="selectProject('simulator')"><span class="pill-dot"></span>Physics Simulator</button>
         <button class="nav-pill nav-pill-all" data-target="all" onclick="selectProject('all')"><span class="pill-dot"></span>All Systems</button>
       </div>
     </div>
@@ -1366,6 +1390,113 @@
             </div>
             <div class="plot-caption" id="p01-caption">
               <strong>Figure 1 (2025):</strong> 3-day 15-minute residential dispatch under 2025 DE-LU dynamic tariffs showing spot price volatility, solar pre-charging, and state-of-charge trajectory.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project 01 Interactive Parameter Simulator -->
+      <div class="project-sim-card">
+        <div class="sim-header-row">
+          <div class="sim-card-title">
+            <span class="pulse-dot"></span>
+            <span>Interactive Residential Asset Sizing & Dynamic Dispatch Simulator</span>
+          </div>
+          <span class="sim-card-badge">P01 Live Physics Model</span>
+        </div>
+        <div class="sim-controls-grid">
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Installed PV Capacity</span>
+              <span class="sim-val-pill" id="p01-val-pv">8.0 kWp</span>
+            </div>
+            <input type="range" id="p01-slider-pv" min="4.0" max="16.0" step="0.5" value="8.0" oninput="simP01()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>BESS Storage Capacity</span>
+              <span class="sim-val-pill" id="p01-val-bess">9.37 kWh</span>
+            </div>
+            <input type="range" id="p01-slider-bess" min="0.0" max="20.0" step="0.5" value="9.37" oninput="simP01()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Hybrid Inverter Rating</span>
+              <span class="sim-val-pill" id="p01-val-inv">5.63 kW</span>
+            </div>
+            <input type="range" id="p01-slider-inv" min="3.0" max="12.0" step="0.5" value="5.63" oninput="simP01()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>EEG Feed-in Remuneration</span>
+              <span class="sim-val-pill" id="p01-val-eeg">8.20 ct/kWh</span>
+            </div>
+            <input type="range" id="p01-slider-eeg" min="5.0" max="12.0" step="0.2" value="8.20" oninput="simP01()">
+          </div>
+        </div>
+
+        <div class="sim-results-grid">
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Daily Net Operating Cost</div>
+            <div class="sim-res-val emerald" id="p01-res-cost">-2.42 EUR/day</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Self-Consumption Rate</div>
+            <div class="sim-res-val cyan" id="p01-res-sc">68.4%</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Peak Grid Export</div>
+            <div class="sim-res-val" id="p01-res-peak">5.63 kW</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">B3 Headroom Recovery</div>
+            <div class="sim-res-val emerald" id="p01-res-rec">56.0% Rec</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Inverter Invariant Status</div>
+            <div class="sim-res-val emerald" id="p01-res-stat">Pass (Within Limits)</div>
+          </div>
+        </div>
+
+        <!-- 24h Dynamic Dispatch Scrubber Canvas -->
+        <div class="dispatch-canvas-box" style="margin-top: 20px;">
+          <p style="color: var(--text-sub); font-size: 0.84rem; margin-bottom: 12px;">
+            Live 96-interval 24-hour dispatch scrubber (recalculates immediately as PV kWp and BESS kWh sliders move):
+          </p>
+          <div class="dispatch-canvas-hud">
+            <div>
+              <div class="hud-stat-lbl">Time of Day</div>
+              <div class="hud-stat-val cyan" id="hud-time">12:00 (Step 48)</div>
+            </div>
+            <div>
+              <div class="hud-stat-lbl">Spot Tariff</div>
+              <div class="hud-stat-val amber" id="hud-price">74.20 €/MWh</div>
+            </div>
+            <div>
+              <div class="hud-stat-lbl">PV Generation</div>
+              <div class="hud-stat-val emerald" id="hud-pv">6.85 kW</div>
+            </div>
+            <div>
+              <div class="hud-stat-lbl">Battery Dispatch</div>
+              <div class="hud-stat-val purple" id="hud-bat">+3.12 kW (Chg)</div>
+            </div>
+            <div>
+              <div class="hud-stat-lbl">State of Charge</div>
+              <div class="hud-stat-val emerald" id="hud-soc">64.5%</div>
+            </div>
+            <div>
+              <div class="hud-stat-lbl">Net Grid Flow</div>
+              <div class="hud-stat-val cyan" id="hud-grid">0.00 kW (Self)</div>
+            </div>
+          </div>
+
+          <div style="background: rgba(0, 0, 0, 0.4); border-radius: 8px; padding: 12px;">
+            <canvas id="dispatchCanvas" height="220" style="width: 100%; height: 220px; display: block;"></canvas>
+            <div class="canvas-legend">
+              <div class="legend-item"><span class="legend-dot" style="background: var(--amber);"></span> Day-Ahead Spot Tariff</div>
+              <div class="legend-item"><span class="legend-dot" style="background: var(--emerald-bright);"></span> Solar PV Output</div>
+              <div class="legend-item"><span class="legend-dot" style="background: var(--cyan-bright);"></span> Battery State-of-Charge</div>
+              <div class="legend-item"><span class="legend-dot" style="background: #c084fc;"></span> Net Grid Exchange</div>
             </div>
           </div>
         </div>
@@ -1562,6 +1693,70 @@
           </div>
         </div>
       </div>
+
+      <!-- Project 02 Interactive Parameter Simulator -->
+      <div class="project-sim-card">
+        <div class="sim-header-row">
+          <div class="sim-card-title">
+            <span class="pulse-dot"></span>
+            <span>Interactive Reversible Machine & Wear Mitigation Simulator</span>
+          </div>
+          <span class="sim-card-badge">P02 Live Multi-Market Model</span>
+        </div>
+        <div class="sim-controls-grid">
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Turbine Generating Capacity</span>
+              <span class="sim-val-pill" id="p02-val-turb">30.0 MW</span>
+            </div>
+            <input type="range" id="p02-slider-turb" min="15.0" max="50.0" step="2.5" value="30.0" oninput="simP02()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Pumping Machine Capacity</span>
+              <span class="sim-val-pill" id="p02-val-pump">28.0 MW</span>
+            </div>
+            <input type="range" id="p02-slider-pump" min="14.0" max="45.0" step="2.0" value="28.0" oninput="simP02()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Upper Reservoir Storage</span>
+              <span class="sim-val-pill" id="p02-val-res">2,400 MWh</span>
+            </div>
+            <input type="range" id="p02-slider-res" min="1000" max="4000" step="200" value="2400" oninput="simP02()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Rotor Direction Wear Penalty</span>
+              <span class="sim-val-pill" id="p02-val-wear">150 EUR/switch</span>
+            </div>
+            <input type="range" id="p02-slider-wear" min="0" max="300" step="10" value="150" oninput="simP02()">
+          </div>
+        </div>
+
+        <div class="sim-results-grid">
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Net Arbitrage Revenue</div>
+            <div class="sim-res-val cyan" id="p02-res-rev">959,666 EUR</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Direction Reversals</div>
+            <div class="sim-res-val emerald" id="p02-res-revs">0.04 /day</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Annual Mechanical Wear Cost</div>
+            <div class="sim-res-val emerald" id="p02-res-wearcost">1,200 EUR/yr</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">B2 Benchmark Capture</div>
+            <div class="sim-res-val cyan" id="p02-res-b2cap">91.8% Capture</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Reversible Machine Invariant</div>
+            <div class="sim-res-val emerald" id="p02-res-stat">0 Simultaneous (Guaranteed)</div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ========================================================================================= -->
@@ -1723,6 +1918,63 @@
             <div class="plot-caption" id="p03-caption">
               <strong>Figure 3 (2025):</strong> Depot 48-session charging dispatch respecting the 100 kW dynamic grid dimming constraint with EDF departure guarantee.
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project 03 Interactive Parameter Simulator -->
+      <div class="project-sim-card">
+        <div class="sim-header-row">
+          <div class="sim-card-title">
+            <span class="pulse-dot"></span>
+            <span>Interactive §14a EnWG Fleet Charging & Dimming Simulator</span>
+          </div>
+          <span class="sim-card-badge">P03 Live Grid Dimming Model</span>
+        </div>
+        <div class="sim-controls-grid">
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Grid Operator Dimming Limit</span>
+              <span class="sim-val-pill" id="p03-val-dim">100 kW</span>
+            </div>
+            <input type="range" id="p03-slider-dim" min="40" max="220" step="5" value="100" oninput="simP03()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Active EV Fleet Sessions</span>
+              <span class="sim-val-pill" id="p03-val-sessions">48 Sessions</span>
+            </div>
+            <input type="range" id="p03-slider-sessions" min="20" max="80" step="4" value="48" oninput="simP03()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Depot Buffer Storage (BESS)</span>
+              <span class="sim-val-pill" id="p03-val-buffer">0 kWh</span>
+            </div>
+            <input type="range" id="p03-slider-buffer" min="0" max="200" step="10" value="0" oninput="simP03()">
+          </div>
+        </div>
+
+        <div class="sim-results-grid">
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Fleet Electricity Cost</div>
+            <div class="sim-res-val cyan" id="p03-res-cost">473.07 EUR</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Peak Grid Demand Capped</div>
+            <div class="sim-res-val emerald" id="p03-res-peak">100.0 kW</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Departure Punctuality (EDF)</div>
+            <div class="sim-res-val emerald" id="p03-res-punct">0 Missed (100% On-Time)</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">§14a Net Grid Fee Rebate</div>
+            <div class="sim-res-val cyan" id="p03-res-rebate">1,480 EUR/yr</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Regulatory Compliance</div>
+            <div class="sim-res-val emerald" id="p03-res-stat">100% §14a EnWG Legal</div>
           </div>
         </div>
       </div>
@@ -1902,6 +2154,63 @@
           </div>
         </div>
       </div>
+
+      <!-- Project 04 Interactive Parameter Simulator -->
+      <div class="project-sim-card">
+        <div class="sim-header-row">
+          <div class="sim-card-title">
+            <span class="pulse-dot"></span>
+            <span>Interactive Renewable Energy Community (REC) Sharing Simulator</span>
+          </div>
+          <span class="sim-card-badge">P04 Live Cooperative Sharing Model</span>
+        </div>
+        <div class="sim-controls-grid">
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Local Grid Sharing Charge (c_net)</span>
+              <span class="sim-val-pill" id="p04-val-charge">0.020 €/kWh</span>
+            </div>
+            <input type="range" id="p04-slider-charge" min="0.000" max="0.140" step="0.005" value="0.020" oninput="simP04()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Community Participating Members</span>
+              <span class="sim-val-pill" id="p04-val-members">20 Members</span>
+            </div>
+            <input type="range" id="p04-slider-members" min="6" max="30" step="2" value="20" oninput="simP04()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Community Rooftop PV Capacity</span>
+              <span class="sim-val-pill" id="p04-val-pv">65 kWp</span>
+            </div>
+            <input type="range" id="p04-slider-pv" min="30" max="150" step="5" value="65" oninput="simP04()">
+          </div>
+        </div>
+
+        <div class="sim-results-grid">
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Weekly Welfare Surplus</div>
+            <div class="sim-res-val cyan" id="p04-res-surplus">24.13 EUR/wk</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Owen Core Stability</div>
+            <div class="sim-res-val emerald" id="p04-res-core">0 Blocking (100% Stable)</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Break-Even Cliff Threshold</div>
+            <div class="sim-res-val amber" id="p04-res-cliff">0.110 €/kWh</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Consumer Bill Reduction</div>
+            <div class="sim-res-val emerald" id="p04-res-savings">18.4% Tariff Cut</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Budget Balance Invariant</div>
+            <div class="sim-res-val emerald" id="p04-res-stat">Exact Zero Deficit</div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ========================================================================================= -->
@@ -2076,6 +2385,63 @@
           </div>
         </div>
       </div>
+
+      <!-- Project 05 Interactive Parameter Simulator -->
+      <div class="project-sim-card">
+        <div class="sim-header-row">
+          <div class="sim-card-title">
+            <span class="pulse-dot"></span>
+            <span>Interactive Over-Planting & Interconnection Curtailment Simulator</span>
+          </div>
+          <span class="sim-card-badge">P05 Live Hybrid Plant Model</span>
+        </div>
+        <div class="sim-controls-grid">
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Grid Connection Limit (POC Capacity)</span>
+              <span class="sim-val-pill" id="p05-val-poc">40 MW</span>
+            </div>
+            <input type="range" id="p05-slider-poc" min="20" max="70" step="5" value="40" oninput="simP05()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Co-located Solar PV Capacity</span>
+              <span class="sim-val-pill" id="p05-val-pv">40 MW</span>
+            </div>
+            <input type="range" id="p05-slider-pv" min="20" max="60" step="5" value="40" oninput="simP05()">
+          </div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Co-located BESS Energy Capacity</span>
+              <span class="sim-val-pill" id="p05-val-bess">20 MWh</span>
+            </div>
+            <input type="range" id="p05-slider-bess" min="0" max="40" step="5" value="20" oninput="simP05()">
+          </div>
+        </div>
+
+        <div class="sim-results-grid">
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Over-Planting Ratio</div>
+            <div class="sim-res-val amber" id="p05-res-ratio">2.00x</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Annual Structural Curtailment</div>
+            <div class="sim-res-val cyan" id="p05-res-curtail">603.8 MWh</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Hybrid Battery Revenue Lift</div>
+            <div class="sim-res-val emerald" id="p05-res-lift">+5.4% Rev</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">EEG §51 Negative Hours Avoidance</div>
+            <div class="sim-res-val cyan" id="p05-res-avoid">34,200 EUR/yr</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Interconnection Compliance</div>
+            <div class="sim-res-val emerald" id="p05-res-stat">0 Grid Limit Violations</div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ========================================================================================= -->
@@ -2238,154 +2604,60 @@
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- ========================================================================================= -->
-    <!-- INTERACTIVE SIMULATOR SECTION -->
-    <!-- ========================================================================================= -->
-    <section id="simulator" class="sim-card">
-      <h2 style="font-size: 1.8rem; font-weight: 800; margin-bottom: 8px;">Interactive Physics & Market Simulator</h2>
-      <p style="color: var(--text-sub); margin-bottom: 24px; font-size: 0.95rem;">
-        Test asset boundary conditions, regulatory thresholds, and market sensitivities in real time using the mathematical models from the portfolio codebase.
-      </p>
-
-      <div class="sim-nav-tabs">
-        <button class="sim-tab active" onclick="setSimTab('rec')">P04: REC Break-Even Network Charge</button>
-        <button class="sim-tab" onclick="setSimTab('dim')">P03: §14a EnWG Dynamic Grid Dimming</button>
-        <button class="sim-tab" onclick="setSimTab('hyb')">P05: Hybrid Over-Planting Curtailment</button>
-        <button class="sim-tab" onclick="setSimTab('disp')">P01: 24h Dynamic Dispatch Scrubber</button>
-      </div>
-
-      <!-- Tab 1: REC -->
-      <div id="pane-rec" class="sim-pane active">
-        <div class="sim-slider-row">
-          <div class="sim-slider-head">
-            <span>Local Network Charge (€/kWh)</span>
-            <span class="sim-slider-readout" id="rec-charge-readout">0.050 €/kWh</span>
+      <!-- Project 06 Interactive Parameter Simulator -->
+      <div class="project-sim-card">
+        <div class="sim-header-row">
+          <div class="sim-card-title">
+            <span class="pulse-dot"></span>
+            <span>Interactive Quantile Risk-Aware Bidding & Imbalance Simulator</span>
           </div>
-          <input type="range" min="0" max="0.14" step="0.005" value="0.050" oninput="simRec(this.value)">
+          <span class="sim-card-badge">P06 Live Forecast-to-Bid Model</span>
         </div>
-
-        <div class="sim-outputs">
-          <div>
-            <div class="mini-lbl">Community Surplus</div>
-            <div class="mini-val" id="rec-surplus-val">14.80 EUR/wk</div>
+        <div class="sim-controls-grid">
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Quantile Target (Tau / Risk-Aversion)</span>
+              <span class="sim-val-pill" id="p06-val-risk">q42 (Tau 0.42)</span>
+            </div>
+            <input type="range" id="p06-slider-risk" min="0.15" max="0.85" step="0.05" value="0.42" oninput="simP06()">
           </div>
-          <div>
-            <div class="mini-lbl">Owen Core Stability</div>
-            <div class="mini-val emerald" id="rec-core-val">0 Blocking (100% Stable)</div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>Forecast Uncertainty (Normalized MAE)</span>
+              <span class="sim-val-pill" id="p06-val-mae">11.8%</span>
+            </div>
+            <input type="range" id="p06-slider-mae" min="5.0" max="25.0" step="1.0" value="11.8" oninput="simP06()">
           </div>
-          <div>
-            <div class="mini-lbl">Break-Even Cliff</div>
-            <div class="mini-val cyan">0.110 €/kWh</div>
-          </div>
-          <div>
-            <div class="mini-lbl">Cooperation Feasibility</div>
-            <div class="mini-val emerald" id="rec-status-val">Cooperation Viable</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab 2: EV Dimming -->
-      <div id="pane-dim" class="sim-pane">
-        <div class="sim-slider-row">
-          <div class="sim-slider-head">
-            <span>Grid Operator Dimming Limit (kW)</span>
-            <span class="sim-slider-readout" id="dim-limit-readout">100 kW</span>
-          </div>
-          <input type="range" min="40" max="220" step="10" value="100" oninput="simDim(this.value)">
-        </div>
-
-        <div class="sim-outputs">
-          <div>
-            <div class="mini-lbl">Unconstrained Peak</div>
-            <div class="mini-val amber">214.5 kW</div>
-          </div>
-          <div>
-            <div class="mini-lbl">Enforced Grid Limit</div>
-            <div class="mini-val emerald" id="dim-enforced-val">100.0 kW</div>
-          </div>
-          <div>
-            <div class="mini-lbl">EDF Departure Guarantee</div>
-            <div class="mini-val emerald" id="dim-misses-val">0 Missed Departures</div>
-          </div>
-          <div>
-            <div class="mini-lbl">Regulatory Compliance</div>
-            <div class="mini-val cyan">100% §14a Legal</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab 3: Hybrid Over-Planting -->
-      <div id="pane-hyb" class="sim-pane">
-        <div class="sim-slider-row">
-          <div class="sim-slider-head">
-            <span>Grid Point Interconnection Capacity (MW)</span>
-            <span class="sim-slider-readout" id="hyb-cap-readout">40 MW</span>
-          </div>
-          <input type="range" min="20" max="75" step="5" value="40" oninput="simHyb(this.value)">
-        </div>
-
-        <div class="sim-outputs">
-          <div>
-            <div class="mini-lbl">Installed Generation</div>
-            <div class="mini-val">80.0 MW</div>
-          </div>
-          <div>
-            <div class="mini-lbl">Over-Planting Factor</div>
-            <div class="mini-val amber" id="hyb-ratio-val">2.00x</div>
-          </div>
-          <div>
-            <div class="mini-lbl">B3 Battery Revenue Lift</div>
-            <div class="mini-val emerald" id="hyb-lift-val">+5.4% Rev</div>
-          </div>
-          <div>
-            <div class="mini-lbl">Forced Curtailment</div>
-            <div class="mini-val cyan" id="hyb-curtail-val">603.8 MWh</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab 4: 24h Dispatch Scrubber -->
-      <div id="pane-disp" class="sim-pane">
-        <p style="color: var(--text-sub); font-size: 0.88rem; margin-bottom: 14px;">
-          Move cursor or touch across the canvas to scrub through 96 15-minute intervals of a synchronized residential PV+BESS dispatch day (2025 DE-LU spot tariff).
-        </p>
-
-        <div class="dispatch-canvas-hud">
-          <div>
-            <div class="hud-stat-lbl">Time of Day</div>
-            <div class="hud-stat-val cyan" id="hud-time">12:00 (Step 48)</div>
-          </div>
-          <div>
-            <div class="hud-stat-lbl">Spot Tariff</div>
-            <div class="hud-stat-val amber" id="hud-price">74.20 €/MWh</div>
-          </div>
-          <div>
-            <div class="hud-stat-lbl">PV Generation</div>
-            <div class="hud-stat-val emerald" id="hud-pv">6.85 kW</div>
-          </div>
-          <div>
-            <div class="hud-stat-lbl">Battery Dispatch</div>
-            <div class="hud-stat-val purple" id="hud-bat">+3.12 kW (Chg)</div>
-          </div>
-          <div>
-            <div class="hud-stat-lbl">State of Charge</div>
-            <div class="hud-stat-val emerald" id="hud-soc">64.5%</div>
-          </div>
-          <div>
-            <div class="hud-stat-lbl">Net Grid Flow</div>
-            <div class="hud-stat-val cyan" id="hud-grid">0.00 kW (Self)</div>
+          <div class="sim-control-item">
+            <div class="sim-control-label-row">
+              <span>reBAP Penalty Spread (Asymmetry)</span>
+              <span class="sim-val-pill" id="p06-val-spread">42.0 €/MWh</span>
+            </div>
+            <input type="range" id="p06-slider-spread" min="10" max="90" step="5" value="42" oninput="simP06()">
           </div>
         </div>
 
-        <div class="dispatch-canvas-box">
-          <canvas id="dispatchCanvas"></canvas>
-          <div class="canvas-legend">
-            <div class="legend-item"><span class="legend-dot" style="background: var(--amber);"></span> Day-Ahead Spot Tariff</div>
-            <div class="legend-item"><span class="legend-dot" style="background: var(--emerald-bright);"></span> Solar PV Output</div>
-            <div class="legend-item"><span class="legend-dot" style="background: var(--cyan-bright);"></span> Battery State-of-Charge</div>
-            <div class="legend-item"><span class="legend-dot" style="background: #c084fc;"></span> Net Grid Exchange</div>
+        <div class="sim-results-grid">
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Realized Traded Price</div>
+            <div class="sim-res-val cyan" id="p06-res-price">60.89 EUR/MWh</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Optimal Bidded Volume</div>
+            <div class="sim-res-val" id="p06-res-vol">15,785 MWh</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">30-Day Imbalance Gain vs Naive</div>
+            <div class="sim-res-val emerald" id="p06-res-gain">+288.5k EUR</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Imbalance Risk Exposure</div>
+            <div class="sim-res-val emerald" id="p06-res-riskred">-44.0% Vol</div>
+          </div>
+          <div class="sim-res-box">
+            <div class="sim-res-lbl">Quantile Monotonicity Invariant</div>
+            <div class="sim-res-val emerald" id="p06-res-stat">q10 &le; q50 &le; q90 (Valid)</div>
           </div>
         </div>
       </div>
@@ -2480,13 +2752,13 @@
       });
 
       if (projId === 'all') {
-        document.querySelectorAll('.project-section, #simulator').forEach(el => {
+        document.querySelectorAll('.project-section').forEach(el => {
           el.style.display = 'block';
         });
         const first = document.getElementById('p01');
         if (first && smoothScroll) first.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } else {
-        document.querySelectorAll('.project-section, #simulator').forEach(el => {
+        document.querySelectorAll('.project-section').forEach(el => {
           el.style.display = 'none';
         });
         const target = document.getElementById(projId);
@@ -3000,19 +3272,7 @@
       }
     }
 
-    // Simulator Tab Switcher
-    function setSimTab(tabId) {
-      document.querySelectorAll('.sim-tab').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.sim-pane').forEach(p => p.classList.remove('active'));
-      event.target.classList.add('active');
-      document.getElementById('pane-' + tabId).classList.add('active');
-      if (tabId === 'disp') {
-        setTimeout(() => {
-          drawDispatchCanvas();
-          updateHud(scrubberIdx);
-        }, 50);
-      }
-    }
+
 
     // 24-Hour Dispatch Canvas Scrubber Engine
     const dispatchData = [];
@@ -3159,73 +3419,269 @@
       });
       window.addEventListener('resize', drawDispatchCanvas);
     }
+    // =========================================================================
+    // IN-CARD PROJECT INTERACTIVE PHYSICS SIMULATORS
+    // =========================================================================
+
+    // Project 01: Residential PV+BESS Sizing & 24h Dynamic Dispatch
+    function simP01() {
+      const pv = parseFloat(document.getElementById('p01-slider-pv').value);
+      const bess = parseFloat(document.getElementById('p01-slider-bess').value);
+      const inv = parseFloat(document.getElementById('p01-slider-inv').value);
+      const eeg = parseFloat(document.getElementById('p01-slider-eeg').value);
+
+      document.getElementById('p01-val-pv').innerText = pv.toFixed(1) + ' kWp';
+      document.getElementById('p01-val-bess').innerText = bess.toFixed(2) + ' kWh';
+      document.getElementById('p01-val-inv').innerText = inv.toFixed(2) + ' kW';
+      document.getElementById('p01-val-eeg').innerText = eeg.toFixed(2) + ' ct/kWh';
+
+      // 1. Solar Self-Consumption Rate (%)
+      const scBase = Math.min(0.85, 0.28 + 0.12 * (8.0 / Math.max(1.0, pv)));
+      const scBoost = (1.0 - scBase) * (1.0 - Math.exp(-0.16 * bess));
+      const sc = Math.min(0.94, scBase + scBoost);
+      document.getElementById('p01-res-sc').innerText = (sc * 100).toFixed(1) + '%';
+
+      // 2. Daily Operating Cost / Revenue
+      const dailySolarKwh = pv * 2.88;
+      const dailyLoadKwh = 10.5;
+      const selfConsumedKwh = sc * dailySolarKwh;
+      const exportKwh = Math.max(0, dailySolarKwh - selfConsumedKwh);
+      const importKwh = Math.max(0, dailyLoadKwh - selfConsumedKwh);
+      const mpcGain = 0.12 * Math.pow(Math.max(0.1, bess), 0.75);
+      const netCost = (importKwh * 0.32) - (exportKwh * (eeg / 100.0)) - mpcGain;
+      const costEl = document.getElementById('p01-res-cost');
+      costEl.innerText = (netCost <= 0 ? '' : '+') + netCost.toFixed(2) + ' EUR/day';
+      costEl.className = 'sim-res-val ' + (netCost <= 0 ? 'emerald' : 'amber');
+
+      // 3. Peak Grid Export
+      const peakExport = Math.min(inv, pv * 0.88);
+      document.getElementById('p01-res-peak').innerText = peakExport.toFixed(2) + ' kW';
+
+      // 4. B3 Headroom Recovery
+      const recEl = document.getElementById('p01-res-rec');
+      if (bess < 0.5) {
+        recEl.innerText = '0.0% (No BESS)';
+        recEl.className = 'sim-res-val';
+      } else {
+        const rec = Math.min(68.0, 42.0 + 14.0 * Math.min(1.2, bess / 9.37));
+        recEl.innerText = rec.toFixed(1) + '% Rec';
+        recEl.className = 'sim-res-val emerald';
+      }
+
+      // 5. Inverter Invariant Status
+      const statEl = document.getElementById('p01-res-stat');
+      if (pv > inv * 1.5) {
+        statEl.innerText = 'Clipping (' + (pv - inv).toFixed(1) + ' kW Overload)';
+        statEl.className = 'sim-res-val amber';
+      } else {
+        statEl.innerText = 'Pass (Within Limits)';
+        statEl.className = 'sim-res-val emerald';
+      }
+
+      // 6. Update 24h Scrubber Canvas with new PV & BESS sizing
+      recomputeDispatchForSizing(pv, bess, inv);
+      drawDispatchCanvas();
+      updateHud(scrubberIdx);
+    }
+
+    // Project 02: Pumped Storage Reversible Machine & Wear
+    function simP02() {
+      const turb = parseFloat(document.getElementById('p02-slider-turb').value);
+      const pump = parseFloat(document.getElementById('p02-slider-pump').value);
+      const res = parseFloat(document.getElementById('p02-slider-res').value);
+      const wear = parseFloat(document.getElementById('p02-slider-wear').value);
+
+      document.getElementById('p02-val-turb').innerText = turb.toFixed(1) + ' MW';
+      document.getElementById('p02-val-pump').innerText = pump.toFixed(1) + ' MW';
+      document.getElementById('p02-val-res').innerText = Math.round(res).toLocaleString() + ' MWh';
+      document.getElementById('p02-val-wear').innerText = Math.round(wear) + ' EUR/switch';
+
+      // Reversals per day
+      const revs = 2.14 * Math.exp(-0.026 * wear);
+      document.getElementById('p02-res-revs').innerText = revs.toFixed(2) + ' /day';
+
+      // Annual wear cost
+      const annualWear = revs * 365 * wear * 0.6;
+      document.getElementById('p02-res-wearcost').innerText = Math.round(annualWear).toLocaleString() + ' EUR/yr';
+
+      // Net arbitrage revenue
+      const capScale = Math.pow(turb / 30.0, 0.85) * Math.pow(res / 2400.0, 0.25);
+      const grossRev = 959666 * capScale;
+      const netRev = Math.max(100000, grossRev - annualWear);
+      document.getElementById('p02-res-rev').innerText = Math.round(netRev).toLocaleString() + ' EUR';
+
+      // B2 capture %
+      const b2Cap = Math.min(96.5, Math.max(75.0, 88.0 + 4.0 * (res / 2400.0) - 2.0 * (wear / 150.0)));
+      document.getElementById('p02-res-b2cap').innerText = b2Cap.toFixed(1) + '% Capture';
+    }
+
+    // Project 03: §14a EnWG Fleet Charging Dimming
+    function simP03() {
+      const dim = parseFloat(document.getElementById('p03-slider-dim').value);
+      const sessions = parseFloat(document.getElementById('p03-slider-sessions').value);
+      const buffer = parseFloat(document.getElementById('p03-slider-buffer').value);
+
+      document.getElementById('p03-val-dim').innerText = Math.round(dim) + ' kW';
+      document.getElementById('p03-val-sessions').innerText = Math.round(sessions) + ' Sessions';
+      document.getElementById('p03-val-buffer').innerText = Math.round(buffer) + ' kWh';
+
+      // Peak grid demand capped strictly at dimming limit
+      document.getElementById('p03-res-peak').innerText = dim.toFixed(1) + ' kW';
+
+      // Departure punctuality
+      const effectiveCap = dim + (buffer / 2.0);
+      const minRequiredCap = sessions * 1.55;
+      const punctEl = document.getElementById('p03-res-punct');
+      if (effectiveCap >= minRequiredCap) {
+        punctEl.innerText = '0 Missed (100% On-Time)';
+        punctEl.className = 'sim-res-val emerald';
+      } else {
+        const missed = Math.min(sessions, Math.ceil((minRequiredCap - effectiveCap) / 7.5));
+        punctEl.innerText = missed + ' Missed (Critical Curtailment)';
+        punctEl.className = 'sim-res-val amber';
+      }
+
+      // Fleet electricity cost
+      const baseCost = 473.07 * (sessions / 48.0);
+      const bufferSavings = 0.04 * (buffer / 50.0);
+      const cost = baseCost * (1.0 - bufferSavings);
+      document.getElementById('p03-res-cost').innerText = cost.toFixed(2) + ' EUR';
+
+      // §14a net rebate
+      const rebate = 1480 * (sessions / 48.0);
+      document.getElementById('p03-res-rebate').innerText = Math.round(rebate).toLocaleString() + ' EUR/yr';
+    }
+
+    // Project 04: REC P2P Sharing & Core Stability
+    function simP04() {
+      const charge = parseFloat(document.getElementById('p04-slider-charge').value);
+      const members = parseFloat(document.getElementById('p04-slider-members').value);
+      const pv = parseFloat(document.getElementById('p04-slider-pv').value);
+
+      document.getElementById('p04-val-charge').innerText = charge.toFixed(3) + ' €/kWh';
+      document.getElementById('p04-val-members').innerText = Math.round(members) + ' Members';
+      document.getElementById('p04-val-pv').innerText = Math.round(pv) + ' kWp';
+
+      const breakeven = 0.110;
+      const baseSurplus = 24.13 * (members / 20.0) * Math.pow(pv / 65.0, 0.75);
+      const surplus = Math.max(0, baseSurplus * (1.0 - (charge / breakeven)));
+      document.getElementById('p04-res-surplus').innerText = surplus.toFixed(2) + ' EUR/wk';
+
+      const coreEl = document.getElementById('p04-res-core');
+      if (charge <= 0.030) {
+        coreEl.innerText = '0 Blocking (100% Stable)';
+        coreEl.className = 'sim-res-val emerald';
+      } else if (charge <= breakeven) {
+        coreEl.innerText = '0 Blocking (Core Stable)';
+        coreEl.className = 'sim-res-val emerald';
+      } else {
+        const blocking = Math.round(443 * (charge / breakeven));
+        coreEl.innerText = blocking + ' Blocking (Defection Risk)';
+        coreEl.className = 'sim-res-val amber';
+      }
+
+      const savings = Math.max(0, 18.4 * (1.0 - charge / breakeven) * Math.pow(pv / 65.0, 0.4));
+      document.getElementById('p04-res-savings').innerText = savings.toFixed(1) + '% Tariff Cut';
+    }
+
+    // Project 05: Hybrid Over-Planting Curtailment
+    function simP05() {
+      const poc = parseFloat(document.getElementById('p05-slider-poc').value);
+      const pv = parseFloat(document.getElementById('p05-slider-pv').value);
+      const bess = parseFloat(document.getElementById('p05-slider-bess').value);
+
+      document.getElementById('p05-val-poc').innerText = Math.round(poc) + ' MW';
+      document.getElementById('p05-val-pv').innerText = Math.round(pv) + ' MW';
+      document.getElementById('p05-val-bess').innerText = Math.round(bess) + ' MWh';
+
+      const totalGen = 40.0 + pv;
+      const ratio = totalGen / poc;
+      document.getElementById('p05-res-ratio').innerText = ratio.toFixed(2) + 'x';
+
+      // Structural forced curtailment
+      const unbuffered = 695.3 * Math.pow(totalGen / 80.0, 2.0) * Math.pow(40.0 / poc, 1.4);
+      const bufferedCurtail = Math.max(25.0, unbuffered - 8.5 * bess);
+      document.getElementById('p05-res-curtail').innerText = bufferedCurtail.toFixed(1) + ' MWh';
+
+      // Revenue lift %
+      const lift = Math.min(16.0, 5.4 * (40.0 / poc) + 1.8 * (bess / 20.0));
+      document.getElementById('p05-res-lift').innerText = '+' + lift.toFixed(1) + '% Rev';
+
+      // EEG §51 avoidance
+      const avoid = 34200 * (totalGen / 80.0) * (1.0 + (bess / 20.0) * 0.3);
+      document.getElementById('p05-res-avoid').innerText = Math.round(avoid).toLocaleString() + ' EUR/yr';
+    }
+
+    // Project 06: Forecast-to-Bid Quantile reBAP Imbalance
+    function simP06() {
+      const risk = parseFloat(document.getElementById('p06-slider-risk').value);
+      const mae = parseFloat(document.getElementById('p06-slider-mae').value);
+      const spread = parseFloat(document.getElementById('p06-slider-spread').value);
+
+      const qLabel = 'q' + Math.round(risk * 100);
+      document.getElementById('p06-val-risk').innerText = qLabel + ' (Tau ' + risk.toFixed(2) + ')';
+      document.getElementById('p06-val-mae').innerText = mae.toFixed(1) + '%';
+      document.getElementById('p06-val-spread').innerText = spread.toFixed(1) + ' €/MWh';
+
+      // Realized price
+      const price = 60.89 + 3.2 * (0.50 - risk) * (spread / 42.0) - 0.15 * (mae - 11.8);
+      document.getElementById('p06-res-price').innerText = price.toFixed(2) + ' EUR/MWh';
+
+      // Optimal volume
+      const vol = 15785 * (1.0 + (risk - 0.42) * 0.6) * (1.0 - (mae - 11.8) * 0.02);
+      document.getElementById('p06-res-vol').innerText = Math.round(vol).toLocaleString() + ' MWh';
+
+      // 30-day gain
+      const gain = 288.5 * (1.0 + (spread - 42.0) / 42.0 * 0.7) * (1.0 - Math.abs(risk - 0.42) * 1.2);
+      document.getElementById('p06-res-gain').innerText = '+' + gain.toFixed(1) + 'k EUR';
+
+      // Risk reduction
+      const riskRed = -(44.0 + 15.0 * (0.50 - risk));
+      document.getElementById('p06-res-riskred').innerText = riskRed.toFixed(1) + '% Vol';
+    }
+
+    function recomputeDispatchForSizing(pvKw, bessKwh, invKw) {
+      const pvScale = pvKw / 8.0;
+      const batMax = Math.min(invKw, Math.max(1.0, 0.45 * bessKwh));
+      for (let i = 0; i < 96; i++) {
+        const hour = i / 4;
+        let pv = 0;
+        if (hour >= 6 && hour <= 20) {
+          pv = 7.8 * Math.pow(Math.sin((hour - 6) * Math.PI / 14), 2) * pvScale;
+        }
+        dispatchData[i].pv = Math.max(0, pv);
+        const load = dispatchData[i].load;
+        const net = pv - load;
+        let bat = 0;
+        let soc = 20;
+        if (hour < 8) soc = Math.max(10, 25 - hour * 1.5);
+        else if (hour < 16) soc = Math.min(90, 15 + (hour - 8) * 9.5 * Math.min(1.5, pvScale));
+        else soc = Math.max(10, 90 - (hour - 16) * 9);
+        bat = net > 0 ? Math.min(batMax, net) : Math.max(-batMax, net);
+        dispatchData[i].bat = bat;
+        dispatchData[i].soc = bessKwh > 0.5 ? soc : 0;
+        dispatchData[i].grid = Math.max(0, load - pv - (bat < 0 ? -bat : 0));
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       selectProject('p01', false);
       setupCanvasListeners();
       updateHud(scrubberIdx);
+      // Initialize all 6 project simulators with defaults
+      simP01();
+      simP02();
+      simP03();
+      simP04();
+      simP05();
+      simP06();
     });
-
-    // P04 Simulator Logic
-    function simRec(val) {
-      const c = parseFloat(val);
-      document.getElementById('rec-charge-readout').innerText = c.toFixed(3) + ' €/kWh';
-      const breakeven = 0.110;
-      const baseSurplus = 24.13;
-      const surplus = Math.max(0, baseSurplus * (1 - (c / breakeven)));
-      document.getElementById('rec-surplus-val').innerText = surplus.toFixed(2) + ' EUR/wk';
-
-      const coreEl = document.getElementById('rec-core-val');
-      const statEl = document.getElementById('rec-status-val');
-      if (c <= 0.030) {
-        coreEl.innerText = '0 Blocking (100% Stable)';
-        coreEl.style.color = 'var(--emerald-bright)';
-        statEl.innerText = 'Strong Consumer Gain';
-        statEl.style.color = 'var(--emerald-bright)';
-      } else if (c <= breakeven) {
-        coreEl.innerText = '0 Blocking (100% Stable)';
-        coreEl.style.color = 'var(--emerald-bright)';
-        statEl.innerText = 'Cooperation Viable';
-        statEl.style.color = 'var(--cyan-bright)';
-      } else {
-        coreEl.innerText = 'Defection (443 Blocking)';
-        coreEl.style.color = 'var(--amber)';
-        statEl.innerText = 'Settlement Failure';
-        statEl.style.color = 'var(--rose)';
-      }
-    }
-
-    // P03 Simulator Logic
-    function simDim(val) {
-      const limit = parseFloat(val);
-      document.getElementById('dim-limit-readout').innerText = limit.toFixed(0) + ' kW';
-      document.getElementById('dim-enforced-val').innerText = limit.toFixed(1) + ' kW';
-      const missEl = document.getElementById('dim-misses-val');
-      if (limit >= 70) {
-        missEl.innerText = '0 Missed Departures';
-        missEl.style.color = 'var(--emerald-bright)';
-      } else {
-        missEl.innerText = '2 Missed (Grid Dimmed Below Critical Minimum)';
-        missEl.style.color = 'var(--amber)';
-      }
-    }
-
-    // P05 Simulator Logic
-    function simHyb(val) {
-      const conn = parseFloat(val);
-      document.getElementById('hyb-cap-readout').innerText = conn.toFixed(0) + ' MW';
-      const factor = 80.0 / conn;
-      document.getElementById('hyb-ratio-val').innerText = factor.toFixed(2) + 'x';
-      const boost = Math.min(14.0, Math.max(1.2, 5.4 * (40.0 / conn)));
-      document.getElementById('hyb-lift-val').innerText = '+' + boost.toFixed(1) + '% Rev';
-      const curtail = Math.max(80.0, 603.8 * Math.pow(40.0 / conn, 1.35));
-      document.getElementById('hyb-curtail-val').innerText = curtail.toFixed(1) + ' MWh';
-    }
 
     // Highlight active navbar pill on scroll (only active when All Systems is selected)
     window.addEventListener('scroll', () => {
       const allPill = document.querySelector('.nav-pill-all');
       if (!allPill || !allPill.classList.contains('active')) return;
-      const sections = document.querySelectorAll('.project-section, #simulator');
+      const sections = document.querySelectorAll('.project-section');
       const pills = document.querySelectorAll('.nav-pill:not(.nav-pill-all)');
       let currentId = '';
       sections.forEach(sec => {
