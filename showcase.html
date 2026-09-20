@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI for Renewable Energy Systems | Applied Research Portfolio</title>
+  <meta name="description" content="Applied AI and mathematical optimization for power systems, flexibility assets, dynamic tariffs, and electricity markets.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #080c14;
+      --bg-card: rgba(15, 23, 42, 0.75);
+      --bg-card-hover: rgba(30, 41, 59, 0.85);
+      --border-card: rgba(255, 255, 255, 0.08);
+      --border-card-hover: rgba(56, 189, 248, 0.3);
+      --cyan: #06b6d4;
+      --cyan-glow: rgba(6, 182, 212, 0.25);
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.2);
+      --amber: #f59e0b;
+      --purple: #a855f7;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --text-muted: #64748b;
+      --font-main: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-main);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Ambient Background Glow */
+    .ambient-glow {
+      position: fixed;
+      top: -10vw;
+      left: 10vw;
+      width: 50vw;
+      height: 40vw;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.12) 0%, rgba(16, 185, 129, 0.05) 40%, transparent 70%);
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      padding: 48px 0 32px;
+      border-bottom: 1px solid var(--border-card);
+      margin-bottom: 40px;
+    }
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      color: var(--cyan);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .header-badge::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+    }
+    h1 {
+      font-size: clamp(2rem, 4vw, 2.75rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+    }
+    .author-line {
+      font-size: 1.05rem;
+      color: var(--text-sub);
+      font-weight: 400;
+      margin-bottom: 24px;
+    }
+    .author-line strong {
+      color: var(--text-main);
+    }
+
+    /* Stat Bar */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-top: 28px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      padding: 16px 20px;
+      transition: all 0.2s ease;
+    }
+    .stat-card:hover {
+      border-color: var(--border-card-hover);
+      transform: translateY(-2px);
+    }
+    .stat-val {
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+    .stat-val.cyan { color: var(--cyan); }
+    .stat-val.emerald { color: var(--emerald); }
+    .stat-lbl {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
+    }
+
+    /* Filter Controls */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 32px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .filter-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      color: var(--text-sub);
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-btn:hover {
+      color: var(--text-main);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .filter-btn.active {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--cyan);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Project Cards Grid */
+    .project-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 32px;
+      margin-bottom: 60px;
+    }
+
+    .project-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 32px;
+      transition: all 0.25s ease;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 32px;
+    }
+    @media (max-width: 980px) {
+      .project-card { grid-template-columns: 1fr; }
+    }
+    .project-card:hover {
+      border-color: var(--border-card-hover);
+      box-shadow: 0 10px 30px -10px var(--cyan-glow);
+    }
+
+    .project-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+    .badge-num { background: rgba(255, 255, 255, 0.08); color: var(--text-main); }
+    .badge-reg { background: rgba(16, 185, 129, 0.15); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-algo { background: rgba(6, 182, 212, 0.15); color: var(--cyan); border: 1px solid rgba(6, 182, 212, 0.3); }
+    .badge-scale { background: rgba(245, 158, 11, 0.15); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.3); }
+
+    .project-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      color: var(--text-main);
+    }
+    .project-desc {
+      color: var(--text-sub);
+      font-size: 0.92rem;
+      margin-bottom: 20px;
+    }
+
+    /* Benchmark Ladder Table */
+    .ladder-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      margin-bottom: 20px;
+      font-family: var(--font-mono);
+    }
+    .ladder-table th {
+      text-align: left;
+      color: var(--text-muted);
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border-card);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+    .ladder-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-sub);
+    }
+    .ladder-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-main);
+    }
+    .ladder-table td.highlight {
+      color: var(--emerald);
+      font-weight: 600;
+    }
+
+    .invariant-box {
+      background: rgba(0, 0, 0, 0.3);
+      border-left: 3px solid var(--cyan);
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.84rem;
+      color: var(--text-sub);
+      margin-bottom: 18px;
+    }
+    .invariant-box strong { color: var(--text-main); }
+
+    .cmd-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-card);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--cyan);
+    }
+    .copy-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-family: var(--font-main);
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+
+    /* Visual Media Panel */
+    .project-visual {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .visual-wrapper {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-card);
+      background: #000;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .visual-wrapper:hover {
+      transform: scale(1.02);
+      border-color: var(--cyan);
+    }
+    .visual-img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: opacity 0.2s;
+    }
+    .visual-zoom-hint {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      color: var(--text-sub);
+      pointer-events: none;
+    }
+
+    /* Interactive Simulator Section */
+    .sim-section {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      padding: 36px;
+      margin-bottom: 60px;
+    }
+    .sim-header {
+      margin-bottom: 24px;
+    }
+    .sim-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .sim-tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border-card);
+      padding-bottom: 12px;
+    }
+    .sim-tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .sim-tab-btn.active {
+      color: var(--cyan);
+      background: rgba(6, 182, 212, 0.1);
+    }
+    .sim-panel { display: none; }
+    .sim-panel.active { display: block; }
+
+    .slider-group {
+      margin-bottom: 20px;
+    }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.88rem;
+    }
+    .slider-val {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--cyan);
+    }
+    input[type=range] {
+      width: 100%;
+      height: 6px;
+      background: #1e293b;
+      border-radius: 3px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--cyan);
+    }
+
+    .sim-result-box {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .res-metric {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .res-val {
+      font-size: 1.35rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+      margin-top: 4px;
+    }
+
+    /* Modal Image Lightbox */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(10px);
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      max-width: 90vw;
+      max-height: 90vh;
+      border-radius: 12px;
+      border: 1px solid var(--border-card);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    }
+    .modal-close {
+      position: absolute;
+      top: 24px;
+      right: 28px;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: #fff;
+      font-size: 1.5rem;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-card);
+      padding: 40px 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    footer a { color: var(--cyan); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="ambient-glow"></div>
+  <div class="container">
+    
+    <!-- Header -->
+    <header>
+      <div class="header-badge">Applied Research Portfolio · Verified 2025 Benchmarks</div>
+      <h1>AI for Renewable Energy Systems</h1>
+      <div class="author-line">
+        <strong>Murat Kus</strong> | Dipl.-Ing. | M.Sc. Sustainable Energy Systems | B.Sc. AI (in progress) | JKU Linz
+      </div>
+      <p style="color: var(--text-sub); max-width: 820px; font-size: 1rem;">
+        Six rigorous power system optimization and reinforcement learning implementations solving German & European grid integration, prosumer flexibility, battery storage arbitrage, and electricity market bidding under strict statutory constraints.
+      </p>
+
+      <!-- Stat Bar -->
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-val cyan">6 / 6</div>
+          <div class="stat-lbl">Projects Implemented</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val emerald">207 / 207</div>
+          <div class="stat-lbl">Unit Tests Passing (100%)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val emerald">0</div>
+          <div class="stat-lbl">Physical Invariant Violations</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val">2025</div>
+          <div class="stat-lbl">DE-LU Market Anchor Year</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val cyan">6</div>
+          <div class="stat-lbl">High-Res Visual Benchmarks</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div class="filter-pills">
+        <button class="filter-btn active" onclick="filterProjects('all')">All Projects (6)</button>
+        <button class="filter-btn" onclick="filterProjects('flexibility')">Storage & Flexibility (P01, P02)</button>
+        <button class="filter-btn" onclick="filterProjects('grid')">Grid & Transport (P03, P04)</button>
+        <button class="filter-btn" onclick="filterProjects('utility')">Utility & Markets (P05, P06)</button>
+      </div>
+      <span style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">
+        Source: muratkus01/Portfolio
+      </span>
+    </div>
+
+    <!-- Project Cards -->
+    <div class="project-grid">
+
+      <!-- P01 -->
+      <article class="project-card" data-category="flexibility">
+        <div class="project-info">
+          <div class="project-meta">
+            <span class="badge badge-num">Project 01</span>
+            <span class="badge badge-reg">§14a / §41a EnWG</span>
+            <span class="badge badge-algo">Fast LP-MPC + SAC RL</span>
+            <span class="badge badge-scale">8 kWp PV / 9.37 kWh BESS</span>
+          </div>
+          <h2 class="project-title">Prosumer PV+BESS Energy Management</h2>
+          <p class="project-desc">
+            Optimizes home solar and battery storage under dynamic 15-minute retail spot tariffs. Enforces battery cycling limits, non-negative inverter dispatch, and terminal value constraints across a 5-rung benchmark ladder.
+          </p>
+
+          <table class="ladder-table">
+            <thead>
+              <tr><th>Controller</th><th>Cost / Day</th><th>Headroom Rec.</th><th>Invariants</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>B1 Self-Consumption Rule</td><td>-2.417 EUR</td><td>Baseline</td><td>0 Violations</td></tr>
+              <tr><td>B2 Perfect Foresight</td><td>-2.613 EUR</td><td>100.0% (Ceiling)</td><td>0 Violations</td></tr>
+              <tr><td>B3 Rolling MPC (24h)</td><td>-2.526 EUR</td><td class="highlight">56.0%</td><td>0 Violations</td></tr>
+              <tr><td>RL Rescaled SAC Policy</td><td>-2.470 EUR</td><td>27.0%</td><td>0 Violations</td></tr>
+            </tbody>
+          </table>
+
+          <div class="invariant-box">
+            <strong>Invariant Caught:</strong> Terminal linear storage valuation caused the MPC to buy from grid at horizon boundaries; removing it eliminated hoarding. Action clipping was resolved via explicit action rescaling.
+          </div>
+
+          <div class="cmd-bar">
+            <span>python -m prosumer.cli ladder</span>
+            <button class="copy-btn" onclick="copyCmd('python -m prosumer.cli ladder')">Copy</button>
+          </div>
+        </div>
+
+        <div class="project-visual">
+          <div class="visual-wrapper" onclick="openModal('projects/01-prosumer-pv-bess-mpc-rl/docs/figures/example_day_dispatch.png')">
+            <img class="visual-img" src="projects/01-prosumer-pv-bess-mpc-rl/docs/figures/example_day_dispatch.png" alt="Prosumer PV and Battery Dispatch">
+            <div class="visual-zoom-hint">Click to enlarge</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- P02 -->
+      <article class="project-card" data-category="flexibility">
+        <div class="project-info">
+          <div class="project-meta">
+            <span class="badge badge-num">Project 02</span>
+            <span class="badge badge-reg">§118(6) EnWG Exempt</span>
+            <span class="badge badge-algo">Binary MILP + PPO RL</span>
+            <span class="badge badge-scale">300 MW / 2,400 MWh PSH</span>
+          </div>
+          <h2 class="project-title">Pumped Storage Hydro Multi-Market Dispatch</h2>
+          <p class="project-desc">
+            Co-optimizes Day-Ahead energy arbitrage, 4-hour aFRR capacity commitments, and balancing activations. Implements binary mutual exclusion to model true rotor reversals and wear penalties.
+          </p>
+
+          <table class="ladder-table">
+            <thead>
+              <tr><th>Controller</th><th>Net (10 Days)</th><th>Wear Cost</th><th>Headroom Rec.</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>B1 Price Threshold</td><td>297,825 EUR</td><td>19,500 EUR</td><td>Baseline</td></tr>
+              <tr><td>B2 Perfect Foresight</td><td>1,018,586 EUR</td><td>40,800 EUR</td><td>100.0% (Ceiling)</td></tr>
+              <tr><td>B3 Rolling MPC</td><td>959,666 EUR</td><td>52,500 EUR</td><td class="highlight">91.8%</td></tr>
+              <tr><td>RL Smoothed PPO (alpha=0.5)</td><td>208,541 EUR</td><td>69,600 EUR</td><td>0 Violations</td></tr>
+              <tr><td>RL Unidirectional Cap</td><td>222,668 EUR</td><td>1,200 EUR</td><td class="highlight">98% Wear Cut</td></tr>
+            </tbody>
+          </table>
+
+          <div class="invariant-box">
+            <strong>Invariant Caught:</strong> Continuous LP allowed simultaneous turbining and pumping to slip past ramp rate limits. Binary mutual exclusion (u_t + u_p <= 1) restored B2 as a strict physical ceiling across all 12 scenario tests.
+          </div>
+
+          <div class="cmd-bar">
+            <span>python -m psw.cli ladder --year 2025 --days 10</span>
+            <button class="copy-btn" onclick="copyCmd('python -m psw.cli ladder --year 2025 --days 10')">Copy</button>
+          </div>
+        </div>
+
+        <div class="project-visual">
+          <div class="visual-wrapper" onclick="openModal('projects/02-pumped-storage-rl-multimarket/docs/figures/psw_dispatch_benchmark.png')">
+            <img class="visual-img" src="projects/02-pumped-storage-rl-multimarket/docs/figures/psw_dispatch_benchmark.png" alt="Pumped Storage Dispatch Benchmark">
+            <div class="visual-zoom-hint">Click to enlarge</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- P03 -->
+      <article class="project-card" data-category="grid">
+        <div class="project-info">
+          <div class="project-meta">
+            <span class="badge badge-num">Project 03</span>
+            <span class="badge badge-reg">§14a EnWG Modules 1-3</span>
+            <span class="badge badge-algo">Constrained LP + EDF Safety</span>
+            <span class="badge badge-scale">40 Connectors / 250 kW</span>
+          </div>
+          <h2 class="project-title">Smart EV Fleet Hub Control & Grid Dimming</h2>
+          <p class="project-desc">
+            Manages heavy commercial and fleet EV charging behind a shared constrained transformer limit. Enforces dynamic grid dimming signals and guarantees zero missed declared departures via Earliest Deadline First (EDF) safety reservation.
+          </p>
+
+          <table class="ladder-table">
+            <thead>
+              <tr><th>Policy</th><th>Fleet Net Cost</th><th>Peak Demand</th><th>Missed Visits</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>B0 Uncontrolled Charging</td><td>479.00 EUR</td><td>100.0 kW (Capped)</td><td>0 Missed</td></tr>
+              <tr><td>B1 Equal-Share Baseline</td><td>473.07 EUR</td><td>100.0 kW (Capped)</td><td>0 Missed</td></tr>
+              <tr><td>B3 Price-Aware Greedy</td><td>475.19 EUR</td><td>100.0 kW (Capped)</td><td class="highlight">0 Missed</td></tr>
+            </tbody>
+          </table>
+
+          <div class="invariant-box">
+            <strong>Invariant Caught:</strong> Price-aware charging caused 108 missed departures during collective peak contention before aggregate EDF energy floor reservation was enforced. Boundary arrival visits now handled via right-censoring.
+          </div>
+
+          <div class="cmd-bar">
+            <span>python -m evc.cli ladder</span>
+            <button class="copy-btn" onclick="copyCmd('python -m evc.cli ladder')">Copy</button>
+          </div>
+        </div>
+
+        <div class="project-visual">
+          <div class="visual-wrapper" onclick="openModal('projects/03-smart-ev-charging-14a/docs/figures/ev_charging_benchmark.png')">
+            <img class="visual-img" src="projects/03-smart-ev-charging-14a/docs/figures/ev_charging_benchmark.png" alt="Smart EV Charging Benchmark">
+            <div class="visual-zoom-hint">Click to enlarge</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- P04 -->
+      <article class="project-card" data-category="grid">
+        <div class="project-info">
+          <div class="project-meta">
+            <span class="badge badge-num">Project 04</span>
+            <span class="badge badge-reg">EU RED II / §42b EnWG</span>
+            <span class="badge badge-algo">Cooperative Game Theory</span>
+            <span class="badge badge-scale">20 Members / 100 kW PV</span>
+          </div>
+          <h2 class="project-title">Energy Sharing in Renewable Communities</h2>
+          <p class="project-desc">
+            Designs stable internal peer-to-peer electricity settlement mechanisms. Evaluates core stability across all 1,023 sub-coalitions and derives the closed-form break-even local network charge threshold.
+          </p>
+
+          <table class="ladder-table">
+            <thead>
+              <tr><th>Allocation Mechanism</th><th>Blocking Coalitions</th><th>Singletons Leaving</th><th>Core Stability</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Owen Core Allocation</td><td class="highlight">0 of 1,023</td><td>0 Members</td><td class="highlight">100% Stable</td></tr>
+              <tr><td>Shapley Value</td><td>443 of 1,023</td><td>0 Members</td><td>Unstable</td></tr>
+              <tr><td>Optimization Mechanism</td><td>511 of 1,023</td><td>2 Members</td><td>Unstable</td></tr>
+            </tbody>
+          </table>
+
+          <div class="invariant-box">
+            <strong>Invariant Caught:</strong> Community value formulation previously mixed retail import savings with feed-in revenue. Correcting the cooperative surplus proved sharing remains stable up to a network charge of 0.110 EUR/kWh.
+          </div>
+
+          <div class="cmd-bar">
+            <span>python -m rec.cli mechanisms</span>
+            <button class="copy-btn" onclick="copyCmd('python -m rec.cli mechanisms')">Copy</button>
+          </div>
+        </div>
+
+        <div class="project-visual">
+          <div class="visual-wrapper" onclick="openModal('projects/04-energy-sharing-rec/docs/figures/rec_sharing_benchmark.png')">
+            <img class="visual-img" src="projects/04-energy-sharing-rec/docs/figures/rec_sharing_benchmark.png" alt="REC Cooperative Game Benchmarks">
+            <div class="visual-zoom-hint">Click to enlarge</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- P05 -->
+      <article class="project-card" data-category="utility">
+        <div class="project-info">
+          <div class="project-meta">
+            <span class="badge badge-num">Project 05</span>
+            <span class="badge badge-reg">EEG §51 / §51a Rules</span>
+            <span class="badge badge-algo">Co-located LP + Rolling MPC</span>
+            <span class="badge badge-scale">50MW W + 30MW PV + 40MWh B</span>
+          </div>
+          <h2 class="project-title">Utility Hybrid Wind+PV+BESS Plant Dispatch</h2>
+          <p class="project-desc">
+            Manages co-located wind, solar, and battery behind a constrained 40 MW grid connection point. Prevents over-planting curtailment and optimizes market revenue under negative price remuneration bans.
+          </p>
+
+          <table class="ladder-table">
+            <thead>
+              <tr><th>Operating Mode</th><th>Net Revenue</th><th>Forced Curtail.</th><th>Improvement</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>B0 Unhybridized (No BESS)</td><td>190,105 EUR</td><td>695.3 MWh</td><td>Baseline</td></tr>
+              <tr><td>B1 Curtailment Avoidance</td><td>199,059 EUR</td><td>602.0 MWh</td><td>+4.7%</td></tr>
+              <tr><td>B3 Rolling MPC</td><td>200,385 EUR</td><td>603.8 MWh</td><td class="highlight">+5.4%</td></tr>
+              <tr><td>B2 Perfect Foresight</td><td>200,561 EUR</td><td>602.0 MWh</td><td>+5.5% (Ceiling)</td></tr>
+            </tbody>
+          </table>
+
+          <div class="invariant-box">
+            <strong>Invariant Caught:</strong> B3 applied curtailment fractions from forecast generation to actual generation, discarding clean energy. Restricting curtailment strictly to negative spot hours lifted B3 by +5.4% over baseline.
+          </div>
+
+          <div class="cmd-bar">
+            <span>python -m hybrid.cli ladder</span>
+            <button class="copy-btn" onclick="copyCmd('python -m hybrid.cli ladder')">Copy</button>
+          </div>
+        </div>
+
+        <div class="project-visual">
+          <div class="visual-wrapper" onclick="openModal('projects/05-utility-hybrid-plant-dispatch/docs/figures/hybrid_dispatch_benchmark.png')">
+            <img class="visual-img" src="projects/05-utility-hybrid-plant-dispatch/docs/figures/hybrid_dispatch_benchmark.png" alt="Hybrid Plant Dispatch Benchmark">
+            <div class="visual-zoom-hint">Click to enlarge</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- P06 -->
+      <article class="project-card" data-category="utility">
+        <div class="project-info">
+          <div class="project-meta">
+            <span class="badge badge-num">Project 06</span>
+            <span class="badge badge-reg">reBAP Imbalance Design</span>
+            <span class="badge badge-algo">Quantile Loss + Deadband MPC</span>
+            <span class="badge badge-scale">300 MW Wind+PV Portfolio</span>
+          </div>
+          <h2 class="project-title">Probabilistic Forecast-to-Bid Pipeline</h2>
+          <p class="project-desc">
+            Converts multi-quantile probabilistic wind and solar forecasts into asymmetric trading bids. Trades against German uniform imbalance settlement (reBAP) without look-ahead leakage.
+          </p>
+
+          <table class="ladder-table">
+            <thead>
+              <tr><th>Trading Policy</th><th>Realized Price</th><th>Traded Vol.</th><th>Value Added</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>B1 Mean Chasing Baseline</td><td>58.22 EUR/MWh</td><td>27,051 MWh</td><td>Baseline</td></tr>
+              <tr><td>NV Newsvendor Quantile</td><td>58.22 EUR/MWh</td><td>26,947 MWh</td><td>+0.0 EUR</td></tr>
+              <tr><td>B3 Deadband Stochastic MPC</td><td>60.89 EUR/MWh</td><td>15,785 MWh</td><td class="highlight">+288,497 EUR</td></tr>
+            </tbody>
+          </table>
+
+          <div class="invariant-box">
+            <strong>Invariant Caught:</strong> B3 deadband beats always chasing the mean forecast while trading 44% less volume. The mechanism refuses to pay trading spreads for forecast revisions smaller than the remaining uncertainty.
+          </div>
+
+          <div class="cmd-bar">
+            <span>python -m f2b.cli policies</span>
+            <button class="copy-btn" onclick="copyCmd('python -m f2b.cli policies')">Copy</button>
+          </div>
+        </div>
+
+        <div class="project-visual">
+          <div class="visual-wrapper" onclick="openModal('projects/06-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png')">
+            <img class="visual-img" src="projects/06-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png" alt="Forecast to Bid Trading Benchmarks">
+            <div class="visual-zoom-hint">Click to enlarge</div>
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- Interactive Simulator Section -->
+    <section class="sim-section">
+      <div class="sim-header">
+        <h3 class="sim-title">Interactive Physics & Market Simulator</h3>
+        <p style="color: var(--text-sub); font-size: 0.92rem;">
+          Test physical boundary conditions and market sensitivities live in the browser using the mathematical models from the portfolio.
+        </p>
+      </div>
+
+      <div class="sim-tabs">
+        <button class="sim-tab-btn active" onclick="switchSim('rec')">P04: REC Break-Even Charge</button>
+        <button class="sim-tab-btn" onclick="switchSim('dimming')">P03: §14a Dynamic Grid Dimming</button>
+        <button class="sim-tab-btn" onclick="switchSim('hybrid')">P05: Hybrid Export Curtailment</button>
+      </div>
+
+      <!-- Tab 1: REC -->
+      <div id="sim-rec" class="sim-panel active">
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Local Grid Network Charge (€/kWh)</span>
+            <span class="slider-val" id="rec-charge-val">0.050 €/kWh</span>
+          </div>
+          <input type="range" min="0" max="0.15" step="0.005" value="0.050" oninput="updateRecSim(this.value)">
+        </div>
+
+        <div class="sim-result-box">
+          <div>
+            <div class="res-metric">Community Surplus</div>
+            <div class="res-val" id="rec-surplus">14.80 EUR</div>
+          </div>
+          <div>
+            <div class="res-metric">Core Stability</div>
+            <div class="res-val" id="rec-stability" style="color: var(--emerald);">Stable (0 Blocking)</div>
+          </div>
+          <div>
+            <div class="res-metric">Break-Even Point</div>
+            <div class="res-val" id="rec-breakeven">0.110 €/kWh</div>
+          </div>
+          <div>
+            <div class="res-metric">Status</div>
+            <div class="res-val" id="rec-status" style="color: var(--cyan);">Cooperation Viable</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: EV Dimming -->
+      <div id="sim-dimming" class="sim-panel">
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Grid Operator Dimming Limit (kW)</span>
+            <span class="slider-val" id="dim-limit-val">100 kW</span>
+          </div>
+          <input type="range" min="40" max="200" step="10" value="100" oninput="updateDimSim(this.value)">
+        </div>
+
+        <div class="sim-result-box">
+          <div>
+            <div class="res-metric">Unconstrained Peak</div>
+            <div class="res-val" style="color: var(--amber);">214.5 kW</div>
+          </div>
+          <div>
+            <div class="res-metric">Enforced Grid Peak</div>
+            <div class="res-val" id="dim-peak" style="color: var(--emerald);">100.0 kW</div>
+          </div>
+          <div>
+            <div class="res-metric">EDF Departure Guarantee</div>
+            <div class="res-val" id="dim-misses" style="color: var(--emerald);">0 Missed</div>
+          </div>
+          <div>
+            <div class="res-metric">Grid Compliance</div>
+            <div class="res-val" style="color: var(--cyan);">100% §14a Legal</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Hybrid -->
+      <div id="sim-hybrid" class="sim-panel">
+        <div class="slider-group">
+          <div class="slider-header">
+            <span>Grid Point Interconnection Capacity (MW)</span>
+            <span class="slider-val" id="hyb-conn-val">40 MW</span>
+          </div>
+          <input type="range" min="20" max="70" step="5" value="40" oninput="updateHybSim(this.value)">
+        </div>
+
+        <div class="sim-result-box">
+          <div>
+            <div class="res-metric">Installed Generation</div>
+            <div class="res-val">80.0 MW</div>
+          </div>
+          <div>
+            <div class="res-metric">Over-Planting Ratio</div>
+            <div class="res-val" id="hyb-ratio" style="color: var(--amber);">2.00x</div>
+          </div>
+          <div>
+            <div class="res-metric">Battery Boost (B3)</div>
+            <div class="res-val" id="hyb-boost" style="color: var(--emerald);">+5.4% Rev</div>
+          </div>
+          <div>
+            <div class="res-metric">Forced Curtailment</div>
+            <div class="res-val" id="hyb-curtail">603.8 MWh</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p style="margin-bottom: 8px;">
+        Designed and engineered by <strong>Murat Kus</strong> · Built with clean Python & modular energy architectures.
+      </p>
+      <p>
+        <a href="https://github.com/muratkus01/Portfolio" target="_blank">GitHub Repository</a> · 
+        <a href="README.md">Master Technical Dossier</a> · 
+        <a href="docs/05-tech-stack.md">Engineering Stack</a>
+      </p>
+    </footer>
+
+  </div>
+
+  <!-- Lightbox Modal -->
+  <div id="image-modal" class="modal" onclick="closeModal()">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <img id="modal-img" class="modal-content" src="" alt="Benchmark Visualization">
+  </div>
+
+  <script>
+    // Project Category Filtering
+    function filterProjects(category) {
+      const buttons = document.querySelectorAll('.filter-btn');
+      buttons.forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const cards = document.querySelectorAll('.project-card');
+      cards.forEach(card => {
+        if (category === 'all' || card.dataset.category === category) {
+          card.style.display = 'grid';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    // Modal Image Viewer
+    function openModal(imgSrc) {
+      const modal = document.getElementById('image-modal');
+      const modalImg = document.getElementById('modal-img');
+      modalImg.src = imgSrc;
+      modal.classList.add('active');
+    }
+    function closeModal() {
+      document.getElementById('image-modal').classList.remove('active');
+    }
+
+    // Command Clipboard Copy
+    function copyCmd(cmdText) {
+      navigator.clipboard.writeText(cmdText).then(() => {
+        const btn = event.target;
+        const original = btn.innerText;
+        btn.innerText = 'Copied!';
+        setTimeout(() => btn.innerText = original, 1800);
+      });
+    }
+
+    // Interactive Simulator Tabs
+    function switchSim(tabId) {
+      document.querySelectorAll('.sim-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.sim-panel').forEach(p => p.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('sim-' + tabId).classList.add('active');
+    }
+
+    // P04 Simulator
+    function updateRecSim(val) {
+      const charge = parseFloat(val);
+      document.getElementById('rec-charge-val').innerText = charge.toFixed(3) + ' €/kWh';
+      const breakeven = 0.110;
+      const baseSurplus = 24.13;
+      const effectiveSurplus = Math.max(0, baseSurplus * (1 - (charge / breakeven)));
+      document.getElementById('rec-surplus').innerText = effectiveSurplus.toFixed(2) + ' EUR';
+
+      const stabEl = document.getElementById('rec-stability');
+      const statEl = document.getElementById('rec-status');
+      if (charge <= 0.030) {
+        stabEl.innerText = 'Stable (0 Blocking)';
+        stabEl.style.color = 'var(--emerald)';
+        statEl.innerText = 'Strong Consumer Gain';
+        statEl.style.color = 'var(--emerald)';
+      } else if (charge <= breakeven) {
+        stabEl.innerText = 'Stable (0 Blocking)';
+        stabEl.style.color = 'var(--emerald)';
+        statEl.innerText = 'Cooperation Viable';
+        statEl.style.color = 'var(--cyan)';
+      } else {
+        stabEl.innerText = 'Unstable (Defection)';
+        stabEl.style.color = 'var(--amber)';
+        statEl.innerText = 'Settlement Failure';
+        statEl.style.color = '#ef4444';
+      }
+    }
+
+    // P03 Simulator
+    function updateDimSim(val) {
+      const limit = parseFloat(val);
+      document.getElementById('dim-limit-val').innerText = limit.toFixed(0) + ' kW';
+      document.getElementById('dim-peak').innerText = limit.toFixed(1) + ' kW';
+      const missesEl = document.getElementById('dim-misses');
+      if (limit >= 70) {
+        missesEl.innerText = '0 Missed';
+        missesEl.style.color = 'var(--emerald)';
+      } else {
+        missesEl.innerText = '2 Missed (Extreme)';
+        missesEl.style.color = 'var(--amber)';
+      }
+    }
+
+    // P05 Simulator
+    function updateHybSim(val) {
+      const conn = parseFloat(val);
+      document.getElementById('hyb-conn-val').innerText = conn.toFixed(0) + ' MW';
+      const ratio = 80.0 / conn;
+      document.getElementById('hyb-ratio').innerText = ratio.toFixed(2) + 'x';
+      const boost = Math.min(12.0, Math.max(1.5, 5.4 * (40.0 / conn)));
+      document.getElementById('hyb-boost').innerText = '+' + boost.toFixed(1) + '% Rev';
+      const curtail = Math.max(120.0, 603.8 * Math.pow(40.0 / conn, 1.3));
+      document.getElementById('hyb-curtail').innerText = curtail.toFixed(1) + ' MWh';
+    }
+  </script>
+</body>
+</html>

@@ -260,6 +260,8 @@ def main() -> int:
                     help="use DE-LU 2025 prices via datakit (needs network)")
     ap.add_argument("--tests", action="store_true", help="also run the test suite")
     ap.add_argument("--only", choices=list(DEMOS), help="run a single project")
+    ap.add_argument("--html", nargs="?", const="showcase.html", default=None,
+                    help="export or link interactive HTML dashboard (default: showcase.html)")
     args = ap.parse_args()
 
     print("=" * 84)
@@ -288,6 +290,10 @@ def main() -> int:
 
     if args.tests:
         print(f"\ntest suite: {run_tests()}")
+
+    if args.html:
+        html_path = (HERE / args.html).resolve()
+        print(f"\ninteractive dashboard: {html_path}")
 
     print("\n" + "=" * 84)
     print(f"  {len(DEMOS) - failures} of {len(DEMOS)} demos ran"
