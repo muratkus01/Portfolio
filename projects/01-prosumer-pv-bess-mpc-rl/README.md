@@ -67,7 +67,7 @@ Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kW
 | **B3** | Deployable rolling MPC (realistic) | -663.45 € | -387.48 € | **87.9 %** | 287.8 | 0 | 5.9 ms | **9.7 yr** | **10.3 %** |
 | **RL** | Overhauled SAC (rescaled action, diff reward) | -426.38 € | -249.02 € | **27.0 %** | 275.4 | 0 | 1.2 ms | **14.0 yr** | **7.1 %** |
 
-- **B3 Headroom Recovery:** The deployable rolling MPC captures **87.9 %** of the theoretical perfect-foresight ceiling (342 of 389 EUR headroom over B1) using only published prices, NWP irradiance forecasts, and standard load profiles. Zero constraint violations across 57,600 quarter-hours.
+- **B3 Headroom Recovery:** The deployable rolling MPC captures **87.9 %** of the theoretical perfect-foresight ceiling (342 of 389 EUR headroom over B1) using only published prices, NWP irradiance forecasts, and standard load profiles. Zero constraint violations across all 59,996 quarter-hours.
 - **Economic Return:** Adding a battery under B3 dispatch turns an annual electricity expense of +61.13 EUR/a (PV only) into a net revenue of -387.48 EUR/a, an annual gain of **448.61 EUR/a**. Against the marginal CAPEX of 4,349 EUR (350 EUR/kWh storage plus 190 EUR/kW inverter) that is a **9.7-year simple payback** and **10.3 % return on capital**, against 17.5 years and 5.7 % for the price-blind rule-based operation. Perfect foresight would reach 9.1 years and 10.9 %, so the entire remaining control gap is worth about half a point of return.
 
 ### Operational dispatch: 24-hour summer day comparison
