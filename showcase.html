@@ -315,10 +315,104 @@
       background: var(--cyan);
     }
 
+    /* Recruiter Domain Filter Bar */
+    .filter-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      flex-wrap: wrap;
+    }
+    .filter-lbl {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-right: 4px;
+      font-family: var(--font-mono);
+    }
+    .filter-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-sub);
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+    }
+    .filter-btn.active {
+      background: rgba(6, 182, 212, 0.18);
+      border-color: var(--cyan);
+      color: var(--cyan-bright);
+    }
+
+    /* Physical Asset Topology Micro-Schematics */
+    .topology-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 8px 14px;
+      margin-bottom: 18px;
+      font-size: 0.76rem;
+      font-family: var(--font-mono);
+      color: var(--text-sub);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .topology-strip::-webkit-scrollbar { display: none; }
+    .topo-node {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .topo-node.accent {
+      background: rgba(6, 182, 212, 0.1);
+      border-color: rgba(6, 182, 212, 0.3);
+      color: var(--cyan-bright);
+    }
+    .topo-node.emerald {
+      background: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: var(--emerald-bright);
+    }
+    .topo-node.amber {
+      background: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: var(--amber);
+    }
+    .topo-node.purple {
+      background: rgba(168, 85, 247, 0.1);
+      border-color: rgba(168, 85, 247, 0.3);
+      color: #c084fc;
+    }
+    .topo-arrow {
+      color: var(--text-muted);
+      font-weight: 700;
+      user-select: none;
+    }
+
     /* Dedicated Project Sections */
     .project-section {
       padding: 64px 0;
       border-bottom: 1px solid var(--border-subtle);
+      transition: opacity 0.3s ease;
     }
     .project-section:last-of-type { border-bottom: none; }
 
@@ -468,6 +562,31 @@
       color: var(--cyan-bright);
       font-weight: 700;
     }
+
+    /* Inline Ladder Benchmark Progress Bars */
+    .ladder-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .ladder-bar-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      min-width: 50px;
+    }
+    .ladder-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+    .ladder-bar-fill.emerald { background: linear-gradient(90deg, #10b981, #34d399); }
+    .ladder-bar-fill.cyan { background: linear-gradient(90deg, #0284c7, #38bdf8); }
+    .ladder-bar-fill.purple { background: linear-gradient(90deg, #9333ea, #c084fc); }
+    .ladder-bar-fill.amber { background: linear-gradient(90deg, #d97706, #fbbf24); }
+    .ladder-bar-fill.rose { background: linear-gradient(90deg, #e11d48, #fb7185); }
 
     /* Invariant Box */
     .invariant-card {
@@ -704,6 +823,109 @@
     }
     footer a { color: var(--cyan-bright); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
+
+    /* 24-Hour Dispatch Canvas Scrubber */
+    .dispatch-canvas-box {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 14px;
+    }
+    .dispatch-canvas-hud {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+    .hud-stat-lbl {
+      color: var(--text-muted);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .hud-stat-val {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    #dispatchCanvas {
+      width: 100%;
+      height: 220px;
+      display: block;
+      cursor: crosshair;
+      border-radius: 6px;
+      background: #04070e;
+    }
+    .canvas-legend {
+      display: flex;
+      gap: 18px;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      font-family: var(--font-mono);
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+
+    /* Print and Executive Briefing Mode */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #111827 !important;
+      }
+      .ambient-glow-1, .ambient-glow-2, .navbar, .section-nav-sticky, .btn-copy,
+      .plot-overlay-badge, .sim-nav-tabs, .sim-slider-row, .modal, .cli-box {
+        display: none !important;
+      }
+      .container {
+        max-width: 100% !important;
+        padding: 0 10mm !important;
+      }
+      .project-section {
+        page-break-inside: avoid;
+        padding: 24px 0 !important;
+        border-bottom: 2px solid #e5e7eb !important;
+        opacity: 1 !important;
+      }
+      .sec-body-grid {
+        display: block !important;
+      }
+      .table-card, .metrics-strip, .invariant-card, .topology-strip {
+        background: #f9fafb !important;
+        border: 1px solid #d1d5db !important;
+        color: #111827 !important;
+        box-shadow: none !important;
+      }
+      .ladder-tbl {
+        width: 100% !important;
+      }
+      .ladder-tbl th, .ladder-tbl td {
+        color: #111827 !important;
+        border-bottom: 1px solid #e5e7eb !important;
+      }
+      .mini-val, .mini-lbl, .invariant-text strong {
+        color: #111827 !important;
+      }
+      .plot-img {
+        max-width: 550px !important;
+        margin: 16px auto !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -787,6 +1009,13 @@
         <a class="nav-pill" href="#p06"><span class="pill-dot"></span>06 Forecast-to-Bid reBAP</a>
         <a class="nav-pill" href="#simulator"><span class="pill-dot"></span>Interactive Simulator</a>
       </div>
+      <div class="filter-bar-wrap">
+        <span class="filter-lbl">Domain Focus:</span>
+        <button class="filter-btn active" onclick="filterDomain('all')">All 6 Systems</button>
+        <button class="filter-btn" onclick="filterDomain('markets')">Power Markets & Arbitrage (P02, P06)</button>
+        <button class="filter-btn" onclick="filterDomain('grid')">Grid Flexibility & §14a (P03, P05)</button>
+        <button class="filter-btn" onclick="filterDomain('der')">DER & Prosumers (P01, P04)</button>
+      </div>
     </div>
 
     <!-- ========================================================================================= -->
@@ -799,6 +1028,21 @@
           <span class="chip chip-reg">§14a / §41a EnWG Dynamic Tariffs</span>
           <span class="chip chip-scale">8 kWp PV · 9.37 kWh BESS · 5.63 kW Inverter</span>
           <span class="chip chip-stack">Fast LP-MPC + Rescaled SAC RL</span>
+        </div>
+        <div class="topology-strip">
+          <span class="topo-node amber">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+            8 kWp PV Array
+          </span>
+          <span class="topo-arrow">&rarr;</span>
+          <span class="topo-node accent">5.63 kW Hybrid Inverter</span>
+          <span class="topo-arrow">&harr;</span>
+          <span class="topo-node emerald">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="10" rx="2"/><line x1="7" y1="12" x2="17" y2="12"/></svg>
+            9.37 kWh BESS
+          </span>
+          <span class="topo-arrow">&harr;</span>
+          <span class="topo-node">Home Load & 15-min Spot Grid</span>
         </div>
         <h2 class="sec-title">Prosumer PV+BESS Energy Management under Dynamic Spot Tariffs</h2>
         <p class="sec-summary">
@@ -837,10 +1081,50 @@
                 <tr><th>Controller Rung</th><th>Net Daily Cost</th><th>Headroom Rec.</th><th>Physical Violations</th></tr>
               </thead>
               <tbody>
-                <tr><td>B1 Self-Consumption Rule</td><td>-2.417 EUR</td><td>Baseline (0%)</td><td>0 Violations</td></tr>
-                <tr><td>B2 Perfect Foresight MILP</td><td>-2.613 EUR</td><td class="ceiling">100.0% (Ceiling)</td><td>0 Violations</td></tr>
-                <tr><td>B3 Rolling-Horizon MPC (24h)</td><td>-2.526 EUR</td><td class="highlight">56.0% Recovery</td><td>0 Violations</td></tr>
-                <tr><td>RL Rescaled SAC Policy</td><td>-2.470 EUR</td><td>27.0% Recovery</td><td>0 Violations</td></tr>
+                <tr>
+                  <td>B1 Self-Consumption Rule</td>
+                  <td>-2.417 EUR</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 4%;"></div></div>
+                      <span>Baseline (0%)</span>
+                    </div>
+                  </td>
+                  <td>0 Violations</td>
+                </tr>
+                <tr>
+                  <td>B2 Perfect Foresight MILP</td>
+                  <td>-2.613 EUR</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill cyan" style="width: 100%;"></div></div>
+                      <span class="ceiling">100.0% (Ceiling)</span>
+                    </div>
+                  </td>
+                  <td>0 Violations</td>
+                </tr>
+                <tr>
+                  <td>B3 Rolling-Horizon MPC (24h)</td>
+                  <td>-2.526 EUR</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" style="width: 56%;"></div></div>
+                      <span class="highlight">56.0% Recovery</span>
+                    </div>
+                  </td>
+                  <td>0 Violations</td>
+                </tr>
+                <tr>
+                  <td>RL Rescaled SAC Policy</td>
+                  <td>-2.470 EUR</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill purple" style="width: 27%;"></div></div>
+                      <span>27.0% Recovery</span>
+                    </div>
+                  </td>
+                  <td>0 Violations</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -881,6 +1165,18 @@
           <span class="chip chip-scale">300 MW Turbine · 312 MW Pump · 2,400 MWh PSH</span>
           <span class="chip chip-stack">Binary Mode MILP + Multi-Timescale RL</span>
         </div>
+        <div class="topology-strip">
+          <span class="topo-node accent">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20M4 20l4-14h8l4 14"/></svg>
+            Upper Reservoir (2,400 MWh)
+          </span>
+          <span class="topo-arrow">&harr;</span>
+          <span class="topo-node amber">Reversible Machine (30 MW / 28 MW)</span>
+          <span class="topo-arrow">&harr;</span>
+          <span class="topo-node emerald">Lower Reservoir</span>
+          <span class="topo-arrow">&harr;</span>
+          <span class="topo-node purple">EPEX Spot & aFRR Balancing</span>
+        </div>
         <h2 class="sec-title">Pumped Storage Hydro Multi-Market Dispatch & Wear Optimization</h2>
         <p class="sec-summary">
           Sequential multi-market decision making across Day-Ahead energy spot markets, 4-hour aFRR capacity auctions, and real-time balancing activation calls. Solves binary mode mutual exclusion to protect reversible machines from destructive rotor direction reversals.
@@ -918,11 +1214,66 @@
                 <tr><th>Controller Architecture</th><th>Net Revenue</th><th>Energy Arbitrage</th><th>Wear Cost</th><th>Headroom Rec.</th></tr>
               </thead>
               <tbody>
-                <tr><td>B1 Price Threshold Rule</td><td>297,825 EUR</td><td>70,615 EUR</td><td>19,500 EUR</td><td>Baseline</td></tr>
-                <tr><td>B2 Perfect Foresight MILP</td><td>1,018,586 EUR</td><td>795,132 EUR</td><td>40,800 EUR</td><td class="ceiling">100.0% (Ceiling)</td></tr>
-                <tr><td>B3 Rolling MPC (24h)</td><td>959,666 EUR</td><td>792,710 EUR</td><td>52,500 EUR</td><td class="highlight">91.8%</td></tr>
-                <tr><td>RL Smoothed PPO (alpha=0.5)</td><td>208,541 EUR</td><td>187,461 EUR</td><td>69,600 EUR</td><td>2.6x Energy vs B1</td></tr>
-                <tr><td>RL Unidirectional Capacity</td><td>222,668 EUR</td><td>89,504 EUR</td><td>1,200 EUR</td><td class="highlight">98% Wear Slashed</td></tr>
+                <tr>
+                  <td>B1 Price Threshold Rule</td>
+                  <td>297,825 EUR</td>
+                  <td>70,615 EUR</td>
+                  <td>19,500 EUR</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 4%;"></div></div>
+                      <span>Baseline</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>B2 Perfect Foresight MILP</td>
+                  <td>1,018,586 EUR</td>
+                  <td>795,132 EUR</td>
+                  <td>40,800 EUR</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill cyan" style="width: 100%;"></div></div>
+                      <span class="ceiling">100.0% (Ceiling)</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>B3 Rolling MPC (24h)</td>
+                  <td>959,666 EUR</td>
+                  <td>792,710 EUR</td>
+                  <td>52,500 EUR</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" style="width: 92%;"></div></div>
+                      <span class="highlight">91.8%</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>RL Smoothed PPO (alpha=0.5)</td>
+                  <td>208,541 EUR</td>
+                  <td>187,461 EUR</td>
+                  <td>69,600 EUR</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill purple" style="width: 45%;"></div></div>
+                      <span>2.6x Energy</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>RL Unidirectional Capacity</td>
+                  <td>222,668 EUR</td>
+                  <td>89,504 EUR</td>
+                  <td>1,200 EUR</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" style="width: 98%;"></div></div>
+                      <span class="highlight">98% Wear Cut</span>
+                    </div>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -963,6 +1314,18 @@
           <span class="chip chip-scale">40-Connector Depot · 250 kW Limit</span>
           <span class="chip chip-stack">Constrained LP + EDF Safety Floor</span>
         </div>
+        <div class="topology-strip">
+          <span class="topo-node accent">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            250 kVA Grid Feeder
+          </span>
+          <span class="topo-arrow">&rarr;</span>
+          <span class="topo-node amber">§14a Dynamic Dimmer Limit (100 kW)</span>
+          <span class="topo-arrow">&rarr;</span>
+          <span class="topo-node emerald">EDF Safety Allocator</span>
+          <span class="topo-arrow">&rarr;</span>
+          <span class="topo-node purple">40-Connector Commercial EV Fleet</span>
+        </div>
         <h2 class="sec-title">Smart EV Charging Hub Control & Dynamic Grid Dimming</h2>
         <p class="sec-summary">
           Commercial fleet depot charging management under statutory grid operator curtailment orders (§14a EnWG). Guaranteed zero missed declared departures via Earliest Deadline First (EDF) aggregate energy floor reservations.
@@ -1000,9 +1363,39 @@
                 <tr><th>Charging Policy</th><th>Fleet Net Cost</th><th>Peak Demand</th><th>Departure Feasibility</th></tr>
               </thead>
               <tbody>
-                <tr><td>B0 Uncontrolled Charging</td><td>479.00 EUR</td><td>100.0 kW (Capped)</td><td>0 Missed Departures</td></tr>
-                <tr><td>B1 Equal-Share Rule</td><td>473.07 EUR</td><td>100.0 kW (Capped)</td><td>0 Missed Departures</td></tr>
-                <tr><td>B3 Price-Aware Greedy (with EDF)</td><td>475.19 EUR</td><td>100.0 kW (Capped)</td><td class="highlight">0 Missed Departures</td></tr>
+                <tr>
+                  <td>B0 Uncontrolled Charging</td>
+                  <td>479.00 EUR</td>
+                  <td>100.0 kW (Capped)</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 100%;"></div></div>
+                      <span>0 Missed</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>B1 Equal-Share Rule</td>
+                  <td>473.07 EUR</td>
+                  <td>100.0 kW (Capped)</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill cyan" style="width: 100%;"></div></div>
+                      <span>0 Missed</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>B3 Price-Aware Greedy (with EDF)</td>
+                  <td>475.19 EUR</td>
+                  <td>100.0 kW (Capped)</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" style="width: 100%;"></div></div>
+                      <span class="highlight">0 Missed (Optimal)</span>
+                    </div>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1043,6 +1436,18 @@
           <span class="chip chip-scale">20 Members · 100 kW PV · 15-min Settlement</span>
           <span class="chip chip-stack">Mechanism Design + Cooperative Game Theory</span>
         </div>
+        <div class="topology-strip">
+          <span class="topo-node amber">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+            100 kW Rooftop PV
+          </span>
+          <span class="topo-arrow">&harr;</span>
+          <span class="topo-node accent">P2P Local Balancing Feeder</span>
+          <span class="topo-arrow">&harr;</span>
+          <span class="topo-node emerald">20 Community Prosumers</span>
+          <span class="topo-arrow">&harr;</span>
+          <span class="topo-node purple">Owen Core Stability Engine</span>
+        </div>
         <h2 class="sec-title">Energy Sharing in Renewable Energy Communities (RECs)</h2>
         <p class="sec-summary">
           Evaluates economic stability and coalition formation for peer-to-peer electricity sharing. Analyzes core non-emptiness across all 1,023 sub-coalitions and derives the analytical break-even local network charge threshold.
@@ -1080,10 +1485,50 @@
                 <tr><th>Settlement Mechanism</th><th>Blocking Coalitions</th><th>Singletons Leaving</th><th>Core Stability Verdict</th></tr>
               </thead>
               <tbody>
-                <tr><td>Owen Core Allocation</td><td class="highlight">0 of 1,023</td><td class="highlight">0 Members</td><td class="highlight">100% Structurally Stable</td></tr>
-                <tr><td>Shapley Value</td><td>443 of 1,023</td><td>0 Members</td><td>Unstable (Coalitions Defect)</td></tr>
-                <tr><td>Optimization Mechanism</td><td>511 of 1,023</td><td>2 Members</td><td>Unstable (Singletons Leave)</td></tr>
-                <tr><td>Dynamic Proportional</td><td>428 of 1,023</td><td>0 Members</td><td>Unstable</td></tr>
+                <tr>
+                  <td>Owen Core Allocation</td>
+                  <td class="highlight">0 of 1,023</td>
+                  <td class="highlight">0 Members</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" style="width: 100%;"></div></div>
+                      <span class="highlight">100% Stable</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Shapley Value</td>
+                  <td>443 of 1,023</td>
+                  <td>0 Members</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 57%;"></div></div>
+                      <span>Unstable (Defection)</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Optimization Mechanism</td>
+                  <td>511 of 1,023</td>
+                  <td>2 Members</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill rose" style="width: 50%;"></div></div>
+                      <span>Unstable (Exit)</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Dynamic Proportional</td>
+                  <td>428 of 1,023</td>
+                  <td>0 Members</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 58%;"></div></div>
+                      <span>Unstable</span>
+                    </div>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1124,6 +1569,15 @@
           <span class="chip chip-scale">50 MW Wind · 30 MW PV · 40 MWh BESS · 40 MW Interconnection</span>
           <span class="chip chip-stack">Co-located LP + Rolling-Horizon MPC</span>
         </div>
+        <div class="topology-strip">
+          <span class="topo-node accent">50 MW Wind + 30 MW PV</span>
+          <span class="topo-arrow">&rarr;</span>
+          <span class="topo-node emerald">40 MWh BESS Buffer</span>
+          <span class="topo-arrow">&rarr;</span>
+          <span class="topo-node amber">Strict 40 MW POC Limit</span>
+          <span class="topo-arrow">&rarr;</span>
+          <span class="topo-node purple">EEG §51 Market Gate</span>
+        </div>
         <h2 class="sec-title">Utility Hybrid Wind+PV+BESS Plant Dispatch</h2>
         <p class="sec-summary">
           Arbitrage and forced curtailment mitigation behind a constrained 40 MW grid interconnection point (2.0x over-planted). Implements rolling-horizon MILP dispatch respecting statutory negative spot price remuneration suspensions.
@@ -1161,10 +1615,50 @@
                 <tr><th>Operating Controller</th><th>Net Market Revenue</th><th>Forced Curtailment</th><th>Hybrid Value Lift</th></tr>
               </thead>
               <tbody>
-                <tr><td>B0 Standalone (No Battery)</td><td>190,105 EUR</td><td>695.3 MWh</td><td>Baseline</td></tr>
-                <tr><td>B1 Curtailment Avoidance Rule</td><td>199,059 EUR</td><td>602.0 MWh</td><td>+4.7% (+8,954 EUR)</td></tr>
-                <tr><td>B3 Rolling-Horizon MPC (12h)</td><td>200,385 EUR</td><td>603.8 MWh</td><td class="highlight">+5.4% (+10,280 EUR)</td></tr>
-                <tr><td>B2 Perfect Foresight MILP</td><td>200,561 EUR</td><td>602.0 MWh</td><td class="ceiling">+5.5% (Ceiling)</td></tr>
+                <tr>
+                  <td>B0 Standalone (No Battery)</td>
+                  <td>190,105 EUR</td>
+                  <td>695.3 MWh</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 4%;"></div></div>
+                      <span>Baseline</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>B1 Curtailment Avoidance Rule</td>
+                  <td>199,059 EUR</td>
+                  <td>602.0 MWh</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 85%;"></div></div>
+                      <span>+4.7% Lift</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>B3 Rolling-Horizon MPC (12h)</td>
+                  <td>200,385 EUR</td>
+                  <td>603.8 MWh</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" style="width: 98%;"></div></div>
+                      <span class="highlight">+5.4% Lift</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>B2 Perfect Foresight MILP</td>
+                  <td>200,561 EUR</td>
+                  <td>602.0 MWh</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill cyan" style="width: 100%;"></div></div>
+                      <span class="ceiling">+5.5% (Ceiling)</span>
+                    </div>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1205,6 +1699,15 @@
           <span class="chip chip-scale">300 MW Renewable Portfolio</span>
           <span class="chip chip-stack">Quantile Loss + Deadband Stochastic MPC</span>
         </div>
+        <div class="topology-strip">
+          <span class="topo-node accent">ECMWF / GFS Ensembles</span>
+          <span class="topo-arrow">&rarr;</span>
+          <span class="topo-node amber">Pinball Loss Regressor (q10 to q90)</span>
+          <span class="topo-arrow">&rarr;</span>
+          <span class="topo-node emerald">B3 Deadband Trading Engine</span>
+          <span class="topo-arrow">&rarr;</span>
+          <span class="topo-node purple">EPEX Intraday & reBAP Cashout</span>
+        </div>
         <h2 class="sec-title">Probabilistic Forecast-to-Bid Pipeline & Asymmetric Imbalance</h2>
         <p class="sec-summary">
           Translates multi-quantile wind and solar forecasts (q10 to q90) into risk-aware intraday trading bids. Maximises realized portfolio revenue under heavy-tailed asymmetric German uniform imbalance settlement (reBAP).
@@ -1242,9 +1745,39 @@
                 <tr><th>Trading Strategy</th><th>Realized Price</th><th>Traded Energy</th><th>Policy Efficiency</th></tr>
               </thead>
               <tbody>
-                <tr><td>B1 Mean Chasing Baseline</td><td>58.22 EUR/MWh</td><td>27,051 MWh</td><td>Over-Trading</td></tr>
-                <tr><td>NV Newsvendor Quantile</td><td>58.22 EUR/MWh</td><td>26,947 MWh</td><td>Static Spread Bias</td></tr>
-                <tr><td>B3 Deadband Stochastic MPC</td><td>60.89 EUR/MWh</td><td>15,785 MWh</td><td class="highlight">+288,497 EUR Net Gain</td></tr>
+                <tr>
+                  <td>B1 Mean Chasing Baseline</td>
+                  <td>58.22 EUR/MWh</td>
+                  <td>27,051 MWh</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 50%;"></div></div>
+                      <span>Over-Trading</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>NV Newsvendor Quantile</td>
+                  <td>58.22 EUR/MWh</td>
+                  <td>26,947 MWh</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 50%;"></div></div>
+                      <span>Static Spread Bias</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>B3 Deadband Stochastic MPC</td>
+                  <td>60.89 EUR/MWh</td>
+                  <td>15,785 MWh</td>
+                  <td>
+                    <div class="ladder-bar-wrap">
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" style="width: 100%;"></div></div>
+                      <span class="highlight">+288.5k EUR Gain</span>
+                    </div>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1287,6 +1820,7 @@
         <button class="sim-tab active" onclick="setSimTab('rec')">P04: REC Break-Even Network Charge</button>
         <button class="sim-tab" onclick="setSimTab('dim')">P03: §14a EnWG Dynamic Grid Dimming</button>
         <button class="sim-tab" onclick="setSimTab('hyb')">P05: Hybrid Over-Planting Curtailment</button>
+        <button class="sim-tab" onclick="setSimTab('disp')">P01: 24h Dynamic Dispatch Scrubber</button>
       </div>
 
       <!-- Tab 1: REC -->
@@ -1378,6 +1912,50 @@
           </div>
         </div>
       </div>
+
+      <!-- Tab 4: 24h Dispatch Scrubber -->
+      <div id="pane-disp" class="sim-pane">
+        <p style="color: var(--text-sub); font-size: 0.88rem; margin-bottom: 14px;">
+          Move cursor or touch across the canvas to scrub through 96 15-minute intervals of a synchronized residential PV+BESS dispatch day (2025 DE-LU spot tariff).
+        </p>
+
+        <div class="dispatch-canvas-hud">
+          <div>
+            <div class="hud-stat-lbl">Time of Day</div>
+            <div class="hud-stat-val cyan" id="hud-time">12:00 (Step 48)</div>
+          </div>
+          <div>
+            <div class="hud-stat-lbl">Spot Tariff</div>
+            <div class="hud-stat-val amber" id="hud-price">74.20 €/MWh</div>
+          </div>
+          <div>
+            <div class="hud-stat-lbl">PV Generation</div>
+            <div class="hud-stat-val emerald" id="hud-pv">6.85 kW</div>
+          </div>
+          <div>
+            <div class="hud-stat-lbl">Battery Dispatch</div>
+            <div class="hud-stat-val purple" id="hud-bat">+3.12 kW (Chg)</div>
+          </div>
+          <div>
+            <div class="hud-stat-lbl">State of Charge</div>
+            <div class="hud-stat-val emerald" id="hud-soc">64.5%</div>
+          </div>
+          <div>
+            <div class="hud-stat-lbl">Net Grid Flow</div>
+            <div class="hud-stat-val cyan" id="hud-grid">0.00 kW (Self)</div>
+          </div>
+        </div>
+
+        <div class="dispatch-canvas-box">
+          <canvas id="dispatchCanvas"></canvas>
+          <div class="canvas-legend">
+            <div class="legend-item"><span class="legend-dot" style="background: var(--amber);"></span> Day-Ahead Spot Tariff</div>
+            <div class="legend-item"><span class="legend-dot" style="background: var(--emerald-bright);"></span> Solar PV Output</div>
+            <div class="legend-item"><span class="legend-dot" style="background: var(--cyan-bright);"></span> Battery State-of-Charge</div>
+            <div class="legend-item"><span class="legend-dot" style="background: #c084fc;"></span> Net Grid Exchange</div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Footer -->
@@ -1436,7 +2014,187 @@
       document.querySelectorAll('.sim-pane').forEach(p => p.classList.remove('active'));
       event.target.classList.add('active');
       document.getElementById('pane-' + tabId).classList.add('active');
+      if (tabId === 'disp') {
+        setTimeout(() => {
+          drawDispatchCanvas();
+          updateHud(scrubberIdx);
+        }, 50);
+      }
     }
+
+    // Recruiter Domain Filter Logic
+    function filterDomain(domain) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      const domainMap = {
+        'all': ['p01', 'p02', 'p03', 'p04', 'p05', 'p06'],
+        'markets': ['p02', 'p06'],
+        'grid': ['p03', 'p05'],
+        'der': ['p01', 'p04']
+      };
+      const allowed = domainMap[domain] || domainMap['all'];
+      ['p01', 'p02', 'p03', 'p04', 'p05', 'p06'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (allowed.includes(id)) {
+          el.style.opacity = '1';
+          el.style.pointerEvents = 'auto';
+        } else {
+          el.style.opacity = '0.22';
+          el.style.pointerEvents = 'none';
+        }
+      });
+    }
+
+    // 24-Hour Dispatch Canvas Scrubber Engine
+    const dispatchData = [];
+    (function initDispatchData() {
+      for (let i = 0; i < 96; i++) {
+        const hour = i / 4;
+        const price = 50 + 40 * Math.sin((hour - 4) * Math.PI / 12) + (hour >= 18 && hour <= 21 ? 35 : 0);
+        let pv = 0;
+        if (hour >= 6 && hour <= 20) {
+          pv = 7.8 * Math.pow(Math.sin((hour - 6) * Math.PI / 14), 2);
+        }
+        const load = 0.8 + 1.2 * (hour >= 7 && hour <= 9 ? 1.4 : 1) + 1.6 * (hour >= 18 && hour <= 22 ? 1.6 : 0.5);
+        const net = pv - load;
+        let bat = 0;
+        let soc = 20;
+        if (hour < 8) soc = 25 - hour * 1.5;
+        else if (hour < 16) soc = Math.min(90, 15 + (hour - 8) * 9.5);
+        else soc = Math.max(15, 90 - (hour - 16) * 9);
+        bat = net > 0 ? Math.min(3.5, net) : Math.max(-3.5, net);
+        const grid = Math.max(0, load - pv - (bat < 0 ? -bat : 0));
+        dispatchData.push({
+          time: String(Math.floor(hour)).padStart(2, '0') + ':' + String((i % 4) * 15).padStart(2, '0'),
+          step: i + 1,
+          price: Math.max(12, price),
+          pv: Math.max(0, pv),
+          load: load,
+          bat: bat,
+          soc: soc,
+          grid: grid
+        });
+      }
+    })();
+
+    let scrubberIdx = 48;
+    function drawDispatchCanvas() {
+      const canvas = document.getElementById('dispatchCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0) return;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Grid lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 96; i += 16) {
+        const x = (i / 95) * w;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+
+      // Draw PV Fill and Line
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.strokeStyle = '#34d399';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      dispatchData.forEach((d, i) => {
+        const x = (i / 95) * w;
+        const y = h - (d.pv / 8.0) * (h * 0.72);
+        ctx.lineTo(x, y);
+      });
+      ctx.lineTo(w, h);
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw Price Line
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      dispatchData.forEach((d, i) => {
+        const x = (i / 95) * w;
+        const y = h - ((d.price - 10) / 125) * (h * 0.7);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Draw SOC Line (Dashed)
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      dispatchData.forEach((d, i) => {
+        const x = (i / 95) * w;
+        const y = h - (d.soc / 100) * (h * 0.75);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Vertical Cursor
+      const sx = (scrubberIdx / 95) * w;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, h);
+      ctx.stroke();
+
+      // Scrubber Head Dot
+      ctx.fillStyle = '#06b6d4';
+      ctx.beginPath();
+      ctx.arc(sx, 12, 5, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    function updateHud(idx) {
+      const d = dispatchData[idx];
+      if (!d) return;
+      document.getElementById('hud-time').innerText = d.time + ' (Step ' + d.step + ')';
+      document.getElementById('hud-price').innerText = d.price.toFixed(2) + ' €/MWh';
+      document.getElementById('hud-pv').innerText = d.pv.toFixed(2) + ' kW';
+      const batStr = (d.bat >= 0 ? '+' : '') + d.bat.toFixed(2) + ' kW ' + (d.bat > 0.1 ? '(Chg)' : d.bat < -0.1 ? '(Dis)' : '(Idle)');
+      document.getElementById('hud-bat').innerText = batStr;
+      document.getElementById('hud-soc').innerText = d.soc.toFixed(1) + '%';
+      const gridStr = d.grid > 0.05 ? d.grid.toFixed(2) + ' kW (Imp)' : '0.00 kW (Self)';
+      document.getElementById('hud-grid').innerText = gridStr;
+    }
+
+    function setupCanvasListeners() {
+      const canvas = document.getElementById('dispatchCanvas');
+      if (!canvas) return;
+      function handleMove(clientX) {
+        const rect = canvas.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        scrubberIdx = Math.round(ratio * 95);
+        updateHud(scrubberIdx);
+        drawDispatchCanvas();
+      }
+      canvas.addEventListener('mousemove', e => handleMove(e.clientX));
+      canvas.addEventListener('touchmove', e => {
+        if (e.touches.length > 0) handleMove(e.touches[0].clientX);
+      });
+      window.addEventListener('resize', drawDispatchCanvas);
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+      setupCanvasListeners();
+      updateHud(scrubberIdx);
+    });
 
     // P04 Simulator Logic
     function simRec(val) {
