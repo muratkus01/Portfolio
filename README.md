@@ -73,7 +73,7 @@ flowchart TB
 
 | # | Project Dossier | Core Method | Asset / Scale | Regulatory Framework | Quickstart Command |
 |:---:|---|---|---|---|---|
-| **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Fast LP-MPC + Rescaled SAC RL | 8.9 kWh BESS, 5.5 kW Inverter | §14a / §41a EnWG, EEG 2023 | `python -m prosumer.cli ladder` |
+| **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Fast LP-MPC + Rescaled SAC RL | 8 kWp PV, 9.37 kWh BESS, 5.63 kW Inverter | §14a / §41a EnWG, EEG 2023 | `prosumer rolling-eval` |
 | **02** | [**Pumped-Storage Hydro Multi-Market**](projects/02-pumped-storage-rl-multimarket/) | Multi-Market LP + Mode-Reversal Wear | 300 MW / 2,400 MWh PSH | FCR/aFRR, §118(6) EnWG Exemptions | `python -m psw.cli ladder` |
 | **03** | [**Smart EV Charging Hub Control**](projects/03-smart-ev-charging-14a/) | Constrained Greedy/LP + EDF Reserve | 40-Connector Depot / 250 kW Limit | §14a EnWG Modules 1-3, Dimming | `python -m evc.cli ladder` |
 | **04** | [**Energy Sharing in RECs**](projects/04-energy-sharing-rec/) | Mechanism Design + Cooperative Game Theory | 20-Member Community / 100 kW PV | EU RED II Art. 22, §42b EnWG | `python -m rec.cli mechanisms` |
@@ -123,7 +123,7 @@ Portfolio/
 ├── datakit/                           ← Shared market data loaders & spot price connectors
 ├── docs/                              ← Energy market primers, regulatory guides & math
 └── projects/
-    ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (75 tests, 67 passing, 8 skipped)
+    ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (76 tests, 8 skipped without private data)
     ├── 02-pumped-storage-rl-multimarket/ ← Package: psw (27 tests passing)
     ├── 03-smart-ev-charging-14a/      ← Package: evc (20 tests passing)
     ├── 04-energy-sharing-rec/         ← Package: rec (41 tests passing)
