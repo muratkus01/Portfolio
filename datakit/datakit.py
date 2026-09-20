@@ -15,7 +15,7 @@ Deliberately NOT included: anything requiring a commercial licence. Every projec
 portfolio must run end-to-end on open data, so a commercial source is never a dependency.
 
     python datakit.py --check          verify every endpoint is reachable
-    python datakit.py --pull 2024      download the standard portfolio dataset for a year
+    python datakit.py --pull 2025      download the standard portfolio dataset for a year
 """
 from __future__ import annotations
 
@@ -156,10 +156,10 @@ def imbalance_proxy(power: pd.DataFrame) -> pd.DataFrame:
 
 # ------------------------------------------------------------------ CLI
 CHECKS = [
-    ("day-ahead price DE-LU", lambda c: day_ahead_price("2024-06-01", "2024-06-03", cache_dir=c)),
-    ("public power DE", lambda c: public_power("2024-06-01", "2024-06-03", cache_dir=c)),
+    ("day-ahead price DE-LU", lambda c: day_ahead_price("2025-06-01", "2025-06-03", cache_dir=c)),
+    ("public power DE", lambda c: public_power("2025-06-01", "2025-06-03", cache_dir=c)),
     ("installed capacity DE", lambda c: installed_power(cache_dir=c)),
-    ("cross-border flows DE", lambda c: cross_border_flows("2024-06-01", "2024-06-03", cache_dir=c)),
+    ("cross-border flows DE", lambda c: cross_border_flows("2025-06-01", "2025-06-03", cache_dir=c)),
 ]
 
 

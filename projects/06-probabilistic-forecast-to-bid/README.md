@@ -9,37 +9,37 @@ resolution.**
 
 Forecast store, probabilistic scoring and the trading-policy layer implemented and running on
 **real German 15-minute wind + PV generation and DE-LU day-ahead prices**. 18 tests pass.
-Installs from `numpy` + `pandas` alone — the normal quantile function is vendored — so the
+Installs from `numpy` + `pandas` alone (the normal quantile function is vendored), so the
 benchmark is trivially reproducible.
 
 ```bash
 pip install -e ".[dev]" && python -m pytest tests/ -q
-python -m f2b.cli policies  --year 2024 --days 30
-python -m f2b.cli forecast  --year 2024 --days 30
-python -m f2b.cli liquidity --year 2024 --days 30
+python -m f2b.cli policies  --year 2025 --days 30
+python -m f2b.cli forecast  --year 2025 --days 30
+python -m f2b.cli liquidity --year 2025 --days 30
 ```
 
-**Forecast quality by lead time** (300 MW portfolio, 30 days of 2024):
+**Forecast quality by lead time** (300 MW portfolio, 30 days of 2025):
 
 | Lead h | MAE MW | RMSE MW | CRPS | Calibration err |
 |---:|---:|---:|---:|---:|
-| 0.25 | 12.5 | 15.9 | 9.5 | 0.022 |
-| 1 | 14.2 | 18.2 | 10.8 | 0.018 |
-| 6 | 25.2 | 32.0 | 18.7 | 0.032 |
-| 24 | 52.9 | 67.8 | 37.4 | 0.046 |
+| 0.25 | 12.3 | 15.5 | 9.3 | 0.022 |
+| 1 | 13.7 | 17.4 | 10.4 | 0.021 |
+| 6 | 25.3 | 31.9 | 18.5 | 0.032 |
+| 24 | 49.6 | 65.3 | 35.7 | 0.062 |
 
-**Trading policies** (30 days of 2024, 50,591 MWh produced, 3 €/MWh half-spread):
+**Trading policies** (30 days of 2025, 43,212 MWh produced, 3 €/MWh half-spread):
 
 | Policy | Net € | €/MWh | Imbalance MWh | Traded MWh | ID cost € |
 |---|---:|---:|---:|---:|---:|
-| B0 day-ahead only | 3,503,981 | 69.26 | 37,387 | 0 | 0 |
-| B1 point intraday | 2,789,978 | 55.15 | 10,496 | 116,413 | 660,429 |
-| NV newsvendor quantile | 2,794,832 | 55.24 | 10,466 | 115,662 | 655,313 |
-| **B3 stochastic MPC** | **3,073,503** | **60.75** | 7,748 | 66,008 | 357,449 |
-| REF zero imbalance | 3,390,211 | 67.01 | 0 | 0 | 0 |
-| CEIL perfect speculation | 8,660,709 | 171.19 | 110,115 | 0 | 0 |
+| B0 day-ahead only | 3,919,163 | 90.70 | 35,070 | 0 | 0 |
+| B1 point intraday | 3,287,532 | 76.08 | 10,453 | 112,453 | 635,078 |
+| NV newsvendor quantile | 3,293,141 | 76.21 | 10,416 | 111,554 | 629,223 |
+| **B3 stochastic MPC** | **3,576,029** | **82.76** | **7,805** | **63,212** | **341,409** |
+| REF zero imbalance | 3,870,860 | 89.58 | 0 | 0 | 0 |
+| CEIL perfect speculation | 9,205,043 | 213.02 | 108,839 | 0 | 0 |
 
-B3's deadband beats always-chasing-the-mean by **+283,525 €** while trading 43 % less volume —
+B3's deadband beats always-chasing-the-mean by **+288,497 €** while trading 44 % less volume:
 the mechanism is refusing to pay a spread for forecast revisions that are small relative to
 the remaining uncertainty.
 
@@ -48,7 +48,7 @@ invalidates a result:
 
 1. **"Perfect foresight" was not an upper bound.** Committing the realised generation gives
    zero imbalance, but imbalance settlement is *signed* — deviating in the system-helping
-   direction is paid. B0 beats the zero-imbalance reference in the 2024 data by luck alone.
+   direction is paid. B0 beats the zero-imbalance reference by luck alone.
    The rung is now labelled `REF zero imbalance`, and a genuine `CEIL perfect speculation`
    ceiling was added, with the caveat that no BRP may legally pursue it.
 2. **The calibration metric was structurally biased.** Binning the PIT against a uniform
@@ -70,7 +70,7 @@ returns 0 violations) is the transferable part; swapping in DWD ICON-D2-EPS chan
 
 | | |
 |---|---|
-| **Status** | **Forecast store + policy layer implemented** on real 2024 data · RL policy not yet trained |
+| **Status** | **Forecast store + policy layer implemented** on real 2025 data · RL policy not yet trained |
 | **Method** | Probabilistic forecasting (quantile/distributional NN) + decision-focused learning + RL trading policy |
 | **Actor** | Balance responsible party / virtual power plant with a wind + PV portfolio |
 | **Markets** | SDAC day-ahead (15-min MTU) · SIDC continuous intraday + IDA auctions · imbalance (reBAP) |

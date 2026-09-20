@@ -7,26 +7,26 @@ between revenue maximisation, grid-security priority and a hybrid mode.**
 
 ## 0. Implementation status
 
-Ladder implemented and running on **real DE-LU 2024 day-ahead prices** (via `datakit`).
+Ladder implemented and running on **real DE-LU 2025 day-ahead prices** (via `datakit`).
 27 tests pass. `src/psw/` contains the plant physics + safety layer, the market/settlement
 module, B1/B2/B3, and the Gymnasium environment with the two-timescale capacity/energy action.
 
 ```bash
 pip install -e ".[rl,dev]" && python -m pytest tests/ -q
-python -m psw.cli ladder --year 2024 --days 10      # B1/B2/B3
-python -m psw.cli exempt --year 2024 --days 14      # §118(6) EnWG sensitivity
-python -m psw.cli lambda --year 2024 --days 14      # revenue vs grid-security sweep
+python -m psw.cli ladder --year 2025 --days 10      # B1/B2/B3
+python -m psw.cli exempt --year 2025 --days 14      # §118(6) EnWG sensitivity
+python -m psw.cli lambda --year 2025 --days 14      # revenue vs grid-security sweep
 ```
 
-**10 days of 2024, 300 MW / 2400 MWh reference plant, static 15 % aFRR capacity offer:**
+**10 days of 2025, 300 MW / 2400 MWh reference plant, static 15 % aFRR capacity offer:**
 
 | Controller | Net EUR | Energy EUR | Capacity EUR | Wear EUR | Security idx | Violations |
 |---|---:|---:|---:|---:|---:|---:|
-| B1 price threshold | 525,307 | 301,542 | 219,456 | 19,500 | 0.683 | 0 |
-| B2 perfect foresight | 849,311 | 637,907 | 219,456 | 40,800 | 0.794 | 0 |
-| B3 rolling MPC | 801,979 | 631,423 | 219,456 | 48,900 | 0.785 | 0 |
+| B1 price threshold | 298,660 | 80,073 | 219,456 | 18,000 | 0.747 | 0 |
+| B2 perfect foresight | 1,009,344 | 805,818 | 219,456 | 46,800 | 0.748 | 0 |
+| B3 rolling MPC | 945,308 | 789,752 | 219,456 | 63,900 | 0.741 | 0 |
 
-B3 recovers **85.4%** of the B1-to-B2 headroom at 44 ms/decision; **47,332 EUR** of headroom
+B3 recovers **91.0%** of the B1-to-B2 headroom at 44 ms/decision; **64,037 EUR** of headroom
 remains for a learned policy to play for. Note B3 scores close to B2 on security readiness
 while enforcing every physical and market boundary.
 

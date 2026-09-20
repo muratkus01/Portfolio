@@ -148,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
                      ("dimming", cmd_dimming), ("archetypes", cmd_archetypes)):
         sp = sub.add_parser(name)
         sp.add_argument("--archetype", default="depot", choices=list(ARCHETYPES))
-        sp.add_argument("--year", type=int, default=2024)
+        sp.add_argument("--year", type=int, default=2025)
         sp.add_argument("--days", type=int, default=14)
         sp.add_argument("--connectors", type=int, default=40)
         sp.add_argument("--site-limit", type=float, default=250.0)

@@ -2,7 +2,7 @@
 """Portfolio showcase: run every project's benchmark ladder and print what it finds.
 
     python showcase.py               offline, synthetic inputs, about a minute
-    python showcase.py --real-data   DE-LU 2024 prices and generation via datakit (network)
+    python showcase.py --real-data   DE-LU 2025 prices and generation via datakit (network)
     python showcase.py --tests       also run the test suite and report the real counts
 
 Every number printed here is computed on the spot by the project packages. Nothing is
@@ -43,12 +43,12 @@ def diurnal(n: int, dt: float = 0.25) -> np.ndarray:
     return np.arange(n) * dt % 24
 
 
-def real_prices_eur_mwh(days: int, dt: float = 0.25, start: str = "2024-06-03") -> np.ndarray:
+def real_prices_eur_mwh(days: int, dt: float = 0.25, start: str = "2025-06-02") -> np.ndarray:
     """DE-LU day-ahead prices from Energy-Charts, held across quarter-hours."""
     import datakit
     import pandas as pd
 
-    df = datakit.day_ahead_price("2024-01-01", "2025-01-01")
+    df = datakit.day_ahead_price("2025-01-01", "2026-01-01")
     s = df["price_eur_per_mwh"]
     target = pd.date_range(start, periods=int(days * 24 / dt), freq="15min", tz="UTC")
     return s.reindex(s.index.union(target)).ffill().reindex(target).to_numpy()
@@ -76,7 +76,7 @@ def demo_01(real: bool) -> dict:
     load = 0.35 + 0.9 * np.exp(-((h - 19) ** 2) / 5) + 0.05 * rng.random(n)
     pv = 4.5 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1)
     spot = (real_prices_eur_mwh(2) if real else synthetic_prices_eur_mwh(n)) / 1000.0
-    idx = pd.date_range("2024-06-03", periods=n, freq="15min", tz="UTC")
+    idx = pd.date_range("2025-06-02", periods=n, freq="15min", tz="UTC")
     pi, pe = import_price(spot, idx, run.tariff), export_price(spot, run.tariff)
 
     res = run_ladder(load, pv, pi, pe, run)
@@ -257,7 +257,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--real-data", action="store_true",
-                    help="use DE-LU 2024 prices via datakit (needs network)")
+                    help="use DE-LU 2025 prices via datakit (needs network)")
     ap.add_argument("--tests", action="store_true", help="also run the test suite")
     ap.add_argument("--only", choices=list(DEMOS), help="run a single project")
     args = ap.parse_args()
@@ -265,7 +265,7 @@ def main() -> int:
     print("=" * 84)
     print("  AI for Renewable Energy Systems: applied research portfolio")
     print("  Murat Kus | Dipl.-Ing. | M.Sc. Sustainable Energy Systems | B.Sc. AI (in progress)")
-    print(f"  inputs: {'DE-LU 2024 day-ahead prices (datakit)' if args.real_data else 'synthetic, offline'}"
+    print(f"  inputs: {'DE-LU 2025 day-ahead prices (datakit)' if args.real_data else 'synthetic, offline'}"
           f" | every number below is computed now")
     print("=" * 84)
 

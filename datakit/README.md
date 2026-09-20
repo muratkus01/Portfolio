@@ -1,4 +1,4 @@
-# datakit — shared open-data access
+# datakit: shared open-data access
 
 One module, no credentials, covering the German market and system data the portfolio's
 projects depend on. Every project imports from here rather than writing its own fetcher, so
@@ -6,7 +6,7 @@ provenance, caching and licence recording happen in exactly one place.
 
 ```bash
 python datakit.py --check        # verify every endpoint is reachable
-python datakit.py --pull 2024    # download the standard portfolio dataset for a year
+python datakit.py --pull 2025    # download the standard portfolio dataset for a year
 ```
 
 ## Verified working
@@ -21,15 +21,15 @@ Last checked against the live APIs on 2026-08-11:
 | Cross-border physical flows | `cross_border_flows` | 15 min | Energy-Charts | CC BY 4.0 |
 | ENTSO-E Transparency (raw) | `entsoe` | varies | ENTSO-E | free reuse, **token required** |
 
-`python datakit.py --pull 2024` retrieves, for calendar year 2024:
+`python datakit.py --pull 2025` retrieves, for calendar year 2025:
 
 ```
-price            8808 rows | mean   78.30 EUR/MWh | negative 5.3% of steps
-public power    35232 rows | 21 production types      (= 366 days x 96 quarter-hours)
-system feats    35232 rows | mean renewable share 54.2%
+price           15483 rows | mean   90.47 EUR/MWh | negative 4.7% of steps
+public power    35136 rows | 21 production types
+system feats    35136 rows | mean renewable share 54.3%
 ```
 
-Those figures are a useful sanity check in themselves: Germany's 2024 day-ahead average and
+Those figures are a useful sanity check in themselves: Germany's 2025 day-ahead average and
 renewable share both land where the published statistics put them, which is the cheapest
 available evidence that the pipeline is reading the right thing.
 

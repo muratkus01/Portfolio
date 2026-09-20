@@ -1,9 +1,9 @@
 """Command-line entry point for the hybrid-plant project.
 
-    python -m hybrid.cli ladder    --year 2024 --days 30
-    python -m hybrid.cli sizing    --year 2024 --days 30   connection-ratio sweep (RQ2)
-    python -m hybrid.cli negprice  --year 2024 --days 30   negative-price rule by vintage (RQ4)
-    python -m hybrid.cli decompose --year 2024 --days 30   where the battery's value comes from
+    python -m hybrid.cli ladder    --year 2025 --days 30
+    python -m hybrid.cli sizing    --year 2025 --days 30   connection-ratio sweep (RQ2)
+    python -m hybrid.cli negprice  --year 2025 --days 30   negative-price rule by vintage (RQ4)
+    python -m hybrid.cli decompose --year 2025 --days 30   where the battery's value comes from
 """
 from __future__ import annotations
 
@@ -160,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     for name, fn in (("ladder", cmd_ladder), ("sizing", cmd_sizing),
                      ("negprice", cmd_negprice), ("decompose", cmd_decompose)):
         sp = sub.add_parser(name)
-        sp.add_argument("--year", type=int, default=2024)
+        sp.add_argument("--year", type=int, default=2025)
         sp.add_argument("--days", type=int, default=30)
         sp.add_argument("--horizon", type=int, default=96)
         sp.add_argument("--neg-rule", default="new_2025",

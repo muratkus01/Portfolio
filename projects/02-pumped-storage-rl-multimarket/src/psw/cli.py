@@ -1,8 +1,8 @@
 """Command-line entry point for the pumped-storage project.
 
-    python -m psw.cli ladder  --year 2024 --days 30     B1/B2/B3 on real DE-LU prices
-    python -m psw.cli lambda  --year 2024 --days 14     revenue vs grid-security frontier
-    python -m psw.cli exempt  --year 2024 --days 14     s118(6) network-charge sensitivity
+    python -m psw.cli ladder  --year 2025 --days 30     B1/B2/B3 on real DE-LU prices
+    python -m psw.cli lambda  --year 2025 --days 14     revenue vs grid-security frontier
+    python -m psw.cli exempt  --year 2025 --days 14     s118(6) network-charge sensitivity
 """
 from __future__ import annotations
 
@@ -147,7 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def common(sp):
-        sp.add_argument("--year", type=int, default=2024)
+        sp.add_argument("--year", type=int, default=2025)
         sp.add_argument("--days", type=int, default=30)
         sp.add_argument("--horizon", type=int, default=192)
         sp.add_argument("--no-afrr", action="store_true")

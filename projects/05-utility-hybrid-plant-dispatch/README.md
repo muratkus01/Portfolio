@@ -7,15 +7,15 @@ ladder B0 → B3 and against a learned policy.**
 
 ## 0. Implementation status
 
-Ladder B0/B1/B2/B3 implemented and running on **real German 2024 wind, PV and price data**
+Ladder B0/B1/B2/B3 implemented and running on **real German 2025 wind, PV and price data**
 (national capacity factors from Energy-Charts via `datakit`). 26 tests pass.
 
 ```bash
 pip install -e ".[rl,dev]" && python -m pytest tests/ -q
-python -m hybrid.cli ladder    --year 2024 --days 30
-python -m hybrid.cli sizing    --year 2024 --days 20   # RQ2 connection-ratio sweep
-python -m hybrid.cli negprice  --year 2024 --days 20   # RQ4 negative-price rule by vintage
-python -m hybrid.cli decompose --year 2024 --days 20   # RQ1 battery value decomposition
+python -m hybrid.cli ladder    --year 2025 --days 30
+python -m hybrid.cli sizing    --year 2025 --days 20   # RQ2 connection-ratio sweep
+python -m hybrid.cli negprice  --year 2025 --days 20   # RQ4 negative-price rule by vintage
+python -m hybrid.cli decompose --year 2025 --days 20   # RQ1 battery value decomposition
 ```
 
 **Connection-capacity sweep** (80 MW installed, 20 days of 2024, perfect foresight):
@@ -81,7 +81,7 @@ negative-price table above is unaffected, because on national data the connectio
 
 | | |
 |---|---|
-| **Status** | **Ladder implemented** on real 2024 wind/PV/price data · RL environment not yet built |
+| **Status** | **Ladder implemented** on real 2025 wind/PV/price data · RL environment not yet built |
 | **Method** | Full benchmark ladder (B0–B3) + PPO/SAC with safety layer |
 | **Asset** | ~50 MW wind + ~30 MW PV + ~20 MW / 40 MWh battery behind a ~60 MW connection |
 | **Markets** | Day-ahead · intraday · imbalance · optional aFRR · EEG market premium |

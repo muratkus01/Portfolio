@@ -8,7 +8,7 @@ commitments.**
 ## 0. Implementation status
 
 Session generator, tariff (including all three `§14a` modules), the safety layer with an
-**EDF feasibility reserve**, and B0/B1/B3 implemented and running on real DE-LU 2024 prices.
+**EDF feasibility reserve**, and B0/B1/B3 implemented and running on real DE-LU 2025 prices.
 20 tests pass.
 
 ```bash
@@ -19,18 +19,18 @@ python -m evc.cli dimming    --archetype depot     # cost vs dimming frequency
 python -m evc.cli archetypes                       # depot / workplace / apartment
 ```
 
-**Depot archetype, 40 connectors, 250 kW site limit, 14 days of 2024:**
+**Depot archetype, 40 connectors, 250 kW site limit, 14 days of 2025:**
 
 | Controller | Net cost € | Energy kWh | Peak kW | THG € | Missed | Fairness |
 |---|---:|---:|---:|---:|---:|---:|
-| B0 uncontrolled | 5,431.06 | 28,263 | 250.0 | 1,695.81 | **0** | 0.99 |
-| B1 equal share | 5,378.09 | 28,201 | 250.0 | 1,692.08 | **0** | 0.99 |
-| B3 price greedy | **5,200.49** | 28,172 | 250.0 | 1,690.30 | **0** | 0.99 |
+| B0 uncontrolled | 5,623.19 | 28,263 | 250.0 | 1,695.81 | **0** | 0.99 |
+| B1 equal share | 5,571.55 | 28,201 | 250.0 | 1,692.08 | **0** | 0.99 |
+| B3 price greedy | **5,391.28** | 28,172 | 250.0 | 1,690.30 | **0** | 0.99 |
 
 ![Smart EV Depot Charging Dispatch Benchmarks](docs/figures/ev_charging_benchmark.png)
 
 Every declared departure is met on every rung, and the price-aware controller is cheapest,
-4.2% below uncontrolled charging. The run header reports site utilisation against the
+4.1% below uncontrolled charging. The run header reports site utilisation against the
 *deliverable charging window* (71%, "feasible") rather than against the clock, because a site
 can have ample daily energy capacity and still be infeasible if all the dwell time is at night.
 

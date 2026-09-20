@@ -1,9 +1,9 @@
 """Command-line entry point for the forecast-to-bid project.
 
-    python -m f2b.cli policies  --year 2024 --days 60   compare all trading policies
-    python -m f2b.cli forecast  --year 2024 --days 60   forecast scores by lead time
-    python -m f2b.cli crps-eur  --year 2024 --days 60   RQ1: does CRPS predict EUR?
-    python -m f2b.cli liquidity --year 2024 --days 60   sensitivity to the liquidity assumption
+    python -m f2b.cli policies  --year 2025 --days 60   compare all trading policies
+    python -m f2b.cli forecast  --year 2025 --days 60   forecast scores by lead time
+    python -m f2b.cli crps-eur  --year 2025 --days 60   RQ1: does CRPS predict EUR?
+    python -m f2b.cli liquidity --year 2025 --days 60   sensitivity to the liquidity assumption
 """
 from __future__ import annotations
 
@@ -24,7 +24,8 @@ _DATAKIT = Path(__file__).resolve().parents[4] / "datakit"
 if str(_DATAKIT) not in sys.path:
     sys.path.insert(0, str(_DATAKIT))
 
-INSTALLED_MW = {"wind": 72000.0, "pv": 99000.0}
+INSTALLED_MW = {2024: {"wind": 72000.0, "pv": 99000.0},
+                2025: {"wind": 75000.0, "pv": 110000.0}}
 
 
 def load(year: int, days: int, run: RunConfig):
@@ -41,8 +42,9 @@ def load(year: int, days: int, run: RunConfig):
                 return power[c]
         raise KeyError(name)
 
-    wind_cf = ((pick("Wind onshore") + pick("Wind offshore")) / INSTALLED_MW["wind"]).clip(0, 1)
-    pv_cf = (pick("Solar") / INSTALLED_MW["pv"]).clip(0, 1)
+    cap = INSTALLED_MW.get(year, INSTALLED_MW[2025])
+    wind_cf = ((pick("Wind onshore") + pick("Wind offshore")) / cap["wind"]).clip(0, 1)
+    pv_cf = (pick("Solar") / cap["pv"]).clip(0, 1)
     load_mw = pick("Load")
 
     df = pd.DataFrame({"wind_cf": wind_cf, "pv_cf": pv_cf, "load_mw": load_mw}).dropna()
@@ -52,8 +54,8 @@ def load(year: int, days: int, run: RunConfig):
     truth = (df["wind_cf"].to_numpy() * run.portfolio.wind_mw
              + df["pv_cf"].to_numpy() * run.portfolio.pv_mw)
     # system imbalance proxy: residual-load ramp drives the sign of the imbalance price
-    resid = df["load_mw"].to_numpy() - (df["wind_cf"].to_numpy() * INSTALLED_MW["wind"]
-                                        + df["pv_cf"].to_numpy() * INSTALLED_MW["pv"])
+    resid = df["load_mw"].to_numpy() - (df["wind_cf"].to_numpy() * cap["wind"]
+                                        + df["pv_cf"].to_numpy() * cap["pv"])
     return truth, df["price"].to_numpy(), np.diff(resid, prepend=resid[0])
 
 
@@ -186,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     for name, fn in (("policies", cmd_policies), ("forecast", cmd_forecast),
                      ("crps-eur", cmd_crps_eur), ("liquidity", cmd_liquidity)):
         sp = sub.add_parser(name)
-        sp.add_argument("--year", type=int, default=2024)
+        sp.add_argument("--year", type=int, default=2025)
         sp.add_argument("--days", type=int, default=60)
         sp.add_argument("--spread", type=float, default=3.0)
         sp.set_defaults(func=fn)
