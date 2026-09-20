@@ -43,6 +43,8 @@ B3's deadband beats always-chasing-the-mean by **+288,497 €** while trading 44
 the mechanism is refusing to pay a spread for forecast revisions that are small relative to
 the remaining uncertainty.
 
+![Probabilistic Forecast-to-Bid Trading Policy Benchmarks](docs/figures/f2b_trading_benchmark.png)
+
 **Three errors found and fixed during implementation**, all of the kind that quietly
 invalidates a result:
 

@@ -24,9 +24,11 @@ outputs/
 multirun/
 wandb/
 checkpoints/
+models/
 *.ckpt
 *.pt
 *.pth
+*.zip
 
 # Solver / optimisation artefacts
 *.lp

@@ -55,6 +55,8 @@ creating value up to a **break-even charge of 0.110 €/kWh**, derived in closed
 failure, not a value failure**. The Owen core allocation keeps every member above what they
 could achieve alone right up to break-even; above it, no settlement can help.
 
+![Renewable Energy Community Cooperative Game Benchmarks](docs/figures/rec_sharing_benchmark.png)
+
 ### Stability: which allocations would members actually accept?
 
 The community is a **linear production game** (Owen, 1975): each quarter-hour the coalition

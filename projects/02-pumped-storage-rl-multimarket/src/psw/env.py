@@ -161,6 +161,6 @@ class PSWEnv(gym.Env if _HAS_GYM else object):                 # type: ignore[mi
         truncated = (self.t - self.t0) >= self.episode_steps or self.t >= self.n
         obs = self._obs() if not truncated else np.zeros(self.observation_space.shape,
                                                          dtype=np.float32)
-        info = {"p": p, "e_res": self.e, "revenue": rev, "security": sec,
+        info = {"p": p, "p_sched": p_commercial, "e_res": self.e, "revenue": rev, "security": sec,
                 "sold_pos": self.sold_pos, "sold_neg": self.sold_neg, "activation": act}
         return obs, float(reward), False, bool(truncated), info
