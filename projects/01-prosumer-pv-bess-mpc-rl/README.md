@@ -142,7 +142,7 @@ mismatch between PV and load inside the hour, and understates the optimised resu
 
 The preliminary RL benchmark (Soft Actor-Critic trained on 2024 data and tested over the 20.5-month out-of-sample period) captured a median of -5.9 % of the B1 to B2 gap (-7.1 % to -1.8 % across 3 seeds). A systematic failure mode audit revealed two architectural bottlenecks in standard home energy management RL formulations:
 
-1. **Dead Gradient from Action Clipping (73 to 80 % clipping rate):** In raw action formulations where the policy outputs a normalized battery power setpoint $a \in [-1, 1]$ scaled to $[-P_{max}, P_{max}]$, the physical state of charge and grid limits frequently prevent the requested action. The safety layer clipped 73 to 80 % of actions. When actions are clipped by an external projection, policy gradient updates produce zero or misdirected gradient steps.
+1. **Dead Gradient from Action Clipping (73 to 80 % clipping rate):** In raw action formulations where the policy outputs a normalized battery power setpoint $a \in [-1, 1]$ scaled to $[-P_{max}, P_{max}]$, the physical state of charge and grid limits frequently prevent the requested action. The safety layer clipped 73 to 80 % of actions. When actions are clipped by an external projection, policy gradient updates produce zero or misdirected gradient steps. This was the obvious suspect; the ablation below shows it was the lesser of the two problems, and that removing the clipping without fixing the reward makes the result worse.
 2. **Uncontrollable term in the step reward:** The raw reward was the total step electricity cost:
    $$r_t = - \left( c_{imp}(t) \cdot p_{imp}(t) - c_{exp}(t) \cdot p_{exp}(t) \right) \Delta t$$
    Most of that cost is set by household load and irradiance, which the battery cannot influence. Measured on the test period, the no-battery step cost has a standard deviation of 4.5 ct while the battery's own contribution under B1 dispatch has 2.9 ct, so the uncontrollable part adds noise of roughly one and a half times the signal the agent is trying to learn from. It does not swamp the signal, but it does make credit assignment harder than it needs to be.
@@ -168,6 +168,29 @@ With these two fixes applied, a 3-seed SAC evaluation was trained on 2024 and te
 - **Headroom Recovery:** Headroom recovery swung from **-5.9 %** to **+27.0 %** (range 26.2 % to 32.3 % across seeds), capturing an additional 105 EUR of economic value over the price-blind B1 heuristic.
 - **Action Clipping:** Safety layer action clipping dropped from **73-80 % down to exactly 0.0 %** across all seeds.
 - **Physical Reliability:** Zero constraint violations across all 180,000 evaluated quarter-hours, verifying the safety layer guarantees.
+
+#### Which of the two changes did the work
+
+Both were introduced together, so each was rerun on its own for one seed
+(`reports/rl_ablation_*`). The answer is not the one the clipping statistic suggests:
+
+| Formulation | Clipping | Capture of the B1 to B2 gap |
+|---|---:|---:|
+| Original: clipped action, total-cost reward | 73 to 80 % | -5.9 % |
+| Feasible action rescaling only | 0 % | **-9.9 %** |
+| Differential reward only | 68 % | **+22.7 %** |
+| Both (reported above) | 0 % | **+27.0 %** |
+
+The **reward** is what fixes the agent. Removing the uncontrollable part of the cost is worth
+about 29 points on its own, while action rescaling on its own is slightly harmful: with the
+old reward, a policy whose every request is executed simply acts on a signal it cannot read,
+and the clipping that looked like a defect was partly masking that. Rescaling does pay once
+the reward is informative, adding roughly 4 further points. Reporting clipping alone, as an
+intuitive diagnostic, would have pointed at the wrong fix.
+
+Even so, RL remains far behind the deployable MPC (27 % against 87.9 %), and the honest
+reading is that this formulation is now a sound starting point rather than a competitive
+controller.
 
 Detailed per-seed statistics: [`reports/rl_eval_H28/`](reports/rl_eval_H28/).
 
