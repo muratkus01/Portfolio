@@ -97,7 +97,27 @@ mismatch between PV and load inside the hour, and understates the optimised resu
 
 ### Does reinforcement learning beat B3?
 
-SAC, trained on 2024 with exactly the information B3 uses (published prices only, the day-ahead PV forecast, the standard-profile load forecast) and tested on the same 20.5 months, captures a **median -5.9 %** of the perfect-foresight gain over 3 seeds (range -7.1 to -1.8 %), against **87.9 %** for the deployable B3 on the same household. The learned policy does not beat B3 here (93.8 points behind). With one training year and a load forecast that is the main source of error for both controllers, the MPC's explicit optimisation over the known price window remains the stronger baseline; this is recorded as a result, not hidden. The safety layer kept violations at 0 (it clipped 77.5 % of the proposed actions); training took about 72 minutes per seed on CPU (500 000 steps). Per-seed results: `reports/rl_eval_H28/`.
+Not yet. SAC was trained on 2024 with exactly the information B3 uses (published prices
+only, the day-ahead PV forecast, the standard-profile load forecast) and tested on the same
+20.5 months. It captures a **median of -5.9 %** of the perfect-foresight gain over three
+seeds (range -7.1 to -1.8 %), against **87.9 %** for the deployable B3 on the same
+household. Negative means the policy ends up slightly worse than the price-blind rule-based
+controller, by about 27 EUR over the test period.
+
+**This is a preliminary result, and most likely a training problem rather than evidence
+about reinforcement learning.** Two observations point that way. The safety layer had to
+clip 73 to 80 % of the proposed actions, so the policy spends most of its time asking for
+battery power that the state of charge or the grid limits do not allow. And the reward is
+the full electricity cost of the step, which is dominated by the household's load and PV,
+a part the battery cannot influence; the controllable share is a few percent of the signal,
+which makes credit assignment hard. The next attempt should reward the difference to a
+no-battery baseline, so the agent sees only what it actually changes, and train longer than
+500 000 steps with a hyperparameter search. Runtime was 72 minutes per seed on CPU.
+
+What the run does establish is that the comparison is fair and the machinery is sound: the
+agent and the MPC share physics, prices, forecasts and the safety layer, so neither has an
+information advantage, and violations were zero in every run. Per-seed results:
+`reports/rl_eval_H28/`.
 
 ### Limitations
 
