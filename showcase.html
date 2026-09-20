@@ -520,13 +520,68 @@
       user-select: none;
     }
 
-    /* Dedicated Project Sections */
+    /* Dedicated Project Sections with Focus Switcher */
     .project-section {
-      padding: 64px 0;
+      display: none;
+      padding: 48px 0;
       border-bottom: 1px solid var(--border-subtle);
-      transition: opacity 0.3s ease;
+      animation: fadeInProject 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .project-section.active {
+      display: block;
+    }
+    @keyframes fadeInProject {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     .project-section:last-of-type { border-bottom: none; }
+
+    /* Visual Gallery & Dynamic Plot Switcher */
+    .visual-gallery {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+    }
+    .gallery-nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: rgba(15, 23, 42, 0.65);
+      padding: 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+    }
+    .gallery-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-sub);
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .gallery-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .gallery-btn.active {
+      background: rgba(6, 182, 212, 0.16);
+      border-color: rgba(6, 182, 212, 0.35);
+      color: var(--cyan-bright);
+    }
+    .nav-pill-all {
+      border-left: 1px solid rgba(255, 255, 255, 0.18) !important;
+      margin-left: 8px !important;
+      color: var(--amber) !important;
+    }
+    .nav-pill-all.active {
+      background: rgba(245, 158, 11, 0.2) !important;
+      border-color: var(--amber) !important;
+    }
 
     .sec-header {
       margin-bottom: 32px;
@@ -1058,7 +1113,7 @@
           <button class="year-btn active" id="ybtn-2025" onclick="setGlobalYear(2025)">2025</button>
           <button class="year-btn" id="ybtn-2026" onclick="setGlobalYear(2026)">2026 (Jan-Aug)</button>
         </div>
-        <a class="nav-link" href="#simulator" style="font-weight: 600;">Simulator</a>
+        <a class="nav-link" href="#simulator" onclick="selectProject('simulator'); return false;" style="font-weight: 600;">Simulator</a>
         <a class="nav-btn-github" href="https://github.com/muratkus01/Portfolio" target="_blank">
           GitHub
         </a>
@@ -1125,20 +1180,21 @@
     <!-- Sticky Section Navigator (Single Canonical Navigation) -->
     <div class="section-nav-sticky">
       <div class="pills-scroll">
-        <a class="nav-pill active" href="#p01"><span class="pill-dot"></span>01 Prosumer PV+BESS</a>
-        <a class="nav-pill" href="#p02"><span class="pill-dot"></span>02 Pumped Storage Multi-Market</a>
-        <a class="nav-pill" href="#p03"><span class="pill-dot"></span>03 EV Fleet Hub §14a</a>
-        <a class="nav-pill" href="#p04"><span class="pill-dot"></span>04 Energy Sharing REC</a>
-        <a class="nav-pill" href="#p05"><span class="pill-dot"></span>05 Hybrid Wind+PV+BESS</a>
-        <a class="nav-pill" href="#p06"><span class="pill-dot"></span>06 Forecast-to-Bid reBAP</a>
-        <a class="nav-pill" href="#simulator"><span class="pill-dot"></span>Interactive Simulator</a>
+        <button class="nav-pill active" data-target="p01" onclick="selectProject('p01')"><span class="pill-dot"></span>01 Residential PV+BESS</button>
+        <button class="nav-pill" data-target="p02" onclick="selectProject('p02')"><span class="pill-dot"></span>02 Pumped Storage Hydro</button>
+        <button class="nav-pill" data-target="p03" onclick="selectProject('p03')"><span class="pill-dot"></span>03 EV Fleet Hub §14a</button>
+        <button class="nav-pill" data-target="p04" onclick="selectProject('p04')"><span class="pill-dot"></span>04 Energy Sharing REC</button>
+        <button class="nav-pill" data-target="p05" onclick="selectProject('p05')"><span class="pill-dot"></span>05 Hybrid Wind+PV+BESS</button>
+        <button class="nav-pill" data-target="p06" onclick="selectProject('p06')"><span class="pill-dot"></span>06 Forecast-to-Bid reBAP</button>
+        <button class="nav-pill" data-target="simulator" onclick="selectProject('simulator')"><span class="pill-dot"></span>Physics Simulator</button>
+        <button class="nav-pill nav-pill-all" data-target="all" onclick="selectProject('all')"><span class="pill-dot"></span>All Systems</button>
       </div>
     </div>
 
     <!-- ========================================================================================= -->
     <!-- PROJECT 01 -->
     <!-- ========================================================================================= -->
-    <section id="p01" class="project-section">
+    <section id="p01" class="project-section active">
       <div class="sec-header">
         <div class="sec-top-meta">
           <span class="sec-number">Project 01</span>
@@ -1161,7 +1217,7 @@
           <span class="topo-arrow">&harr;</span>
           <span class="topo-node">Home Load & 15-min Spot Grid</span>
         </div>
-        <h2 class="sec-title">Prosumer PV+BESS Energy Management under Dynamic Spot Tariffs</h2>
+        <h2 class="sec-title">Residential PV+BESS Energy Management under Dynamic Spot Tariffs</h2>
         <p class="sec-summary">
           Optimal 15-minute residential energy scheduling under German dynamic retail pricing and EEG export remuneration. Enforces battery cycling efficiency, non-negative inverter conversion bounds, and terminal horizon valuation across classical and learned controllers.
         </p>
@@ -1298,12 +1354,19 @@
         </div>
 
         <div class="visual-col">
-          <div class="plot-container" onclick="openModal('projects/01-prosumer-pv-bess-mpc-rl/docs/figures/example_day_dispatch.png')">
-            <div class="plot-overlay-badge">Click to Enlarge</div>
-            <img class="plot-img" src="projects/01-prosumer-pv-bess-mpc-rl/docs/figures/example_day_dispatch.png" alt="Prosumer PV+BESS Dispatch Benchmark">
-          </div>
-          <div class="plot-caption">
-            <strong>Figure 1:</strong> 48-hour 15-minute prosumer dispatch trajectory comparing spot import tariff, rooftop PV generation, load, battery state-of-charge, and net grid exchange.
+          <div class="visual-gallery">
+            <div class="gallery-nav">
+              <button class="gallery-btn active" id="p01-galbtn-2025" onclick="switchVisual('p01', '2025')">2025 Dispatch</button>
+              <button class="gallery-btn" id="p01-galbtn-2024" onclick="switchVisual('p01', '2024')">2024 Dispatch</button>
+              <button class="gallery-btn" id="p01-galbtn-bench" onclick="switchVisual('p01', 'bench')">Ladder Benchmark</button>
+            </div>
+            <div class="plot-container" onclick="openModal(document.getElementById('p01-active-img').src)">
+              <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
+              <img id="p01-active-img" class="plot-img" src="projects/01-prosumer-pv-bess-mpc-rl/docs/figures/p01_dispatch_2025.png" alt="Residential PV+BESS Dispatch Benchmark">
+            </div>
+            <div class="plot-caption" id="p01-caption">
+              <strong>Figure 1 (2025):</strong> 3-day 15-minute residential dispatch under 2025 DE-LU dynamic tariffs showing spot price volatility, solar pre-charging, and state-of-charge trajectory.
+            </div>
           </div>
         </div>
       </div>
@@ -1483,12 +1546,19 @@
         </div>
 
         <div class="visual-col">
-          <div class="plot-container" onclick="openModal('projects/02-pumped-storage-rl-multimarket/docs/figures/psw_dispatch_benchmark.png')">
-            <div class="plot-overlay-badge">Click to Enlarge</div>
-            <img class="plot-img" src="projects/02-pumped-storage-rl-multimarket/docs/figures/psw_dispatch_benchmark.png" alt="Pumped Storage Dispatch Benchmark">
-          </div>
-          <div class="plot-caption">
-            <strong>Figure 2:</strong> Multi-market dispatch benchmark on 2025 DE-LU spot prices: (1) 14-day net power and reservoir storage trajectories; (2) §118(6) network charge sensitivity; (3) Pareto frontier balancing revenue against grid security index.
+          <div class="visual-gallery">
+            <div class="gallery-nav">
+              <button class="gallery-btn active" id="p02-galbtn-2025" onclick="switchVisual('p02', '2025')">2025 Dispatch</button>
+              <button class="gallery-btn" id="p02-galbtn-2024" onclick="switchVisual('p02', '2024')">2024 Dispatch</button>
+              <button class="gallery-btn" id="p02-galbtn-bench" onclick="switchVisual('p02', 'bench')">Wear Mitigation</button>
+            </div>
+            <div class="plot-container" onclick="openModal(document.getElementById('p02-active-img').src)">
+              <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
+              <img id="p02-active-img" class="plot-img" src="projects/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2025.png" alt="Pumped Storage Dispatch Benchmark">
+            </div>
+            <div class="plot-caption" id="p02-caption">
+              <strong>Figure 2 (2025):</strong> Multi-market dispatch on 2025 DE-LU spot prices: Day-Ahead spot arbitrage, aFRR reserve capacity, and upper reservoir head trajectory.
+            </div>
           </div>
         </div>
       </div>
@@ -1640,12 +1710,19 @@
         </div>
 
         <div class="visual-col">
-          <div class="plot-container" onclick="openModal('projects/03-smart-ev-charging-14a/docs/figures/ev_charging_benchmark.png')">
-            <div class="plot-overlay-badge">Click to Enlarge</div>
-            <img class="plot-img" src="projects/03-smart-ev-charging-14a/docs/figures/ev_charging_benchmark.png" alt="EV Charging Dimming Benchmark">
-          </div>
-          <div class="plot-caption">
-            <strong>Figure 3:</strong> Commercial EV fleet hub under §14a EnWG: (1) 3-day charging schedule respecting the 100 kW site limit; (2) Battery state-of-charge distributions; (3) Grid dimming sensitivity showing cost trade-offs.
+          <div class="visual-gallery">
+            <div class="gallery-nav">
+              <button class="gallery-btn active" id="p03-galbtn-2025" onclick="switchVisual('p03', '2025')">2025 Dispatch</button>
+              <button class="gallery-btn" id="p03-galbtn-2024" onclick="switchVisual('p03', '2024')">2024 Dispatch</button>
+              <button class="gallery-btn" id="p03-galbtn-bench" onclick="switchVisual('p03', 'bench')">Dimming Sensitivity</button>
+            </div>
+            <div class="plot-container" onclick="openModal(document.getElementById('p03-active-img').src)">
+              <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
+              <img id="p03-active-img" class="plot-img" src="projects/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2025.png" alt="EV Charging Dimming Benchmark">
+            </div>
+            <div class="plot-caption" id="p03-caption">
+              <strong>Figure 3 (2025):</strong> Depot 48-session charging dispatch respecting the 100 kW dynamic grid dimming constraint with EDF departure guarantee.
+            </div>
           </div>
         </div>
       </div>
@@ -1809,12 +1886,19 @@
         </div>
 
         <div class="visual-col">
-          <div class="plot-container" onclick="openModal('projects/04-energy-sharing-rec/docs/figures/rec_sharing_benchmark.png')">
-            <div class="plot-overlay-badge">Click to Enlarge</div>
-            <img class="plot-img" src="projects/04-energy-sharing-rec/docs/figures/rec_sharing_benchmark.png" alt="REC Cooperative Game Benchmarks">
-          </div>
-          <div class="plot-caption">
-            <strong>Figure 4:</strong> REC mechanism design benchmarks: (1) Network charge sensitivity (0.00 to 0.13 EUR/kWh) marking break-even and settlement failure; (2) Core stability across 1,023 sub-coalitions; (3) Individual rationality comparing standalone vs Owen core payoffs.
+          <div class="visual-gallery">
+            <div class="gallery-nav">
+              <button class="gallery-btn active" id="p04-galbtn-2025" onclick="switchVisual('p04', '2025')">2025 P2P Flow</button>
+              <button class="gallery-btn" id="p04-galbtn-2024" onclick="switchVisual('p04', '2024')">2024 P2P Flow</button>
+              <button class="gallery-btn" id="p04-galbtn-bench" onclick="switchVisual('p04', 'bench')">Core Stability Sweep</button>
+            </div>
+            <div class="plot-container" onclick="openModal(document.getElementById('p04-active-img').src)">
+              <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
+              <img id="p04-active-img" class="plot-img" src="projects/04-energy-sharing-rec/docs/figures/p04_sharing_2025.png" alt="REC Cooperative Game Benchmarks">
+            </div>
+            <div class="plot-caption" id="p04-caption">
+              <strong>Figure 4 (2025):</strong> 20-member community P2P matching under 2025 conditions (PV self-consumption, local sharing, and cooperative surplus accumulation).
+            </div>
           </div>
         </div>
       </div>
@@ -1976,12 +2060,19 @@
         </div>
 
         <div class="visual-col">
-          <div class="plot-container" onclick="openModal('projects/05-utility-hybrid-plant-dispatch/docs/figures/hybrid_dispatch_benchmark.png')">
-            <div class="plot-overlay-badge">Click to Enlarge</div>
-            <img class="plot-img" src="projects/05-utility-hybrid-plant-dispatch/docs/figures/hybrid_dispatch_benchmark.png" alt="Hybrid Plant Dispatch Benchmark">
-          </div>
-          <div class="plot-caption">
-            <strong>Figure 5:</strong> Hybrid plant dispatch benchmark: (1) 3-day 15-minute dispatch holding the 40 MW grid connection cap; (2) Battery state-of-charge cycling; (3) Curtailment classification by cause (over-cap vs negative spot price ban).
+          <div class="visual-gallery">
+            <div class="gallery-nav">
+              <button class="gallery-btn active" id="p05-galbtn-2025" onclick="switchVisual('p05', '2025')">2025 Dispatch</button>
+              <button class="gallery-btn" id="p05-galbtn-2024" onclick="switchVisual('p05', '2024')">2024 Dispatch</button>
+              <button class="gallery-btn" id="p05-galbtn-bench" onclick="switchVisual('p05', 'bench')">Curtailment Attribution</button>
+            </div>
+            <div class="plot-container" onclick="openModal(document.getElementById('p05-active-img').src)">
+              <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
+              <img id="p05-active-img" class="plot-img" src="projects/05-utility-hybrid-plant-dispatch/docs/figures/p05_dispatch_2025.png" alt="Hybrid Plant Dispatch Benchmark">
+            </div>
+            <div class="plot-caption" id="p05-caption">
+              <strong>Figure 5 (2025):</strong> 80 MW hybrid plant dispatch holding strict 40 MW POC interconnection limit under 2025 spot prices with battery buffer cycling and EEG §51 curtailment.
+            </div>
           </div>
         </div>
       </div>
@@ -2131,12 +2222,19 @@
         </div>
 
         <div class="visual-col">
-          <div class="plot-container" onclick="openModal('projects/06-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png')">
-            <div class="plot-overlay-badge">Click to Enlarge</div>
-            <img class="plot-img" src="projects/06-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png" alt="Forecast to Bid Trading Benchmarks">
-          </div>
-          <div class="plot-caption">
-            <strong>Figure 6:</strong> Probabilistic forecast-to-bid benchmarks: (1) 24-hour fan chart with 10% to 90% quantile ribbons and realized actuals; (2) Trading policy comparison showing net revenue vs traded volume; (3) Forecast skill degradation (15m to 24h) across CRPS, RMSE, and MAE.
+          <div class="visual-gallery">
+            <div class="gallery-nav">
+              <button class="gallery-btn active" id="p06-galbtn-2025" onclick="switchVisual('p06', '2025')">2025 Fan Chart</button>
+              <button class="gallery-btn" id="p06-galbtn-2024" onclick="switchVisual('p06', '2024')">2024 Fan Chart</button>
+              <button class="gallery-btn" id="p06-galbtn-bench" onclick="switchVisual('p06', 'bench')">Trading Frontier</button>
+            </div>
+            <div class="plot-container" onclick="openModal(document.getElementById('p06-active-img').src)">
+              <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
+              <img id="p06-active-img" class="plot-img" src="projects/06-probabilistic-forecast-to-bid/docs/figures/p06_forecast_fan_2025.png" alt="Forecast to Bid Trading Benchmarks">
+            </div>
+            <div class="plot-caption" id="p06-caption">
+              <strong>Figure 6 (2025):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2025 weather patterns.
+            </div>
           </div>
         </div>
       </div>
@@ -2373,6 +2471,135 @@
       }
       const pane = document.getElementById(projId + '-pane-' + tabKey);
       if (pane) pane.classList.add('active');
+    }
+
+    // Project Focus View Switcher
+    function selectProject(projId, smoothScroll = true) {
+      document.querySelectorAll('.nav-pill').forEach(b => {
+        b.classList.toggle('active', b.dataset.target === projId);
+      });
+
+      if (projId === 'all') {
+        document.querySelectorAll('.project-section, #simulator').forEach(el => {
+          el.style.display = 'block';
+        });
+        const first = document.getElementById('p01');
+        if (first && smoothScroll) first.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        document.querySelectorAll('.project-section, #simulator').forEach(el => {
+          el.style.display = 'none';
+        });
+        const target = document.getElementById(projId);
+        if (target) {
+          target.style.display = 'block';
+          if (smoothScroll) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      }
+    }
+
+    // Visual Benchmark Gallery Database
+    const PROJECT_VISUALS = {
+      p01: {
+        '2025': {
+          src: 'projects/01-prosumer-pv-bess-mpc-rl/docs/figures/p01_dispatch_2025.png',
+          caption: '<strong>Figure 1 (2025):</strong> 3-day 15-minute residential dispatch under 2025 DE-LU dynamic tariffs showing spot price volatility, solar pre-charging, and state-of-charge trajectory.'
+        },
+        '2024': {
+          src: 'projects/01-prosumer-pv-bess-mpc-rl/docs/figures/p01_dispatch_2024.png',
+          caption: '<strong>Figure 1 (2024):</strong> 3-day 15-minute residential dispatch under 2024 DE-LU dynamic tariffs (spot price, household demand, BESS charge/discharge, and state-of-charge trajectory).'
+        },
+        'bench': {
+          src: 'projects/01-prosumer-pv-bess-mpc-rl/docs/figures/p01_ladder_benchmark.png',
+          caption: '<strong>Figure 1 (Benchmark):</strong> Benchmark ladder headroom recovery progression (B1 Rule 0% to SAC RL 27.0% to B3 Rolling MPC 56.0% to B2 Ceiling 100%).'
+        }
+      },
+      p02: {
+        '2025': {
+          src: 'projects/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2025.png',
+          caption: '<strong>Figure 2 (2025):</strong> Multi-market dispatch on 2025 DE-LU spot prices: Day-Ahead spot arbitrage, aFRR reserve capacity, and upper reservoir head trajectory.'
+        },
+        '2024': {
+          src: 'projects/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2024.png',
+          caption: '<strong>Figure 2 (2024):</strong> Multi-market dispatch on 2024 DE-LU spot prices: Day-Ahead spot arbitrage, aFRR reserve capacity, and upper reservoir head trajectory.'
+        },
+        'bench': {
+          src: 'projects/02-pumped-storage-rl-multimarket/docs/figures/p02_smoothing_wear.png',
+          caption: '<strong>Figure 2 (Wear Mitigation):</strong> Reversals per day and mechanical wear penalty across policies (Unsmoothed RL vs Smoothed RL vs Unidirectional mode, -98% wear).'
+        }
+      },
+      p03: {
+        '2025': {
+          src: 'projects/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2025.png',
+          caption: '<strong>Figure 3 (2025):</strong> Depot 48-session charging dispatch respecting the 100 kW dynamic grid dimming constraint with EDF departure guarantee.'
+        },
+        '2024': {
+          src: 'projects/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2024.png',
+          caption: '<strong>Figure 3 (2024):</strong> Depot 48-session charging dispatch respecting the 100 kW dynamic grid dimming constraint under 2024 spot prices.'
+        },
+        'bench': {
+          src: 'projects/03-smart-ev-charging-14a/docs/figures/p03_dimming_tradeoffs.png',
+          caption: '<strong>Figure 3 (Dimming Trade-offs):</strong> Grid operator dimming limit sensitivity (40 kW to 220 kW) comparing fleet electricity cost against missed departure sessions.'
+        }
+      },
+      p04: {
+        '2025': {
+          src: 'projects/04-energy-sharing-rec/docs/figures/p04_sharing_2025.png',
+          caption: '<strong>Figure 4 (2025):</strong> 20-member community P2P matching under 2025 conditions (PV self-consumption, local sharing, and cooperative surplus accumulation).'
+        },
+        '2024': {
+          src: 'projects/04-energy-sharing-rec/docs/figures/p04_sharing_2024.png',
+          caption: '<strong>Figure 4 (2024):</strong> 20-member community P2P matching under 2024 conditions (PV self-consumption, local sharing, and cooperative surplus accumulation).'
+        },
+        'bench': {
+          src: 'projects/04-energy-sharing-rec/docs/figures/rec_sharing_benchmark.png',
+          caption: '<strong>Figure 4 (Core Stability Sweep):</strong> Combinatorial sweep across all 1,023 sub-coalitions and analytical break-even network charge curve (0.110 EUR/kWh cliff).'
+        }
+      },
+      p05: {
+        '2025': {
+          src: 'projects/05-utility-hybrid-plant-dispatch/docs/figures/p05_dispatch_2025.png',
+          caption: '<strong>Figure 5 (2025):</strong> 80 MW hybrid plant dispatch holding strict 40 MW POC interconnection limit under 2025 spot prices with battery buffer cycling and EEG §51 curtailment.'
+        },
+        '2024': {
+          src: 'projects/05-utility-hybrid-plant-dispatch/docs/figures/p05_dispatch_2024.png',
+          caption: '<strong>Figure 5 (2024):</strong> 80 MW hybrid plant dispatch holding strict 40 MW POC interconnection limit under 2024 spot prices with battery buffer cycling and EEG §51 curtailment.'
+        },
+        'bench': {
+          src: 'projects/05-utility-hybrid-plant-dispatch/docs/figures/p05_curtailment_attribution.png',
+          caption: '<strong>Figure 5 (Curtailment Attribution):</strong> Curtailment breakdown by cause (POC Cap vs EEG §51 negative price hours) and hybrid revenue lift (+5.4%).'
+        }
+      },
+      p06: {
+        '2025': {
+          src: 'projects/06-probabilistic-forecast-to-bid/docs/figures/p06_forecast_fan_2025.png',
+          caption: '<strong>Figure 6 (2025):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2025 weather patterns.'
+        },
+        '2024': {
+          src: 'projects/06-probabilistic-forecast-to-bid/docs/figures/p06_forecast_fan_2024.png',
+          caption: '<strong>Figure 6 (2024):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2024 weather patterns.'
+        },
+        'bench': {
+          src: 'projects/06-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png',
+          caption: '<strong>Figure 6 (Trading Frontier):</strong> Realized price vs traded volume Pareto frontier and forecast skill degradation curves across lead times.'
+        }
+      }
+    };
+
+    function switchVisual(projId, visualKey) {
+      const pData = PROJECT_VISUALS[projId];
+      if (!pData || !pData[visualKey]) return;
+
+      const img = document.getElementById(projId + '-active-img');
+      const cap = document.getElementById(projId + '-caption');
+      if (img) img.src = pData[visualKey].src;
+      if (cap) cap.innerHTML = pData[visualKey].caption;
+
+      ['2025', '2024', 'bench'].forEach(vk => {
+        const btn = document.getElementById(projId + '-galbtn-' + vk);
+        if (btn) btn.classList.toggle('active', vk === visualKey);
+      });
     }
 
     // Global Evaluation Year Configuration & Reactive Engine
@@ -2747,6 +2974,17 @@
       setEl('p06-b3-gain', cfg.p06.b3Gain);
       setEl('p06-cli-text', cfg.p06.cli);
 
+      // Switch active figure in galleries for all projects
+      const projList = ['p01', 'p02', 'p03', 'p04', 'p05', 'p06'];
+      const vYearKey = yKey === '2024' ? '2024' : '2025';
+      projList.forEach(pid => {
+        const benchBtn = document.getElementById(pid + '-galbtn-bench');
+        const isBench = benchBtn && benchBtn.classList.contains('active');
+        if (!isBench) {
+          switchVisual(pid, vYearKey);
+        }
+      });
+
       // Update interactive 24h scrubber price curve
       recomputeDispatchForYear(yKey);
       drawDispatchCanvas();
@@ -2922,6 +3160,7 @@
       window.addEventListener('resize', drawDispatchCanvas);
     }
     window.addEventListener('DOMContentLoaded', () => {
+      selectProject('p01', false);
       setupCanvasListeners();
       updateHud(scrubberIdx);
     });
@@ -2982,10 +3221,12 @@
       document.getElementById('hyb-curtail-val').innerText = curtail.toFixed(1) + ' MWh';
     }
 
-    // Highlight active navbar pill on scroll
+    // Highlight active navbar pill on scroll (only active when All Systems is selected)
     window.addEventListener('scroll', () => {
+      const allPill = document.querySelector('.nav-pill-all');
+      if (!allPill || !allPill.classList.contains('active')) return;
       const sections = document.querySelectorAll('.project-section, #simulator');
-      const pills = document.querySelectorAll('.nav-pill');
+      const pills = document.querySelectorAll('.nav-pill:not(.nav-pill-all)');
       let currentId = '';
       sections.forEach(sec => {
         const top = sec.offsetTop - 140;
@@ -2994,10 +3235,7 @@
         }
       });
       pills.forEach(pill => {
-        pill.classList.remove('active');
-        if (pill.getAttribute('href') === '#' + currentId) {
-          pill.classList.add('active');
-        }
+        pill.classList.toggle('active', pill.dataset.target === currentId);
       });
     });
   </script>
