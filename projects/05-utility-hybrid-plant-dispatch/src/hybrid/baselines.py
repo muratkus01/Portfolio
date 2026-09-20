@@ -148,8 +148,9 @@ def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
             pr = np.concatenate([[eff_price[t]], price_fc[t + 1:t + h]])
             ec = None if export_cap is None else export_cap[t:t + h]
             t0 = time.perf_counter()
+            tp = default_terminal_price(pr, run) if (t + h < n) else 0.0
             sol = solve_window(w, s, pr, run.dt, run, soc,
-                               terminal_price=default_terminal_price(pr, run),
+                               terminal_price=tp,
                                export_cap=ec)
             solve_times.append(time.perf_counter() - t0)
             plan = sol if sol is not None else (np.zeros(h), np.zeros(h))
@@ -157,7 +158,8 @@ def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
 
         k = t - offset
         pb = float(plan[0][k]) if k < len(plan[0]) else 0.0
-        cf = float(plan[1][k]) if k < len(plan[1]) else 0.0
+        cf_raw = float(plan[1][k]) if k < len(plan[1]) else 0.0
+        cf = cf_raw if eff_price[t] < 0 else 0.0
 
         from .plant import dispatch_step
         r = dispatch_step(float(wind[t]), float(pv[t]), soc, pb, cf, run.dt, cfg,

@@ -36,6 +36,13 @@ def test_rolling_mpc_respects_the_ceiling(ladder):
         assert r["cost"]["net_revenue"] <= b2 + 1e-3, name
 
 
+def test_b3_beats_b1_curtailment_avoidance(ladder):
+    _, res = ladder
+    b1 = res["B1 curtailment avoidance"]["cost"]["net_revenue"]
+    b3 = res["B3 rolling MPC"]["cost"]["net_revenue"]
+    assert b3 >= b1
+
+
 def test_rolling_mpc_is_feasible_and_timed(ladder):
     _, res = ladder
     b3 = res["B3 rolling MPC"]

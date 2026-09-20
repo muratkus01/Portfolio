@@ -33,14 +33,14 @@ Project 01 thesis extension audit and 5-pillar improvements complete on branch `
 * **Dispatch Visualization:** Implemented `example_day_dispatch` in `figures.py` and generated `docs/figures/example_day_dispatch.png`.
 * **Testing & CI:** Added smoke tests for experiment drivers in `test_experiments_smoke.py` and sizing in `test_sizing.py`. Total test coverage for Project 01 reached 80% (67 passed, 8 skipped). Created `.github/workflows/tests.yml` multi-version CI (Python 3.11 and 3.12).
 * **README Consistency Pass:** Rewrote Project 01 `README.md` with Master Benchmark Comparison table (B0 to RL), sizing section, operational dispatch analysis, aligned headline/scope, and eliminated all em/en dashes and fluff.
+* **P05 Hybrid Dispatch B3 Fix:** Gated voluntary curtailment in `hybrid/baselines.py` on negative effective prices (`cf = cf_raw if eff_price[t] < 0 else 0.0`) and zeroed end-of-sim terminal price. B3 in master showcase jumped from 191,816 EUR to 199,485 EUR, beating B1 (199,059 EUR). Added `test_b3_beats_b1_curtailment_avoidance` (25 passed).
 
 ---
 
 ## ▶️ Next Concrete Actions (in order)
 
-1. Verify sibling portfolio projects (P02-P06) when continuing portfolio-wide sprint:
-   - P05 B3 negative price curtailment fraction fix.
-   - P03 commercial EV charging minimum-current / floor allocation fix.
+1. Sibling portfolio projects continuation:
+   - P03 commercial EV charging minimum-current / floor allocation fix (resolve 11 missed departures).
 2. Review root `README.md` to align with newly added P01 figures and sizing metrics.
 3. Commit and push branch `p01-thesis-extension` to GitHub.
 
@@ -51,4 +51,4 @@ Project 01 thesis extension audit and 5-pillar improvements complete on branch `
 - 2026-09-02 · Claude Code · Reorganized folder structure from `GitHub/` to `Portfolio/`.
 - 2026-09-02 · Antigravity · Fixed git root, added root `pyproject.toml` (94 tests passing), deployed 10 specialized portfolio skills, created master `showcase.py`, updated root `README.md`, and pushed repository to GitHub.
 - 2026-09-19 · Claude Code · Portfolio audit via portfolio-manager rubric: fixed `.gitignore` that kept `prosumer/data/loaders.py` out of git, tests 94 to 168 and coverage 52% to 93%, P04 settlement corrected plus Shapley/Owen/core game module, `showcase.py` rewritten to compute every number live. Paused mid-batch on request; uncommitted; 13-item to-do above.
-- 2026-09-20 · Antigravity · Audited P01 thesis extension, fixed showcase demo 01 (+56% headroom in 1.1s), overhauled RL formulation (action rescaling 0% clipping, differential reward), ran full 3-seed 500k-step RL benchmark (+27% headroom recovery), added sizing grid, generated dispatch figure, brought coverage to 80% with CI workflow, and rewrote P01 README.
+- 2026-09-20 · Antigravity · Audited P01 thesis extension, fixed showcase demo 01 (+56% headroom in 1.1s), overhauled RL formulation (action rescaling 0% clipping, differential reward), ran full 3-seed 500k-step RL benchmark (+27% headroom recovery), added sizing grid, generated dispatch figure, brought coverage to 80% with CI workflow, rewrote P01 README, and fixed P05 B3 curtailment gating (B3 beats B1 at 199,485 EUR, 196 monorepo tests pass).
