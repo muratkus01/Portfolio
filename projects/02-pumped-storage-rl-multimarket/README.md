@@ -47,10 +47,7 @@ while enforcing every physical and market boundary.
    physical reversals between pumping and turbining modes (rotor direction reversal) rather than
    penalising transitions to or from idle standstill.
 
-**Known simplifications in this groundwork:** the LP is continuous rather than mixed-integer
-(no per-unit commitment, min up/down times represented via mode-change penalties); capacity
-prices are exogenous constants rather than auction outcomes; reBAP is a synthetic heavy-tailed
-series; and B3 re-solves hourly (`resolve_every=4`) for execution speed.
+**Known simplifications in this groundwork:** binary mode mutual exclusion is enforced per aggregate machine (no individual unit commitment or hydraulic min up/down times); capacity prices are exogenous constants rather than auction outcomes; reBAP is a synthetic heavy-tailed series; and B3 re-solves hourly (`resolve_every=4`) for execution speed.
 
 ---
 

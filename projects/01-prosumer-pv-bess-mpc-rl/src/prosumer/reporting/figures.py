@@ -223,5 +223,6 @@ def make_all(reports: str | Path = "reports", out: str | Path = "docs/figures") 
     dataset = reports.parent / "data" / "processed" / "site_2024_2026_htw_H28.parquet"
     if not dataset.exists():
         dataset = reports.parents[1] / "data" / "processed" / "site_2024_2026_htw_H28.parquet"
-    figs.append(example_day_dispatch(dataset if dataset.exists() else None, out))
+    if dataset.exists():
+        figs.append(example_day_dispatch(dataset, out))
     return figs

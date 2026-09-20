@@ -1,15 +1,15 @@
 # ⚡ AI for Renewable Energy Systems: Applied Research Portfolio
 
-> Six production-grade engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems: strictly grounded in actual German/Austrian market designs, grid codes, and regulatory frameworks.
+> Six engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems: strictly grounded in actual German market designs, grid codes, and regulatory frameworks.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-199%20passing%20(100%25)-brightgreen.svg)](tests/)
-[![Optimization](https://img.shields.io/badge/stack-Pyomo%20%7C%20PuLP%20%7C%20Gymnasium%20%7C%20Stable--Baselines3-orange.svg)](docs/05-tech-stack.md)
+[![Tests](https://github.com/muratkus01/Portfolio/actions/workflows/tests.yml/badge.svg)](https://github.com/muratkus01/Portfolio/actions/workflows/tests.yml)
+[![Optimization](https://img.shields.io/badge/stack-PuLP%20%7C%20Gymnasium%20%7C%20Stable--Baselines3-orange.svg)](docs/05-tech-stack.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **Author:** Murat Kus · Dipl.-Ing. Mechanical Engineering · M.Sc. Sustainable Energy Systems (in progress) · B.Sc. Artificial Intelligence (in progress)  
 **Domain:** Power System Economics, Energy Market Optimization, Sequential Decision-Making under Uncertainty  
-**Focus Markets:** Germany / Austria (DE-LU / AT bidding zones), EPEX SPOT Day-Ahead / Intraday (SDAC/SIDC), `regelleistung.net` Balancing (FCR/aFRR), and German **reBAP** Imbalance Settlement.
+**Focus Markets:** Germany (DE-LU bidding zone), EPEX SPOT Day-Ahead / Intraday (SDAC/SIDC), `regelleistung.net` Balancing (FCR/aFRR), and German **reBAP** Imbalance Settlement.
 
 ---
 
@@ -26,7 +26,7 @@ pip install -e projects/01-prosumer-pv-bess-mpc-rl -e projects/02-pumped-storage
 # Run the Master Showcase Runner
 python showcase.py
 
-# Run all 199 unit tests across the portfolio
+# Run all unit tests across the portfolio
 pytest -v
 ```
 

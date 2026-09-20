@@ -105,16 +105,28 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
     }
 
 
-def step_revenue(p: float, price: float, dt: float, plant: PlantConfig,
-                 mode_changed: bool) -> float:
-    """Per-step economic result, EUR - the RL reward before risk and security terms."""
-    p_t, p_p = max(p, 0.0), max(-p, 0.0)
-    r = (p_t - p_p) * price * dt
+def step_revenue(p_sched: float, p_real: float, price: float, dt: float,
+                 plant: PlantConfig, market: MarketConfig | None = None,
+                 sold_pos: float = 0.0, sold_neg: float = 0.0,
+                 mode_changed: bool = False) -> float:
+    """Per-step economic result, EUR matching settle() exactly."""
+    energy_rev = max(p_sched, 0.0) * price * dt
+    pump_cost = max(-p_sched, 0.0) * price * dt
+    network_cost = 0.0
     if not plant.para_118_6_exempt:
-        r -= p_p * dt * plant.network_charge_pump
-    if mode_changed:
-        r -= plant.mode_change_cost
-    return r
+        network_cost = max(-p_real, 0.0) * dt * plant.network_charge_pump
+    cap_rev = 0.0
+    act_rev = 0.0
+    if market is not None:
+        cap_rev = (sold_pos * market.afrr_pos_capacity_eur_mw_h
+                   + sold_neg * market.afrr_neg_capacity_eur_mw_h) * dt
+        delivered = p_real - p_sched
+        up = max(delivered, 0.0)
+        dn = max(-delivered, 0.0)
+        act_rev = (up * (price + market.afrr_pos_energy_premium)
+                   - dn * (price - market.afrr_neg_energy_discount)) * dt
+    wear = plant.mode_change_cost if mode_changed else 0.0
+    return energy_rev - pump_cost - network_cost + cap_rev + act_rev - wear
 
 
 # --------------------------------------------------------------------- capacity bidding

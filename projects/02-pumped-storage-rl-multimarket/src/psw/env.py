@@ -75,6 +75,7 @@ class PSWEnv(gym.Env if _HAS_GYM else object):                 # type: ignore[mi
         self.t = self.t0 = 0
         self.e = self.cfg.e_init
         self.prev_p = 0.0
+        self.last_mode = 0
         self.sold_pos = self.sold_neg = 0.0
 
     # -------------------------------------------------------------- observation
@@ -106,6 +107,7 @@ class PSWEnv(gym.Env if _HAS_GYM else object):                 # type: ignore[mi
         self.t = self.t0
         self.e = self.cfg.e_init
         self.prev_p = 0.0
+        self.last_mode = 0
         self.sold_pos = self.sold_neg = 0.0
         return self._obs(), {}
 
@@ -139,10 +141,13 @@ class PSWEnv(gym.Env if _HAS_GYM else object):                 # type: ignore[mi
         lo2, hi2 = feasible_interval(self.e, self.dt, self.cfg, prev_p=self.prev_p)
         p = float(np.clip(p_commercial + act, lo2, hi2))
 
-        mode_changed = np.sign(p) != np.sign(self.prev_p) and abs(p) > 1e-6
-        rev = step_revenue(p, float(self.price[t]), self.dt, self.cfg, mode_changed)
-        rev += (self.sold_pos * self.mk.afrr_pos_capacity_eur_mw_h
-                + self.sold_neg * self.mk.afrr_neg_capacity_eur_mw_h) * self.dt
+        cur_mode = 1 if p > 1e-6 else (-1 if p < -1e-6 else 0)
+        mode_changed = (cur_mode != 0) and (self.last_mode != 0) and (cur_mode != self.last_mode)
+        if cur_mode != 0:
+            self.last_mode = cur_mode
+
+        rev = step_revenue(p_commercial, p, float(self.price[t]), self.dt, self.cfg,
+                           self.mk, self.sold_pos, self.sold_neg, mode_changed)
 
         # --- grid-security term, weighted by the operating mode ---
         sec = security_readiness({"p": np.array([p]), "e_res": np.array([self.e])},

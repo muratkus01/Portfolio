@@ -6,11 +6,10 @@ B3  rolling-horizon MPC        the deployable classical optimum, on forecasts
 
 Invariant asserted at runtime: revenue(B2) >= revenue(B3) >= revenue(B1).
 
-The LP is continuous rather than mixed-integer in this groundwork: unit commitment binaries
-(min up/down, per-unit starts) are represented by the mode-change cost and the ramp limit
-instead. That makes 48-hour horizons re-solvable every 15 minutes on a laptop. Adding the
-binaries is a documented upgrade, and the honest way to report it is as a strengthening of
-B3 - the direction that makes the eventual RL comparison harder, not easier.
+Binary mode variables enforce mutual exclusion between pumping and turbining (u_t + u_p <= 1),
+guaranteeing the machine never operates in both modes simultaneously and strictly respecting
+physical ramp limits across mode transitions. Both B2 perfect foresight and B3 rolling MPC
+solve this MILP via CBC.
 """
 from __future__ import annotations
 
@@ -77,6 +76,8 @@ def solve_window(price: np.ndarray, dt: float, run: RunConfig, e0: float,
     n = len(price)
     m = pulp.LpProblem("psw", pulp.LpMaximize)
 
+    u_t = pulp.LpVariable.dicts("ut", range(n), cat=pulp.LpBinary)
+    u_p = pulp.LpVariable.dicts("up", range(n), cat=pulp.LpBinary)
     p_t = pulp.LpVariable.dicts("pt", range(n), lowBound=0, upBound=cfg.p_turb_max)
     p_p = pulp.LpVariable.dicts("pp", range(n), lowBound=0, upBound=cfg.p_pump_max)
     e = pulp.LpVariable.dicts("e", range(n), lowBound=cfg.e_reserve_low,
@@ -91,17 +92,17 @@ def solve_window(price: np.ndarray, dt: float, run: RunConfig, e0: float,
 
     prev_turb, prev_pump = max(prev_p, 0.0), max(-prev_p, 0.0)
     for t in range(n):
+        m += u_t[t] + u_p[t] <= 1
+        cap_t = cfg.p_turb_max if reserved_pos is None else (cfg.p_turb_max - float(reserved_pos[t]))
+        cap_p = cfg.p_pump_max if reserved_neg is None else (cfg.p_pump_max - float(reserved_neg[t]))
+        m += p_t[t] <= cap_t * u_t[t]
+        m += p_p[t] <= cap_p * u_p[t]
+
         prev_e = e0 if t == 0 else e[t - 1]
         act = 0.0 if activation is None else float(activation[t])
         act_up, act_dn = max(act, 0.0), max(-act, 0.0)
         m += e[t] == prev_e + (-p_t[t] / cfg.eta_turb + p_p[t] * cfg.eta_pump + cfg.inflow_mw
                                - act_up / cfg.eta_turb + act_dn * cfg.eta_pump) * dt - spill[t]
-
-        # headroom reserved for sold balancing capacity
-        if reserved_pos is not None:
-            m += p_t[t] <= cfg.p_turb_max - float(reserved_pos[t])
-        if reserved_neg is not None:
-            m += p_p[t] <= cfg.p_pump_max - float(reserved_neg[t])
 
         # per-mode up-ramp, matching feasible_interval; unloading is unconstrained
         last_t = prev_turb if t == 0 else p_t[t - 1]

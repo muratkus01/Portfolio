@@ -11,7 +11,7 @@ layer, evaluation harness) are shared rather than rewritten per project.
 |-------|--------|-----------|
 | Language | Python 3.11+ | Domain standard; solver and RL ecosystems both live here |
 | Numerics | NumPy, pandas, xarray | `xarray` for NWP grids and ensemble dimensions |
-| Optimisation modelling | **Pyomo** (primary), `linopy` (large LP) | Pyomo for mixed-integer plant models with rich structure |
+| Optimisation modelling | **PuLP** (primary, MILP/LP), `linopy` (large LP) | PuLP with CBC/HiGHS for reproducible mixed-integer plant models |
 | Solvers | **HiGHS** (open, default), Gurobi (academic licence, benchmarking) | Every model must solve with HiGHS so results are reproducible without a commercial licence |
 | Power system | **pandapower** (LV/MV power flow), **PyPSA** (system-level), SimBench networks | Needed where grid constraints bind (Projects 03, 04) |
 | Energy system modelling | oemof.solph (cross-checking) | Independent implementation to validate MILP formulations |
