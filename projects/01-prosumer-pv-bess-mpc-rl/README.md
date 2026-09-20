@@ -61,14 +61,14 @@ Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kW
 
 | Rung | Controller | Net Cost (20.5m) | Net Cost (€/a) | Headroom % | Annual Cycles | Violations | Mean Solve | Payback | ROCE |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **B0** | PV only (no battery baseline) | +143.71 € | +84.12 € | 0.0 % (ref) | 0.0 | 0 | - | - | - |
-| **B1** | Rule-based self-consumption | -321.46 € | -188.17 € | 0.0 % (B1 ref) | 174.4 | 0 | < 1 ms | 16.0 yr | 6.3 % |
-| **B2** | Perfect foresight MILP | -710.46 € | -415.88 € | 100.0 % | 298.9 | 0 | 4.2 s (yr) | 8.7 yr | 11.5 % |
-| **B3** | Deployable rolling MPC (realistic) | -663.45 € | -388.36 € | **87.9 %** | 288.5 | 0 | 5.9 ms | **9.2 yr** | **10.9 %** |
-| **RL** | Overhauled SAC (rescaled action, diff reward) | -426.38 € | -249.59 € | **27.0 %** | 275.7 | 0 | 1.2 ms | **13.0 yr** | **7.7 %** |
+| **B0** | PV only (no battery baseline) | +104.67 € | +61.13 € | 0.0 % (ref) | 0.0 | 0 | - | - | - |
+| **B1** | Rule-based self-consumption | -321.46 € | -187.75 € | 0.0 % (B1 ref) | 174.0 | 0 | < 1 ms | 17.5 yr | 5.7 % |
+| **B2** | Perfect foresight MILP | -710.46 € | -414.94 € | 100.0 % | 298.2 | 0 | 4.2 s (yr) | 9.1 yr | 10.9 % |
+| **B3** | Deployable rolling MPC (realistic) | -663.45 € | -387.48 € | **87.9 %** | 287.8 | 0 | 5.9 ms | **9.7 yr** | **10.3 %** |
+| **RL** | Overhauled SAC (rescaled action, diff reward) | -426.38 € | -249.02 € | **27.0 %** | 275.4 | 0 | 1.2 ms | **14.0 yr** | **7.1 %** |
 
 - **B3 Headroom Recovery:** The deployable rolling MPC captures **87.9 %** of the theoretical perfect-foresight ceiling (342 of 389 EUR headroom over B1) using only published prices, NWP irradiance forecasts, and standard load profiles. Zero constraint violations across 57,600 quarter-hours.
-- **Economic Return:** Adding B3 battery dispatch turns an annual electricity expense of +84.12 EUR/a into a net revenue of -388.36 EUR/a (net annual gain of 472.48 EUR/a). At an asset CAPEX of 4,349 EUR, this yields an annual return on capital employed (ROCE) of **10.9 %** and a simple payback period of **9.2 years**, outperforming passive rule-based storage (16.0-year payback, 6.3 % ROCE).
+- **Economic Return:** Adding a battery under B3 dispatch turns an annual electricity expense of +61.13 EUR/a (PV only) into a net revenue of -387.48 EUR/a, an annual gain of **448.61 EUR/a**. Against the marginal CAPEX of 4,349 EUR (350 EUR/kWh storage plus 190 EUR/kW inverter) that is a **9.7-year simple payback** and **10.3 % return on capital**, against 17.5 years and 5.7 % for the price-blind rule-based operation. Perfect foresight would reach 9.1 years and 10.9 %, so the entire remaining control gap is worth about half a point of return.
 
 ### Operational dispatch: 24-hour summer day comparison
 
@@ -173,24 +173,42 @@ Detailed per-seed statistics: [`reports/rl_eval_H28/`](reports/rl_eval_H28/).
 
 ### Economic bottom line and asset sizing
 
-To determine the optimal battery capacity and inverter power rating for an 8 kWp residential prosumer under German dynamic tariffs, an empirical sweep was executed across 20 configurations: 5 battery capacities (5.0 to 15.0 kWh) and 4 inverter ratings (3.0, 4.6, 5.63, 7.5 kW). Economics use the realistic B3 controller on 2024 data, 10-year linear depreciation for the battery (400 EUR/kWh), and inverter CAPEX (400 EUR base + 60 EUR/kW).
+Twenty configurations, five battery capacities (5.0 to 15.0 kWh) against four inverter
+ratings (3.0, 4.6, 5.63, 7.5 kW), each operated over the same out-of-sample period as every
+other result here and each evaluated twice: once with the **deployable B3** and once with
+perfect foresight, so the ceiling is visible next to what a buyer would actually get.
+Marginal CAPEX is the thesis basis, 350 EUR/kWh of storage plus 190 EUR/kW of inverter, and
+savings are measured against the same site without a battery.
 
-| Battery Capacity | Inverter Rating | Total CAPEX | Annual Net Cost | Annual Savings | Annual Cycles | Payback | ROCE | Net Profit (after amort.) |
+| Battery | Inverter | CAPEX | Annual net cost (B3) | Annual savings (B3) | Cycles/a | Payback (B3) | ROCE (B3) | ROCE ceiling (B2) |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 5.00 kWh | 3.00 kW | 2,320 € | -227.02 € | 311.14 €/a | 327.3 | 7.5 yr | 13.4 % | 150.94 €/a |
-| 7.50 kWh | 4.60 kW | 3,499 € | -309.68 € | 393.81 €/a | 307.0 | 8.9 yr | 11.3 % | 233.61 €/a |
-| **9.37 kWh** | **5.63 kW** | **4,349 €** | **-359.70 €** | **443.83 €/a** | **292.3** | **9.8 yr** | **10.2 %** | **283.63 €/a** |
-| 12.00 kWh | 5.63 kW | 5,270 € | -416.61 € | 500.74 €/a | 273.2 | 10.5 yr | 9.5 % | 340.54 €/a |
-| 15.00 kWh | 5.63 kW | 6,320 € | -471.91 € | 556.03 €/a | 256.2 | 11.4 yr | 8.8 % | 395.84 €/a |
-| 15.00 kWh | 7.50 kW | 6,675 € | -483.00 € | 567.13 €/a | 257.8 | 11.8 yr | 8.5 % | 406.93 €/a |
+| 5.00 kWh | 3.00 kW | 2,320 € | -247.8 € | 308.9 €/a | 316 | **7.5 yr** | **13.3 %** | 14.2 % |
+| 7.50 kWh | 4.60 kW | 3,499 € | -334.0 € | 395.2 €/a | 301 | 8.8 yr | 11.3 % | 12.0 % |
+| **9.37 kWh** | **5.63 kW** | **4,349 €** | **-387.5 €** | **448.6 €/a** | **288** | **9.7 yr** | **10.3 %** | 11.0 % |
+| 12.00 kWh | 5.63 kW | 5,270 € | -451.1 € | 512.2 €/a | 273 | 10.3 yr | 9.7 % | 10.3 % |
+| 15.00 kWh | 5.63 kW | 6,320 € | -513.8 € | 574.9 €/a | 260 | 11.0 yr | 9.1 % | 9.6 % |
+| 15.00 kWh | 7.50 kW | 6,675 € | -526.1 € | 587.2 €/a | 261 | 11.4 yr | 8.8 % | 9.3 % |
 
 Full sweep across all 20 configurations: [`reports/sizing_grid/sizing_grid.csv`](reports/sizing_grid/sizing_grid.csv).
 
 #### Sizing Insights
 
-1. **Diminishing Marginal Capacity Returns:** Increasing battery capacity from 5.0 kWh to 9.37 kWh increases annual savings from 311 to 444 EUR (+133 EUR/a), maintaining ROCE above 10 %. Expanding from 9.37 kWh to 15.0 kWh requires 1,970 EUR in additional CAPEX but yields only 112 EUR/a in incremental savings. In German winters, low solar irradiation fails to cycle large storage assets, causing annual equivalent full cycles to drop from 327 down to 256.
-2. **Inverter Power Saturation:** Increasing inverter rating from 4.6 kW to 7.5 kW on a 9.37 kWh battery gains only 6.61 EUR/a in savings while adding 551 EUR in equipment cost. A 4.6 to 5.6 kW inverter captures over 99 % of total economic headroom, matching the 8 kWp array without unnecessary inverter expenditure.
-3. **Sweet Spot:** For an 8 kWp residential installation with 3,200 kWh/a consumption, a 7.5 to 9.37 kWh storage unit paired with a 4.6 to 5.6 kW hybrid inverter represents the optimal economic configuration (9.4 to 9.8 year payback, >10 % ROCE).
+1. **Return falls monotonically with size, savings do not.** Every step up in capacity buys
+   more absolute savings and a worse return: 5.0 kWh returns 13.3 % on capital, 9.37 kWh
+   returns 10.3 %, 15.0 kWh returns 9.1 %. Going from 9.37 to 15.0 kWh costs 1,970 EUR and
+   adds 126 EUR/a. The reason is visible in the cycle count, which falls from 316 to 260 full
+   equivalent cycles a year: a larger battery spends more of the German winter unused.
+2. **The inverter saturates early.** On a 9.37 kWh battery, going from 4.6 to 7.5 kW adds
+   8.3 EUR/a for 551 EUR of extra equipment. Anything from 4.6 kW upward captures nearly all
+   of the value for an 8 kWp array.
+3. **Who operates the battery costs less than how big it is.** Across all 20 configurations
+   the deployable B3 realises 94 % of the perfect-foresight savings (93.6 to 95.6 %), a gap
+   of 0.5 to 0.9 points of ROCE. Choosing one size larger costs more return than the entire
+   distance between a real controller and a clairvoyant one.
+4. **Sweet spot.** For an 8 kWp array and 3,221 kWh/a of consumption, 5 to 7.5 kWh of storage
+   with a 3 to 4.6 kW inverter maximises return (7.5 to 8.8 year payback, 11 to 13 % ROCE),
+   while the thesis configuration (9.37 kWh, 5.63 kW) trades about 3 points of ROCE for
+   140 EUR/a more absolute savings.
 
 ### Limitations
 
