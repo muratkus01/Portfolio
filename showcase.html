@@ -208,10 +208,22 @@
       font-weight: 700;
     }
     .hero-lead {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       color: var(--text-sub);
-      max-width: 920px;
-      margin-bottom: 36px;
+      max-width: 1060px;
+      line-height: 1.7;
+      margin-bottom: 14px;
+    }
+    .hero-lead strong {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+    .hero-sublead {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      max-width: 1060px;
+      line-height: 1.65;
+      margin-bottom: 34px;
     }
 
     /* Global Evaluation Year Selector */
@@ -1339,8 +1351,9 @@
     <!-- Hero Section -->
     <header class="hero">
       <div class="hero-badge-row">
-        <div class="hero-badge">Applied Energy Engineering & AI Portfolio</div>
+        <div class="hero-badge">Quantitative Energy Economics & Power Systems Engineering</div>
         <span class="chip chip-reg">DE-LU Bidding Zone</span>
+        <span class="chip chip-scale">EPEX SPOT · regelleistung.net · reBAP</span>
         <span class="chip chip-stack" id="hero-market-chip">Real 2025 Market Anchor</span>
       </div>
       <h1 class="hero-title">Applied AI & Algorithmic Dispatch for Modern Power Systems</h1>
@@ -1348,7 +1361,10 @@
         <strong>Murat Kus</strong> · Dipl.-Ing. | M.Sc. Sustainable Energy Systems | B.Sc. AI (in progress) | JKU Linz
       </div>
       <p class="hero-lead">
-        Six complete engineering implementations spanning prosumer battery flexibility, pumped storage multi-market dispatch, fleet EV grid dimming, cooperative energy sharing, co-located hybrid plant arbitrage, and probabilistic imbalance trading. Every project establishes a rigorous 5-rung benchmark ladder from rule heuristics to rolling MPC and learned policies, asserted against physical and regulatory invariants across historical and operational market years.
+        Quantitative flexibility valuation, multi-market dispatch co-optimization, and risk-constrained decision-making under uncertainty in decarbonized electricity systems. Six production-grade implementations spanning behind-the-meter prosumer storage under dynamic retail pricing (EnWG §41a), pumped-storage hydro multi-settlement bidding across Day-Ahead (EPEX SPOT SDAC) and balancing capacity auctions (aFRR / FCR) under §118(6) EnWG grid fee exemptions, commercial EV fleet charging coordination under DSO dynamic capacity curtailment mandates (§14a EnWG), local energy market clearing with cooperative game-theoretic cost allocation (EU RED II / Austrian EAG), co-located utility-scale hybrid wind-solar-BESS dispatch behind constrained grid connections (EEG §51), and probabilistic forecast-to-bid optimization under asymmetric balancing market exposure (reBAP).
+      </p>
+      <p class="hero-sublead">
+        Every system formalizes an operations research hierarchy: baseline operational heuristics, deterministic global upper bounds via Mixed-Integer Linear Programming (MILP), certainty-equivalent rolling-horizon Model Predictive Control (MPC), and deep Reinforcement Learning policies under non-linear asset degradation, validated against 15-minute empirical market telemetry from the German-Luxembourg (DE-LU) bidding zone across operational years 2024 to 2026 YTD.
       </p>
 
       <!-- Market & Grid Regulatory Console -->
