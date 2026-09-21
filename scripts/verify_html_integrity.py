@@ -29,13 +29,35 @@ def verify():
         'selectDayRegime', 'selectDayRegimeP02', 'selectDayRegimeP03', 'selectDayRegimeP04', 'selectDayRegimeP05', 'selectDayRegimeP06',
         'toggleChannel', 'toggleChannelP02', 'toggleChannelP03', 'toggleChannelP04', 'toggleChannelP05', 'toggleChannelP06',
         'updateHud', 'updateHudP02', 'updateHudP03', 'updateHudP04', 'updateHudP05', 'updateHudP06',
-        'setupCanvasListeners', 'setupCanvasListenersP02', 'setupCanvasListenersP03', 'setupCanvasListenersP04', 'setupCanvasListenersP05', 'setupCanvasListenersP06'
+        'setupCanvasListeners', 'setupCanvasListenersP02', 'setupCanvasListenersP03', 'setupCanvasListenersP04', 'setupCanvasListenersP05', 'setupCanvasListenersP06',
+        'updateRepresentativeDaysForYear', 'getRegimes'
     ]
     for fn in funcs:
         assert f'function {fn}(' in html, f"Missing function {fn}"
         print(f"Function OK: {fn}")
 
-    # 4. Check all onclick handlers call valid functions
+    # 4. Check 2026 gallery buttons
+    for pid in ['p01', 'p02', 'p03', 'p04', 'p05', 'p06']:
+        btn_id = f'{pid}-galbtn-2026'
+        assert f'id="{btn_id}"' in html, f"Missing {btn_id}"
+        print(f"Gallery button OK: {btn_id}")
+
+    # 5. Check 2026 figures exist on disk
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    figures = [
+        root / 'projects' / '01-prosumer-pv-bess-mpc-rl' / 'docs' / 'figures' / 'p01_dispatch_2026.png',
+        root / 'projects' / '02-pumped-storage-rl-multimarket' / 'docs' / 'figures' / 'p02_dispatch_2026.png',
+        root / 'projects' / '03-smart-ev-charging-14a' / 'docs' / 'figures' / 'p03_dispatch_2026.png',
+        root / 'projects' / '04-energy-sharing-rec' / 'docs' / 'figures' / 'p04_sharing_2026.png',
+        root / 'projects' / '05-utility-hybrid-plant-dispatch' / 'docs' / 'figures' / 'p05_dispatch_2026.png',
+        root / 'projects' / '06-probabilistic-forecast-to-bid' / 'docs' / 'figures' / 'p06_forecast_fan_2026.png',
+    ]
+    for fig in figures:
+        assert fig.exists(), f"Missing figure file: {fig}"
+        print(f"Figure file OK: {fig.name}")
+
+    # 6. Check all onclick handlers call valid functions
     onclick_matches = re.findall(r'onclick="([^"]+)"', html)
     for oc in onclick_matches:
         fn_name = oc.split('(')[0].strip()
