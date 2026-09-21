@@ -2,7 +2,7 @@
 
 **A reinforcement learning controller for a German pumped-storage power plant (PSW) that
 co-optimises energy arbitrage, balancing capacity and system-security services across
-day-ahead, intraday and balancing markets — with an explicit, switchable operating philosophy
+day-ahead, intraday and balancing markets - with an explicit, switchable operating philosophy
 between revenue maximisation, grid-security priority and a hybrid mode.**
 
 ## 0. Implementation status
@@ -56,7 +56,7 @@ B3 recovers **91.8%** of the B1-to-B2 headroom at 44 ms/decision. Action smoothi
 |---|---|
 | **Status** | **Ladder implemented** on real price data · RL reference trained and benchmarked |
 | **Method** | Multi-objective RL (PPO/SAC) with safety layer · MILP-MPC benchmark |
-| **Asset** | Publicly-derived reference PSW, ~300 MW / ~1–8 GWh, multi-unit, reversible pump-turbines |
+| **Asset** | Publicly-derived reference PSW, ~300 MW / ~1-8 GWh, multi-unit, reversible pump-turbines |
 | **Markets** | Day-ahead · intraday · FCR · aFRR (capacity + energy) · mFRR · imbalance |
 | **Resolution** | 15 min, with 4-hour balancing product blocks |
 
@@ -81,7 +81,7 @@ uncertainty with an opportunity-cost structure that MILP handles only through th
 it is given.
 
 **Activation is stochastic.** aFRR and mFRR energy are called from a European merit order.
-Selling capacity creates an *obligation* whose *energy consequence* is a random variable —
+Selling capacity creates an *obligation* whose *energy consequence* is a random variable -
 one that moves the reservoir state and therefore constrains every subsequent decision. A
 point-forecast MPC systematically mis-values this.
 
@@ -105,10 +105,10 @@ rather than asserted.
 | **Balancing markets** (FCR/aFRR/mFRR via `regelleistung.net`, activated through PICASSO/MARI) | Daily auctions, 4-hour product blocks, separate positive/negative aFRR and mFRR, capacity price plus energy price. Modelled as a bidding decision with stochastic acceptance and stochastic activation |
 | **Prequalification** (TSO Prequalification Conditions) | Hard eligibility gate: minimum bid size, response time, measurement and remote-control requirements, proof of availability. Determines which products the reference plant may offer at all |
 | **`§13 EnWG`** system responsibility, Redispatch 2.0 (`§§13a, 14c EnWG`) | The TSO can override the plant's schedule. Modelled as an exogenous order channel; ordered vs. self-chosen deviation is accounted separately because compensation differs |
-| **Imbalance settlement / reBAP** | Deviation from the committed quarter-hourly schedule settles at a signed, heavy-tailed price — the risk term that makes the problem distributional rather than expectation-driven |
+| **Imbalance settlement / reBAP** | Deviation from the committed quarter-hourly schedule settles at a signed, heavy-tailed price - the risk term that makes the problem distributional rather than expectation-driven |
 | **`§118(6) EnWG`** | Network-charge exemption for pumping electricity under defined conditions and time limits. **A configuration switch**, because it materially changes the arbitrage spread and its applicability differs by plant vintage and modernisation status |
 | **Water law** (*wasserrechtliche Genehmigung*) | Minimum/maximum reservoir levels, ramp-rate limits protecting downstream ecology, inflow obligations. **Hard constraints in the safety layer, never in the reward** |
-| **Ancillary services contracts** | Black start, reactive power/voltage support, instantaneous reserve — revenue and obligation streams that compete with energy for the same headroom |
+| **Ancillary services contracts** | Black start, reactive power/voltage support, instantaneous reserve - revenue and obligation streams that compete with energy for the same headroom |
 
 ---
 
@@ -121,19 +121,19 @@ rather than asserted.
 - Sequential multi-market decision making: balancing capacity bids (D-1) → day-ahead schedule
   → intraday adjustment → real-time activation response → imbalance exposure.
 - Three explicit **operating modes**, selected by a single interpretable parameter:
-  - **Revenue mode** — maximise expected risk-adjusted margin.
-  - **Grid-security mode** — maximise availability of upward and downward reserve and
+  - **Revenue mode** - maximise expected risk-adjusted margin.
+  - **Grid-security mode** - maximise availability of upward and downward reserve and
     system-service readiness, subject to not losing money beyond a defined budget.
-  - **Hybrid mode** — a scalarised trade-off, with the resulting Pareto frontier as a core
+  - **Hybrid mode** - a scalarised trade-off, with the resulting Pareto frontier as a core
     deliverable.
 - A MILP-MPC benchmark with scenario-based treatment of activation uncertainty.
 - Risk-aware objectives (CVaR) rather than expectation-only optimisation.
 
 ### Out of scope
 
-- Detailed hydraulic transient modelling (surge shafts, water hammer) — the model is
+- Detailed hydraulic transient modelling (surge shafts, water hammer) - the model is
   quasi-steady at 15-minute resolution.
-- Strategic bidding / market power effects — the plant is modelled as a price taker, which is
+- Strategic bidding / market power effects - the plant is modelled as a price taker, which is
   stated as a limitation for a large unit.
 - Cross-border implicit allocation beyond what the price series already reflect.
 - Long-term investment and refurbishment decisions.
@@ -142,7 +142,7 @@ rather than asserted.
 
 1. Build a validated 15-minute digital model of a reference German PSW from public data.
 2. Establish a strong scenario-based MILP-MPC benchmark across all four market stages.
-3. Determine whether a distributional RL policy beats it — specifically by better valuing
+3. Determine whether a distributional RL policy beats it - specifically by better valuing
    the *stochastic activation* of sold balancing capacity.
 4. **Quantify the cost of grid-security-first operation** in €/a, producing an explicit
    Pareto frontier between security readiness and revenue.
@@ -154,9 +154,9 @@ rather than asserted.
 
 | # | Research question | Hypothesis |
 |---|-------------------|-----------|
-| RQ1 | Does a learned policy beat scenario-MILP-MPC in multi-market PSW dispatch? | H1: Yes, with the advantage concentrated in high-volatility periods where activation risk and reBAP tails dominate — where point/scenario forecasts are weakest |
+| RQ1 | Does a learned policy beat scenario-MILP-MPC in multi-market PSW dispatch? | H1: Yes, with the advantage concentrated in high-volatility periods where activation risk and reBAP tails dominate - where point/scenario forecasts are weakest |
 | RQ2 | Where does the advantage come from? | H2: From distributional valuation of activation and imbalance risk, not from better arbitrage timing. Testable by ablating the reward's risk term |
-| RQ3 | What does grid-security-priority operation cost? | H3: A convex frontier — the first increments of security readiness are cheap, the last are expensive; the knee is the operationally interesting point |
+| RQ3 | What does grid-security-priority operation cost? | H3: A convex frontier - the first increments of security readiness are cheap, the last are expensive; the knee is the operationally interesting point |
 | RQ4 | How much of the value is destroyed by the `§118(6)` exemption not applying? | H4: A large share of arbitrage margin; enough to change optimal mode selection |
 | RQ5 | Can a learned policy respect water-law limits reliably? | H5: Not without a safety layer. With projection-based safety, violations are zero by construction and the economic cost of that guarantee is small |
 
@@ -218,7 +218,7 @@ flowchart TB
 Reservoir dynamics at 15 min with natural inflow, spill and evaporation; energy content a
 function of volume and head. Per unit: binary pump/turbine/off mode with mutual exclusion,
 minimum up and down times, start-up cost and count, ramp limits, and a head-and-flow-dependent
-efficiency surface — piecewise-linearised (SOS2) in the MILP and used **unlinearised** in the
+efficiency surface - piecewise-linearised (SOS2) in the MILP and used **unlinearised** in the
 simulator, so the linearisation gap is measurable.
 
 ### 6.2 Sequential decision problem
@@ -241,7 +241,7 @@ imbalance at an unknown one.
 
 ### 6.3 MILP-MPC benchmark (B2 / B3)
 
-B2 is perfect-foresight over the evaluation horizon, including realised activations —
+B2 is perfect-foresight over the evaluation horizon, including realised activations -
 unachievable, and used only as the ceiling. B3 is a rolling-horizon scenario MILP: a
 multi-stage stochastic program over a reduced scenario tree of prices and activation, solved
 each decision stage with a terminal value function on reservoir energy. Scenario reduction
@@ -254,10 +254,10 @@ strong the benchmark is.
 |---------|-----------|
 | **State** | Reservoir volumes; per-unit mode, run-time and start count; outstanding balancing obligations by product and block; committed schedule for the remaining horizon; price history windows; forecast quantiles for DA/ID/reBAP; activation-rate features; inflow; calendar features; operating mode λ |
 | **Action** | Hierarchical: (a) at bid stages, capacity volume and price per product/block; (b) at each 15-min step, net power setpoint decomposed to units by the safety layer |
-| **Reward** | Step economic result — energy revenue/cost, capacity revenue accrual, activation energy settlement, imbalance settlement, network charges — minus start/mode-change and wear costs, minus a soft term penalising loss of security readiness weighted by λ |
+| **Reward** | Step economic result - energy revenue/cost, capacity revenue accrual, activation energy settlement, imbalance settlement, network charges - minus start/mode-change and wear costs, minus a soft term penalising loss of security readiness weighted by λ |
 | **Risk** | Distributional critic (quantile regression), with a CVaR-based objective option, because the tails are the point |
 | **Safety layer** | Projection enforcing reservoir bounds with a water-law margin, ramp limits, mode exclusivity, minimum up/down times, and reserved headroom for sold capacity. Violation is impossible by construction |
-| **Episode** | 7–14 days (long enough for the reservoir cycle), terminal reservoir energy valued by `V_T` |
+| **Episode** | 7-14 days (long enough for the reservoir cycle), terminal reservoir energy valued by `V_T` |
 | **Algorithm** | PPO for the hierarchical/discrete bid structure; SAC for the continuous dispatch layer; distributional variants for the risk objective |
 
 ### 6.5 Operating modes
@@ -286,15 +286,15 @@ deliverable: the price, in €/a, of each increment of grid-security posture.
 | reBAP imbalance prices | Imbalance risk | netztransparenz.de | 15 min | Open |
 | System load & residual load | Stress indicators, security metric | SMARD / ENTSO-E | 15 min | Open |
 | Redispatch measures | Override channel calibration | netztransparenz.de | Per measure | Open |
-| PSW plant technical data | Reference plant construction | **MaStR** + **JRC Hydro-power database** + operator technical publications | — | Open |
+| PSW plant technical data | Reference plant construction | **MaStR** + **JRC Hydro-power database** + operator technical publications | - | Open |
 | Reservoir volumes / filling | Hydrological boundary conditions | ENTSO-E aggregated filling rates; literature for the reference plant | Weekly / hourly | Open (aggregate) |
 | Inflow | Natural inflow to the reference plant | Hydrological services / literature; synthetic where unavailable | Daily → 15 min | Partly modelled |
-| Water-law constraints | Hard operating limits | Public permit documents where available; otherwise parameterised | — | **Parameterised, flagged** |
-| Prequalification requirements | Product eligibility | TSO prequalification conditions | — | Open |
+| Water-law constraints | Hard operating limits | Public permit documents where available; otherwise parameterised | - | **Parameterised, flagged** |
+| Prequalification requirements | Product eligibility | TSO prequalification conditions | - | Open |
 
 **Deliberate design choice: no confidential operator data.** The reference plant is built
 entirely from public registers and literature. This costs fidelity but makes every result
-publishable and independently reproducible — and the sensitivity of conclusions to the
+publishable and independently reproducible - and the sensitivity of conclusions to the
 uncertain plant parameters is reported as an ablation rather than hidden.
 
 ---
@@ -305,7 +305,7 @@ uncertain plant parameters is reported as an ablation rather than hidden.
 |------|--------------|
 | **B0** | Aggregate historical German pumped-storage operation (ENTSO-E generation/pumping) as a realism check on the reference plant's behaviour |
 | **B1** | Classical rule-based dispatch: price-threshold pumping/turbining with a static reserve allocation. **Validation gate** |
-| **B2** | Perfect-foresight MILP including realised activations — the ceiling |
+| **B2** | Perfect-foresight MILP including realised activations - the ceiling |
 | **B3** | Rolling-horizon scenario MILP-MPC across all four decision stages, tuned |
 | **RL** | Distributional PPO/SAC with safety layer, identical forecasts and scenarios |
 
@@ -322,12 +322,12 @@ on/off; single-market vs. multi-market operation (the value of co-optimisation i
 
 ## 9. Deliverables
 
-1. A public, reproducible 15-minute German PSW multi-market simulation environment —
+1. A public, reproducible 15-minute German PSW multi-market simulation environment -
    including the balancing capacity/activation and reBAP mechanics that are usually simplified
    away.
 2. A scenario MILP-MPC reference implementation (HiGHS-solvable).
 3. A risk-aware distributional RL controller with a water-law safety layer.
-4. **The revenue-vs-grid-security Pareto frontier** — the deliverable with the clearest
+4. **The revenue-vs-grid-security Pareto frontier** - the deliverable with the clearest
    operational relevance to a plant operator or TSO.
 5. A quantified assessment of what multi-market co-optimisation is worth versus operating
    each market separately.
@@ -339,20 +339,29 @@ on/off; single-market vs. multi-market operation (the value of co-optimisation i
 
 | WP | Content | Depends on | Output |
 |----|---------|-----------|--------|
-| WP1 | Reference plant construction from MaStR/JRC/literature; parameter uncertainty documented | — | Plant spec + parameter ranges |
-| WP2 | Market data pipeline: DA, ID, capacity auctions, activations, reBAP, redispatch | — | `data/processed` |
+| WP1 | Reference plant construction from MaStR/JRC/literature; parameter uncertainty documented | - | Plant spec + parameter ranges |
+| WP2 | Market data pipeline: DA, ID, capacity auctions, activations, reBAP, redispatch | - | `data/processed` |
 | WP3 | Plant model incl. efficiency surface, mode logic, water constraints; energy-balance tests | WP1 | `src/model` |
 | WP4 | Market and settlement module: capacity accrual, activation settlement, imbalance, `§118(6)` | WP2 | `src/market` |
-| WP5 | B1 rule-based dispatch + **validation gate** against aggregate reality | WP3, WP4 | Validation report — **gate** |
+| WP5 | B1 rule-based dispatch + **validation gate** against aggregate reality | WP3, WP4 | Validation report - **gate** |
 | WP6 | Scenario generation: price scenarios, activation model, capacity acceptance model | WP2 | `src/forecast` |
-| WP7 | MILP B2 + scenario MPC B3, tuned | WP3–WP6 | Strong baseline |
+| WP7 | MILP B2 + scenario MPC B3, tuned | WP3-WP6 | Strong baseline |
 | WP8 | Gymnasium environment, safety layer, security-readiness metric | WP3, WP4 | `src/envs`, `src/safety` |
 | WP9 | Distributional RL training; λ sweep | WP6, WP8 | Trained policies, frontier |
 | WP10 | Evaluation, ablations, statistics, report | WP7, WP9 | `reports/` |
 
 ---
 
-## 11. Risks and limitations
+## 11. Assumptions and limitations
+
+| Dimension | Core Assumption | Engineering Justification and Reference | Modeling Limitation and Impact |
+|---|---|---|---|
+| **Physical** | 300 MW turbine (4 x 75 MW), 280 MW pump (4 x 70 MW), 2,400 MWh reservoir (8 h duration); constant hydraulic head approximation; linear ramp limit (150 MW/step); 300 EUR/reversal wear penalty. | Matches German/Austrian PSW reference fleet (MStR / JRC database); enables tractable continuous LP/MILP solving while linear head error is quantified via ablation. | Omits dynamic water-hammer transients, penstock friction non-linearities, and detailed cavitation floors (p_turb_min_unit). |
+| **Market** | Price-taker across EPEX Spot DA and aFRR balancing capacity auctions; fixed aFRR capacity prices with empirical activation rates. | Establishes reproducible open benchmark without proprietary order-book bids; single plant cannot unilaterally set national balancing prices. | Omits strategic bidding feedback, endogenous price depression during full-power pumping, and pay-as-bid auction clearing dynamics. |
+| **Data** | Historical 15-minute German DE-LU day-ahead prices and TSO balancing telemetry (SMARD / regelleistung.net) for 2024-2025. | Fully transparent, officially audited public telemetry; ensures zero reliance on confidential operator telemetry. | Synthetic heavy-tailed reBAP distribution approximates empirical tail risk but does not capture macro-grid outage cascades. |
+| **Regulatory** | Section 118(6) EnWG 20-year network charge exemption active; 1 MW minimum aFRR prequalification bid size; 4-hour balancing product blocks. | Accurately models statutory German grid regulation (EnWG Section 118(6), TSO balancing prequalification rules). | Assumes plant maintains 100% technical availability without unplanned forced outages or statutory environmental water releases. |
+
+### Operational Risks and Mitigations
 
 | Risk | Mitigation |
 |------|-----------|
@@ -375,7 +384,7 @@ in [`../../docs/05-tech-stack.md`](../../docs/05-tech-stack.md).
 ## 13. References
 
 - `§§ 13, 13a, 14c, 118(6) EnWG`; TSO Prequalification Conditions; `regelleistung.net` market
-  rules — see [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md).
+  rules - see [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md).
 - ENTSO-E balancing platform documentation (PICASSO, MARI).
 - JRC Hydro-power database; Marktstammdatenregister.
 - The hydro scheduling and multi-market storage optimisation literature, and the emerging

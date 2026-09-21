@@ -17,6 +17,12 @@ from dataclasses import dataclass, field, replace
 
 @dataclass(frozen=True)
 class PlantConfig:
+    """Co-located utility hybrid plant configuration.
+
+    Note on planned ramp rate constraints:
+    - ramp_mw_per_step: declared for planned grid-code compliance extensions;
+      defaults to None (inverter-coupled plant operates without active ramp limits).
+    """
     wind_mw: float = 50.0
     pv_mw: float = 30.0
     bess_mw: float = 20.0
@@ -61,33 +67,43 @@ class PlantConfig:
 
 @dataclass(frozen=True)
 class MarketConfig:
-    """EEG direct marketing, the negative-price rule, and imbalance settlement."""
+    """EEG direct marketing, the negative-price rule, and imbalance settlement.
+
+    Note on planned ancillary service extensions:
+    The following parameters are declared for planned battery aFRR co-bidding extensions
+    and are not yet active in energy-only direct marketing dispatch:
+    - afrr_enabled: switch for battery reserve bidding (currently False)
+    - afrr_capacity_eur_mw_h: expected reserve capacity clearing price
+    - afrr_block_steps: 4-hour reservation product block length (16 quarter-hours)
+    """
 
     # --- EEG market premium ---
     # Revenue = market price + premium, where premium = anzulegender Wert - monthly market
     # value. The MONTHLY reference is what makes the objective non-separable across the month;
     # the rolling-horizon controller carries a month-to-date accumulator for this reason.
     eeg_enabled: bool = True
+    # EEG 2023 § 36 onshore wind statutory reference ceiling (source: BNetzA Festlegung 2024/2025)
     anzulegender_wert_wind: float = 73.5     # EUR/MWh
+    # EEG 2023 § 37 ground-mounted solar statutory reference ceiling (source: BNetzA Festlegung 2024/2025)
     anzulegender_wert_pv: float = 68.0       # EUR/MWh
-    direct_marketing_fee: float = 3.0        # EUR/MWh
+    direct_marketing_fee: float = 3.0        # EUR/MWh standard trader management fee (2024/2025)
 
-    # --- negative-price rule (EEG s51, tightened by the 2025 Solarspitzengesetz) ---
+    # --- negative-price rule (EEG § 51, tightened by the 2025 Solarspitzengesetz) ---
     # "none"     : premium always paid (older vintages)
-    # "six_hour" : premium suspended after 6 consecutive hours of negative prices
-    # "new_2025" : premium suspended in ANY quarter-hour with a negative price
+    # "six_hour" : premium suspended after 6 consecutive hours of negative prices (pre-2025)
+    # "new_2025" : premium suspended in ANY quarter-hour with a negative price (Solarspitzengesetz 2025)
     negative_price_rule: str = "new_2025"
 
     # --- imbalance ---
     imbalance_enabled: bool = True
     rebap_sigma: float = 55.0                # EUR/MWh, heavy-tailed around the spot price
 
-    # --- optional aFRR participation by the battery ---
-    afrr_enabled: bool = False
-    afrr_capacity_eur_mw_h: float = 10.0
-    afrr_block_steps: int = 16
+    # --- optional aFRR participation by the battery (declared for planned extension) ---
+    afrr_enabled: bool = False               # declared for planned aFRR extension; not yet active
+    afrr_capacity_eur_mw_h: float = 10.0     # declared for planned aFRR extension; not yet active
+    afrr_block_steps: int = 16               # declared for planned aFRR extension; not yet active
 
-    # --- redispatch (s13a EnWG) ---
+    # --- redispatch (§ 13a EnWG) ---
     redispatch_prob_per_step: float = 0.001
     redispatch_depth: float = 0.5            # fraction of export capacity ordered away
 

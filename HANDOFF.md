@@ -15,7 +15,7 @@ assistants: [Antigravity, Claude Pro, Claude Code]
 ## 📌 Standing Decisions & Architecture
 
 1. **Monorepo Layout:** 6 structured projects under `projects/` with modular `src/` and `tests/`.
-2. **Global Pytest Suite:** Configured in `Portfolio/pyproject.toml` — running `pytest -v` from the root executes all 94 unit tests across all 6 projects with 100% pass rate.
+2. **Global Pytest Suite:** Configured in `Portfolio/pyproject.toml`: running `pytest -v` from the root executes all unit tests across all 6 projects with 100% pass rate.
 3. **Master Showcase Dashboard:** `python showcase.py` provides an instant executive readout with live simulation results across all 6 projects.
 4. **Editable Installation:** All 6 packages (`prosumer`, `psw`, `evc`, `rec`, `hybrid`, `f2b`) are installed in editable mode (`pip install -e`).
 5. **Specialized Skill Ecosystem:** 10 portfolio skills in `.agents/skills/` (shared with Claude via `.claude/skills` directory junction):
@@ -24,15 +24,17 @@ assistants: [Antigravity, Claude Pro, Claude Code]
 
 ---
 
-## 🚦 Current State: 2026-09-21 (Portfolio Dashboard & Scenario Grid Complete, 2,256 Scenarios, 0 Violations, 100% Green Suite)
+## 🚦 Current State: 2026-09-21 (Portfolio Assumptions, Data and Model Audit Complete, 2,256 Scenarios, 0 Violations, 100% Green Suite)
 
 Monorepo synchronized across worktrees and verified against all review work items:
-* **Overnight Multi-Project Scenario Simulations Complete (2,256 Runs, 0 Violations):** Full parameter sweep across all 6 projects (2024 and 2025 DE-LU market telemetry) with 0 physical invariant violations. Project 02 expanded to full 540 rows across 5 distinct policies (`['b1', 'b2', 'b3', 'rl_smoothed', 'rl_unsmoothed']`), completing the RL benchmark ladder against rolling MPC. Stored in Apache Parquet (`simulations/results/p01_scenarios.parquet` through `p06_scenarios.parquet`) and lookup cubes (`simulations/results/lookup_cubes.json`, 154 KB).
-* **Schema Annualisation & Extrapolation Transparency:** Added `eval_days` (365/366 for P01/P06; 14 for P02, P03, P04, P05) and `annualised` boolean flags across all scenario parquets. Renamed scaled annual columns in P02 and P05 to `*_per_year_extrapolated`. Added clarifying footnotes to both `dashboards/app.py` and `showcase.html`.
-* **Scenario Cubes Wired into showcase.html:** Inlined `SCENARIO_CUBES` (154 KB) into `showcase.html`. Snapped all sliders in HTML and JS to empirical parameter grids. Replaced heuristic client-side approximations with direct cell lookups into precomputed model cubes. Added dynamic `(Exact Grid Match)` and `(Nearest Grid: ...)` status badges. Labeled 24h dispatch canvases as illustrative telemetry.
-* **Showcase Published & Linked:** Added automated GitHub Pages deployment workflow (`.github/workflows/pages.yml`), root `index.html` redirect, and live showcase badge and link in `README.md` (`https://muratkus01.github.io/Portfolio/showcase.html`).
-* **Plant Rating & Editorial Consistency:** Reconciled Project 02 plant capacity to 120 MW (4 x 30 MW units) / 2,400 MWh upper reservoir across `psw/config.py`, `showcase.py`, and `showcase.html`. Removed "production-grade" claim from `showcase.html` abstract. Verified reBAP documented as single uniform imbalance price.
-* **100% Green Test Suite:** 207 passed, 1 skipped. `python showcase.py --tests` completes all 6 live demos and passes full test suite with 0 errors.
+* **Project 02 Plant Capacity Sizing Restated:** Restored reference pumped storage sizing to 300 MW turbine (4 x 75 MW) and 280 MW pump (4 x 70 MW) with 2,400 MWh usable upper-reservoir storage (8 hours duration at full output) in `psw/config.py`, `showcase.py`, and `showcase.html`. Swept `turb_mw_unit = [50.0, 75.0, 100.0]` and `e_max_mwh = [1200.0, 2400.0, 3600.0]`.
+* **Overnight Parameter Sweep Complete (2,256 Scenarios, 0 Invariant Violations):** Executed full 540-scenario grid for Project 02 across 5 policies (`['b1', 'b2', 'b3', 'rl_smoothed', 'rl_unsmoothed']`) and 2 operational years (2024, 2025 DE-LU spot prices), with 0 simultaneous pumping/turbining steps. Parquet stores updated (`simulations/results/p01_scenarios.parquet` through `p06_scenarios.parquet`) and re-built `lookup_cubes.json` (156 KB) wired into `showcase.html`.
+* **Inert Config Parameters Resolved (0 Undocumented):** Documented all 20 inert config fields across `psw`, `evc`, `rec`, `hybrid`, and `f2b` in class docstrings and code comments as declared for planned extensions (unit commitment, on-site storage, CVaR risk-aversion). Detector script confirms 0 undocumented inert parameters across all 6 packages.
+* **Data Vintage and Loud Fallbacks:** Anchored 2026 part-year installed capacities (78,000 MW wind, 118,000 MW PV) in `datakit/datakit.py`. Eliminated silent dictionary fallbacks in `hybrid/data.py` and `f2b/cli.py` with `get_installed_capacity(year)` raising loud `ValueError` on unanchored years.
+* **Scenario Reproducibility Schema:** Added `seed` and `git_commit` provenance columns to all records in `scripts/run_overnight_simulations.py` and backfilled all 6 scenario parquets.
+* **Assumptions and Limitations Tables:** Added structured 4-dimension matrix (Physical, Market, Data, Regulatory) to READMEs across all 6 projects, noting planned extensions (`obedient_members` in P04, `afrr_enabled` in P05) with zero em/en-dashes.
+* **Regulatory Primer:** Compiled Section 9 master reference table in `docs/01-german-market-regulatory-primer.md` covering statutory levies, taxes, network fee discounts, and market time units.
+* **100% Green Test Suite:** 207 passed, 1 skipped. `python -m pytest -q` passing 100%.
 
 ---
 
@@ -162,3 +164,5 @@ terminal value is needed at short horizons, it must be concave and state-depende
 - 2026-09-21 · Antigravity · Synchronized market telemetry console subtitles dynamically across 2024, 2025, and 2026: updated negative hours percentage, gross price volatility spread, and regulatory environment details per year, and set 2026 as the default evaluation year.
 - 2026-09-21 · Antigravity · Upgraded Project 01 Figure 1 (p01_dispatch_{year}.png) generation to use authentic prosumer LP optimal dispatch with real May 01 to May 03 DE-LU wholesale prices, empirical rooftop solar PV generation, and dynamic tariffs: clarified 72-hour continuous operational window, eliminated static heuristic that froze battery and SoC curves across years, added day demarcations and twin Y-axes, regenerated 2024, 2025, and 2026 figures with distinct active arbitrage trajectories, and synchronized worktrees.
 - 2026-09-21 · Antigravity · Portfolio dashboard completion: scenario cubes wired into showcase.html with grid snapping and KPI lookups, P02 RL grid completed (540 rows, 0 violations), eval_days schema annualisation, 120 MW P02 alignment, GitHub Pages workflow deployed and linked in README.
+- 2026-09-21 · Claude Code · Closed the worktree split: Project 01 was already fully merged into main (empty diff on projects/01-*), the branch had become a duplicate of portfolio-wide work with a stale scenario grid (p02 324 rows vs 540), so no merge was possible or needed. Removed worktree Portfolio-p01, deleted branch p01-thesis-extension locally, preserved its 15 commits at tag archive/p01-thesis-extension. origin/p01-thesis-extension left for Murat. Verified main afterwards: 207 passed / 1 skipped, SCENARIO_CUBES wired into showcase.html (19 references), pages.yml and index.html present.
+- 2026-09-21 · Antigravity · Completed portfolio audit: restored P02 reference sizing (4 x 75 MW = 300 MW turbine, 280 MW pump, 2,400 MWh storage), re-ran 540-scenario grid (2,256 total runs, 0 violations), resolved 20 inert parameters, anchored 2026 data vintage with loud fallbacks, added seed/git_commit columns, embedded 4-dimension assumptions tables in all 6 READMEs, added master statutory reference table to regulatory primer, and re-wired cubes to showcase.html. 207 passed, 1 skipped.

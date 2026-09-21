@@ -27,12 +27,22 @@ class MemberConfig:
 
 @dataclass(frozen=True)
 class CommunityConfig:
+    """Community physical assets and grid connection limits.
+
+    Note on planned community storage extensions:
+    The following parameters are declared for planned community storage extensions
+    and are not yet read by current sharing allocation clearing models:
+    - shared_battery_kwh: centralized community battery capacity (kWh)
+    - shared_battery_kw: centralized community battery peak power (kW)
+    - eta_c: battery charging efficiency
+    - eta_d: battery discharging efficiency
+    """
     shared_pv_kwp: float = 120.0
-    shared_battery_kwh: float = 100.0
-    shared_battery_kw: float = 50.0
-    eta_c: float = 0.95
-    eta_d: float = 0.95
-    feeder_limit_kw: float = 250.0    # LV feeder thermal limit at the transformer
+    shared_battery_kwh: float = 100.0  # declared for planned community storage extension
+    shared_battery_kw: float = 50.0    # declared for planned community storage extension
+    eta_c: float = 0.95                # declared for planned community storage extension
+    eta_d: float = 0.95                # declared for planned community storage extension
+    feeder_limit_kw: float = 250.0     # LV feeder thermal limit at transformer (local DSO code)
 
 
 @dataclass(frozen=True)
@@ -52,17 +62,17 @@ class RegimeConfig:
     shared_electricity_tax: float = 0.0
     shared_vat: float = 0.19
 
-    # residual supply from the grid (full retail price build-up)
+    # residual supply from the grid (full retail price build-up, 2024/2025 BNetzA averages)
     grid_energy: float = 0.090
     grid_margin: float = 0.030
     grid_network_charge: float = 0.085
     grid_levies: float = 0.015
-    grid_electricity_tax: float = 0.02050
-    grid_vat: float = 0.19
+    grid_electricity_tax: float = 0.02050  # EUR/kWh (§ 3 StromStG standard rate, valid 2024/2025)
+    grid_vat: float = 0.19                 # 19% standard VAT (UStG § 12(1))
 
     # export of surplus community generation
-    feed_in_tariff: float = 0.0786
-    mieterstrom_surcharge: float = 0.0     # s21(3) EEG, when applicable
+    feed_in_tariff: float = 0.0786         # EUR/kWh (EEG 2023 § 48(1) No. 1, Feb 2025 partial feed-in rate)
+    mieterstrom_surcharge: float = 0.0     # EUR/kWh (§ 21(3) / § 48a EEG Mieterstromzuschlag, 2024/2025)
 
     # internal price for shared energy, EUR/kWh, before the charges above
     internal_price: float = 0.20
@@ -75,10 +85,10 @@ class RegimeConfig:
 REGIMES = {
     # Every member supplied separately; PV self-consumption only behind their own meter.
     "individual": RegimeConfig(name="individual", internal_price=0.0),
-    # s21(3) EEG: landlord supplies tenants, surcharge payable, full supplier obligations.
+    # § 21(3) EEG: landlord supplies tenants, surcharge payable, full supplier obligations.
     "mieterstrom": RegimeConfig(name="mieterstrom", mieterstrom_surcharge=0.0261,
                                 shared_electricity_tax=0.02050, internal_price=0.24),
-    # s42b EnWG (Solarpaket I, 2024): lighter-weight building-level sharing.
+    # § 42b EnWG (Solarpaket I, 2024): lighter-weight building-level sharing.
     "para_42b": RegimeConfig(name="para_42b", internal_price=0.20),
     # Grid-spanning energy sharing: network charges on shared energy are the decisive
     # unknown, so this regime is swept over that parameter rather than fixed.
@@ -90,12 +100,19 @@ REGIMES = {
 
 @dataclass(frozen=True)
 class RunConfig:
+    """Run configuration for REC simulations.
+
+    Note on planned behavioral extensions:
+    - obedient_members: declared for planned price-responsive member behavior
+      (not yet implemented in active static/dynamic sharing allocation baselines).
+    """
     dt: float = 0.25
     days: int = 14
     seed: int = 0
     mechanism: str = "dynamic_proportional"
     # static_key | dynamic_proportional | optimisation | market
-    obedient_members: bool = True     # False = members respond to their own price signal
+    # Declared for planned extension; currently members are modeled as non-strategic (obedient)
+    obedient_members: bool = True
     correlation: float = 0.35         # inter-member load correlation - see below
 
     community: CommunityConfig = field(default_factory=CommunityConfig)

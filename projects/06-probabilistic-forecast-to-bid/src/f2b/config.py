@@ -61,9 +61,17 @@ class MarketConfig:
 
 @dataclass(frozen=True)
 class RunConfig:
+    """Run configuration for forecast-to-bid execution.
+
+    Note on planned risk-averse extensions:
+    - risk_aversion: declared for planned CVaR optimization extension
+      (0.0 = risk-neutral expected profit maximization, >0 = tail risk CVaR penalty);
+      not yet read by active benchmark quantile policies.
+    """
     dt: float = 0.25
     seed: int = 0
-    risk_aversion: float = 0.0       # 0 = expected value; >0 shifts toward CVaR
+    # Declared for planned extension (CVaR risk averse bidding); defaults to 0.0 (risk neutral)
+    risk_aversion: float = 0.0
 
     portfolio: PortfolioConfig = field(default_factory=PortfolioConfig)
     forecast: ForecastConfig = field(default_factory=ForecastConfig)

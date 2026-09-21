@@ -50,6 +50,19 @@ log = logging.getLogger("sim")
 DATAKIT = ROOT / "datakit" / "processed"
 
 
+def _get_git_commit() -> str:
+    try:
+        import subprocess
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(ROOT),
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        return "unknown"
+
+
+
 def _load_price(year: int) -> np.ndarray:
     df = pd.read_parquet(DATAKIT / f"price_de_lu_{year}.parquet")
     col = [c for c in df.columns if "price" in c.lower() or "da" in c.lower() or "eur" in c.lower()][0]
@@ -224,7 +237,7 @@ def _p01_run(params: dict) -> dict:
 # P02: Pumped Storage Hydro
 # ============================================================
 def _p02_grid(smoke: bool) -> list:
-    turb_mw   = [30.0]        if smoke else [20.0, 30.0, 40.0]
+    turb_mw   = [75.0]        if smoke else [50.0, 75.0, 100.0]
     e_max_mwh = [2400.0]      if smoke else [1200.0, 2400.0, 3600.0]
     wear      = [100]         if smoke else [0, 50, 100, 150, 200, 300]
     policies  = ["b1"]        if smoke else ["b1", "b2", "b3", "rl_smoothed", "rl_unsmoothed"]
@@ -246,15 +259,17 @@ def _p02_run(params: dict) -> dict:
     price = _load_price(year)
     e_max = params["e_max_mwh"]
     policy = params["policy"]
+    t_unit = float(params["turb_mw_unit"])
 
     plant = PlantConfig(
-        n_units=2,
-        p_turb_max_unit=params["turb_mw_unit"],
-        p_turb_min_unit=params["turb_mw_unit"] * 0.25,
-        p_pump_unit=params["turb_mw_unit"] * 0.9,
+        n_units=4,
+        p_turb_max_unit=t_unit,
+        p_turb_min_unit=t_unit * (25.0 / 75.0),
+        p_pump_unit=t_unit * (70.0 / 75.0),
         e_max=e_max,
         e_min=e_max * 0.05,
         e_init=e_max * 0.5,
+        ramp_mw_per_step=t_unit * 2.0,
         mode_change_cost=float(params["wear_eur"]),
         e_reserve_low=e_max * 0.08,
         e_reserve_high=e_max * 0.95,
@@ -690,7 +705,10 @@ def _run_scenario(task: tuple) -> dict:
         elapsed = time.perf_counter() - t0
         violations = _check_invariants(project, params, result)
         row = {"project": project, "sid": sid, "elapsed_s": round(elapsed, 3),
-               "status": "ok", "violation": "|".join(violations), **params}
+               "status": "ok", "violation": "|".join(violations),
+               "seed": int(params.get("seed", 42)),
+               "git_commit": _get_git_commit(),
+               **params}
         row.update({f"out_{k}": v for k, v in result.items()
                     if not isinstance(v, list)})
         return row
@@ -698,7 +716,10 @@ def _run_scenario(task: tuple) -> dict:
         elapsed = time.perf_counter() - t0
         tb = traceback.format_exc()
         return {"project": project, "sid": sid, "elapsed_s": round(elapsed, 3),
-                "status": "error", "violation": "", "error": f"{exc}\n{tb}", **params}
+                "status": "error", "violation": "", "error": f"{exc}\n{tb}",
+                "seed": int(params.get("seed", 42)),
+                "git_commit": _get_git_commit(),
+                **params}
 
 
 # ============================================================
@@ -720,6 +741,25 @@ def build_tasks(smoke: bool) -> list:
 def run_batch(smoke: bool, n_workers: int) -> None:
     tasks     = build_tasks(smoke)
     completed = _load_checkpoint()
+    commit    = _get_git_commit()
+
+    rows_by_proj = {p: [] for p in ["p01","p02","p03","p04","p05","p06"]}
+    for proj in rows_by_proj:
+        pq = RESULTS / f"{proj}_scenarios.parquet"
+        if pq.exists():
+            df = pd.read_parquet(pq)
+            if proj == "p02" and "turb_mw_unit" in df.columns and 20.0 in df["turb_mw_unit"].values:
+                log.info("Detected legacy P02 sizing (20/30/40 MW). Resetting P02 for 50/75/100 MW re-run.")
+                old_sids = set(df["sid"].dropna())
+                completed.difference_update(old_sids)
+                _save_checkpoint(completed)
+                continue
+            if "seed" not in df.columns:
+                df["seed"] = 42
+            if "git_commit" not in df.columns:
+                df["git_commit"] = commit
+            rows_by_proj[proj].extend(df.to_dict("records"))
+
     pending       = [t for t in tasks if t[2] not in completed]
     total         = len(tasks)
     done_already  = total - len(pending)
@@ -727,14 +767,11 @@ def run_batch(smoke: bool, n_workers: int) -> None:
     log.info("Total scenarios: %d  |  Already done: %d  |  Pending: %d",
              total, done_already, len(pending))
 
-    rows_by_proj = {p: [] for p in ["p01","p02","p03","p04","p05","p06"]}
-    for proj in rows_by_proj:
-        pq = RESULTS / f"{proj}_scenarios.parquet"
-        if pq.exists():
-            rows_by_proj[proj].extend(pd.read_parquet(pq).to_dict("records"))
-
     if not pending:
         log.info("All scenarios already completed. Rebuilding outputs.")
+        for p, rows in rows_by_proj.items():
+            if rows:
+                pd.DataFrame(rows).to_parquet(RESULTS / f"{p}_scenarios.parquet", index=False)
     else:
         violations_all = []
         n_done = done_already

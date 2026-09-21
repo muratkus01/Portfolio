@@ -21,32 +21,43 @@ from dataclasses import dataclass, field, replace
 
 @dataclass(frozen=True)
 class PlantConfig:
-    """Reference pumped-storage plant."""
+    """Reference pumped-storage plant.
+
+    Note on planned unit-commitment extensions:
+    The following parameters are declared for planned unit-commitment extensions
+    and are not yet read by the active continuous LP/MILP dispatch models:
+    - min_up_steps: minimum uptime constraint steps (e.g. 2 steps = 30 min)
+    - min_down_steps: minimum downtime constraint steps (e.g. 2 steps = 30 min)
+    - p_turb_min_unit: minimum stable generation threshold per unit to prevent cavitation
+    - start_cost: cold-start wear and thermal penalty per unit start
+    """
 
     # --- reservoir ---
-    e_max: float = 2400.0        # MWh usable upper-reservoir energy content (~8 h at rated)
+    e_max: float = 2400.0        # MWh usable upper-reservoir energy content (8 h at 300 MW rated)
     e_min: float = 120.0         # MWh minimum operating content (water-law + intake cover)
-    e_init: float = 1200.0       # MWh
+    e_init: float = 1200.0       # MWh (50% nominal pre-charge)
     inflow_mw: float = 5.0       # MW-equivalent natural inflow (small for a closed-loop plant)
 
     # --- units ---
     n_units: int = 4
-    p_turb_max_unit: float = 30.0    # MW per unit generating (4 x 30 MW = 120 MW reference plant)
-    p_turb_min_unit: float = 7.5     # MW per unit (below this, cavitation / rough zone)
-    p_pump_unit: float = 28.0        # MW per unit pumping (4 x 28 MW = 112 MW)
+    p_turb_max_unit: float = 75.0    # MW per unit generating (4 x 75 MW = 300 MW reference plant)
+    p_turb_min_unit: float = 25.0    # MW per unit (planned cavitation floor; not yet read by model)
+    p_pump_unit: float = 70.0        # MW per unit pumping (4 x 70 MW = 280 MW)
     eta_turb: float = 0.90
     eta_pump: float = 0.88
 
     # --- dynamics ---
-    ramp_mw_per_step: float = 60.0   # MW change permitted per 15-min step
-    mode_change_cost: float = 100.0  # EUR per pump<->turbine transition (wear, water, time)
-    start_cost: float = 120.0        # EUR per unit start
-    min_up_steps: int = 2            # 30 min
-    min_down_steps: int = 2
+    ramp_mw_per_step: float = 150.0  # MW change permitted per 15-min step
+    mode_change_cost: float = 300.0  # EUR per pump<->turbine transition (wear, water, time)
+    start_cost: float = 120.0        # EUR per unit start (declared for planned extension)
+    min_up_steps: int = 2            # 30 min (declared for planned extension)
+    min_down_steps: int = 2          # 30 min (declared for planned extension)
 
     # --- regulatory switches ---
-    para_118_6_exempt: bool = True   # s118(6) EnWG network-charge exemption for pumping
-    network_charge_pump: float = 12.0  # EUR/MWh applied when the exemption does NOT hold
+    # § 118(6) EnWG 20-year grid fee exemption for pumped-storage facilities (source: EnWG § 118(6), valid 2024/2025)
+    para_118_6_exempt: bool = True
+    # Standard industrial network charge component if exemption lapses (source: BNetzA monitoring report, 2024/2025)
+    network_charge_pump: float = 12.0  # EUR/MWh
 
     # --- water law (HARD constraints, enforced in the safety layer, never in the reward) ---
     e_reserve_low: float = 200.0     # MWh operating floor above the absolute minimum
@@ -69,7 +80,12 @@ class PlantConfig:
 
 @dataclass(frozen=True)
 class MarketConfig:
-    """Products the plant may participate in, and their mechanics."""
+    """Products the plant may participate in, and their mechanics.
+
+    Note on planned grid-security extensions:
+    - redispatch_prob_per_step: declared for planned § 13 EnWG redispatch override
+      simulation, not yet read by active market settlement models.
+    """
 
     # --- balancing capacity (regelleistung.net, 4-hour product blocks) ---
     afrr_enabled: bool = True
@@ -95,7 +111,7 @@ class MarketConfig:
     rebap_enabled: bool = True
     rebap_sigma: float = 60.0                # EUR/MWh spread of the imbalance price
 
-    # --- redispatch / s13 EnWG override ---
+    # --- redispatch / s13 EnWG override (planned extension; not yet read by active models) ---
     redispatch_prob_per_step: float = 0.0005
 
 

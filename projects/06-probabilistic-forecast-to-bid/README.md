@@ -1,7 +1,7 @@
 # Project 06 · Probabilistic Forecast-to-Bid for Intraday Trading and Imbalance Management
 
 **Distributional forecasting of renewable generation and prices, coupled to a trading policy
-through decision-focused learning — for a balance responsible party managing a German
+through decision-focused learning - for a balance responsible party managing a German
 renewable portfolio across the day-ahead, intraday and imbalance stages at 15-minute
 resolution.**
 
@@ -49,14 +49,14 @@ the remaining uncertainty.
 invalidates a result:
 
 1. **"Perfect foresight" was not an upper bound.** Committing the realised generation gives
-   zero imbalance, but imbalance settlement is *signed* — deviating in the system-helping
+   zero imbalance, but imbalance settlement is *signed* - deviating in the system-helping
    direction is paid. B0 beats the zero-imbalance reference by luck alone.
    The rung is now labelled `REF zero imbalance`, and a genuine `CEIL perfect speculation`
    ceiling was added, with the caveat that no BRP may legally pursue it.
 2. **The calibration metric was structurally biased.** Binning the PIT against a uniform
-   histogram cannot work when the quantile set spans only 0.1–0.9: ~20 % of realisations
+   histogram cannot work when the quantile set spans only 0.1-0.9: ~20 % of realisations
    necessarily land outside and pile up at the endpoints. It reported ≈0.06 for a *perfectly*
-   calibrated forecast at every lead time — the constancy is what gave it away. Replaced with
+   calibrated forecast at every lead time - the constancy is what gave it away. Replaced with
    reliability, `mean |empirical coverage − nominal level|`.
 3. **A test fixture used a stateful module-level RNG**, so the forecast store was built from
    one realisation of "the truth" and scored against a different one. This is indistinguishable
@@ -76,7 +76,7 @@ returns 0 violations) is the transferable part; swapping in DWD ICON-D2-EPS chan
 | **Method** | Probabilistic forecasting (quantile/distributional NN) + decision-focused learning + RL trading policy |
 | **Actor** | Balance responsible party / virtual power plant with a wind + PV portfolio |
 | **Markets** | SDAC day-ahead (15-min MTU) · SIDC continuous intraday + IDA auctions · imbalance (reBAP) |
-| **Role in portfolio** | The **shared uncertainty engine** — supplies scenarios and quantiles to Projects 01, 02, 05 |
+| **Role in portfolio** | The **shared uncertainty engine** - supplies scenarios and quantiles to Projects 01, 02, 05 |
 
 ---
 
@@ -85,7 +85,7 @@ returns 0 violations) is the transferable part; swapping in DWD ICON-D2-EPS chan
 Forecasting in energy is almost always evaluated with the wrong loss function. A model is
 trained to minimise RMSE, reported with a MAE, and then handed to a trading desk whose actual
 cost function is wildly asymmetric: being short in a scarcity quarter-hour can cost several
-hundred €/MWh, while being long in the same quarter-hour may cost little — or, when the
+hundred €/MWh, while being long in the same quarter-hour may cost little - or, when the
 imbalance price is negative and the deviation helps the system, actually **earn** money. A
 forecast improvement that does not change a decision is worth exactly zero, and a forecast
 that is worse by RMSE can be better by profit.
@@ -93,7 +93,7 @@ that is worse by RMSE can be better by profit.
 This project takes the decision as the object of study:
 
 **Distributional, not point.** The trading decision depends on the full predictive
-distribution — specifically on its tails — not on the conditional mean. Ensemble NWP
+distribution - specifically on its tails - not on the conditional mean. Ensemble NWP
 (DWD ICON-D2-EPS) provides a physically-grounded uncertainty source that statistical
 post-processing can calibrate.
 
@@ -105,7 +105,7 @@ against the conventional two-stage pipeline.
 **Sequential, not one-shot.** The BRP decides repeatedly: commit day-ahead, then correct
 continuously in intraday as forecasts improve and liquidity changes, then accept residual
 imbalance. Each correction has a cost (spread, market impact) and a benefit (reduced
-imbalance risk). That is a sequential decision problem under a moving information set — an RL
+imbalance risk). That is a sequential decision problem under a moving information set - an RL
 problem in the proper sense, not an RL problem by fashion.
 
 **The German context sharpens it.** Fifteen-minute MTU across all stages, a single signed
@@ -135,12 +135,12 @@ sector, and it runs entirely on open data.
 - Probabilistic generation forecasting for a German wind + PV portfolio at 15-minute
   resolution, horizons from 15 minutes to 48 hours, with **true issue times** (NWP run
   availability and latency respected exactly).
-- Probabilistic price forecasting: day-ahead, intraday index, and **reBAP** — the last being
+- Probabilistic price forecasting: day-ahead, intraday index, and **reBAP** - the last being
   the hardest and the most valuable.
 - Three trading policy families, compared on the same forecasts:
-  1. **Newsvendor / analytical** — the classical quantile-based solution under an asymmetric cost.
-  2. **Stochastic MPC** — scenario-based rolling optimisation over the correction stages.
-  3. **RL policy** — learned directly on realised settlement outcomes.
+  1. **Newsvendor / analytical** - the classical quantile-based solution under an asymmetric cost.
+  2. **Stochastic MPC** - scenario-based rolling optimisation over the correction stages.
+  3. **RL policy** - learned directly on realised settlement outcomes.
 - **Decision-focused learning**: train the forecaster through the decision, compare against
   the conventional two-stage pipeline.
 - A parametric intraday liquidity and market-impact model, with explicit sensitivity.
@@ -150,18 +150,18 @@ sector, and it runs entirely on open data.
 - Order-book-level microstructure and execution algorithms (requires commercial data).
 - Cross-border implicit trading beyond what the price series reflect.
 - Strategic bidding / market power.
-- Physical asset control — that is Projects 01, 02, 05, which consume this project's outputs.
+- Physical asset control - that is Projects 01, 02, 05, which consume this project's outputs.
 
 ### Objectives
 
 1. Build a calibrated probabilistic forecasting stack for German wind, PV and prices on fully
-   open data — reusable by the rest of the portfolio.
+   open data - reusable by the rest of the portfolio.
 2. Quantify the gap between **statistical** forecast quality (CRPS) and **decision** value (€),
    demonstrating explicitly that they are not the same ranking.
 3. Test whether decision-focused learning beats the standard two-stage pipeline, and by how
    much.
 4. Determine whether an RL trading policy beats stochastic MPC, and where the difference lies.
-5. Publish an open, reproducible forecast-to-bid benchmark for the German market — a piece of
+5. Publish an open, reproducible forecast-to-bid benchmark for the German market - a piece of
    public infrastructure the field currently lacks.
 
 ---
@@ -174,7 +174,7 @@ sector, and it runs entirely on open data.
 | RQ2 | Does decision-focused learning beat the two-stage pipeline? | H2: Yes, with the gain concentrated in the tails; the mechanism is implicit reweighting of training emphasis toward high-cost quarter-hours |
 | RQ3 | Does an RL trading policy beat stochastic MPC? | H3: Modestly, mainly through learned liquidity/timing structure in the intraday correction sequence that a scenario MPC does not represent |
 | RQ4 | How predictable is reBAP, and does predicting it help? | H4: Poorly predictable in level, but its *sign and tail probability* are predictable enough to change decisions and add value |
-| RQ5 | How much of the result depends on the liquidity assumption? | H5: Substantially — which is why the parametric liquidity model is swept rather than fixed, and reported as a bound |
+| RQ5 | How much of the result depends on the liquidity assumption? | H5: Substantially - which is why the parametric liquidity model is swept rather than fixed, and reported as a bound |
 
 ---
 
@@ -221,7 +221,7 @@ flowchart TB
 
 The **immutable issue-time forecast store** is the architectural centrepiece. Every forecast
 is materialised once, tagged with its true issue time, and every policy reads from it. This
-makes look-ahead bias structurally impossible rather than a matter of care — and it is the
+makes look-ahead bias structurally impossible rather than a matter of care - and it is the
 component the other projects in this portfolio import.
 
 ---
@@ -246,7 +246,7 @@ The controller chooses each `Δs_k(t)` knowing only the information available at
 
 Under a simplified two-price imbalance structure the optimal position is a **quantile** of the
 predictive generation distribution, with the quantile level set by the ratio of shortage cost
-to surplus cost. This provides an interpretable, theoretically grounded reference — and a
+to surplus cost. This provides an interpretable, theoretically grounded reference - and a
 sharp test: if a learned policy cannot beat the correct quantile of a well-calibrated forecast,
 the added complexity is not earning its keep.
 
@@ -263,7 +263,7 @@ new information arrives. Scenario generation, reduction and tree size are report
 | **State** | Current position by delivery quarter-hour; time to gate closure; generation forecast quantiles and their recent revision history (revision magnitude is a strong uncertainty signal); price forecasts and realised price path; ensemble spread; liquidity state; calendar and regime features |
 | **Action** | Trade volume per delivery quarter-hour at the current stage (continuous, signed) |
 | **Reward** | Realised settlement result for closed positions, with imbalance realised at delivery |
-| **Risk** | Distributional critic; CVaR objective option — a BRP cares about the tail, not only the mean |
+| **Risk** | Distributional critic; CVaR objective option - a BRP cares about the tail, not only the mean |
 | **Episode** | One delivery day, with all correction stages |
 | **Algorithm** | SAC, with a distributional critic; PPO as a cross-check |
 
@@ -273,7 +273,7 @@ The forecast model's parameters are trained with the **realised trading cost** a
 differentiating through the decision. For the analytical quantile policy the decision is
 differentiable in closed form; for the optimisation-based policy, differentiable-optimisation
 techniques (implicit differentiation through the KKT conditions of a smoothed problem) are
-used. The two-stage pipeline — train on CRPS, then optimise — is the baseline this must beat.
+used. The two-stage pipeline - train on CRPS, then optimise - is the baseline this must beat.
 
 ---
 
@@ -284,20 +284,20 @@ benchmark it produces can be reproduced by anyone.
 
 | Data | Purpose | Source | Resolution | Status |
 |------|---------|--------|-----------|--------|
-| ICON-D2 / ICON-EU deterministic NWP | Generation forecast features | **DWD Open Data** | 15 min – 1 h, hourly runs | Open |
+| ICON-D2 / ICON-EU deterministic NWP | Generation forecast features | **DWD Open Data** | 15 min - 1 h, hourly runs | Open |
 | **ICON-D2-EPS ensemble** | The physical uncertainty source | DWD Open Data | 20 members | Open |
-| DWD observations (CDC) | Post-processing and verification | DWD | 10 min – 1 h | Open |
+| DWD observations (CDC) | Post-processing and verification | DWD | 10 min - 1 h | Open |
 | Realised wind & PV generation | Forecast target | SMARD / ENTSO-E | 15 min | Open |
-| Installed capacity by technology & region | Normalisation, fleet weighting | MaStR / SMARD | — | Open |
+| Installed capacity by technology & region | Normalisation, fleet weighting | MaStR / SMARD | - | Open |
 | Day-ahead prices | Stage-0 revenue | SMARD / ENTSO-E / Energy-Charts | 15 min | Open |
 | Intraday index prices & volumes | Correction stage pricing and liquidity calibration | SMARD / ENTSO-E | 15 min | Open (index level) |
-| **reBAP** | Imbalance settlement — the core signal | netztransparenz.de | 15 min | Open |
+| **reBAP** | Imbalance settlement - the core signal | netztransparenz.de | 15 min | Open |
 | Balancing activation volumes | reBAP driver features | netztransparenz / regelleistung.net | 15 min | Open |
 | Cross-border flows, load, residual load | Price and imbalance features | ENTSO-E / SMARD | 15 min | Open |
-| Order-book intraday data | Would improve the liquidity model | EPEX SPOT | Tick | **Commercial — deliberately not a dependency**; liquidity is parameterised and swept instead |
+| Order-book intraday data | Would improve the liquidity model | EPEX SPOT | Tick | **Commercial - deliberately not a dependency**; liquidity is parameterised and swept instead |
 
-**The one real gap** is intraday order-book depth. Rather than assume frictionless trading —
-which would flatter every policy and invalidate the comparison — the project uses a parametric
+**The one real gap** is intraday order-book depth. Rather than assume frictionless trading -
+which would flatter every policy and invalidate the comparison - the project uses a parametric
 spread-and-impact model calibrated to public volume and index-price data, and reports all
 results across a range of liquidity assumptions as an explicit bound.
 
@@ -318,7 +318,7 @@ and persistence. Sharpness reported only jointly with calibration.
 |------|--------------|
 | **B0** | Day-ahead only: commit the point forecast, take whatever imbalance results |
 | **B1** | Point-forecast intraday correction: trade to the updated mean forecast. **The standard industry practice, and the validation gate** |
-| **B2** | Perfect-foresight trading — the ceiling |
+| **B2** | Perfect-foresight trading - the ceiling |
 | **B3** | Stochastic MPC on calibrated scenarios, tuned |
 | **Analytical** | Newsvendor quantile position from the calibrated predictive distribution |
 | **RL** | Distributional SAC on realised settlement |
@@ -326,7 +326,7 @@ and persistence. Sharpness reported only jointly with calibration.
 
 **Primary KPI:** realised portfolio cost (€/MWh produced), with mean, 5 %-quantile and CVaR₅
 of the daily distribution. **Headline:** B3-gap closure, plus the **CRPS-vs-€ rank
-correlation** — the direct test of RQ1, and the project's most transferable finding.
+correlation** - the direct test of RQ1, and the project's most transferable finding.
 **Secondary:** imbalance volume and cost, trading volume and cost, position revision count,
 decision latency against gate closure.
 
@@ -338,12 +338,12 @@ on/off (the H4 test); horizon and correction-stage frequency.
 
 ## 9. Deliverables
 
-1. **An open, reproducible German forecast-to-bid benchmark** — data pipeline, issue-time
-   forecast store, settlement engine and baselines — usable by other researchers. This is the
+1. **An open, reproducible German forecast-to-bid benchmark** - data pipeline, issue-time
+   forecast store, settlement engine and baselines - usable by other researchers. This is the
    deliverable with the widest reach beyond this portfolio.
 2. A calibrated probabilistic wind/PV/price forecasting stack, consumed by Projects 01, 02
    and 05.
-3. A quantified answer to "does CRPS predict €?" — with the rank correlation and the
+3. A quantified answer to "does CRPS predict €?" - with the rank correlation and the
    conditions under which the two rankings diverge.
 4. A decision-focused learning implementation and its measured gain over the two-stage
    pipeline.
@@ -356,13 +356,13 @@ on/off (the H4 test); horizon and correction-stage frequency.
 
 | WP | Content | Depends on | Output |
 |----|---------|-----------|--------|
-| WP1 | Data pipeline: NWP archive ingestion, generation, prices, reBAP; DST and resolution-regime handling | — | `data/processed` |
-| WP2 | **Issue-time forecast store** — the anti-look-ahead architecture | WP1 | `src/forecast/store` |
+| WP1 | Data pipeline: NWP archive ingestion, generation, prices, reBAP; DST and resolution-regime handling | - | `data/processed` |
+| WP2 | **Issue-time forecast store** - the anti-look-ahead architecture | WP1 | `src/forecast/store` |
 | WP3 | Generation forecast models: post-processed ensemble, quantile NN, distributional NN; calibration diagnostics | WP2 | Calibrated forecasts |
 | WP4 | Price and reBAP distributional forecasts | WP2 | Price scenarios |
 | WP5 | Settlement engine + parametric liquidity/impact model | WP1 | `src/market` |
-| WP6 | B0/B1 policies + **validation gate** against realised aggregate imbalance behaviour | WP3, WP5 | Validation report — **gate** |
-| WP7 | Analytical newsvendor policy; B2 perfect foresight; B3 stochastic MPC | WP3–WP5 | Baselines |
+| WP6 | B0/B1 policies + **validation gate** against realised aggregate imbalance behaviour | WP3, WP5 | Validation report - **gate** |
+| WP7 | Analytical newsvendor policy; B2 perfect foresight; B3 stochastic MPC | WP3-WP5 | Baselines |
 | WP8 | Gymnasium trading environment | WP5 | `src/envs` |
 | WP9 | Distributional RL training | WP8 | Trained policies |
 | WP10 | Decision-focused learning loop | WP3, WP7 | DFL forecaster |
@@ -370,7 +370,16 @@ on/off (the H4 test); horizon and correction-stage frequency.
 
 ---
 
-## 11. Risks and limitations
+## 11. Assumptions and limitations
+
+| Dimension | Core Assumption | Engineering Justification and Reference | Modeling Limitation and Impact |
+|---|---|---|---|
+| **Physical** | 300 MW wind portfolio; aggregate generation output mapped from national wind capacity factor series; ramp limits and loss factors applied linearly. | Standard portfolio scale for a medium German balance responsible party (BRP) or renewable virtual power plant (VPP). | Omits transmission congestion within the bidding zone and turbine-level mechanical tripping events. |
+| **Market** | Price-taker in day-ahead SDAC and continuous intraday (SIDC); linear half-spread liquidity cost (3 EUR/MWh base); signed German reBAP imbalance settlement. | Standard wholesale trading assumptions for small-to-midsize renewable BRPs; conforms to German TSO settlement mechanics. | Assumes sufficient market depth at the prevailing price; large sudden order executions could incur non-linear slippage. |
+| **Data** | 15-minute German wind generation and DE-LU spot prices (2024-2025); synthetic autocorrelated noise for multi-horizon forecast error generation. | Transparent, fully reproducible open testbed without requiring terabyte-scale numerical weather prediction (NWP) archives. | Synthetic errors lack meteorological spatial correlations (e.g. frontal passages) present in operational ensemble NWP models. |
+| **Regulatory** | Statutory Balance Responsible Party obligation under StromNZV Section 4; 15-minute imbalance settlement period; anti-arbitrage compliance (no deliberate speculative shorting). | Enforces German regulatory framework for electricity grid access (StromNZV) and BNetzA market rules. | Assumes BRP operates strictly within legal trading mandates without regulatory penalties for systematic imbalance skew. |
+
+### Operational Risks and Mitigations
 
 | Risk | Mitigation |
 |------|-----------|
@@ -379,7 +388,7 @@ on/off (the H4 test); horizon and correction-stage frequency.
 | reBAP may be close to unpredictable | RQ4 is posed so that a negative answer is informative; the sign/tail formulation is a weaker and more plausible claim than level prediction |
 | Decision-focused learning can be unstable | Smoothed/regularised decision layer; the two-stage pipeline retained as a fallback and as the honest comparison |
 | Market impact of a small portfolio is negligible in reality | Portfolio size swept; the impact term matters only above a stated size, which is reported |
-| Regime change (2021–2023 price shocks) | Regime-diverse test blocks; results reported per regime rather than pooled into a misleading average |
+| Regime change (2021-2023 price shocks) | Regime-diverse test blocks; results reported per regime rather than pooled into a misleading average |
 
 ---
 
@@ -398,7 +407,7 @@ as an importable package, since Projects 01, 02 and 05 depend on it.
   published by the TSOs on netztransparenz.de.
 - The probabilistic energy forecasting literature (CRPS, quantile regression, ensemble
   post-processing) and the decision-focused / "smart predict-then-optimise" learning
-  literature — the two strands this project connects in a German market setting.
+  literature - the two strands this project connects in a German market setting.
 - See [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md)
   for the market mechanics.
 

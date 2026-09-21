@@ -20,7 +20,7 @@ mechanics that the optimisation models and RL environments must reproduce.
 Germany and Luxembourg form the **DE-LU bidding zone**. The structural fact that shapes
 every project in this portfolio is the **15-minute market time unit (MTU)**:
 
-- **Imbalance settlement** has been 15-minute in Germany for many years — a balancing group
+- **Imbalance settlement** has been 15-minute in Germany for many years - a balancing group
   (*Bilanzkreis*) is settled against its schedule per quarter-hour.
 - **Intraday** trading (SIDC continuous, plus the intraday auctions IDA1/IDA2/IDA3) has
   offered quarter-hourly products for years, and the quarter-hourly opening auction is a
@@ -28,7 +28,7 @@ every project in this portfolio is the **15-minute market time unit (MTU)**:
 - **Day-ahead** trading in the single day-ahead coupling (SDAC) moved from a 60-minute to a
   **15-minute MTU** in 2025 under the EU Electricity Balancing / CACM framework.
 
-**Consequence for modelling:** an hourly model is no longer merely a simplification — it
+**Consequence for modelling:** an hourly model is no longer merely a simplification - it
 misrepresents the product being traded and systematically hides the intra-hour ramping value
 that batteries, pumped storage and controllable loads actually monetise. Every project in
 this portfolio therefore uses **Δt = 15 min** as the native resolution.
@@ -63,7 +63,7 @@ activated through the European platforms **PICASSO** (aFRR) and **MARI** (mFRR).
 Key modelling points:
 - Capacity and energy are **separately priced**; aFRR/mFRR energy is called from a common
   European merit order, so activation is *stochastic from the bidder's perspective*.
-- Offering capacity **removes headroom** from the energy markets — the opportunity cost
+- Offering capacity **removes headroom** from the energy markets - the opportunity cost
   coupling is the entire optimisation problem for storage (Projects 02, 05).
 - **Prequalification** (*Präqualifikation*) per the TSO Prequalification Conditions is a hard
   gate: minimum bid size, measurement, remote control and proof of availability. A pooled
@@ -76,7 +76,7 @@ with the TSO. Deviation between schedule and metered reality is settled at the *
 (*regelzonenübergreifender einheitlicher Bilanzausgleichsenergiepreis*), a single ex-post
 price per quarter-hour, published by the TSOs on `netztransparenz.de`.
 
-reBAP is *signed and volatile* — it can exceed several hundred €/MWh and can also be
+reBAP is *signed and volatile* - it can exceed several hundred €/MWh and can also be
 negative, meaning an imbalance in the system-helping direction is remunerated. This creates
 a genuine sequential decision problem: closing a forecast error via intraday trading costs a
 known spread now; leaving it open exposes the portfolio to an unknown reBAP later. Project 06
@@ -92,7 +92,7 @@ Plants above the small-scale thresholds must sell their electricity through **di
 marketing** (*Direktvermarktung*, EEG 2023 §§ 20 ff.) and receive a **market premium**
 (*Marktprämie*) equal to the difference between the applicable value (*anzulegender Wert*)
 and the monthly market value (*Monatsmarktwert*) of the technology. The plant is therefore
-exposed to the *shape* of its own generation against prices — an incentive to shift, curtail
+exposed to the *shape* of its own generation against prices - an incentive to shift, curtail
 or store, not merely to maximise kWh.
 
 ### 2.2 The negative-price rule
@@ -114,7 +114,7 @@ EEG 2023 § 9 requires technical equipment allowing the network operator to redu
 remotely and to retrieve the actual feed-in power, above defined size thresholds. New small
 PV systems without a smart-meter gateway face a **feed-in limitation** (the 60 %-of-installed-
 capacity cap introduced by the 2025 Solarspitzengesetz) until intelligent metering is in
-place — a direct, quantifiable incentive for the storage sizing questions in Project 01.
+place - a direct, quantifiable incentive for the storage sizing questions in Project 01.
 
 ### 2.4 Redispatch 2.0
 
@@ -134,7 +134,7 @@ Projects 05 and 02 include a redispatch-order channel in the environment for thi
 
 ## 3. Behind-the-meter: controllable loads and tariffs
 
-### 3.1 `§14a EnWG` — grid-orientated control of controllable consumption devices
+### 3.1 `§14a EnWG` - grid-orientated control of controllable consumption devices
 
 The Bundesnetzagentur determinations effective **1 January 2024** made grid-orientated
 control the standard framework for **steuerbare Verbrauchseinrichtungen** (*controllable
@@ -156,10 +156,10 @@ customer receives a **reduced network charge** in return, choosing between:
 textbook "minimise cost under a fixed tariff". The agent chooses a network-charge module
 (a slow, annual decision), then operates under a stochastic dimming signal it does not
 control, and must remain feasible and comfortable when it arrives. This is a constrained,
-partially observable control problem with an exogenous safety-critical interrupt — a much
+partially observable control problem with an exogenous safety-critical interrupt - a much
 better-posed RL problem than the usual formulation.
 
-### 3.2 `§41a EnWG` — dynamic tariffs
+### 3.2 `§41a EnWG` - dynamic tariffs
 
 Since **1 January 2025**, all electricity suppliers must offer a **dynamic tariff**
 (*dynamischer Stromtarif*) linked to the spot market price. Combined with the mandatory
@@ -211,16 +211,16 @@ work remains valid regardless of which variant is finally enacted.
 
 ## 5. E-mobility specifics
 
-- **Ladesäulenverordnung (LSV)** — technical, calibration-law and ad-hoc-payment
+- **Ladesäulenverordnung (LSV)** - technical, calibration-law and ad-hoc-payment
   requirements for *public* charging points. Non-public depot and workplace charging is
   outside LSV, which is why Project 03 focuses there.
-- **AFIR** (EU 2023/1804) — deployment and payment/transparency requirements for public
+- **AFIR** (EU 2023/1804) - deployment and payment/transparency requirements for public
   recharging infrastructure along TEN-T.
-- **Eichrecht** (calibration law) — billing-relevant measurement must be verifiable; this
+- **Eichrecht** (calibration law) - billing-relevant measurement must be verifiable; this
   constrains what an optimiser may bill against.
-- **THG-Quote** — greenhouse-gas quota revenue attributable to charged electricity, a real
+- **THG-Quote** - greenhouse-gas quota revenue attributable to charged electricity, a real
   revenue line for depot operators and therefore a term in Project 03's objective.
-- **`§14a EnWG`** applies to non-public charging points — the dimming interrupt above is a
+- **`§14a EnWG`** applies to non-public charging points - the dimming interrupt above is a
   first-class part of the depot scheduling problem.
 
 ---
@@ -236,7 +236,7 @@ work remains valid regardless of which variant is finally enacted.
   ancillary services form a revenue stream that competes with energy arbitrage for the same
   MW of headroom.
 - **Water-law constraints:** *Wasserrechtliche Genehmigung*, minimum/maximum reservoir levels,
-  ramp-rate limits protecting downstream ecology, and — for plants with natural inflow —
+  ramp-rate limits protecting downstream ecology, and - for plants with natural inflow -
   hydrological boundary conditions. These are **hard constraints** and belong in the safety
   layer, never in the reward function (Project 02).
 
@@ -273,3 +273,29 @@ Four design rules follow from the above and are applied consistently across the 
 | [Energy-Charts (Fraunhofer ISE)](https://energy-charts.info/) | Curated, well-documented public electricity data + API |
 
 Detailed access notes, licences and known pitfalls: [`02-data-sources.md`](02-data-sources.md).
+
+---
+
+## 9. Master statutory constants reference table
+
+The table below compiles every regulatory constant, levy, surcharge, and tax rate instantiated across the six portfolio packages, citing the underlying legal norm and temporal validity.
+
+| Parameter / Constant | Code Symbol | Value | Statutory Source | Validity Period | Applied In |
+|---|---|---|---|---|---|
+| Value Added Tax | vat_rate | 19.0% | UStG § 12(1) | Ongoing (2024-2026) | P01, P03, P04 |
+| Electricity Tax | electricity_tax | 2.05 ct/kWh (0.0205 €/kWh) | StromStG § 3 | Ongoing (standard rate) | P01, P04 |
+| Concession Fee | concession_fee | 1.50 ct/kWh (0.0150 €/kWh) | KAV § 2(2) (standard municipal band) | Ongoing | P01, P04 |
+| KWKG Cogeneration Surcharge | kwkg_levy | 0.275 ct/kWh (0.00275 €/kWh) | KWKG § 26 / netztransparenz.de | 2024-2025 | P01, P04 |
+| Offshore Network Surcharge | offshore_levy | 0.656 ct/kWh (0.00656 €/kWh) | EnFG § 12 / netztransparenz.de | 2024-2025 | P01, P04 |
+| Residential Working Grid Fee | grid_working_fee | 8.50 ct/kWh (0.0850 €/kWh) | BNetzA Monitoring Report / DSO tariffs | 2024-2025 benchmark | P01, P04 |
+| Static Retail Surcharges Sum | static_adders_total | 15.05 ct/kWh (0.1937 €/kWh with VAT) | Statutory sum: StromStG + KAV + EnFG + KWKG + Grid | 2024-2025 | P01 (prosumer.market) |
+| Fixed Solar Export Feed-in Tariff | eeg_feedin_ref | 7.86 ct/kWh (0.0786 €/kWh) | EEG 2023 § 21(1) / § 48 (rooftop <= 10 kWp) | 2024-2025 | P01, P04 |
+| Industrial Pump Network Charge | network_charge_pump | 12.00 €/MWh | BNetzA standard industrial MV working price | 2024-2025 reference | P02 (psw.config) |
+| Pumped Storage Grid Fee Exemption | para_118_6_exempt | True (20-year operational holiday) | EnWG § 118(6) | Active (valid 2024-2026) | P02 (psw.config) |
+| SteuVE Minimum Power Floor | p_min_dim_kw | 4.20 kW per controllable asset | BNetzA BK6-22-300 / BK8-22/010-A | Effective 2024-01-01 | P03 (evc.config) |
+| § 14a Module 1 Flat Discount | mod1_flat_eur | 110.0 to 190.0 €/year (~150 €/a default) | BNetzA Module 1 Determination | Effective 2024-01-01 | P03 (evc.market) |
+| § 14a Module 2 Percentage Discount | mod2_discount_pct | 60.0% reduction on working price | BNetzA Module 2 Determination | Effective 2024-01-01 | P03 (evc.market) |
+| § 42b Collective Building Supply | internal_price_default | 18.00 ct/kWh (0.1800 €/kWh) | EnWG § 42b / EEG § 21 Mieterstrom | Effective 2024-01-01 | P04 (rec.config) |
+| Negative Price Curtailment Gate | negative_price_rule | 4h / 3h / 1h consecutive negative hours | EEG § 51 / Solarspitzengesetz 2025 | Vintage-dependent | P05 (hybrid.config) |
+| Imbalance Settlement Period | mtu_minutes | 15 minutes | StromNZV § 4 / SDAC 15-min implementation | Ongoing (DE-LU standard) | All projects |
+

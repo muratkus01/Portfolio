@@ -24,10 +24,6 @@ _DATAKIT = Path(__file__).resolve().parents[4] / "datakit"
 if str(_DATAKIT) not in sys.path:
     sys.path.insert(0, str(_DATAKIT))
 
-INSTALLED_MW = {2024: {"wind": 72000.0, "pv": 99000.0},
-                2025: {"wind": 75000.0, "pv": 110000.0}}
-
-
 def load(year: int, days: int, run: RunConfig):
     """Real German 15-minute wind+PV generation and day-ahead prices, scaled to a portfolio."""
     import datakit
@@ -42,7 +38,8 @@ def load(year: int, days: int, run: RunConfig):
                 return power[c]
         raise KeyError(name)
 
-    cap = INSTALLED_MW.get(year, INSTALLED_MW[2025])
+    # Single source of truth from datakit. Raises ValueError on unregistered years; no silent fallback.
+    cap = datakit.get_installed_capacity(year)
     wind_cf = ((pick("Wind onshore") + pick("Wind offshore")) / cap["wind"]).clip(0, 1)
     pv_cf = (pick("Solar") / cap["pv"]).clip(0, 1)
     load_mw = pick("Load")

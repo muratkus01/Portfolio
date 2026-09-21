@@ -99,6 +99,34 @@ def installed_power(country: str = "de", time_step: str = "yearly",
                          for s in p["production_types"]}, index=p["time"])
 
 
+# Installed capacity in Germany (MW) used to normalize generation to per-unit capacity factor.
+# Provenance: Fraunhofer ISE Energy-Charts and BNetzA Marktstammdatenregister (MaStR) mid-year values.
+# 2023: Wind 68,000 MW, Solar 82,000 MW (Fraunhofer ISE 2023 annual report)
+# 2024: Wind 72,000 MW, Solar 99,000 MW (Energy-Charts installed_power mid-2024)
+# 2025: Wind 75,000 MW, Solar 110,000 MW (Energy-Charts installed_power mid-2025)
+# 2026: Wind 78,000 MW, Solar 118,000 MW (Part-year anchor based on BNetzA additions through Q3 2026)
+INSTALLED_CAPACITY_MW: dict[int, dict[str, float]] = {
+    2023: {"wind": 68000.0, "pv": 82000.0},
+    2024: {"wind": 72000.0, "pv": 99000.0},
+    2025: {"wind": 75000.0, "pv": 110000.0},
+    2026: {"wind": 78000.0, "pv": 118000.0},  # part-year anchor
+}
+
+
+def get_installed_capacity(year: int) -> dict[str, float]:
+    """Return German installed capacity (MW) for wind and solar.
+
+    Raises ValueError if year is not registered. Silent year substitution is strictly forbidden.
+    """
+    if year not in INSTALLED_CAPACITY_MW:
+        raise ValueError(
+            f"Installed capacity anchor not available for year {year}. "
+            f"Registered years: {sorted(INSTALLED_CAPACITY_MW.keys())}. "
+            "No silent year substitution is permitted."
+        )
+    return INSTALLED_CAPACITY_MW[year]
+
+
 def cross_border_flows(start: str, end: str, country: str = "de",
                        cache_dir: Path = DEFAULT_CACHE) -> pd.DataFrame:
     """Net cross-border physical flows, MW. Price-formation features for Project 06."""

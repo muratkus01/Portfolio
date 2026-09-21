@@ -19,15 +19,25 @@ def main():
     with open(HTML_PATH, "r", encoding="utf-8") as f:
         html = f.read()
 
-    # 1. Update Project 02 plant capacity wording to 120 MW / 2,400 MWh
+    # 1. Update Project 02 plant capacity wording to 300 MW / 2,400 MWh
     html = re.sub(
         r'30 MW turbine / 28 MW pump',
-        '120 MW turbine (4 x 30 MW) / 112 MW pump (4 x 28 MW)',
+        '300 MW turbine (4 x 75 MW) / 280 MW pump (4 x 70 MW)',
+        html
+    )
+    html = re.sub(
+        r'120 MW turbine \(4 x 30 MW\) / 112 MW pump \(4 x 28 MW\)',
+        '300 MW turbine (4 x 75 MW) / 280 MW pump (4 x 70 MW)',
         html
     )
     html = re.sub(
         r'Reversible Machine \(30 MW / 28 MW\)',
-        'Reversible Machine (120 MW / 112 MW)',
+        'Reversible Machine (300 MW / 280 MW)',
+        html
+    )
+    html = re.sub(
+        r'Reversible Machine \(120 MW / 112 MW\)',
+        'Reversible Machine (300 MW / 280 MW)',
         html
     )
 
@@ -52,12 +62,12 @@ def main():
     # P02
     html = re.sub(
         r'<input type="range" id="p02-slider-turb"[^>]+>',
-        '<input type="range" id="p02-slider-turb" min="20.0" max="40.0" step="10.0" value="30.0" oninput="simP02()">',
+        '<input type="range" id="p02-slider-turb" min="50.0" max="100.0" step="25.0" value="75.0" oninput="simP02()">',
         html
     )
     html = re.sub(
         r'<input type="range" id="p02-slider-pump"[^>]+>',
-        '<input type="range" id="p02-slider-pump" min="18.0" max="36.0" step="9.0" value="27.0" oninput="simP02()">',
+        '<input type="range" id="p02-slider-pump" min="46.7" max="93.3" step="23.3" value="70.0" oninput="simP02()">',
         html
     )
     html = re.sub(
@@ -201,7 +211,7 @@ def main():
         inv: [3.68, 5.63, 8.0, 10.0]
       }},
       p02: {{
-        turb: [20.0, 30.0, 40.0],
+        turb: [50.0, 75.0, 100.0],
         res: [1200.0, 2400.0, 3600.0],
         wear: [0, 50, 100, 150, 200, 300]
       }},
@@ -231,14 +241,26 @@ def main():
       return arr.reduce((prev, curr) => (Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev));
     }}
 """
-    # Insert SCENARIO_CUBES right before DAY_REGIMES_MULTIYEAR
-    anchor = "    // Multi-Year Representative Seasonal Regimes (2024, 2025, 2026)\n    const DAY_REGIMES_MULTIYEAR"
-    if anchor in html:
-        html = html.replace(anchor, sc_code + "\n" + anchor)
-        print("Inlined SCENARIO_CUBES and GRID_PARAMS successfully.")
+    # Insert or replace SCENARIO_CUBES right before DAY_REGIMES_MULTIYEAR
+    if "const SCENARIO_CUBES = " in html:
+        pattern = r'// =+\s+// PRECOMPUTED PYTHON SCENARIO CUBES[\s\S]+?(?=\s+// Multi-Year Representative Seasonal Regimes)'
+        if re.search(pattern, html):
+            html = re.sub(pattern, sc_code.strip(), html)
+            print("Replaced existing SCENARIO_CUBES block.")
+        else:
+            idx1 = html.find('const SCENARIO_CUBES = ')
+            idx2 = html.find('// Multi-Year Representative Seasonal Regimes')
+            if idx1 != -1 and idx2 != -1:
+                html = html[:idx1] + sc_code.strip() + "\n\n    " + html[idx2:]
+                print("Replaced SCENARIO_CUBES by index slice.")
     else:
-        print("ERROR: Could not find DAY_REGIMES_MULTIYEAR anchor!")
-        return
+        anchor = "    // Multi-Year Representative Seasonal Regimes (2024, 2025, 2026)\n    const DAY_REGIMES_MULTIYEAR"
+        if anchor in html:
+            html = html.replace(anchor, sc_code + "\n" + anchor)
+            print("Inlined SCENARIO_CUBES and GRID_PARAMS successfully.")
+        else:
+            print("ERROR: Could not find DAY_REGIMES_MULTIYEAR anchor!")
+            return
 
     # 5. Replace simP01 to simP06 functions with SCENARIO_CUBES lookup
     new_sim_funcs = """
@@ -334,7 +356,7 @@ def main():
       const turb = snapToGrid(turbRaw, p2Grid.turb);
       const res = snapToGrid(resRaw, p2Grid.res);
       const wear = snapToGrid(wearRaw, p2Grid.wear);
-      const pump = turb * 0.9; // Physical 0.9 coupling in PlantConfig
+      const pump = turb * (70.0 / 75.0); // Physical coupling in PlantConfig (4 x 70 MW / 4 x 75 MW)
 
       const isExact = (Math.abs(turbRaw - turb) < 0.1 && Math.abs(resRaw - res) < 1.0 && Math.abs(wearRaw - wear) < 0.1);
 

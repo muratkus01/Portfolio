@@ -1,7 +1,7 @@
 # Project 03 · Smart EV Charging, Load Sharing and Grid-Orientated Control under `§14a EnWG`
 
 **A constrained reinforcement learning charging controller for German depot, workplace and
-apartment-block charging hubs — allocating limited connection capacity across many vehicles
+apartment-block charging hubs - allocating limited connection capacity across many vehicles
 under dynamic tariffs, `§14a EnWG` dimming, peak-charge exposure and hard departure
 commitments.**
 
@@ -66,7 +66,7 @@ Both have regression tests. The general lesson: a miss count that does not chang
 controllers is a property of the *environment*, not of the controllers, and deserves
 suspicion before interpretation.
 
-**Not yet built:** the peak-tracking MILP (B2/B3 proper — the current B3 is a documented greedy
+**Not yet built:** the peak-tracking MILP (B2/B3 proper - the current B3 is a documented greedy
 stand-in), the RL policy with a permutation-invariant set encoder, and the fitted ACN-Data /
 ElaadNL session distributions. Sessions are currently synthesised from archetype parameters.
 
@@ -76,7 +76,7 @@ ElaadNL session distributions. Sessions are currently synthesised from archetype
 |---|---|
 | **Status** | **Safety layer + B0/B1/B3 implemented** · MILP and RL policy not yet built |
 | **Method** | Constrained RL (PPO with action masking) + projection safety layer · MILP-MPC benchmark |
-| **Asset** | 10–100 non-public charging points, 50 kW–1 MW connection, optional on-site PV and buffer battery |
+| **Asset** | 10-100 non-public charging points, 50 kW-1 MW connection, optional on-site PV and buffer battery |
 | **Resolution** | 15 min |
 | **Interfaces** | OCPP 2.0.1 (charge point) · EEBUS / SMGW-CLS (`§14a` control) |
 
@@ -87,7 +87,7 @@ ElaadNL session distributions. Sessions are currently synthesised from archetype
 Charging infrastructure is where the energy transition's electricity and mobility sides
 collide, and where grid capacity binds first. A depot with 40 vehicles and 11 kW charge points
 has 440 kW of connected load against a grid connection that is typically a fraction of that.
-The question is never "can we charge?" but "**who charges, when, and at what power**" — a
+The question is never "can we charge?" but "**who charges, when, and at what power**" - a
 resource allocation problem with hard individual deadlines, a shared capacity constraint, and
 now a regulator-mandated interrupt.
 
@@ -110,7 +110,7 @@ not obvious.
 **The problem is combinatorial and high-dimensional but has strong structure.** With N
 vehicles each having arrival, departure, energy requirement and charging curve, a MILP grows
 quickly, while the *decision* is highly repetitive and shaped by recurring site patterns. This
-is precisely the profile where a learned policy can plausibly beat MPC — not on solution
+is precisely the profile where a learned policy can plausibly beat MPC - not on solution
 quality per instance, but on **decision latency and on latent behavioural structure** (which
 declared departure times are reliable, which vehicles return early, how the site behaves on a
 Monday).
@@ -123,13 +123,13 @@ Monday).
 |-----------|-------------------------|
 | **`§14a EnWG`** | Non-public charging points are controllable consumption devices. The DSO may dim to a guaranteed minimum. Module 1 (flat network-charge reduction), Module 2 (energy-component reduction), Module 3 (time-variable network charges) are **selectable configurations** with different optimal behaviour |
 | **`§41a EnWG`** dynamic tariffs | Quarter-hourly energy price signal, available day-ahead |
-| **Network charges & peak pricing** | Capacity/peak component prices the annual maximum quarter-hour; `§19(2) StromNEV` atypical network use offers reduced charges for demonstrably off-peak-shifted load — a strong shaping incentive for depots |
-| **THG-Quote** | Greenhouse-gas quota revenue per kWh charged — a real revenue line that rewards *charging more*, in tension with peak shaving. Included as an objective term |
-| **Ladesäulenverordnung (LSV)** | Applies to *public* charging. This project targets **non-public** depot/workplace/apartment charging, which is outside LSV — stated explicitly to keep the compliance framing correct |
+| **Network charges & peak pricing** | Capacity/peak component prices the annual maximum quarter-hour; `§19(2) StromNEV` atypical network use offers reduced charges for demonstrably off-peak-shifted load - a strong shaping incentive for depots |
+| **THG-Quote** | Greenhouse-gas quota revenue per kWh charged - a real revenue line that rewards *charging more*, in tension with peak shaving. Included as an objective term |
+| **Ladesäulenverordnung (LSV)** | Applies to *public* charging. This project targets **non-public** depot/workplace/apartment charging, which is outside LSV - stated explicitly to keep the compliance framing correct |
 | **AFIR** (EU 2023/1804) | Relevant for public infrastructure; noted as out of scope but modelled as a boundary condition where a site has mixed public/non-public points |
-| **Eichrecht** (calibration law) | Billing-relevant measurement must be verifiable — constrains what the controller may bill members/employees for (relevant where charging is re-billed) |
+| **Eichrecht** (calibration law) | Billing-relevant measurement must be verifiable - constrains what the controller may bill members/employees for (relevant where charging is re-billed) |
 | **OCPP 2.0.1 / EEBUS** | The actuation vocabulary: smart charging profiles, per-connector limits, minimum currents. Determines action granularity and latency |
-| **Building/connection limits** | Grid connection capacity and, for apartment blocks, the shared house connection (*Hausanschluss*) — the binding physical constraint |
+| **Building/connection limits** | Grid connection capacity and, for apartment blocks, the shared house connection (*Hausanschluss*) - the binding physical constraint |
 
 ---
 
@@ -151,19 +151,19 @@ Monday).
 ### Out of scope
 
 - Public charging, roaming, ad-hoc payment and LSV compliance.
-- Vehicle-to-grid (V2G) — deliberately excluded because German regulatory and metering
+- Vehicle-to-grid (V2G) - deliberately excluded because German regulatory and metering
   treatment of bidirectional charging is not settled enough for a defensible economic model;
   the environment is designed so V2G can be added later as a signed action.
-- Battery degradation of the *vehicle* — modelled only as a soft constraint on high C-rates.
+- Battery degradation of the *vehicle* - modelled only as a soft constraint on high C-rates.
 - Distribution network power flow beyond the connection point (backlog item **B2**).
 
 ### Objectives
 
-1. Quantify the cost of `§14a` compliance for each site archetype — how much a guaranteed
+1. Quantify the cost of `§14a` compliance for each site archetype - how much a guaranteed
    dimming right costs an optimised site, against the network-charge reduction it buys.
 2. Determine the optimal `§14a` module per archetype, and how sensitive that choice is to
    dimming frequency.
-3. Establish whether a constrained learned policy beats MILP-MPC — expected primarily via
+3. Establish whether a constrained learned policy beats MILP-MPC - expected primarily via
    decision latency at scale and via learned behavioural structure (unreliable declared
    departures).
 4. Deliver **zero missed departures** and **zero capacity violations** by construction, and
@@ -176,9 +176,9 @@ Monday).
 
 | # | Research question | Hypothesis |
 |---|-------------------|-----------|
-| RQ1 | What does `§14a` grid-orientated control cost an optimised charging site? | H1: For depots with slack dwell time, close to zero — the reduced network charge dominates. For high-utilisation depots, the dimming right binds and Module 1 becomes preferable to Module 3 |
+| RQ1 | What does `§14a` grid-orientated control cost an optimised charging site? | H1: For depots with slack dwell time, close to zero - the reduced network charge dominates. For high-utilisation depots, the dimming right binds and Module 1 becomes preferable to Module 3 |
 | RQ2 | Does constrained RL beat MILP-MPC here? | H2: Not on per-instance solution quality, where MPC is near-optimal, but on decision latency at N > ~50 connectors and on exploiting learned departure-time unreliability |
-| RQ3 | How should declared departure times be treated? | H3: Declared times are systematically pessimistic; a policy that learns the site's distribution outperforms one that takes declarations literally — but only if the safety layer still guarantees the declared deadline |
+| RQ3 | How should declared departure times be treated? | H3: Declared times are systematically pessimistic; a policy that learns the site's distribution outperforms one that takes declarations literally - but only if the safety layer still guarantees the declared deadline |
 | RQ4 | How do the four objective terms interact? | H4: THG revenue and peak charges are directly opposed; the optimal policy is peak-limited, not energy-limited, above a site-specific utilisation threshold |
 | RQ5 | Can fairness be imposed cheaply? | H5: Proportional-fairness allocation costs little relative to a pure cost-minimising allocation, and materially improves worst-user outcomes |
 
@@ -241,7 +241,7 @@ flowchart TB
 For each vehicle session `v` with arrival `a_v`, declared departure `d_v`, required energy
 `E_v` and maximum charging power `P_v(SoC)`:
 
-**Objective** — minimise
+**Objective** - minimise
 ```
 Σ_t [ c_energy(t)·p_grid(t)·Δt + c_net,var(t)·p_grid(t)·Δt ]      energy + variable network charge
   + c_peak · max_t p_grid(t)                                       peak/capacity charge
@@ -250,14 +250,14 @@ For each vehicle session `v` with arrival `a_v`, declared departure `d_v`, requi
                                                                    hard in the safety layer)
 ```
 
-**Constraints** — per-session energy accumulation between arrival and departure; per-connector
+**Constraints** - per-session energy accumulation between arrival and departure; per-connector
 power bounds with minimum charging current (a semi-continuous variable: either zero or above
-the minimum — this is what makes the problem genuinely integer); site power balance including
+the minimum - this is what makes the problem genuinely integer); site power balance including
 PV and buffer battery; **site capacity limit** and per-phase limits; and, when dimming is
 active, an aggregate cap on controllable power at the `§14a` guaranteed minimum.
 
 The peak term makes the problem non-separable across the whole billing period, which is why
-B3 needs a peak-tracking state variable rather than a naive horizon-local formulation — a
+B3 needs a peak-tracking state variable rather than a naive horizon-local formulation - a
 detail frequently missed, and one that would otherwise leave a weak baseline.
 
 ### 6.2 MDP formulation (RL)
@@ -265,9 +265,9 @@ detail frequently missed, and one that would otherwise leave a weak baseline.
 | Element | Definition |
 |---------|-----------|
 | **State** | Per-connector: occupancy, SoC, energy still required, time to declared departure, max power. Site: current load, PV, running peak, remaining capacity headroom. Market: price window (realised + forward), network-charge state. Regulatory: `§14a` signal, recent dimming history. Calendar features |
-| **Observation encoding** | Permutation-invariant set encoder (deep-sets / attention) over connectors, so one policy generalises across site sizes and connector counts — a key design decision for transferability |
+| **Observation encoding** | Permutation-invariant set encoder (deep-sets / attention) over connectors, so one policy generalises across site sizes and connector counts - a key design decision for transferability |
 | **Action** | Per-connector power level, continuous in [0, P_max] but masked to {0} ∪ [P_min, P_max] to respect minimum charging current |
-| **Reward** | Negative energy + network cost of the step, minus incremental peak cost when a new peak is set, plus THG revenue, minus soft fairness and switching penalties. **Departure fulfilment is not a reward term** — it is enforced |
+| **Reward** | Negative energy + network cost of the step, minus incremental peak cost when a new peak is set, plus THG revenue, minus soft fairness and switching penalties. **Departure fulfilment is not a reward term** - it is enforced |
 | **Safety layer** | A small LP/QP projecting the proposed allocation onto the feasible set: site and phase capacity, minimum currents, `§14a` cap, and a **feasibility-preserving reserve** guaranteeing every connected vehicle can still reach its declared SoC by its declared departure. If the site is genuinely infeasible, a documented, auditable priority rule applies |
 | **Episode** | 7 days (to expose weekly patterns and the peak dynamic), with the running peak carried in state |
 | **Algorithm** | PPO with action masking; SAC as a continuous-control cross-check |
@@ -275,7 +275,7 @@ detail frequently missed, and one that would otherwise leave a weak baseline.
 The **feasibility-preserving reserve** is the technical core: at every step the layer checks
 that a feasible completion exists for all connected vehicles, and constrains the action set to
 those that preserve it. This is what converts "the agent usually meets departures" into "the
-agent cannot miss one" — the difference between a demo and a deployable controller.
+agent cannot miss one" - the difference between a demo and a deployable controller.
 
 ---
 
@@ -286,13 +286,13 @@ agent cannot miss one" — the difference between a demo and a deployable contro
 | EV charging sessions | Arrivals, dwell times, energy per session | **ACN-Data** (Caltech, ~50k workplace sessions), **ElaadNL** open datasets | Per session | Open |
 | German mobility statistics | Re-weighting arrival/departure/energy to German behaviour | **MiD**, **MOP** (scientific-use files) | Trip level | On request |
 | Fleet/depot duty cycles | Depot archetype | Published logistics duty-cycle studies; synthetic generator calibrated to them | Per vehicle-day | Partly synthetic |
-| Vehicle charging curves | Power limits vs. SoC | Public measurement databases, manufacturer specifications | — | Open |
+| Vehicle charging curves | Power limits vs. SoC | Public measurement databases, manufacturer specifications | - | Open |
 | Day-ahead / dynamic tariff prices | Energy cost signal | SMARD / ENTSO-E / Energy-Charts; aWATTar structure | 15 min | Open |
 | Network charge sheets | Peak charge, energy component, `§14a` modules, time-variable windows | DSO published price sheets; BNetzA determinations | Annual | Open |
 | THG-Quote prices | Revenue term | Published market quotes | Annual/quarterly | Open |
 | PV generation | On-site generation | DWD + `pvlib`; PVGIS | 15 min | Open |
-| `§14a` dimming events | The interrupt | **No public dataset.** Parameterised stochastic model; frequency/duration reported as a sensitivity sweep | 15 min | **Gap — modelled, flagged** |
-| Site electrical topology | Phase and capacity constraints | Site archetype definitions built from LSV/VDE-AR-N connection guidance | — | Constructed |
+| `§14a` dimming events | The interrupt | **No public dataset.** Parameterised stochastic model; frequency/duration reported as a sensitivity sweep | 15 min | **Gap - modelled, flagged** |
+| Site electrical topology | Phase and capacity constraints | Site archetype definitions built from LSV/VDE-AR-N connection guidance | - | Constructed |
 
 **Validity threat, stated plainly.** Charging behaviour is cultural and site-specific;
 ACN-Data is a Californian campus and ElaadNL is Dutch. The project fits *structure* (session
@@ -307,7 +307,7 @@ buried.
 
 | Rung | Instantiation |
 |------|--------------|
-| **B0** | Uncontrolled charging (charge at maximum on arrival) — the status quo at most sites, and the commercially relevant reference |
+| **B0** | Uncontrolled charging (charge at maximum on arrival) - the status quo at most sites, and the commercially relevant reference |
 | **B1** | Static load management: equal share of available capacity, FCFS priority. **Validation gate** against measured site behaviour where available |
 | **B2** | Perfect-foresight MILP over the billing period (knows all arrivals, departures and true energy needs) |
 | **B3** | Rolling-horizon MILP-MPC with peak-tracking state, realistic session forecasts, re-solved every 15 min |
@@ -329,11 +329,11 @@ layer on/off; objective-term ablation; with/without buffer battery and PV.
 
 1. A reusable, permutation-invariant German charging-hub environment (Gymnasium) with correct
    `§14a`, network-charge, peak-charge and THG accounting.
-2. A MILP-MPC reference with correct peak-charge treatment — itself a contribution, since
+2. A MILP-MPC reference with correct peak-charge treatment - itself a contribution, since
    horizon-local formulations get this wrong.
 3. A constrained RL controller with a **provable** feasibility guarantee on departures.
 4. A `§14a` module recommendation per site archetype, with the dimming-frequency sensitivity.
-5. A latency-vs-site-size scaling study — the practical argument for learned control here.
+5. A latency-vs-site-size scaling study - the practical argument for learned control here.
 6. An OCPP 2.0.1-shaped control interface specification, so the controller maps onto real
    hardware rather than an abstraction.
 
@@ -343,10 +343,10 @@ layer on/off; objective-term ablation; with/without buffer battery and PV.
 
 | WP | Content | Depends on | Output |
 |----|---------|-----------|--------|
-| WP1 | Session data pipeline; German re-weighting; three site archetypes | — | `data/processed`, archetype specs |
+| WP1 | Session data pipeline; German re-weighting; three site archetypes | - | `data/processed`, archetype specs |
 | WP2 | Site model: connectors, phases, capacity, PV, buffer battery, OCPP-shaped actuation | WP1 | `src/model` |
-| WP3 | Tariff & settlement module: energy, network charges incl. Modules 1–3, peak, `§19(2)`, THG | — | `src/market` |
-| WP4 | B0 uncontrolled + B1 static load management + **validation gate** | WP2, WP3 | Validation report — **gate** |
+| WP3 | Tariff & settlement module: energy, network charges incl. Modules 1-3, peak, `§19(2)`, THG | - | `src/market` |
+| WP4 | B0 uncontrolled + B1 static load management + **validation gate** | WP2, WP3 | Validation report - **gate** |
 | WP5 | MILP with peak-tracking; B2 perfect foresight | WP2, WP3 | `src/baselines` |
 | WP6 | B3 rolling MPC, tuned; latency profiling vs. N | WP5 | Strong baseline |
 | WP7 | Session/arrival forecast models incl. declaration-reliability model | WP1 | `src/forecast` |
@@ -356,7 +356,16 @@ layer on/off; objective-term ablation; with/without buffer battery and PV.
 
 ---
 
-## 11. Risks and limitations
+## 11. Assumptions and limitations
+
+| Dimension | Core Assumption | Engineering Justification and Reference | Modeling Limitation and Impact |
+|---|---|---|---|
+| **Physical** | 11/22 kW AC and 50 kW DC charging points; 92% charging efficiency; battery degradation linear (0.015 EUR/kWh); aggregate grid connection capacity limit. | Matches commercial charging hardware standards (IEC 61851 / ISO 15118); linear charging models allow real-time convex scheduling. | Ignores non-linear CC-CV tapering above 80% SoC, ambient temperature effects on battery acceptance rates, and phase imbalance. |
+| **Market** | Dynamic spot retail tariff pass-through (EPEX Spot DA + network charges); commercial peak-demand power tariff (EUR/kW/month); BNetzA Module 1-3 grid fee structure. | Reflects standard German industrial/commercial supply contracts (StromNEV Section 19) and statutory Section 14a grid fee reductions. | Assumes static monthly peak billing windows without real-time dynamic capacity rights trading between nearby industrial sites. |
+| **Data** | Session arrival, departure, and energy demand distributions synthesized from empirical commercial fleet archetypes (depot, workplace, residential). | Grounded in open charging benchmarks (ACN-Data, ElaadNL) calibrated to German fleet duty cycles. | Stochastic arrival variations in real operations may exhibit greater variance during extreme weather or supply chain disruptions. |
+| **Regulatory** | EnWG Section 14a grid operator dimming override active; statutory minimum power guarantee (4.2 kW per device or proportional allocation); right-censored departure evaluation. | Implements BNetzA BK6-22-300 / BK8-22/010-A determinations on controllable consumption devices (SteuVE). | Assumes DSO control signals arrive via smart meter gateway (SMGW-CLS / EEBUS) with zero packet drop or protocol fault. |
+
+### Operational Risks and Mitigations
 
 | Risk | Mitigation |
 |------|-----------|
@@ -380,7 +389,7 @@ in [`../../docs/05-tech-stack.md`](../../docs/05-tech-stack.md).
 
 - `§14a EnWG` and the Bundesnetzagentur determinations on grid-orientated control and the
   associated network-charge reduction; `§41a EnWG`; `§19(2) StromNEV`; LSV; AFIR
-  (EU 2023/1804) — see [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md).
+  (EU 2023/1804) - see [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md).
 - OCPP 2.0.1 smart charging profiles; EEBUS SPINE/SHIP for `§14a` device control.
 - ACN-Data (Caltech Adaptive Charging Network) and ElaadNL open charging datasets.
 - The adaptive charging network and online scheduling literature, against which the

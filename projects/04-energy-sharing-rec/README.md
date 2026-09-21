@@ -1,7 +1,7 @@
 # Project 04 · Energy Sharing and Allocation in Renewable Energy Communities
 
 **Multi-agent reinforcement learning and mechanism design for allocating shared renewable
-generation, storage and flexibility across the members of a German energy community — under
+generation, storage and flexibility across the members of a German energy community - under
 `§42b EnWG` collective building supply, `§21 EEG` Mieterstrom, and the energy-sharing rules
 being transposed from RED II.**
 
@@ -124,7 +124,7 @@ check is a transformer-level flow limit.
 |---|---|
 | **Status** | **Mechanisms, regimes, settlement and cooperative game analysis implemented** · multi-agent RL not yet built |
 | **Method** | Cooperative multi-agent RL (PettingZoo) + allocation mechanism comparison + cooperative game theory |
-| **Actors** | 20–200 members: households, small commercial, shared PV, shared battery, heat pumps, wallboxes |
+| **Actors** | 20-200 members: households, small commercial, shared PV, shared battery, heat pumps, wallboxes |
 | **Resolution** | 15 min |
 | **Key question** | Not "how much can a community save?" but "**how should the savings be allocated, and does the allocation rule change the physics?**" |
 
@@ -139,7 +139,7 @@ questions that actually determine whether a community works.
 **First: the allocation rule is not neutral.** How shared PV output is attributed to members
 determines each member's *price signal*, and therefore their behaviour. A static allocation
 key gives members no incentive to shift load into surplus hours. A dynamic proportional key
-rewards consumption whenever the community is in surplus — including when that is collectively
+rewards consumption whenever the community is in surplus - including when that is collectively
 useless. An optimisation-based allocation can be collectively efficient but arbitrary from an
 individual member's point of view, and may be unstable in the game-theoretic sense: a member
 who is worse off than they would be alone will leave. **The allocation rule feeds back into
@@ -147,8 +147,8 @@ the physical operation of the community**, which is exactly the coupling that si
 evaluations miss.
 
 **Second: the legal form determines what is possible.** Germany offers several distinct
-routes — Mieterstrom under `§21(3) EEG`, collective building supply under `§42b EnWG`
-(introduced by *Solarpaket I* in 2024), citizen energy companies under `§3 Nr. 15 EEG` — and
+routes - Mieterstrom under `§21(3) EEG`, collective building supply under `§42b EnWG`
+(introduced by *Solarpaket I* in 2024), citizen energy companies under `§3 Nr. 15 EEG` - and
 broader energy sharing across the public grid has been the subject of successive EnWG
 amendment drafts transposing RED II Article 22 and IEMD Article 16. Each route implies
 different metering, supplier obligations, levy treatment and network-charge exposure.
@@ -163,16 +163,16 @@ compares them, so the results remain valid whichever variant is finally in force
 
 | Route | Legal basis | Modelled characteristics |
 |-------|-------------|--------------------------|
-| **Individual supply** (reference) | — | Each member independently supplied; PV self-consumption only behind their own meter |
+| **Individual supply** (reference) | - | Each member independently supplied; PV self-consumption only behind their own meter |
 | **Mieterstrom** | `§21(3) EEG` | Landlord-operated supply to tenants in the same building, Mieterstrom surcharge, full supplier obligations, on-site generation only |
 | **Gemeinschaftliche Gebäudeversorgung** | `§42b EnWG` (*Solarpaket I*, 2024) | Lighter-weight building-level sharing without full supplier obligations; allocation of on-site generation among building units |
 | **Energy sharing across the grid** | RED II Art. 22 / IEMD Art. 16; German transposition via EnWG amendments | Members at different connection points share generation; **modelled parametrically** over the plausible design space (network-charge treatment, levy treatment, geographic scope, allocation timing) because the enacted detail is decisive and was still in motion |
-| **Bürgerenergiegesellschaft** | `§3 Nr. 15 EEG` | Privileged status, tendering exemptions under conditions — relevant to community-owned generation assets |
+| **Bürgerenergiegesellschaft** | `§3 Nr. 15 EEG` | Privileged status, tendering exemptions under conditions - relevant to community-owned generation assets |
 
 **Design consequence.** Everything regulatory is a configuration switch: whether network
 charges apply to shared energy, whether levies and electricity tax are due, whether allocation
 is settled per quarter-hour or per billing period, and whether the community may span multiple
-connection points. Sensitivity to these switches is a **primary result**, not a caveat — this
+connection points. Sensitivity to these switches is a **primary result**, not a caveat - this
 is the deliverable most useful to a policymaker.
 
 ---
@@ -184,16 +184,16 @@ is the deliverable most useful to a policymaker.
 - A 15-minute community model: individual member loads, shared and individually-owned PV, a
   shared battery, controllable devices (heat pumps, wallboxes) under `§14a EnWG`.
 - **Four allocation mechanism families**, evaluated on identical physics:
-  1. **Static keys** — fixed shares by ownership, consumption or unit size.
-  2. **Dynamic proportional** — pro-rata by instantaneous consumption within each quarter-hour.
-  3. **Optimisation-based** — a central optimiser allocating to maximise collective welfare,
+  1. **Static keys** - fixed shares by ownership, consumption or unit size.
+  2. **Dynamic proportional** - pro-rata by instantaneous consumption within each quarter-hour.
+  3. **Optimisation-based** - a central optimiser allocating to maximise collective welfare,
      with the surplus redistributed by a chosen rule.
-  4. **Market-based** — an internal price (peer-to-peer or a community clearing price) to
+  4. **Market-based** - an internal price (peer-to-peer or a community clearing price) to
      which members respond.
 - **Cooperative game analysis** of the resulting payoff allocations: individual rationality,
   stability (core membership), and comparison with Shapley-value and nucleolus benchmarks.
 - **Cooperative multi-agent RL** where members are individually rational agents responding to
-  the price signal the mechanism gives them — the feedback loop above.
+  the price signal the mechanism gives them - the feedback loop above.
 - Grid-awareness: a low-voltage feeder model so that "shared" energy respects real network
   limits rather than being a pure accounting exercise.
 
@@ -211,7 +211,7 @@ is the deliverable most useful to a policymaker.
 1. Quantify the collective benefit of each legal route relative to individual supply, under
    consistent physical and behavioural assumptions.
 2. Show, and measure, how the **allocation rule changes the physical operation** of the
-   community — the coupling that single-number studies miss.
+   community - the coupling that single-number studies miss.
 3. Determine which mechanisms produce **stable** allocations (no member better off leaving)
    and how much collective efficiency stability costs.
 4. Establish whether decentralised learned response outperforms centralised optimisation when
@@ -228,7 +228,7 @@ is the deliverable most useful to a policymaker.
 | RQ1 | How much does the allocation rule change *physical* community operation, not just the split of benefits? | H1: Materially. Dynamic proportional allocation induces consumption at times that are collectively wasteful; market-based allocation aligns individual and collective incentives best |
 | RQ2 | Which mechanisms produce stable (core) allocations? | H2: Optimisation-based allocation with Shapley-style redistribution is stable but computationally heavy and hard to explain; simple proportional rules are explainable but frequently leave at least one member worse off than going alone |
 | RQ3 | Does the collective benefit survive individually-rational behaviour? | H3: A substantial share of the "potential" benefit reported in the literature assumes obedient members and does not survive; the gap is the project's headline number |
-| RQ4 | Do network constraints bind? | H4: In dense LV feeders with shared PV and heat pumps, yes — and accounting-only studies therefore overstate feasible sharing |
+| RQ4 | Do network constraints bind? | H4: In dense LV feeders with shared PV and heat pumps, yes - and accounting-only studies therefore overstate feasible sharing |
 | RQ5 | How sensitive is everything to the network-charge and levy treatment of shared energy? | H5: Decisive. The viability of grid-spanning energy sharing is essentially a function of this single policy choice |
 
 ---
@@ -289,7 +289,7 @@ consumption `c_i(t)`, producing allocated volumes `α_i(t)` with `Σ_i α_i(t) �
 | Mechanism | Rule | Incentive property |
 |-----------|------|--------------------|
 | **Static key** | `α_i(t) = k_i · G(t)`, `k_i` fixed by ownership/size | No temporal incentive; simple, explainable, common in practice |
-| **Dynamic proportional** | `α_i(t) = G(t) · c_i(t) / Σ_j c_j(t)` | Rewards consuming during surplus — including collectively useless consumption |
+| **Dynamic proportional** | `α_i(t) = G(t) · c_i(t) / Σ_j c_j(t)` | Rewards consuming during surplus - including collectively useless consumption |
 | **Optimisation-based** | Central welfare-maximising allocation, surplus redistributed by a chosen rule | Efficient; individually opaque; stability depends on the redistribution rule |
 | **Market-based** | Internal clearing price `p(t)`; members bid demand curves | Aligns incentives if the price is right; requires members (or their agents) to bid |
 
@@ -297,7 +297,7 @@ consumption `c_i(t)`, producing allocated volumes `α_i(t)` with `Σ_i α_i(t) �
 
 Each member solves their own cost-minimisation over their own flexibility (battery, heat
 pump, wallbox, shiftable load), given the price/allocation signal the mechanism produces and
-their own comfort constraints. **Members are individually rational, not obedient** — this is
+their own comfort constraints. **Members are individually rational, not obedient** - this is
 the crucial modelling choice, and it is what separates this project from the standard
 community-optimisation study.
 
@@ -311,7 +311,7 @@ community-optimisation study.
 | **Reward** | Own net bill for the step (individual rationality by construction), plus own comfort penalties |
 | **Global constraint** | LV network limits enforced centrally by the safety layer; the mechanism may not allocate what the feeder cannot carry |
 | **Training** | Centralised training with decentralised execution (CTDE); PettingZoo API |
-| **Evaluation** | Both collective welfare and the **per-member distribution** — including the worst-off member, which is what determines whether the community survives |
+| **Evaluation** | Both collective welfare and the **per-member distribution** - including the worst-off member, which is what determines whether the community survives |
 
 ### 6.4 Cooperative game analysis
 
@@ -329,16 +329,16 @@ used, with the approximation error reported.
 
 | Data | Purpose | Source | Resolution | Status |
 |------|---------|--------|-----------|--------|
-| Individual household loads | Member heterogeneity — the driver of sharing value | **HTW Berlin** 74 measured German profiles; synthetic expansion preserving inter-member correlation | ≤ 1 min → 15 min | Open |
-| Small commercial loads | Complementary daytime profiles | BDEW SLP G0–G6; measured where available | 15 min | Open |
+| Individual household loads | Member heterogeneity - the driver of sharing value | **HTW Berlin** 74 measured German profiles; synthetic expansion preserving inter-member correlation | ≤ 1 min → 15 min | Open |
+| Small commercial loads | Complementary daytime profiles | BDEW SLP G0-G6; measured where available | 15 min | Open |
 | PV generation | Shared and individual generation | DWD + `pvlib`; PVGIS | 15 min | Open |
 | Heat demand & COP | Heat-pump flexibility | **When2Heat**; VDI 4655 | Hourly → 15 min | Open (CC BY 4.0) |
 | EV sessions | Wallbox flexibility | ACN-Data / ElaadNL re-weighted with German mobility data (shared with Project 03) | Per session | Open |
 | Prices | Residual supply and internal pricing reference | SMARD / ENTSO-E; dynamic tariff structure | 15 min | Open |
-| Network charges, levies, tax | Regime comparison — the decisive parameters | DSO price sheets; BNetzA; EEG/StromStG levy rules | Annual | Open |
+| Network charges, levies, tax | Regime comparison - the decisive parameters | DSO price sheets; BNetzA; EEG/StromStG levy rules | Annual | Open |
 | Mieterstrom surcharge | `§21 EEG` route | Published EEG values | Annual | Open |
-| LV network topology | Physical feasibility of sharing | **SimBench** German LV benchmark networks; pandapower | — | Open |
-| Building/unit structure | Community composition archetypes | Census/building statistics; constructed archetypes | — | Constructed |
+| LV network topology | Physical feasibility of sharing | **SimBench** German LV benchmark networks; pandapower | - | Open |
+| Building/unit structure | Community composition archetypes | Census/building statistics; constructed archetypes | - | Constructed |
 
 **Correlation matters more than realism here.** A community's value comes from the
 *complementarity* of its members' profiles. Synthetic profiles that are independent draws
@@ -352,14 +352,14 @@ sensitivity of results to that correlation is an explicit ablation.
 
 | Rung | Instantiation |
 |------|--------------|
-| **B0** | Individual supply — every member separately supplied, PV self-consumption behind their own meter |
+| **B0** | Individual supply - every member separately supplied, PV self-consumption behind their own meter |
 | **B1** | Static-key sharing with passive members (no behavioural response). **Validation gate** and the realistic status quo |
-| **B2** | Perfect-foresight central optimisation of the entire community as a single entity — the collective ceiling, ignoring individual rationality |
+| **B2** | Perfect-foresight central optimisation of the entire community as a single entity - the collective ceiling, ignoring individual rationality |
 | **B3** | Rolling-horizon central MPC with realistic forecasts, obedient members |
 | **MARL** | Individually-rational learning agents responding to each mechanism |
 
 **Primary KPIs:** collective annual cost (€/a) and, equally weighted in reporting, the
-**per-member distribution** — median, worst-off member, and the count of members worse off
+**per-member distribution** - median, worst-off member, and the count of members worse off
 than under individual supply. **Physical:** collective self-consumption and self-sufficiency,
 shared-battery cycles, network constraint violations (must be 0), curtailment.
 **Game-theoretic:** individual rationality satisfied (yes/no per member), core membership,
@@ -367,7 +367,7 @@ distance from the Shapley allocation.
 
 Ablations: mechanism family (the central comparison); legal regime (`§42b` / Mieterstrom /
 parametric energy sharing); network-charge and levy treatment of shared energy; member
-obedience (obedient vs. individually rational — the H3 test); community size and composition;
+obedience (obedient vs. individually rational - the H3 test); community size and composition;
 inter-member load correlation; network constraints on/off; `§14a` module choice.
 
 ---
@@ -375,12 +375,12 @@ inter-member load correlation; network constraints on/off; `§14a` module choice
 ## 9. Deliverables
 
 1. An open German energy-community simulator with the four allocation mechanism families,
-   switchable legal regimes and an LV network layer — reusable independently of the RL work.
+   switchable legal regimes and an LV network layer - reusable independently of the RL work.
 2. A quantified comparison of allocation mechanisms on **both** efficiency and stability.
 3. The **obedience gap**: how much of the community benefit reported in the literature
    survives individually-rational members.
 4. A policy-facing sensitivity analysis over the open German energy-sharing design parameters
-   — the deliverable most directly useful outside academia.
+   - the deliverable most directly useful outside academia.
 5. A practical recommendation on mechanism choice for community operators, trading off
    efficiency, stability and explainability.
 
@@ -390,11 +390,11 @@ inter-member load correlation; network constraints on/off; `§14a` module choice
 
 | WP | Content | Depends on | Output |
 |----|---------|-----------|--------|
-| WP1 | Member profile synthesis preserving empirical correlation; community archetypes | — | `data/processed`, archetypes |
+| WP1 | Member profile synthesis preserving empirical correlation; community archetypes | - | `data/processed`, archetypes |
 | WP2 | Community physical model: members, shared PV/battery, devices; LV feeder via pandapower | WP1 | `src/model` |
-| WP3 | Regulatory/settlement module: `§42b`, Mieterstrom, parametric energy sharing, charges & levies | — | `src/market` |
+| WP3 | Regulatory/settlement module: `§42b`, Mieterstrom, parametric energy sharing, charges & levies | - | `src/market` |
 | WP4 | The four allocation mechanisms behind one interface | WP3 | `src/mechanisms` |
-| WP5 | B0 individual supply, B1 static-key passive sharing + **validation gate** | WP2, WP3 | Validation report — **gate** |
+| WP5 | B0 individual supply, B1 static-key passive sharing + **validation gate** | WP2, WP3 | Validation report - **gate** |
 | WP6 | B2 perfect-foresight central optimisation, B3 central MPC | WP2, WP4 | `src/baselines` |
 | WP7 | PettingZoo multi-agent environment + central network safety layer | WP2, WP4 | `src/envs`, `src/safety` |
 | WP8 | CTDE multi-agent training across mechanisms | WP7 | Trained agents |
@@ -403,7 +403,16 @@ inter-member load correlation; network constraints on/off; `§14a` module choice
 
 ---
 
-## 11. Risks and limitations
+## 11. Assumptions and limitations
+
+| Dimension | Core Assumption | Engineering Justification and Reference | Modeling Limitation and Impact |
+|---|---|---|---|
+| **Physical** | Aggregated rooftop PV (30-120 kWp) and residential loads (6-30 members) on a low-voltage distribution feeder; physical power balance enforced at distribution substation. | Reflects typical European Renewable Energy Community (REC) topologies (SimBench German LV benchmark). | Omits distribution line thermal constraints and voltage rise (Q-U) limits at high PV penetration. |
+| **Market** | Internal peer-to-peer (P2P) clearing via cooperative game theory (Owen core, Shapley value); external retail grid import and wholesale export at statutory rates. | Aligns with axiomatic fairness literature in energy sharing and cooperative economics; proves core stability. | Assumes costless internal transaction accounting without commercial platform billing overhead. |
+| **Data** | Multi-household empirical demand profiles (HTW Berlin / CREST) with preserved spatio-temporal diversity; Open-Meteo local solar irradiance. | Captures realistic coincidence factors and diversity benefits without artificial demand synchronization. | Extreme correlation shifts (e.g. widespread heat pump adoption) could alter daytime self-consumption ratios. |
+| **Regulatory** | German EnWG Section 42b collective building supply and EU RED II Article 22 energy sharing framework; parametric local network charge discounts. | Models statutory provisions for local energy sharing across public distribution feeders. | Note on behavioral modeling: obedient_members is declared for planned behavioral extensions (elastic demand response and non-compliance bounds) and is not yet implemented in the core solver. |
+
+### Operational Risks and Mitigations
 
 | Risk | Mitigation |
 |------|-----------|
@@ -427,10 +436,10 @@ additional `src/mechanisms/` and `src/game/`. Conventions in
 ## 13. References
 
 - RED II (EU 2018/2001) Art. 22; IEMD (EU 2019/944) Art. 16; `§42b EnWG`; `§21(3) EEG`;
-  `§3 Nr. 15 EEG` — see [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md).
+  `§3 Nr. 15 EEG` - see [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md).
 - SimBench German benchmark distribution networks; pandapower.
 - The energy-community and peer-to-peer trading literature, and cooperative game theory
-  applied to energy coalitions — against which this project's contribution is the explicit
+  applied to energy coalitions - against which this project's contribution is the explicit
   coupling between allocation rule, individual rationality and physical operation.
 
 ---

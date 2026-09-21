@@ -24,14 +24,6 @@ _DATAKIT = Path(__file__).resolve().parents[4] / "datakit"
 if str(_DATAKIT) not in sys.path:
     sys.path.insert(0, str(_DATAKIT))
 
-# Installed capacity in Germany, used to turn generation into a capacity factor. Approximate
-# mid-year values; the exact figure only rescales the profile, and the plant is then scaled to
-# its own rating, so the result is insensitive to a few per cent here.
-INSTALLED_MW = {2023: {"wind": 68000.0, "pv": 82000.0},
-                2024: {"wind": 72000.0, "pv": 99000.0},
-                2025: {"wind": 75000.0, "pv": 110000.0}}
-
-
 def load_year(year: int, days: int | None = None,
               dt: float = 0.25) -> pd.DataFrame:
     """Return a frame with `wind_cf`, `pv_cf` (per unit) and `price_eur_mwh`."""
@@ -51,7 +43,8 @@ def load_year(year: int, days: int | None = None,
     wind = pick("Wind onshore") + pick("Wind offshore")
     pv = pick("Solar")
 
-    cap = INSTALLED_MW.get(year, INSTALLED_MW[2025])
+    # Single source of truth from datakit. Raises ValueError on unregistered years; no silent fallback.
+    cap = datakit.get_installed_capacity(year)
     df = pd.DataFrame({
         "wind_cf": (wind / cap["wind"]).clip(0, 1),
         "pv_cf": (pv / cap["pv"]).clip(0, 1),

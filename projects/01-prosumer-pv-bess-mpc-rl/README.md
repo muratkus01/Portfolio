@@ -501,3 +501,15 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 3. Quantified resolution study isolating the economic bias of hourly modelling.
 4. Comprehensive battery and inverter sizing grid evaluating CAPEX, payback, and ROCE across 20 system configurations.
 5. Systematic RL diagnostic with differential rewards and feasible action rescaling.
+
+---
+
+## 9. Assumptions and limitations
+
+| Dimension | Core Assumption | Engineering Justification and Reference | Modeling Limitation and Impact |
+|---|---|---|---|
+| **Physical** | Constant 95% round-trip efficiency, linear degradation cost (0.03 EUR/kWh throughput), ambient temperature invariant. | Aligns with standard residential LFP battery datasheets; maintains strict linearity for deterministic convex LP/MILP solvability. | Omits thermal derating, calendar aging acceleration at high state-of-charge, and non-linear degradation knee effects. |
+| **Market** | Price-taker status; dynamic retail import tariff reflects EPEX Spot hourly/15-min price plus static statutory adders and taxes. | Residential household consumption (~3,221 kWh/a) exerts zero market power on the DE-LU wholesale market. | Omits retailer-specific risk hedging collars, monthly fixed base fees, and dynamic grid fee variations. |
+| **Data** | 73 HTW Berlin empirical residential load profiles; Munich PV generation synthesized via pvlib using Open-Meteo NWP forecasts. | High-fidelity open benchmark dataset (1-min metered data downsampled to 15 min); transparent reproducibility without NDA data. | NWP irradiance forecast errors exhibit different auto-correlation structures than real-time on-site sky-camera or pyranometer telemetry. |
+| **Regulatory** | EnWG Section 41a dynamic tariff pass-through; EEG statutory export remuneration (fixed 7.86 ct/kWh reference or market export). | Enforces current German legislative framework (EnWG Section 41a, EEG 2023/2024 direct marketing rules). | Assumes fully operational intelligent metering system (iMSys smart meter gateway) without communication loss or latency. |
+
