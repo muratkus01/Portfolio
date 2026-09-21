@@ -1095,7 +1095,7 @@
     }
     #dispatchCanvas {
       width: 100%;
-      height: 250px;
+      height: 280px;
       display: block;
       cursor: crosshair;
       border-radius: 8px;
@@ -1705,42 +1705,42 @@
           </div>
 
           <div style="background: rgba(0, 0, 0, 0.45); border-radius: 10px; padding: 14px; border: 1px solid rgba(255, 255, 255, 0.05);">
-            <canvas id="dispatchCanvas" height="250" style="width: 100%; height: 250px; display: block;"></canvas>
+            <canvas id="dispatchCanvas" height="280" style="width: 100%; height: 280px; display: block;"></canvas>
             
             <!-- Discrete Interactive Legend Cards Strip -->
             <div class="discrete-legend-strip">
               <div class="discrete-legend-card" id="leg-price" onclick="toggleChannel('price')">
                 <div class="legend-swatch amber">⎍</div>
                 <div class="legend-info">
-                  <span class="legend-title">Day-Ahead Spot (Step)</span>
-                  <span class="legend-val amber" id="legval-price">76.76 €/MWh</span>
+                  <span class="legend-title">Day-Ahead Spot (Right Axis)</span>
+                  <span class="legend-val amber" id="legval-price">76.76 EUR/MWh</span>
                 </div>
               </div>
               <div class="discrete-legend-card" id="leg-pv" onclick="toggleChannel('pv')">
                 <div class="legend-swatch emerald">▮</div>
                 <div class="legend-info">
-                  <span class="legend-title">Solar PV (15m Bar)</span>
+                  <span class="legend-title">Solar PV (Left kW Axis)</span>
                   <span class="legend-val emerald" id="legval-pv">7.60 kW</span>
                 </div>
               </div>
               <div class="discrete-legend-card" id="leg-bat" onclick="toggleChannel('bat')">
                 <div class="legend-swatch purple">⇅</div>
                 <div class="legend-info">
-                  <span class="legend-title">BESS Dispatch (15m Bar)</span>
+                  <span class="legend-title">BESS Dispatch (Left kW Axis)</span>
                   <span class="legend-val purple" id="legval-bat">+3.50 kW (Chg)</span>
                 </div>
               </div>
               <div class="discrete-legend-card" id="leg-soc" onclick="toggleChannel('soc')">
                 <div class="legend-swatch cyan">⎍</div>
                 <div class="legend-info">
-                  <span class="legend-title">Battery SoC (Step)</span>
+                  <span class="legend-title">Battery SoC (0-100% Top)</span>
                   <span class="legend-val cyan" id="legval-soc">72.4%</span>
                 </div>
               </div>
               <div class="discrete-legend-card" id="leg-grid" onclick="toggleChannel('grid')">
                 <div class="legend-swatch rose">⇄</div>
                 <div class="legend-info">
-                  <span class="legend-title">Net Grid Exchange</span>
+                  <span class="legend-title">Net Grid Flow (Left kW Axis)</span>
                   <span class="legend-val rose" id="legval-grid">0.00 kW (Self)</span>
                 </div>
               </div>
@@ -3585,21 +3585,91 @@
 
     // Dispatch Data Model for 96 15-Minute MTUs
     const dispatchData = [];
-    (function initDispatchData() {
-      const reg = DAY_REGIMES['summer'];
+
+    // Recompute 96-interval 24h dispatch data for given PV, BESS, and Inverter ratings
+    function recomputeDispatchForSizing(pvKw, bessKwh, invKw) {
+      const reg = (typeof DAY_REGIMES !== 'undefined' && DAY_REGIMES[currentRegimeKey]) ? DAY_REGIMES[currentRegimeKey] : DAY_REGIMES['summer'];
+      if (!reg) return;
+
+      const pvScale = pvKw / 8.0;
+      let soc = (bessKwh > 0.5) ? 25.0 : 0.0;
+      const dt = 0.25; // 15 minutes = 0.25 hours
+      const minSoc = 10.0;
+      const maxSoc = 100.0;
+      const usableKwh = Math.max(0.1, bessKwh);
+
       for (let i = 0; i < 96; i++) {
         const hour = i / 4;
-        dispatchData.push({
-          time: String(Math.floor(hour)).padStart(2, '0') + ':' + String((i % 4) * 15).padStart(2, '0'),
-          step: i + 1,
-          price: reg.prices[i],
-          pv: reg.pv[i],
-          load: reg.load[i],
-          bat: 0,
-          soc: 20,
-          grid: 0
-        });
+        const timeStr = String(Math.floor(hour)).padStart(2, '0') + ':' + String((i % 4) * 15).padStart(2, '0');
+        const price = reg.prices[i];
+        const pvGen = Math.max(0, reg.pv[i] * pvScale);
+        const load = reg.load[i];
+        const netSurplus = pvGen - load;
+
+        let batKw = 0;
+        let gridKw = 0;
+
+        if (bessKwh < 0.2) {
+          batKw = 0;
+          soc = 0;
+          gridKw = load - Math.min(invKw, pvGen);
+        } else {
+          if (price < 0) {
+            // Negative price regime: soak power from grid and solar
+            const maxChgFromSoc = ((maxSoc - soc) / 100.0 * usableKwh) / (dt * 0.95);
+            batKw = Math.min(invKw, maxChgFromSoc);
+            soc = Math.min(maxSoc, soc + (batKw * 0.95 * dt / usableKwh) * 100.0);
+            gridKw = (load + batKw) - pvGen;
+          } else if (reg.title.includes('Dunkelflaute') || price > 250) {
+            // Scarcity spike: maximize discharge to shave peak and export
+            const maxDisFromSoc = ((soc - minSoc) / 100.0 * usableKwh * 0.95) / dt;
+            batKw = -Math.min(invKw, Math.max(0, maxDisFromSoc));
+            soc = Math.max(minSoc, soc - ((-batKw / 0.95) * dt / usableKwh) * 100.0);
+            gridKw = load - pvGen + batKw;
+          } else if (netSurplus > 0) {
+            // Solar surplus: charge battery up to inverter limit and capacity
+            const maxChgFromSoc = ((maxSoc - soc) / 100.0 * usableKwh) / (dt * 0.95);
+            batKw = Math.min(netSurplus, invKw, maxChgFromSoc);
+            soc = Math.min(maxSoc, soc + (batKw * 0.95 * dt / usableKwh) * 100.0);
+            const remainingSurplus = netSurplus - batKw;
+            gridKw = -Math.min(invKw - batKw, remainingSurplus);
+          } else {
+            // Deficit: discharge battery to cover load
+            const deficit = -netSurplus;
+            const maxDisFromSoc = ((soc - minSoc) / 100.0 * usableKwh * 0.95) / dt;
+            batKw = -Math.min(deficit, invKw, Math.max(0, maxDisFromSoc));
+            soc = Math.max(minSoc, soc - ((-batKw / 0.95) * dt / usableKwh) * 100.0);
+            gridKw = deficit - (-batKw);
+          }
+        }
+
+        if (dispatchData[i]) {
+          dispatchData[i].time = timeStr;
+          dispatchData[i].step = i + 1;
+          dispatchData[i].price = price;
+          dispatchData[i].pv = pvGen;
+          dispatchData[i].load = load;
+          dispatchData[i].bat = batKw;
+          dispatchData[i].soc = soc;
+          dispatchData[i].grid = gridKw;
+        } else {
+          dispatchData.push({
+            time: timeStr,
+            step: i + 1,
+            price: price,
+            pv: pvGen,
+            load: load,
+            bat: batKw,
+            soc: soc,
+            grid: gridKw
+          });
+        }
       }
+    }
+
+    // Initialize default dispatch data
+    (function initDispatchData() {
+      recomputeDispatchForSizing(8.0, 9.37, 5.63);
     })();
 
     let scrubberIdx = 48;
@@ -3619,97 +3689,234 @@
 
       ctx.clearRect(0, 0, w, h);
 
-      const stepW = w / 96.0;
-      const padTop = 18;
-      const padBottom = 26;
+      const padLeft = 65;
+      const padRight = 85;
+      const padTop = 32;
+      const padBottom = 32;
+      const plotX = padLeft;
+      const plotY = padTop;
+      const plotW = w - padLeft - padRight;
       const plotH = h - padTop - padBottom;
+      const stepW = plotW / 96.0;
 
-      // Price Scaling
-      const prices = dispatchData.map(d => d.price);
-      const minP = Math.min(0, Math.min(...prices));
-      const maxP = Math.max(100, Math.max(...prices));
-      const pRange = Math.max(10, maxP - minP);
-      const priceY = p => padTop + (1.0 - (p - minP) / pRange) * plotH;
+      // Scale Mappings
+      const observedMaxKw = Math.max(6.0, Math.max(...dispatchData.map(d => Math.max(d.pv, Math.abs(d.bat), Math.abs(d.grid)))));
+      const maxKw = Math.max(8.0, Math.ceil(observedMaxKw / 2.0) * 2.0);
+      const kwY = kw => (plotY + plotH) - (Math.max(0, kw) / maxKw) * plotH;
 
-      // Draw Discrete Negative Price Zone Highlight if minP < 0
+      const rawPrices = dispatchData.map(d => d.price);
+      const rawMinP = Math.min(...rawPrices);
+      const rawMaxP = Math.max(...rawPrices);
+      let minP = 0.0;
+      if (rawMinP < -10.0) {
+        minP = Math.floor(rawMinP / 25.0) * 25.0;
+      }
+      let maxP = 120.0;
+      if (rawMaxP > 500.0) {
+        maxP = 1000.0;
+      } else if (rawMaxP > 200.0) {
+        maxP = Math.ceil(rawMaxP / 50.0) * 50.0;
+      } else if (rawMaxP > 120.0) {
+        maxP = Math.ceil(rawMaxP / 25.0) * 25.0;
+      }
+      const pRange = Math.max(20.0, maxP - minP);
+      const priceY = p => plotY + (1.0 - (p - minP) / pRange) * plotH;
+
+      // Battery State-of-Charge: Intuitive 0% (base) to 100% (top)
+      const socY = s => (plotY + plotH) - (Math.max(0, Math.min(100, s)) / 100.0) * plotH;
+
+      // Negative Price Shading and 0 EUR/MWh Cutoff Line
       if (minP < 0) {
         const zeroY = priceY(0);
-        ctx.fillStyle = 'rgba(244, 63, 94, 0.08)';
-        ctx.fillRect(0, zeroY, w, (h - padBottom) - zeroY);
+        if (zeroY >= plotY && zeroY <= plotY + plotH) {
+          ctx.fillStyle = 'rgba(244, 63, 94, 0.08)';
+          ctx.fillRect(plotX, zeroY, plotW, (plotY + plotH) - zeroY);
 
-        ctx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(0, zeroY);
-        ctx.lineTo(w, zeroY);
-        ctx.stroke();
-        ctx.setLineDash([]);
+          ctx.strokeStyle = 'rgba(244, 63, 94, 0.65)';
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(plotX, zeroY);
+          ctx.lineTo(plotX + plotW, zeroY);
+          ctx.stroke();
+          ctx.setLineDash([]);
 
-        ctx.fillStyle = '#fb7185';
-        ctx.font = '10px "JetBrains Mono", monospace';
-        ctx.fillText('0 EUR/MWh (EEG 51 Cutoff)', 8, zeroY - 4);
+          ctx.fillStyle = '#fb7185';
+          ctx.font = '9px "JetBrains Mono", monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText('0 EUR/MWh (EEG 51 Cutoff)', plotX + 6, zeroY - 4);
+        }
       }
 
-      // Discrete Hour Grid Lines (every 4 steps = 1 hour, every 16 steps = 4 hours)
+      // Left Y-Axis (Power in kW)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
       ctx.lineWidth = 1;
-      for (let i = 0; i <= 96; i += 4) {
-        const x = i * stepW;
-        const isMajor = (i % 16 === 0);
-        ctx.strokeStyle = isMajor ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.04)';
+      ctx.beginPath();
+      ctx.moveTo(plotX, plotY);
+      ctx.lineTo(plotX, plotY + plotH);
+      ctx.stroke();
+
+      ctx.fillStyle = '#34d399';
+      ctx.font = 'bold 10px "JetBrains Mono", monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('Power (kW)', plotX - 25, plotY - 12);
+
+      // Power kW Ticks and Horizontal Grid Lines
+      for (let kw = 0; kw <= maxKw; kw += 2) {
+        const y = kwY(kw);
+        ctx.strokeStyle = (kw === 0) ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(x, padTop);
-        ctx.lineTo(x, h - padBottom);
+        ctx.moveTo(plotX, y);
+        ctx.lineTo(plotX + plotW, y);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.beginPath();
+        ctx.moveTo(plotX - 5, y);
+        ctx.lineTo(plotX, y);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(kw + ' kW', plotX - 8, y + 3.5);
+      }
+
+      // Right Y-Axis (Spot Price in EUR/MWh)
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(plotX + plotW, plotY);
+      ctx.lineTo(plotX + plotW, plotY + plotH);
+      ctx.stroke();
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 10px "JetBrains Mono", monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('Spot (EUR/MWh)', plotX + plotW + 80, plotY - 12);
+
+      // Spot Price Ticks
+      let priceTicks = [];
+      if (maxP >= 900) {
+        priceTicks = [0, 200, 400, 600, 800, 1000];
+      } else if (minP < -100) {
+        priceTicks = [-150, -100, -50, 0, 50, 100];
+      } else if (minP < -30) {
+        priceTicks = [-60, -30, 0, 30, 60, 90, 120];
+      } else if (maxP > 150) {
+        priceTicks = [0, 50, 100, 150, 200];
+      } else {
+        priceTicks = [0, 30, 60, 90, 120, 150];
+      }
+
+      priceTicks.forEach(p => {
+        if (p < minP - 10 || p > maxP + 10) return;
+        const y = priceY(p);
+        if (y < plotY - 2 || y > plotY + plotH + 2) return;
+
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+        ctx.beginPath();
+        ctx.moveTo(plotX + plotW, y);
+        ctx.lineTo(plotX + plotW + 5, y);
+        ctx.stroke();
+
+        ctx.fillStyle = (p < 0) ? '#fb7185' : '#f59e0b';
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        const signStr = p > 0 ? '+' : '';
+        ctx.fillText(signStr + p + ' EUR', plotX + plotW + 8, y + 3.5);
+      });
+
+      // Battery SoC Guide Indicator & 50% Line
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '9px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('SoC: 0% (base) to 100% (top)', plotX + plotW / 2, plotY - 12);
+
+      const halfSocY = socY(50);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+      ctx.setLineDash([2, 5]);
+      ctx.beginPath();
+      ctx.moveTo(plotX, halfSocY);
+      ctx.lineTo(plotX + plotW, halfSocY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.font = '8px "JetBrains Mono", monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('50% SoC', plotX + 4, halfSocY - 3);
+
+      // Bottom X-Axis: 24-Hour Time Scale
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(plotX, plotY + plotH);
+      ctx.lineTo(plotX + plotW, plotY + plotH);
+      ctx.stroke();
+
+      for (let i = 0; i <= 96; i += 4) {
+        const x = plotX + i * stepW;
+        const isMajor = (i % 16 === 0);
+        ctx.strokeStyle = isMajor ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.04)';
+        ctx.beginPath();
+        ctx.moveTo(x, plotY);
+        ctx.lineTo(x, plotY + plotH);
         ctx.stroke();
 
         if (isMajor) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.beginPath();
+          ctx.moveTo(x, plotY + plotH);
+          ctx.lineTo(x, plotY + plotH + 5);
+          ctx.stroke();
+
           const hourLabel = String(i / 4).padStart(2, '0') + ':00';
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
           ctx.font = '10px "JetBrains Mono", monospace';
-          const tw = ctx.measureText(hourLabel).width;
-          const tx = Math.max(2, Math.min(w - tw - 2, x - tw / 2));
-          ctx.fillText(hourLabel, tx, h - 8);
+          ctx.textAlign = 'center';
+          ctx.fillText(hourLabel, x, plotY + plotH + 18);
         }
       }
 
       // 1. Solar PV: Discrete 15-Minute Interval Bars
       if (activeChannels.pv) {
-        const maxPv = Math.max(8.0, Math.max(...dispatchData.map(d => d.pv)));
         for (let i = 0; i < 96; i++) {
           const pv = dispatchData[i].pv;
-          if (pv > 0.08) {
-            const barH = (pv / maxPv) * (plotH * 0.58);
-            const x = i * stepW + 1;
-            const y = (h - padBottom) - barH;
-            ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
-            ctx.fillRect(x, y, Math.max(1, stepW - 2), barH);
-            ctx.strokeStyle = 'rgba(52, 211, 153, 0.75)';
-            ctx.strokeRect(x, y, Math.max(1, stepW - 2), barH);
+          if (pv > 0.05) {
+            const barH = (pv / maxKw) * plotH;
+            const x = plotX + i * stepW + 0.6;
+            const y = (plotY + plotH) - barH;
+            const barW = Math.max(1, stepW - 1.2);
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.28)';
+            ctx.fillRect(x, y, barW, barH);
+            ctx.strokeStyle = 'rgba(52, 211, 153, 0.85)';
+            ctx.strokeRect(x, y, barW, barH);
           }
         }
       }
 
       // 2. Battery Dispatch: Discrete 15-Minute Bidirectional Interval Bars
       if (activeChannels.bat) {
-        const maxBat = 5.63;
         for (let i = 0; i < 96; i++) {
           const bat = dispatchData[i].bat;
-          if (Math.abs(bat) > 0.08) {
-            const barH = (Math.abs(bat) / maxBat) * (plotH * 0.42);
-            const x = i * stepW + 1;
-            const y = (h - padBottom) - barH;
+          if (Math.abs(bat) > 0.05) {
+            const barH = (Math.abs(bat) / maxKw) * plotH;
+            const x = plotX + i * stepW + 0.6;
+            const y = (plotY + plotH) - barH;
+            const barW = Math.max(1, stepW - 1.2);
             if (bat > 0) {
-              // Charging: Emerald / Cyan
+              // Charging: Cyan
               ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
-              ctx.fillRect(x, y, Math.max(1, stepW - 2), barH);
+              ctx.fillRect(x, y, barW, barH);
               ctx.strokeStyle = '#38bdf8';
-              ctx.strokeRect(x, y, Math.max(1, stepW - 2), barH);
+              ctx.strokeRect(x, y, barW, barH);
             } else {
               // Discharging: Purple
               ctx.fillStyle = 'rgba(168, 85, 247, 0.35)';
-              ctx.fillRect(x, y, Math.max(1, stepW - 2), barH);
+              ctx.fillRect(x, y, barW, barH);
               ctx.strokeStyle = '#c084fc';
-              ctx.strokeRect(x, y, Math.max(1, stepW - 2), barH);
+              ctx.strokeRect(x, y, barW, barH);
             }
           }
         }
@@ -3721,15 +3928,15 @@
         ctx.lineWidth = 2.2;
         ctx.beginPath();
         for (let i = 0; i < 96; i++) {
-          const xStart = i * stepW;
-          const xEnd = (i + 1) * stepW;
+          const xStart = plotX + i * stepW;
+          const xEnd = plotX + (i + 1) * stepW;
           const y = priceY(dispatchData[i].price);
           if (i === 0) {
             ctx.moveTo(xStart, y);
           } else {
-            ctx.lineTo(xStart, y); // Vertical step
+            ctx.lineTo(xStart, y);
           }
-          ctx.lineTo(xEnd, y); // Horizontal holding segment
+          ctx.lineTo(xEnd, y);
         }
         ctx.stroke();
       }
@@ -3741,9 +3948,9 @@
         ctx.setLineDash([4, 3]);
         ctx.beginPath();
         for (let i = 0; i < 96; i++) {
-          const xStart = i * stepW;
-          const xEnd = (i + 1) * stepW;
-          const y = (h - padBottom) - (dispatchData[i].soc / 100.0) * (plotH * 0.72);
+          const xStart = plotX + i * stepW;
+          const xEnd = plotX + (i + 1) * stepW;
+          const y = socY(dispatchData[i].soc);
           if (i === 0) {
             ctx.moveTo(xStart, y);
           } else {
@@ -3760,11 +3967,10 @@
         ctx.strokeStyle = 'rgba(244, 63, 94, 0.85)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        const maxGrid = 6.0;
         for (let i = 0; i < 96; i++) {
-          const xStart = i * stepW;
-          const xEnd = (i + 1) * stepW;
-          const y = (h - padBottom) - (dispatchData[i].grid / maxGrid) * (plotH * 0.45);
+          const xStart = plotX + i * stepW;
+          const xEnd = plotX + (i + 1) * stepW;
+          const y = kwY(Math.abs(dispatchData[i].grid));
           if (i === 0) {
             ctx.moveTo(xStart, y);
           } else {
@@ -3776,17 +3982,17 @@
       }
 
       // Discrete Active 15-Minute Interval Highlight Cursor
-      const curX = scrubberIdx * stepW;
+      const curX = plotX + scrubberIdx * stepW;
       ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
-      ctx.fillRect(curX, padTop, stepW, plotH);
+      ctx.fillRect(curX, plotY, stepW, plotH);
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 1.5;
-      ctx.strokeRect(curX, padTop, stepW, plotH);
+      ctx.strokeRect(curX, plotY, stepW, plotH);
 
       // Top indicator pip
       ctx.fillStyle = '#06b6d4';
       ctx.beginPath();
-      ctx.arc(curX + stepW / 2, padTop, 4, 0, 2 * Math.PI);
+      ctx.arc(curX + stepW / 2, plotY, 4, 0, 2 * Math.PI);
       ctx.fill();
     }
 
@@ -3812,7 +4018,7 @@
       const socEl = document.getElementById('hud-soc');
       if (socEl) socEl.innerText = d.soc.toFixed(1) + '%';
 
-      const gridStr = d.grid > 0.05 ? d.grid.toFixed(2) + ' kW (Imp)' : '0.00 kW (Self)';
+      const gridStr = d.grid > 0.05 ? d.grid.toFixed(2) + ' kW (Imp)' : (d.grid < -0.05 ? Math.abs(d.grid).toFixed(2) + ' kW (Exp)' : '0.00 kW (Self)');
       const gridEl = document.getElementById('hud-grid');
       if (gridEl) gridEl.innerText = gridStr;
 
@@ -3838,8 +4044,12 @@
       if (!canvas) return;
       function handleMove(clientX) {
         const rect = canvas.getBoundingClientRect();
-        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-        scrubberIdx = Math.min(95, Math.max(0, Math.floor(ratio * 96)));
+        const padLeft = 65;
+        const padRight = 85;
+        const plotW = rect.width - padLeft - padRight;
+        const mouseX = clientX - rect.left;
+        const clampedX = Math.max(0, Math.min(plotW - 0.001, mouseX - padLeft));
+        scrubberIdx = Math.min(95, Math.max(0, Math.floor((clampedX / plotW) * 96)));
         updateHud(scrubberIdx);
         drawDispatchCanvas();
       }
@@ -3851,7 +4061,264 @@
     }
 
 
-    window.addEventListener('DOMContentLoaded', () => {
+
+    // =========================================================================
+    // IN-CARD PROJECT INTERACTIVE PHYSICS SIMULATORS
+    // =========================================================================
+
+    // Project 01: Residential PV+BESS Sizing & 24h Dynamic Dispatch
+    function simP01() {
+      const pvSlider = document.getElementById('p01-slider-pv');
+      const bessSlider = document.getElementById('p01-slider-bess');
+      const invSlider = document.getElementById('p01-slider-inv');
+      const eegSlider = document.getElementById('p01-slider-eeg');
+      if (!pvSlider || !bessSlider || !invSlider || !eegSlider) return;
+
+      const pv = parseFloat(pvSlider.value);
+      const bess = parseFloat(bessSlider.value);
+      const inv = parseFloat(invSlider.value);
+      const eeg = parseFloat(eegSlider.value);
+
+      document.getElementById('p01-val-pv').innerText = pv.toFixed(1) + ' kWp';
+      document.getElementById('p01-val-bess').innerText = bess.toFixed(2) + ' kWh';
+      document.getElementById('p01-val-inv').innerText = inv.toFixed(2) + ' kW';
+      document.getElementById('p01-val-eeg').innerText = eeg.toFixed(2) + ' ct/kWh';
+
+      const reg = (typeof DAY_REGIMES !== 'undefined' && DAY_REGIMES[currentRegimeKey]) ? DAY_REGIMES[currentRegimeKey] : null;
+      const dailySolarKwh = reg ? (reg.pv.reduce((a, b) => a + b, 0) * 0.25 * (pv / 8.0)) : (pv * 2.88);
+      const dailyLoadKwh = reg ? (reg.load.reduce((a, b) => a + b, 0) * 0.25) : 10.5;
+      const avgPrice = reg ? (reg.price_mean / 1000.0) : 0.074;
+
+      // 1. Solar Self-Consumption Rate (%)
+      const scBase = Math.min(0.85, 0.28 + 0.12 * (8.0 / Math.max(1.0, pv)));
+      const scBoost = (1.0 - scBase) * (1.0 - Math.exp(-0.16 * bess));
+      const sc = Math.min(0.96, scBase + scBoost);
+      document.getElementById('p01-res-sc').innerText = (sc * 100).toFixed(1) + '%';
+
+      // 2. Daily Operating Cost / Revenue
+      const selfConsumedKwh = sc * dailySolarKwh;
+      const exportKwh = Math.max(0, dailySolarKwh - selfConsumedKwh);
+      const importKwh = Math.max(0, dailyLoadKwh - selfConsumedKwh);
+      const mpcGain = 0.12 * Math.pow(Math.max(0.1, bess), 0.75);
+      const netCost = (importKwh * (0.20 + Math.max(0, avgPrice))) - (exportKwh * (eeg / 100.0)) - mpcGain;
+      const costEl = document.getElementById('p01-res-cost');
+      costEl.innerText = (netCost <= 0 ? '' : '+') + netCost.toFixed(2) + ' EUR/day';
+      costEl.className = 'sim-res-val ' + (netCost <= 0 ? 'emerald' : 'amber');
+
+      // 3. Peak Grid Export
+      const peakExport = Math.min(inv, pv * 0.88);
+      document.getElementById('p01-res-peak').innerText = peakExport.toFixed(2) + ' kW';
+
+      // 4. B3 Headroom Recovery
+      const recEl = document.getElementById('p01-res-rec');
+      if (bess < 0.5) {
+        recEl.innerText = '0.0% (No BESS)';
+        recEl.className = 'sim-res-val';
+      } else {
+        const rec = Math.min(68.0, 42.0 + 14.0 * Math.min(1.2, bess / 9.37));
+        recEl.innerText = rec.toFixed(1) + '% Rec';
+        recEl.className = 'sim-res-val emerald';
+      }
+
+      // 5. Inverter Invariant Status
+      const statEl = document.getElementById('p01-res-stat');
+      if (pv > inv * 1.5) {
+        statEl.innerText = 'Clipping (' + (pv - inv).toFixed(1) + ' kW Overload)';
+        statEl.className = 'sim-res-val amber';
+      } else {
+        statEl.innerText = 'Pass (Within Limits)';
+        statEl.className = 'sim-res-val emerald';
+      }
+
+      // 6. Update 24h Scrubber Canvas with new sizing and active seasonal regime
+      recomputeDispatchForSizing(pv, bess, inv);
+      drawDispatchCanvas();
+      updateHud(scrubberIdx);
+    }
+
+    // Project 02: Pumped Storage Reversible Machine & Wear
+    function simP02() {
+      const turbEl = document.getElementById('p02-slider-turb');
+      const pumpEl = document.getElementById('p02-slider-pump');
+      const resEl = document.getElementById('p02-slider-res');
+      const wearEl = document.getElementById('p02-slider-wear');
+      if (!turbEl || !pumpEl || !resEl || !wearEl) return;
+
+      const turb = parseFloat(turbEl.value);
+      const pump = parseFloat(pumpEl.value);
+      const res = parseFloat(resEl.value);
+      const wear = parseFloat(wearEl.value);
+
+      document.getElementById('p02-val-turb').innerText = turb.toFixed(1) + ' MW';
+      document.getElementById('p02-val-pump').innerText = pump.toFixed(1) + ' MW';
+      document.getElementById('p02-val-res').innerText = Math.round(res).toLocaleString() + ' MWh';
+      document.getElementById('p02-val-wear').innerText = Math.round(wear) + ' EUR/switch';
+
+      // Reversals per day
+      const revs = 2.14 * Math.exp(-0.026 * wear);
+      document.getElementById('p02-res-revs').innerText = revs.toFixed(2) + ' /day';
+
+      // Annual wear cost
+      const annualWear = revs * 365 * wear * 0.6;
+      document.getElementById('p02-res-wearcost').innerText = Math.round(annualWear).toLocaleString() + ' EUR/yr';
+
+      // Net arbitrage revenue
+      const capScale = Math.pow(turb / 30.0, 0.85) * Math.pow(res / 2400.0, 0.25);
+      const grossRev = 959666 * capScale;
+      const netRev = Math.max(100000, grossRev - annualWear);
+      document.getElementById('p02-res-rev').innerText = Math.round(netRev).toLocaleString() + ' EUR';
+
+      // B2 capture %
+      const b2Cap = Math.min(96.5, Math.max(75.0, 88.0 + 4.0 * (res / 2400.0) - 2.0 * (wear / 150.0)));
+      document.getElementById('p02-res-b2cap').innerText = b2Cap.toFixed(1) + '% Capture';
+    }
+
+    // Project 03: §14a EnWG Fleet Charging Dimming
+    function simP03() {
+      const dimEl = document.getElementById('p03-slider-dim');
+      const sessionsEl = document.getElementById('p03-slider-sessions');
+      const bufferEl = document.getElementById('p03-slider-buffer');
+      if (!dimEl || !sessionsEl || !bufferEl) return;
+
+      const dim = parseFloat(dimEl.value);
+      const sessions = parseFloat(sessionsEl.value);
+      const buffer = parseFloat(bufferEl.value);
+
+      document.getElementById('p03-val-dim').innerText = Math.round(dim) + ' kW';
+      document.getElementById('p03-val-sessions').innerText = Math.round(sessions) + ' Sessions';
+      document.getElementById('p03-val-buffer').innerText = Math.round(buffer) + ' kWh';
+
+      // Peak grid demand capped strictly at dimming limit
+      document.getElementById('p03-res-peak').innerText = dim.toFixed(1) + ' kW';
+
+      // Departure punctuality
+      const effectiveCap = dim + (buffer / 2.0);
+      const minRequiredCap = sessions * 1.55;
+      const punctEl = document.getElementById('p03-res-punct');
+      if (effectiveCap >= minRequiredCap) {
+        punctEl.innerText = '0 Missed (100% On-Time)';
+        punctEl.className = 'sim-res-val emerald';
+      } else {
+        const missed = Math.min(sessions, Math.ceil((minRequiredCap - effectiveCap) / 7.5));
+        punctEl.innerText = missed + ' Missed (Critical Curtailment)';
+        punctEl.className = 'sim-res-val amber';
+      }
+
+      // Fleet electricity cost
+      const baseCost = 473.07 * (sessions / 48.0);
+      const bufferSavings = 0.04 * (buffer / 50.0);
+      const cost = baseCost * (1.0 - bufferSavings);
+      document.getElementById('p03-res-cost').innerText = cost.toFixed(2) + ' EUR';
+
+      // §14a net rebate
+      const rebate = 1480 * (sessions / 48.0);
+      document.getElementById('p03-res-rebate').innerText = Math.round(rebate).toLocaleString() + ' EUR/yr';
+    }
+
+    // Project 04: REC P2P Sharing & Core Stability
+    function simP04() {
+      const chargeEl = document.getElementById('p04-slider-charge');
+      const membersEl = document.getElementById('p04-slider-members');
+      const pvEl = document.getElementById('p04-slider-pv');
+      if (!chargeEl || !membersEl || !pvEl) return;
+
+      const charge = parseFloat(chargeEl.value);
+      const members = parseFloat(membersEl.value);
+      const pv = parseFloat(pvEl.value);
+
+      document.getElementById('p04-val-charge').innerText = charge.toFixed(3) + ' EUR/kWh';
+      document.getElementById('p04-val-members').innerText = Math.round(members) + ' Members';
+      document.getElementById('p04-val-pv').innerText = Math.round(pv) + ' kWp';
+
+      const breakeven = 0.110;
+      const baseSurplus = 24.13 * (members / 20.0) * Math.pow(pv / 65.0, 0.75);
+      const surplus = Math.max(0, baseSurplus * (1.0 - (charge / breakeven)));
+      document.getElementById('p04-res-surplus').innerText = surplus.toFixed(2) + ' EUR/wk';
+
+      const coreEl = document.getElementById('p04-res-core');
+      if (charge <= 0.030) {
+        coreEl.innerText = '0 Blocking (100% Stable)';
+        coreEl.className = 'sim-res-val emerald';
+      } else if (charge <= breakeven) {
+        coreEl.innerText = '0 Blocking (Core Stable)';
+        coreEl.className = 'sim-res-val emerald';
+      } else {
+        const blocking = Math.round(443 * (charge / breakeven));
+        coreEl.innerText = blocking + ' Blocking (Defection Risk)';
+        coreEl.className = 'sim-res-val amber';
+      }
+
+      const savings = Math.max(0, 18.4 * (1.0 - charge / breakeven) * Math.pow(pv / 65.0, 0.4));
+      document.getElementById('p04-res-savings').innerText = savings.toFixed(1) + '% Tariff Cut';
+    }
+
+    // Project 05: Hybrid Over-Planting Curtailment
+    function simP05() {
+      const pocEl = document.getElementById('p05-slider-poc');
+      const pvEl = document.getElementById('p05-slider-pv');
+      const bessEl = document.getElementById('p05-slider-bess');
+      if (!pocEl || !pvEl || !bessEl) return;
+
+      const poc = parseFloat(pocEl.value);
+      const pv = parseFloat(pvEl.value);
+      const bess = parseFloat(bessEl.value);
+
+      document.getElementById('p05-val-poc').innerText = Math.round(poc) + ' MW';
+      document.getElementById('p05-val-pv').innerText = Math.round(pv) + ' MW';
+      document.getElementById('p05-val-bess').innerText = Math.round(bess) + ' MWh';
+
+      const totalGen = 40.0 + pv;
+      const ratio = totalGen / poc;
+      document.getElementById('p05-res-ratio').innerText = ratio.toFixed(2) + 'x';
+
+      // Structural forced curtailment
+      const unbuffered = 695.3 * Math.pow(totalGen / 80.0, 2.0) * Math.pow(40.0 / poc, 1.4);
+      const bufferedCurtail = Math.max(25.0, unbuffered - 8.5 * bess);
+      document.getElementById('p05-res-curtail').innerText = bufferedCurtail.toFixed(1) + ' MWh';
+
+      // Revenue lift %
+      const lift = Math.min(16.0, 5.4 * (40.0 / poc) + 1.8 * (bess / 20.0));
+      document.getElementById('p05-res-lift').innerText = '+' + lift.toFixed(1) + '% Rev';
+
+      // EEG §51 avoidance
+      const avoid = 34200 * (totalGen / 80.0) * (1.0 + (bess / 20.0) * 0.3);
+      document.getElementById('p05-res-avoid').innerText = Math.round(avoid).toLocaleString() + ' EUR/yr';
+    }
+
+    // Project 06: Forecast-to-Bid Quantile reBAP Imbalance
+    function simP06() {
+      const riskEl = document.getElementById('p06-slider-risk');
+      const maeEl = document.getElementById('p06-slider-mae');
+      const spreadEl = document.getElementById('p06-slider-spread');
+      if (!riskEl || !maeEl || !spreadEl) return;
+
+      const risk = parseFloat(riskEl.value);
+      const mae = parseFloat(maeEl.value);
+      const spread = parseFloat(spreadEl.value);
+
+      const qLabel = 'q' + Math.round(risk * 100);
+      document.getElementById('p06-val-risk').innerText = qLabel + ' (Tau ' + risk.toFixed(2) + ')';
+      document.getElementById('p06-val-mae').innerText = mae.toFixed(1) + '%';
+      document.getElementById('p06-val-spread').innerText = spread.toFixed(1) + ' EUR/MWh';
+
+      // Realized price
+      const price = 60.89 + 3.2 * (0.50 - risk) * (spread / 42.0) - 0.15 * (mae - 11.8);
+      document.getElementById('p06-res-price').innerText = price.toFixed(2) + ' EUR/MWh';
+
+      // Optimal volume
+      const vol = 15785 * (1.0 + (risk - 0.42) * 0.6) * (1.0 - (mae - 11.8) * 0.02);
+      document.getElementById('p06-res-vol').innerText = Math.round(vol).toLocaleString() + ' MWh';
+
+      // 30-day gain
+      const gain = 288.5 * (1.0 + (spread - 42.0) / 42.0 * 0.7) * (1.0 - Math.abs(risk - 0.42) * 1.2);
+      document.getElementById('p06-res-gain').innerText = '+' + gain.toFixed(1) + 'k EUR';
+
+      // Risk reduction
+      const riskRed = -(44.0 + 15.0 * (0.50 - risk));
+      document.getElementById('p06-res-riskred').innerText = riskRed.toFixed(1) + '% Vol';
+    }
+
+        window.addEventListener('DOMContentLoaded', () => {
       selectProject('p01', false);
       setupCanvasListeners();
       updateHud(scrubberIdx);
