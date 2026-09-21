@@ -57,21 +57,28 @@ plt.rcParams.update({
 # Load cached price data
 P2024 = ROOT / "datakit" / "processed" / "price_de_lu_2024.parquet"
 P2025 = ROOT / "datakit" / "processed" / "price_de_lu_2025.parquet"
+P2026 = ROOT / "datakit" / "processed" / "price_de_lu_2026.parquet"
 
 df_p24 = pd.read_parquet(P2024) if P2024.exists() else None
 df_p25 = pd.read_parquet(P2025) if P2025.exists() else None
+df_p26 = pd.read_parquet(P2026) if P2026.exists() else None
 
 
 def get_prices(year: int, n_steps: int = 288, start_step: int = 4000) -> np.ndarray:
     """Return an array of real 15-min prices for the requested year."""
-    df = df_p24 if year == 2024 else df_p25
+    if year == 2024:
+        df = df_p24
+    elif year == 2025:
+        df = df_p25
+    else:
+        df = df_p26
     if df is not None and len(df) > start_step + n_steps:
         prices = df.iloc[start_step:start_step + n_steps, 0].to_numpy()
         return prices
     # Synthetic fallback matching year distribution
     t = np.linspace(0, n_steps / 4, n_steps)
-    base = 67.2 if year == 2024 else 78.5
-    spread = 45 if year == 2024 else 65
+    base = 67.2 if year == 2024 else (78.5 if year == 2025 else 105.8)
+    spread = 45 if year == 2024 else (65 if year == 2025 else 90)
     return base + spread * np.sin(t * np.pi / 12) + 15 * np.sin(t * np.pi / 6)
 
 
@@ -83,7 +90,7 @@ def gen_p01():
     out = ROOT / "projects" / "01-prosumer-pv-bess-mpc-rl" / "docs" / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
-    for year in (2024, 2025):
+    for year in (2024, 2025, 2026):
         n = 288  # 3 days at 15-min
         dt = 0.25
         t = np.arange(n) * dt
@@ -176,7 +183,7 @@ def gen_p02():
     out = ROOT / "projects" / "02-pumped-storage-rl-multimarket" / "docs" / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
-    for year in (2024, 2025):
+    for year in (2024, 2025, 2026):
         n = 192  # 48 hours at 15-min
         t = np.arange(n) * 0.25
         spot = get_prices(year, n, start_step=3200)
@@ -253,7 +260,7 @@ def gen_p03():
     out = ROOT / "projects" / "03-smart-ev-charging-14a" / "docs" / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
-    for year in (2024, 2025):
+    for year in (2024, 2025, 2026):
         n = 192  # 48 hours
         t = np.arange(n) * 0.25
         price = get_prices(year, n, start_step=2100)
@@ -328,7 +335,7 @@ def gen_p04():
     out = ROOT / "projects" / "04-energy-sharing-rec" / "docs" / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
-    for year in (2024, 2025):
+    for year in (2024, 2025, 2026):
         n = 168  # 7 days at 1-hour resolution
         t = np.arange(n)
         pv_peak = 95.0 if year == 2025 else 88.0
@@ -378,7 +385,7 @@ def gen_p05():
     out = ROOT / "projects" / "05-utility-hybrid-plant-dispatch" / "docs" / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
-    for year in (2024, 2025):
+    for year in (2024, 2025, 2026):
         n = 288  # 3 days
         t = np.arange(n) * 0.25
         spot = get_prices(year, n, start_step=1400)
@@ -463,7 +470,7 @@ def gen_p06():
     out = ROOT / "projects" / "06-probabilistic-forecast-to-bid" / "docs" / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
-    for year in (2024, 2025):
+    for year in (2024, 2025, 2026):
         n = 96  # 24 hours
         t = np.arange(n) * 0.25
         actual = 140.0 + 80.0 * np.sin(t * np.pi / 12) + 20.0 * np.cos(t * np.pi / 6) + 12.0 * np.sin(t * np.pi / 3)
