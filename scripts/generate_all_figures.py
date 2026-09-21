@@ -87,65 +87,114 @@ def get_prices(year: int, n_steps: int = 288, start_step: int = 4000) -> np.ndar
 # ==============================================================================
 def gen_p01():
     print("Generating Project 01 figures...")
+    from prosumer.config import SiteConfig, TariffConfig
+    from prosumer.market.tariff import import_price, export_price
+    from prosumer.baselines.lp_fast import solve_window_fast
+
     out = ROOT / "projects" / "01-prosumer-pv-bess-mpc-rl" / "docs" / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
+    dt = 0.25
+    n = 288  # 3 days at 15-min MTU (72 hours)
+    t = np.arange(n) * dt
+
+    cfg_site = SiteConfig()
+    cfg_tariff = TariffConfig(spot_passthrough=True)
+
     for year in (2024, 2025, 2026):
-        n = 288  # 3 days at 15-min
-        dt = 0.25
-        t = np.arange(n) * dt
-        price = get_prices(year, n, start_step=5500)
-        pv = np.maximum(0, 6.5 * np.sin((t % 24 - 6) * np.pi / 14)) ** 1.8
-        load = 0.8 + 1.4 * np.exp(-((t % 24 - 19) ** 2) / 6) + 0.6 * np.exp(-((t % 24 - 7.5) ** 2) / 4)
-        
-        # Simple B3 dispatch emulation
-        net = pv - load
-        soc = np.zeros(n)
-        soc[0] = 30.0
-        bat_p = np.zeros(n)
-        for i in range(n - 1):
-            if net[i] > 0:
-                chg = min(net[i], 3.0, (95 - soc[i]) * 10.0 / (dt * 100))
-                bat_p[i] = chg
-                soc[i + 1] = soc[i] + chg * dt * 0.95 / 10.0 * 100
-            else:
-                dis = min(-net[i], 3.0, (soc[i] - 10) * 10.0 / (dt * 100))
-                bat_p[i] = -dis
-                soc[i + 1] = soc[i] - dis * dt / (0.95 * 10.0) * 100
+        df_p = pd.read_parquet(ROOT / "datakit" / "processed" / f"price_de_lu_{year}.parquet").resample("15min").ffill()
+        df_sol = pd.read_parquet(ROOT / "datakit" / "processed" / f"public_power_de_{year}.parquet").resample("15min").ffill()
 
-        grid = load - pv + bat_p
+        sl_p = df_p.loc[f"{year}-05-01":f"{year}-05-03"].iloc[:n]
+        sl_sol = df_sol.loc[f"{year}-05-01":f"{year}-05-03"].iloc[:n]
 
-        fig, axes = plt.subplots(4, 1, figsize=(12, 9), sharex=True, dpi=300)
-        # 1. Prices
-        axes[0].plot(t, price, color=AMBER, lw=1.8, label=f"EPEX Spot Tariff {year} (EUR/MWh)")
+        spot_eur_mwh = sl_p.iloc[:, 0].to_numpy()
+        spot_eur_kwh = spot_eur_mwh / 1000.0
+
+        # Scale actual German solar output to 7.5 kWp residential rooftop array
+        sol_raw = sl_sol["Solar"].to_numpy()
+        pv = np.clip((sol_raw / max(np.max(sol_raw), 1000.0)) * 7.5, 0.0, 7.5)
+
+        # Residential load profile with Day 1 holiday vs Day 2 weekday vs Day 3 weekend dynamics
+        base_load = 0.7 + 1.5 * np.exp(-((t % 24 - 19.5) ** 2) / 6.0) + 0.8 * np.exp(-((t % 24 - 7.5) ** 2) / 4.0)
+        day_mod = np.ones(n)
+        day_mod[:96] = 1.15    # Day 1: May 01 Holiday (higher daytime home presence)
+        day_mod[96:192] = 0.95  # Day 2: Weekday (commuter absence)
+        day_mod[192:] = 1.10   # Day 3: Weekend
+        load = np.maximum(0.4, base_load * day_mod)
+
+        p_imp = import_price(spot_eur_kwh, sl_p.index, cfg_tariff)
+        p_exp = export_price(spot_eur_kwh, cfg_tariff)
+
+        sol = solve_window_fast(load, pv, p_imp, p_exp, dt=dt, cfg=cfg_site, soc0=cfg_site.soc_init)
+        if sol is None:
+            print(f"  Solver failed for {year}")
+            continue
+
+        bat_p = sol["p_bat"]  # dis - ch (positive = discharge, negative = charge)
+        soc_pct = sol["soc"] / cfg_site.e_bess * 100.0
+        p_grid_imp = sol["p_imp"]
+        p_grid_exp = sol["p_exp"]
+
+        fig, axes = plt.subplots(4, 1, figsize=(12, 9.5), sharex=True, dpi=300)
+
+        # 1. Price
+        axes[0].plot(t, spot_eur_mwh, color=AMBER, lw=1.8, label=f"EPEX Spot Tariff {year} (EUR/MWh)")
         axes[0].axhline(0, color="#64748b", lw=0.8, ls=":")
+        axes[0].fill_between(t, spot_eur_mwh, 0, where=(spot_eur_mwh < 0), color=ROSE, alpha=0.3, label="Negative Price Subsidies Cut (EEG §51)")
         axes[0].set_ylabel("Price (EUR/MWh)")
-        axes[0].set_title(f"Project 01: Residential PV+BESS 3-Day Rolling MPC Dispatch ({year} DE-LU)", weight="bold")
-        axes[0].legend(loc="upper right", framealpha=0.4)
+        axes[0].set_title(f"Project 01: Residential PV+BESS 72-Hour Optimal Rolling Dispatch ({year} DE-LU)", weight="bold")
+        axes[0].legend(loc="upper right", framealpha=0.5, fontsize=8.5)
         axes[0].grid(True)
 
         # 2. PV & Load
-        axes[1].plot(t, pv, color=EMERALD, lw=1.8, label="Solar PV Output (kW)")
-        axes[1].plot(t, load, color="#94a3b8", lw=1.6, ls="--", label="Household Load (kW)")
+        axes[1].plot(t, pv, color=EMERALD, lw=1.8, label="Empirical Rooftop PV Generation (kW)")
+        axes[1].fill_between(t, 0, pv, color=EMERALD, alpha=0.15)
+        axes[1].plot(t, load, color="#94a3b8", lw=1.6, ls="--", label="Household Demand Profile (kW)")
         axes[1].set_ylabel("Power (kW)")
-        axes[1].legend(loc="upper right", framealpha=0.4)
+        axes[1].legend(loc="upper right", framealpha=0.5, fontsize=8.5)
         axes[1].grid(True)
 
-        # 3. Battery Power
-        axes[2].plot(t, bat_p, color=PURPLE, lw=1.8, label="BESS Dispatch (+Chg / -Dis, kW)")
+        # 3. Battery Power Flow
+        axes[2].plot(t, bat_p, color=PURPLE, lw=1.8, label="BESS Active Dispatch (+Discharge / -Charge, kW)")
         axes[2].axhline(0, color="#64748b", lw=0.8, ls=":")
+        axes[2].fill_between(t, 0, bat_p, where=(bat_p > 0), color=PURPLE, alpha=0.25, label="Discharging")
+        axes[2].fill_between(t, 0, bat_p, where=(bat_p < 0), color=CYAN, alpha=0.25, label="Charging")
         axes[2].set_ylabel("Battery (kW)")
-        axes[2].legend(loc="upper right", framealpha=0.4)
+        axes[2].legend(loc="upper right", framealpha=0.5, fontsize=8.5)
         axes[2].grid(True)
 
-        # 4. SOC & Grid Flow
-        axes[3].plot(t, soc, color=CYAN, lw=2.0, label="BESS State of Charge (%)")
-        axes[3].plot(t, np.maximum(0, grid) * 10, color=ROSE, lw=1.4, ls=":", label="Grid Import (x10 kW)")
-        axes[3].set_ylabel("SOC (%)")
-        axes[3].set_xlabel("Elapsed Time (Hours)")
-        axes[3].set_ylim(-5, 105)
-        axes[3].legend(loc="upper right", framealpha=0.4)
-        axes[3].grid(True)
+        # 4. State of Charge & Grid Flow
+        ax4_left = axes[3]
+        ax4_left.plot(t, soc_pct, color=CYAN, lw=2.0, label="BESS State of Charge (%)")
+        ax4_left.set_ylabel("SOC (%)", color=CYAN)
+        ax4_left.tick_params(axis="y", labelcolor=CYAN)
+        ax4_left.set_ylim(-5, 105)
+        ax4_left.grid(True)
+
+        ax4_right = ax4_left.twinx()
+        ax4_right.plot(t, p_grid_imp, color=ROSE, lw=1.2, ls=":", label="Grid Import (kW)")
+        ax4_right.plot(t, p_grid_exp, color="#facc15", lw=1.2, ls="-.", label="Grid Export (kW)")
+        ax4_right.set_ylabel("Grid Flow (kW)", color=TEXT_MUTED)
+        ax4_right.tick_params(axis="y", labelcolor=TEXT_MUTED)
+        ax4_right.set_ylim(-0.5, max(8.0, float(np.max(p_grid_exp)) * 1.15))
+
+        lines_l, labels_l = ax4_left.get_legend_handles_labels()
+        lines_r, labels_r = ax4_right.get_legend_handles_labels()
+        ax4_left.legend(lines_l + lines_r, labels_l + labels_r, loc="upper right", framealpha=0.5, fontsize=8.5)
+
+        # Day demarcations
+        for ax in axes:
+            ax.axvline(24, color="#334155", lw=1.2, ls="--")
+            ax.axvline(48, color="#334155", lw=1.2, ls="--")
+
+        axes[0].text(12, axes[0].get_ylim()[1] * 0.88, "Day 1: May 01 (Holiday)", color=TEXT_MUTED, ha="center", fontsize=8.5, weight="bold")
+        axes[0].text(36, axes[0].get_ylim()[1] * 0.88, "Day 2: May 02 (Weekday)", color=TEXT_MUTED, ha="center", fontsize=8.5, weight="bold")
+        axes[0].text(60, axes[0].get_ylim()[1] * 0.88, "Day 3: May 03 (Weekend)", color=TEXT_MUTED, ha="center", fontsize=8.5, weight="bold")
+
+        axes[3].set_xlabel("Elapsed Time (Hours) | 72-Hour Continuous Window (288 x 15-Minute MTUs)")
+        axes[3].set_xticks([0, 12, 24, 36, 48, 60, 72])
+        axes[3].set_xticklabels(["0h", "12h", "24h", "36h", "48h", "60h", "72h"])
 
         plt.tight_layout()
         fig_path = out / f"p01_dispatch_{year}.png"
