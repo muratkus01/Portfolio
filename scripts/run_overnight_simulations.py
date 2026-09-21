@@ -206,6 +206,8 @@ def _p01_run(params: dict) -> dict:
     gap = float((b1_cost - b3_cost) / (b1_cost - b2_cost)) if abs(b1_cost - b2_cost) > 1e-4 else 0.0
 
     return {
+        "eval_days": n // 96,
+        "annualised": False,
         "net_cost_eur": net_cost,
         "self_consumption_frac": self_cons,
         "grid_independence_frac": grid_ind,
@@ -225,7 +227,7 @@ def _p02_grid(smoke: bool) -> list:
     turb_mw   = [30.0]        if smoke else [20.0, 30.0, 40.0]
     e_max_mwh = [2400.0]      if smoke else [1200.0, 2400.0, 3600.0]
     wear      = [100]         if smoke else [0, 50, 100, 150, 200, 300]
-    policies  = ["b1"]        if smoke else ["b1", "b2", "b3"]
+    policies  = ["b1"]        if smoke else ["b1", "b2", "b3", "rl_smoothed", "rl_unsmoothed"]
     years     = [2025]        if smoke else [2024, 2025]
     return [{"turb_mw_unit": t, "e_max_mwh": e, "wear_eur": w, "policy": p, "year": y}
             for t, e, w, p, y in itertools.product(turb_mw, e_max_mwh, wear, policies, years)]
@@ -238,6 +240,7 @@ def _p02_run(params: dict) -> dict:
         RunConfig, b1_price_threshold, b2_perfect, b3_rolling, make_price_forecast,
     )
     from psw.market import settle
+    from psw.plant import reversals
 
     year  = params["year"]
     price = _load_price(year)
@@ -268,6 +271,8 @@ def _p02_run(params: dict) -> dict:
     b1_res = b1_price_threshold(price_14, rc)
     b2_res = b2_perfect(price_14, rc)
 
+    sp_arr, sn_arr, act_arr = None, None, None
+
     if policy == "b3":
         rng = np.random.default_rng(rc.seed)
         price_fc = make_price_forecast(price_14, rc, rng)
@@ -276,32 +281,95 @@ def _p02_run(params: dict) -> dict:
     elif policy == "b2":
         b3_res = None
         active_res = b2_res
+    elif policy.startswith("rl_"):
+        b3_res = None
+        from psw.env import PSWEnv
+        from stable_baselines3 import PPO
+
+        smooth = 0.5 if policy == "rl_smoothed" else 0.0
+
+        class ShapedPSWEnv(PSWEnv):
+            def __init__(self, *args, action_smooth=0.5, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.action_smooth = action_smooth
+                self.prev_action_0 = 0.0
+
+            def reset(self, **kwargs):
+                self.prev_action_0 = 0.0
+                return super().reset(**kwargs)
+
+            def step(self, action):
+                a = np.copy(action)
+                if self.action_smooth > 0:
+                    a[0] = (1 - self.action_smooth) * a[0] + self.action_smooth * self.prev_action_0
+                    self.prev_action_0 = a[0]
+                obs, reward, term, trunc, info = super().step(a)
+                return obs, reward, term, trunc, info
+
+        model_path = ROOT / "projects" / "02-pumped-storage-rl-multimarket" / "models" / "ppo_psw_reference"
+        model = PPO.load(model_path)
+        env = ShapedPSWEnv(price_14, price_14, rc, episode_steps=n_steps, random_start=False, seed=rc.seed, action_smooth=smooth)
+        obs, _ = env.reset()
+        p_trace, ps_trace, e_trace, sp_trace, sn_trace, act_trace = [], [], [], [], [], []
+        for _ in range(n_steps):
+            act, _ = model.predict(obs, deterministic=True)
+            obs, r, term, trunc, info = env.step(act)
+            p_trace.append(info["p"])
+            ps_trace.append(info["p_sched"])
+            e_trace.append(info["e_res"])
+            sp_trace.append(info["sold_pos"])
+            sn_trace.append(info["sold_neg"])
+            act_trace.append(info["activation"])
+            if term or trunc:
+                break
+        p_arr = np.array(p_trace)
+        active_res = {
+            "p": p_arr, "p_sched": np.array(ps_trace),
+            "p_turb": np.maximum(p_arr, 0.0), "p_pump": np.maximum(-p_arr, 0.0),
+            "turb_mw": np.maximum(p_arr, 0.0), "pump_mw": np.maximum(-p_arr, 0.0),
+            "e_res": np.array(e_trace), "mode_changes": reversals(p_arr),
+            "reversals_per_day": float(np.sum(reversals(p_arr))) / n_days,
+        }
+        sp_arr = np.array(sp_trace)
+        sn_arr = np.array(sn_trace)
+        act_arr = np.array(act_trace)
     else:
         b3_res = None
         active_res = b1_res
 
     c_b1 = settle(b1_res, price_14, rc.dt, plant, rc.market)
     c_b2 = settle(b2_res, price_14, rc.dt, plant, rc.market)
-    c_act = settle(active_res, price_14, rc.dt, plant, rc.market)
+    if sp_arr is not None:
+        c_act = settle(active_res, price_14, rc.dt, plant, rc.market,
+                       sold_pos=sp_arr, sold_neg=sn_arr, activation=act_arr,
+                       schedule=active_res.get("p_sched"))
+    else:
+        c_act = settle(active_res, price_14, rc.dt, plant, rc.market)
     c_b3 = settle(b3_res, price_14, rc.dt, plant, rc.market) if b3_res is not None else c_b2
 
     revenue   = float(c_act["net_revenue"] * scale)
-    reversals = float(active_res.get("reversals_per_day", 0.0))
+    reversals_val = active_res.get("reversals_per_day")
+    if reversals_val is None and "mode_changes" in active_res:
+        reversals_val = float(np.sum(active_res["mode_changes"])) / n_days
+    else:
+        reversals_val = float(reversals_val or 0.0)
     wear_cost = float(c_act.get("wear_cost", 0.0) * scale)
     b1_rev = float(c_b1["net_revenue"] * scale)
     b2_rev = float(c_b2["net_revenue"] * scale)
     b3_rev = float(c_b3["net_revenue"] * scale)
 
-    turb_arr  = active_res.get("turb_mw", [])
-    pump_arr  = active_res.get("pump_mw", [])
+    turb_arr  = active_res.get("turb_mw", active_res.get("p_turb", []))
+    pump_arr  = active_res.get("pump_mw", active_res.get("p_pump", []))
 
     return {
-        "revenue_eur": revenue,
-        "reversals_per_day": reversals,
-        "wear_cost_eur": wear_cost,
-        "b1_revenue_eur": b1_rev,
-        "b2_revenue_eur": b2_rev,
-        "b3_revenue_eur": b3_rev,
+        "eval_days": n_days,
+        "annualised": True,
+        "revenue_eur_per_year_extrapolated": revenue,
+        "reversals_per_day": reversals_val,
+        "wear_cost_eur_per_year_extrapolated": wear_cost,
+        "b1_revenue_eur_per_year_extrapolated": b1_rev,
+        "b2_revenue_eur_per_year_extrapolated": b2_rev,
+        "b3_revenue_eur_per_year_extrapolated": b3_rev,
         "turb_mw": list(turb_arr) if hasattr(turb_arr, "__iter__") and not isinstance(turb_arr, (int, float)) else [],
         "pump_mw": list(pump_arr) if hasattr(pump_arr, "__iter__") and not isinstance(pump_arr, (int, float)) else [],
     }
@@ -362,6 +430,8 @@ def _p03_run(params: dict) -> dict:
     savings_pct = float((cost_b0 - cost_b3) / abs(cost_b0) * 100) if cost_b0 != 0 else 0.0
 
     return {
+        "eval_days": n_days,
+        "annualised": False,
         "cost_b0_eur": cost_b0, "cost_b3_eur": cost_b3,
         "savings_pct": savings_pct, "departure_fulfillment_frac": fulfil,
         "missed_departures": missed_b3, "curtail_kwh": curtail_kwh,
@@ -444,6 +514,8 @@ def _p04_run(params: dict) -> dict:
     in_core = int(c_stab.get("in_core", True))
 
     return {
+        "eval_days": n_days,
+        "annualised": False,
         "welfare_eur_per_week": welfare_wk,
         "consumer_saving_eur": consumer_saving,
         "owner_gain_eur": owner_gain,
@@ -523,12 +595,14 @@ def _p05_run(params: dict) -> dict:
     lift_pct = float((b3_rev - b1_rev) / abs(b1_rev) * 100) if b1_rev != 0 else 0.0
 
     return {
-        "revenue_eur": revenue,
-        "curtail_mwh": curtail,
-        "neg_price_avoided_eur": neg_avoid,
+        "eval_days": n_days,
+        "annualised": True,
+        "revenue_eur_per_year_extrapolated": revenue,
+        "curtail_mwh_per_year_extrapolated": curtail,
+        "neg_price_avoided_eur_per_year_extrapolated": neg_avoid,
         "overplanting_factor": overplant,
-        "b1_revenue_eur": b1_rev,
-        "b3_revenue_eur": b3_rev,
+        "b1_revenue_eur_per_year_extrapolated": b1_rev,
+        "b3_revenue_eur_per_year_extrapolated": b3_rev,
         "revenue_lift_pct": lift_pct,
     }
 
@@ -592,6 +666,8 @@ def _p06_run(params: dict) -> dict:
     risk_red   = float(max(0.0, 1.0 - imb_b3 / imb_b0)) * 100
 
     return {
+        "eval_days": n // 96,
+        "annualised": False,
         "capture_price_b0_eur_mwh": capture_b0, "capture_price_b3_eur_mwh": capture_b3,
         "net_gain_30d_eur": net_gain, "imbalance_risk_reduction_pct": risk_red,
     }
@@ -730,14 +806,14 @@ def _build_lookup_cubes() -> None:
     metric_cols = {
         "p01": ["out_net_cost_eur", "out_self_consumption_frac", "out_grid_independence_frac",
                 "out_b1_cost_eur", "out_b3_cost_eur", "out_gap_closure_frac"],
-        "p02": ["out_revenue_eur", "out_reversals_per_day", "out_wear_cost_eur",
-                "out_b1_revenue_eur", "out_b3_revenue_eur"],
+        "p02": ["out_revenue_eur_per_year_extrapolated", "out_reversals_per_day", "out_wear_cost_eur_per_year_extrapolated",
+                "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated"],
         "p03": ["out_cost_b0_eur", "out_cost_b3_eur", "out_savings_pct",
                 "out_departure_fulfillment_frac", "out_curtail_kwh"],
         "p04": ["out_welfare_eur_per_week", "out_consumer_saving_eur",
                 "out_owner_gain_eur", "out_self_consumption_pct", "out_breakeven_tariff_eur_kwh"],
-        "p05": ["out_revenue_eur", "out_curtail_mwh", "out_overplanting_factor",
-                "out_b1_revenue_eur", "out_b3_revenue_eur", "out_revenue_lift_pct"],
+        "p05": ["out_revenue_eur_per_year_extrapolated", "out_curtail_mwh_per_year_extrapolated", "out_overplanting_factor",
+                "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated", "out_revenue_lift_pct"],
         "p06": ["out_capture_price_b3_eur_mwh", "out_net_gain_30d_eur",
                 "out_imbalance_risk_reduction_pct"],
     }

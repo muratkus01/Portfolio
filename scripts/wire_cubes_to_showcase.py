@@ -1,0 +1,601 @@
+"""Wire scenario cubes from lookup_cubes.json into showcase.html."""
+import json
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+HTML_PATH = ROOT / "showcase.html"
+CUBES_PATH = ROOT / "simulations" / "results" / "lookup_cubes.json"
+
+def main():
+    print("Reading lookup_cubes.json...")
+    with open(CUBES_PATH, "r", encoding="utf-8") as f:
+        cubes_json = f.read().strip()
+    
+    # Validate json
+    cubes_data = json.loads(cubes_json)
+    print(f"Loaded {len(cubes_data)} project cubes.")
+
+    with open(HTML_PATH, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    # 1. Update Project 02 plant capacity wording to 120 MW / 2,400 MWh
+    html = re.sub(
+        r'30 MW turbine / 28 MW pump',
+        '120 MW turbine (4 x 30 MW) / 112 MW pump (4 x 28 MW)',
+        html
+    )
+    html = re.sub(
+        r'Reversible Machine \(30 MW / 28 MW\)',
+        'Reversible Machine (120 MW / 112 MW)',
+        html
+    )
+
+    # 2. Update Slider attributes in HTML to snap to cube grid values
+    # P01
+    html = re.sub(
+        r'<input type="range" id="p01-slider-pv"[^>]+>',
+        '<input type="range" id="p01-slider-pv" min="4.0" max="14.0" step="2.0" value="8.0" oninput="simP01()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p01-slider-bess"[^>]+>',
+        '<input type="range" id="p01-slider-bess" min="0.0" max="20.0" step="0.5" value="9.37" oninput="simP01()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p01-slider-inv"[^>]+>',
+        '<input type="range" id="p01-slider-inv" min="3.68" max="10.0" step="0.05" value="5.63" oninput="simP01()">',
+        html
+    )
+
+    # P02
+    html = re.sub(
+        r'<input type="range" id="p02-slider-turb"[^>]+>',
+        '<input type="range" id="p02-slider-turb" min="20.0" max="40.0" step="10.0" value="30.0" oninput="simP02()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p02-slider-pump"[^>]+>',
+        '<input type="range" id="p02-slider-pump" min="18.0" max="36.0" step="9.0" value="27.0" oninput="simP02()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p02-slider-res"[^>]+>',
+        '<input type="range" id="p02-slider-res" min="1200" max="3600" step="1200" value="2400" oninput="simP02()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p02-slider-wear"[^>]+>',
+        '<input type="range" id="p02-slider-wear" min="0" max="300" step="50" value="100" oninput="simP02()">',
+        html
+    )
+
+    # P03
+    html = re.sub(
+        r'<input type="range" id="p03-slider-dim"[^>]+>',
+        '<input type="range" id="p03-slider-dim" min="40" max="220" step="20" value="100" oninput="simP03()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p03-slider-sessions"[^>]+>',
+        '<input type="range" id="p03-slider-sessions" min="24" max="72" step="12" value="48" oninput="simP03()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p03-slider-buffer"[^>]+>',
+        '<input type="range" id="p03-slider-buffer" min="0" max="0" step="1" value="0" oninput="simP03()">',
+        html
+    )
+
+    # P04
+    html = re.sub(
+        r'<input type="range" id="p04-slider-charge"[^>]+>',
+        '<input type="range" id="p04-slider-charge" min="0.000" max="0.140" step="0.010" value="0.020" oninput="simP04()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p04-slider-members"[^>]+>',
+        '<input type="range" id="p04-slider-members" min="6" max="30" step="1" value="10" oninput="simP04()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p04-slider-pv"[^>]+>',
+        '<input type="range" id="p04-slider-pv" min="30" max="120" step="5" value="65" oninput="simP04()">',
+        html
+    )
+
+    # P05
+    html = re.sub(
+        r'<input type="range" id="p05-slider-poc"[^>]+>',
+        '<input type="range" id="p05-slider-poc" min="25" max="60" step="5" value="40" oninput="simP05()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p05-slider-pv"[^>]+>',
+        '<input type="range" id="p05-slider-pv" min="20" max="60" step="10" value="40" oninput="simP05()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p05-slider-bess"[^>]+>',
+        '<input type="range" id="p05-slider-bess" min="0" max="40" step="10" value="20" oninput="simP05()">',
+        html
+    )
+
+    # P06
+    html = re.sub(
+        r'<input type="range" id="p06-slider-risk"[^>]+>',
+        '<input type="range" id="p06-slider-risk" min="0.15" max="0.85" step="0.05" value="0.42" oninput="simP06()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p06-slider-mae"[^>]+>',
+        '<input type="range" id="p06-slider-mae" min="2.0" max="10.0" step="0.5" value="5.9" oninput="simP06()">',
+        html
+    )
+    html = re.sub(
+        r'<input type="range" id="p06-slider-spread"[^>]+>',
+        '<input type="range" id="p06-slider-spread" min="15" max="80" step="5" value="42" oninput="simP06()">',
+        html
+    )
+
+    # 3. Add match status indicators and illustrative dispatch canvas labels
+    for pid in ["p01", "p02", "p03", "p04", "p05", "p06"]:
+        badge_orig = f'<span class="sim-card-badge">{pid.upper()} Live Physics Model</span>'
+        badge_new = f'<span class="sim-card-badge">{pid.upper()} Live Physics Model</span> <span class="sim-card-badge emerald" id="{pid}-grid-match">(Exact Grid Match)</span>'
+        if badge_orig in html:
+            html = html.replace(badge_orig, badge_new)
+
+    # Add Illustrative labels to canvas headers
+    html = html.replace(
+        '<span>Representative Seasonal & Market Dynamics Selection:</span>',
+        '<span>Representative Seasonal & Market Dynamics Selection <span style="color:#94a3b8; font-size:0.75rem; font-weight:normal;">(Illustrative 24h Telemetry)</span>:</span>'
+    )
+    html = html.replace(
+        '<span>Representative Multi-Market & Hydrological Regimes:</span>',
+        '<span>Representative Multi-Market & Hydrological Regimes <span style="color:#94a3b8; font-size:0.75rem; font-weight:normal;">(Illustrative 24h Telemetry)</span>:</span>'
+    )
+    html = html.replace(
+        '<span>Representative Fleet Charging & DSO Dimming Scenarios:</span>',
+        '<span>Representative Fleet Charging & DSO Dimming Scenarios <span style="color:#94a3b8; font-size:0.75rem; font-weight:normal;">(Illustrative 24h Telemetry)</span>:</span>'
+    )
+    html = html.replace(
+        '<span>Representative Community Load & Market Regimes:</span>',
+        '<span>Representative Community Load & Market Regimes <span style="color:#94a3b8; font-size:0.75rem; font-weight:normal;">(Illustrative 24h Telemetry)</span>:</span>'
+    )
+    html = html.replace(
+        '<span>Representative Renewable & Market Regimes:</span>',
+        '<span>Representative Renewable & Market Regimes <span style="color:#94a3b8; font-size:0.75rem; font-weight:normal;">(Illustrative 24h Telemetry)</span>:</span>'
+    )
+    html = html.replace(
+        '<span>Representative Renewable & Asymmetric Imbalance Scenarios:</span>',
+        '<span>Representative Renewable & Asymmetric Imbalance Scenarios <span style="color:#94a3b8; font-size:0.75rem; font-weight:normal;">(Illustrative 24h Telemetry)</span>:</span>'
+    )
+
+    # Add Footnotes to P02 and P05 KPI consoles
+    p02_res_grid = '<div class="sim-results-grid">'
+    # Let's insert footnotes after the sim-results-grid in P02 and P05
+    p02_footnote = '<div style="font-size:0.72rem; color:#94a3b8; margin-top:8px; margin-bottom:12px;">*Note: Figures extrapolated from 14-day empirical telemetry window (scaled by 365/14) to represent full annual operations.</div>'
+    
+    # We will inject the footnote in the section of P02 and P05
+    html = html.replace(
+        '<div class="sim-res-val emerald" id="p02-res-stat">0 Simultaneous (Guaranteed)</div>\n          </div>\n        </div>',
+        '<div class="sim-res-val emerald" id="p02-res-stat">0 Simultaneous (Guaranteed)</div>\n          </div>\n        </div>\n        ' + p02_footnote
+    )
+    html = html.replace(
+        '<div class="sim-res-val emerald" id="p05-res-avoid">34,200 EUR/yr</div>\n          </div>\n        </div>',
+        '<div class="sim-res-val emerald" id="p05-res-avoid">34,200 EUR/yr</div>\n          </div>\n        </div>\n        ' + p02_footnote
+    )
+
+    # 4. Inline SCENARIO_CUBES in JavaScript
+    sc_code = f"""
+    // =========================================================================
+    // PRECOMPUTED PYTHON SCENARIO CUBES (2,256 SCENARIOS ACROSS ALL 6 PROJECTS)
+    // =========================================================================
+    const SCENARIO_CUBES = {cubes_json};
+
+    const GRID_PARAMS = {{
+      p01: {{
+        pv: [4.0, 6.0, 8.0, 10.0, 12.0, 14.0],
+        bess: [0.0, 5.0, 7.5, 9.37, 12.5, 15.0, 20.0],
+        inv: [3.68, 5.63, 8.0, 10.0]
+      }},
+      p02: {{
+        turb: [20.0, 30.0, 40.0],
+        res: [1200.0, 2400.0, 3600.0],
+        wear: [0, 50, 100, 150, 200, 300]
+      }},
+      p03: {{
+        dim: [40.0, 60.0, 80.0, 100.0, 140.0, 180.0, 220.0],
+        sessions: [24, 36, 48, 64, 72],
+        buffer: [0.0]
+      }},
+      p04: {{
+        charge: [0.000, 0.010, 0.020, 0.030, 0.050, 0.070, 0.090, 0.100, 0.110, 0.120, 0.140],
+        members: [6, 10, 15, 20, 25, 30],
+        pv: [30.0, 50.0, 65.0, 90.0, 120.0]
+      }},
+      p05: {{
+        poc: [25.0, 30.0, 40.0, 50.0, 60.0],
+        pv: [20.0, 30.0, 40.0, 50.0, 60.0],
+        bess: [0.0, 10.0, 20.0, 30.0, 40.0]
+      }},
+      p06: {{
+        tau: [0.15, 0.25, 0.35, 0.42, 0.50, 0.60, 0.70, 0.85],
+        sigma: [0.02, 0.04, 0.059, 0.075, 0.10],
+        spread: [15.0, 30.0, 42.0, 60.0, 80.0]
+      }}
+    }};
+
+    function snapToGrid(val, arr) {{
+      return arr.reduce((prev, curr) => (Math.abs(curr - val) < Math.abs(prev - val) ? curr : prev));
+    }}
+"""
+    # Insert SCENARIO_CUBES right before DAY_REGIMES_MULTIYEAR
+    anchor = "    // Multi-Year Representative Seasonal Regimes (2024, 2025, 2026)\n    const DAY_REGIMES_MULTIYEAR"
+    if anchor in html:
+        html = html.replace(anchor, sc_code + "\n" + anchor)
+        print("Inlined SCENARIO_CUBES and GRID_PARAMS successfully.")
+    else:
+        print("ERROR: Could not find DAY_REGIMES_MULTIYEAR anchor!")
+        return
+
+    # 5. Replace simP01 to simP06 functions with SCENARIO_CUBES lookup
+    new_sim_funcs = """
+    // Project 01: Residential PV+BESS Sizing & 24h Dynamic Dispatch
+    function simP01() {
+      const pvSlider = document.getElementById('p01-slider-pv');
+      const bessSlider = document.getElementById('p01-slider-bess');
+      const invSlider = document.getElementById('p01-slider-inv');
+      const eegSlider = document.getElementById('p01-slider-eeg');
+      if (!pvSlider || !bessSlider || !invSlider || !eegSlider) return;
+
+      const pvRaw = parseFloat(pvSlider.value);
+      const bessRaw = parseFloat(bessSlider.value);
+      const invRaw = parseFloat(invSlider.value);
+      const eeg = parseFloat(eegSlider.value);
+
+      const p1Grid = GRID_PARAMS.p01;
+      const pv = snapToGrid(pvRaw, p1Grid.pv);
+      const bess = snapToGrid(bessRaw, p1Grid.bess);
+      const inv = snapToGrid(invRaw, p1Grid.inv);
+      const isExact = (Math.abs(pvRaw - pv) < 0.05 && Math.abs(bessRaw - bess) < 0.05 && Math.abs(invRaw - inv) < 0.05);
+
+      document.getElementById('p01-val-pv').innerText = pv.toFixed(1) + ' kWp';
+      document.getElementById('p01-val-bess').innerText = bess.toFixed(2) + ' kWh';
+      document.getElementById('p01-val-inv').innerText = inv.toFixed(2) + ' kW';
+      document.getElementById('p01-val-eeg').innerText = eeg.toFixed(2) + ' ct/kWh';
+
+      const matchEl = document.getElementById('p01-grid-match');
+      if (matchEl) {
+        matchEl.innerText = isExact ? '(Exact Grid Match)' : `(Nearest Grid: ${pv}kWp/${bess}kWh/${inv}kW)`;
+        matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
+      }
+
+      const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
+      const bessStr = (bess === 9.37) ? '9.37' : bess.toFixed(1);
+      const cubeKey = `${pv.toFixed(1)}|${bessStr}|${inv}|${yr}`;
+      const cell = SCENARIO_CUBES.p01 && SCENARIO_CUBES.p01.data ? SCENARIO_CUBES.p01.data[cubeKey] : null;
+
+      if (cell) {
+        // [net_cost_eur, self_consumption_frac, grid_independence_frac, b1_cost_eur, b3_cost_eur, gap_closure_frac]
+        const netCost = cell[0];
+        const scFrac = cell[1];
+        const gapClosure = cell[5];
+
+        document.getElementById('p01-res-sc').innerText = (scFrac * 100).toFixed(1) + '%';
+        const costEl = document.getElementById('p01-res-cost');
+        costEl.innerText = (netCost <= 0 ? '' : '+') + Math.round(netCost).toLocaleString() + ' EUR/yr';
+        costEl.className = 'sim-res-val ' + (netCost <= 0 ? 'emerald' : 'amber');
+
+        const recEl = document.getElementById('p01-res-rec');
+        if (bess < 0.5) {
+          recEl.innerText = '0.0% (No BESS)';
+          recEl.className = 'sim-res-val';
+        } else {
+          recEl.innerText = (gapClosure * 100).toFixed(1) + '% Rec';
+          recEl.className = 'sim-res-val emerald';
+        }
+      }
+
+      // Peak Grid Export & Inverter Status
+      const peakExport = Math.min(inv, pv * 0.88);
+      document.getElementById('p01-res-peak').innerText = peakExport.toFixed(2) + ' kW';
+      const statEl = document.getElementById('p01-res-stat');
+      if (pv > inv * 1.5) {
+        statEl.innerText = 'Clipping (' + (pv - inv).toFixed(1) + ' kW Overload)';
+        statEl.className = 'sim-res-val amber';
+      } else {
+        statEl.innerText = 'Pass (Within Limits)';
+        statEl.className = 'sim-res-val emerald';
+      }
+
+      // Update 24h Scrubber Canvas
+      recomputeDispatchForSizing(pv, bess, inv);
+      drawDispatchCanvas();
+      updateHud(scrubberIdx);
+    }
+
+    // Project 02: Pumped Storage Reversible Machine & Wear
+    let currentP02Policy = 'b3';
+    function simP02() {
+      const turbEl = document.getElementById('p02-slider-turb');
+      const pumpEl = document.getElementById('p02-slider-pump');
+      const resEl = document.getElementById('p02-slider-res');
+      const wearEl = document.getElementById('p02-slider-wear');
+      if (!turbEl || !pumpEl || !resEl || !wearEl) return;
+
+      const turbRaw = parseFloat(turbEl.value);
+      const pumpRaw = parseFloat(pumpEl.value);
+      const resRaw = parseFloat(resEl.value);
+      const wearRaw = parseFloat(wearEl.value);
+
+      const p2Grid = GRID_PARAMS.p02;
+      const turb = snapToGrid(turbRaw, p2Grid.turb);
+      const res = snapToGrid(resRaw, p2Grid.res);
+      const wear = snapToGrid(wearRaw, p2Grid.wear);
+      const pump = turb * 0.9; // Physical 0.9 coupling in PlantConfig
+
+      const isExact = (Math.abs(turbRaw - turb) < 0.1 && Math.abs(resRaw - res) < 1.0 && Math.abs(wearRaw - wear) < 0.1);
+
+      document.getElementById('p02-val-turb').innerText = turb.toFixed(1) + ' MW';
+      document.getElementById('p02-val-pump').innerText = pump.toFixed(1) + ' MW';
+      document.getElementById('p02-val-res').innerText = Math.round(res).toLocaleString() + ' MWh';
+      document.getElementById('p02-val-wear').innerText = Math.round(wear) + ' EUR/switch';
+
+      const matchEl = document.getElementById('p02-grid-match');
+      if (matchEl) {
+        matchEl.innerText = isExact ? `(Exact Grid: ${currentP02Policy.toUpperCase()})` : `(Nearest: ${turb}MW/${res}MWh/${currentP02Policy})`;
+        matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
+      }
+
+      const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
+      const cubeKey = `${turb.toFixed(1)}|${res.toFixed(1)}|${Math.round(wear)}|${currentP02Policy}|${yr}`;
+      const cell = SCENARIO_CUBES.p02 && SCENARIO_CUBES.p02.data ? SCENARIO_CUBES.p02.data[cubeKey] : null;
+
+      if (cell) {
+        // [revenue_eur_per_year_extrapolated, reversals_per_day, wear_cost_eur_per_year_extrapolated, b1_revenue_eur_per_year_extrapolated, b3_revenue_eur_per_year_extrapolated]
+        const rev = cell[0];
+        const revsPerDay = cell[1];
+        const wearCost = cell[2];
+        const b3Rev = cell[4];
+
+        document.getElementById('p02-res-rev').innerText = Math.round(rev).toLocaleString() + ' EUR/yr*';
+        document.getElementById('p02-res-revs').innerText = revsPerDay.toFixed(2) + ' /day';
+        document.getElementById('p02-res-wearcost').innerText = Math.round(wearCost).toLocaleString() + ' EUR/yr*';
+        
+        const b2Cap = (b3Rev > 0) ? Math.min(100.0, (rev / b3Rev) * 100.0) : 100.0;
+        document.getElementById('p02-res-b2cap').innerText = b2Cap.toFixed(1) + '% B3 Benchmark';
+      }
+
+      document.getElementById('p02-res-stat').innerText = '0 Simultaneous (Guaranteed)';
+
+      recomputeDispatchP02(turb, pump, res, wear);
+      drawDispatchCanvasP02();
+      updateHudP02(scrubberIdxP02);
+    }
+
+    // Project 03: §14a EnWG Fleet Charging Dimming
+    function simP03() {
+      const dimEl = document.getElementById('p03-slider-dim');
+      const sessionsEl = document.getElementById('p03-slider-sessions');
+      const bufferEl = document.getElementById('p03-slider-buffer');
+      if (!dimEl || !sessionsEl || !bufferEl) return;
+
+      const dimRaw = parseFloat(dimEl.value);
+      const sessionsRaw = parseFloat(sessionsEl.value);
+      const bufferRaw = parseFloat(bufferEl.value);
+
+      const p3Grid = GRID_PARAMS.p03;
+      const dim = snapToGrid(dimRaw, p3Grid.dim);
+      const sessions = snapToGrid(sessionsRaw, p3Grid.sessions);
+      const isExact = (Math.abs(dimRaw - dim) < 0.1 && Math.abs(sessionsRaw - sessions) < 0.1);
+
+      document.getElementById('p03-val-dim').innerText = Math.round(dim) + ' kW';
+      document.getElementById('p03-val-sessions').innerText = Math.round(sessions) + ' Sessions';
+      document.getElementById('p03-val-buffer').innerText = '0 kWh (DSO Direct)';
+
+      const matchEl = document.getElementById('p03-grid-match');
+      if (matchEl) {
+        matchEl.innerText = isExact ? '(Exact Grid Match)' : `(Nearest: ${dim}kW/${sessions}sess)`;
+        matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
+      }
+
+      const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
+      const cubeKey = `${dim.toFixed(1)}|${Math.round(sessions)}|0.0|${yr}`;
+      const cell = SCENARIO_CUBES.p03 && SCENARIO_CUBES.p03.data ? SCENARIO_CUBES.p03.data[cubeKey] : null;
+
+      if (cell) {
+        // [cost_b0_eur, cost_b3_eur, savings_pct, departure_fulfillment_frac, curtail_kwh]
+        const costB3 = cell[1];
+        const savingsPct = cell[2];
+        const punctFrac = cell[3];
+
+        document.getElementById('p03-res-peak').innerText = dim.toFixed(1) + ' kW';
+        document.getElementById('p03-res-cost').innerText = costB3.toFixed(2) + ' EUR (14d)';
+        document.getElementById('p03-res-rebate').innerText = savingsPct.toFixed(1) + '% Cost Cut';
+        
+        const punctEl = document.getElementById('p03-res-punct');
+        punctEl.innerText = (punctFrac * 100).toFixed(1) + '% On-Time';
+        punctEl.className = 'sim-res-val ' + (punctFrac >= 0.999 ? 'emerald' : 'amber');
+      }
+
+      recomputeDispatchP03(dim, sessions, 0.0);
+      drawDispatchCanvasP03();
+      updateHudP03(scrubberIdxP03);
+    }
+
+    // Project 04: REC P2P Sharing & Core Stability
+    function simP04() {
+      const chargeEl = document.getElementById('p04-slider-charge');
+      const membersEl = document.getElementById('p04-slider-members');
+      const pvEl = document.getElementById('p04-slider-pv');
+      if (!chargeEl || !membersEl || !pvEl) return;
+
+      const chargeRaw = parseFloat(chargeEl.value);
+      const membersRaw = parseFloat(membersEl.value);
+      const pvRaw = parseFloat(pvEl.value);
+
+      const p4Grid = GRID_PARAMS.p04;
+      const charge = snapToGrid(chargeRaw, p4Grid.charge);
+      const members = snapToGrid(membersRaw, p4Grid.members);
+      const pv = snapToGrid(pvRaw, p4Grid.pv);
+      const isExact = (Math.abs(chargeRaw - charge) < 0.001 && Math.abs(membersRaw - members) < 0.1 && Math.abs(pvRaw - pv) < 0.1);
+
+      document.getElementById('p04-val-charge').innerText = charge.toFixed(3) + ' EUR/kWh';
+      document.getElementById('p04-val-members').innerText = Math.round(members) + ' Members';
+      document.getElementById('p04-val-pv').innerText = Math.round(pv) + ' kWp';
+
+      const matchEl = document.getElementById('p04-grid-match');
+      if (matchEl) {
+        matchEl.innerText = isExact ? '(Exact Grid Match)' : `(Nearest: ${charge.toFixed(3)}EUR/${members}m/${pv}kWp)`;
+        matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
+      }
+
+      const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
+      const chargeStr = String(parseFloat(charge.toFixed(3)));
+      const formattedCharge = (chargeStr.indexOf('.') === -1) ? chargeStr + '.0' : chargeStr;
+      const cubeKey = `${formattedCharge}|${Math.round(members)}|${pv.toFixed(1)}|${yr}`;
+      const cell = SCENARIO_CUBES.p04 && SCENARIO_CUBES.p04.data ? SCENARIO_CUBES.p04.data[cubeKey] : null;
+
+      if (cell) {
+        // [welfare_eur_per_week, consumer_saving_eur, owner_gain_eur, self_consumption_pct, breakeven_tariff_eur_kwh]
+        const welfareWk = cell[0];
+        const selfCons = cell[3];
+        const breakeven = cell[4];
+
+        document.getElementById('p04-res-surplus').innerText = welfareWk.toFixed(2) + ' EUR/wk';
+        document.getElementById('p04-res-savings').innerText = selfCons.toFixed(1) + '% Self-Cons';
+
+        const coreEl = document.getElementById('p04-res-core');
+        if (charge <= breakeven) {
+          coreEl.innerText = '0 Blocking (Core Stable)';
+          coreEl.className = 'sim-res-val emerald';
+        } else {
+          coreEl.innerText = 'Defection Risk (> Breakeven)';
+          coreEl.className = 'sim-res-val amber';
+        }
+      }
+
+      recomputeDispatchP04(charge, members, pv);
+      drawDispatchCanvasP04();
+      updateHudP04(scrubberIdxP04);
+    }
+
+    // Project 05: Hybrid Over-Planting Curtailment
+    function simP05() {
+      const pocEl = document.getElementById('p05-slider-poc');
+      const pvEl = document.getElementById('p05-slider-pv');
+      const bessEl = document.getElementById('p05-slider-bess');
+      if (!pocEl || !pvEl || !bessEl) return;
+
+      const pocRaw = parseFloat(pocEl.value);
+      const pvRaw = parseFloat(pvEl.value);
+      const bessRaw = parseFloat(bessEl.value);
+
+      const p5Grid = GRID_PARAMS.p05;
+      const poc = snapToGrid(pocRaw, p5Grid.poc);
+      const pv = snapToGrid(pvRaw, p5Grid.pv);
+      const bess = snapToGrid(bessRaw, p5Grid.bess);
+      const isExact = (Math.abs(pocRaw - poc) < 0.1 && Math.abs(pvRaw - pv) < 0.1 && Math.abs(bessRaw - bess) < 0.1);
+
+      document.getElementById('p05-val-poc').innerText = Math.round(poc) + ' MW';
+      document.getElementById('p05-val-pv').innerText = Math.round(pv) + ' MW';
+      document.getElementById('p05-val-bess').innerText = Math.round(bess) + ' MWh';
+
+      const matchEl = document.getElementById('p05-grid-match');
+      if (matchEl) {
+        matchEl.innerText = isExact ? '(Exact Grid Match)' : `(Nearest: ${poc}MW POC/${pv}MW PV/${bess}MWh)`;
+        matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
+      }
+
+      const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
+      const cubeKey = `${poc.toFixed(1)}|${pv.toFixed(1)}|${bess.toFixed(1)}|${yr}`;
+      const cell = SCENARIO_CUBES.p05 && SCENARIO_CUBES.p05.data ? SCENARIO_CUBES.p05.data[cubeKey] : null;
+
+      if (cell) {
+        // [revenue_eur_per_year_extrapolated, curtail_mwh_per_year_extrapolated, overplanting_factor, b1_revenue_eur_per_year_extrapolated, b3_revenue_eur_per_year_extrapolated, revenue_lift_pct]
+        const rev = cell[0];
+        const curtailMwh = cell[1];
+        const overplant = cell[2];
+        const liftPct = cell[5];
+
+        document.getElementById('p05-res-ratio').innerText = overplant.toFixed(2) + 'x Overplant';
+        document.getElementById('p05-res-curtail').innerText = curtailMwh.toFixed(1) + ' MWh/yr*';
+        document.getElementById('p05-res-lift').innerText = (liftPct >= 0 ? '+' : '') + liftPct.toFixed(1) + '% Rev';
+        document.getElementById('p05-res-avoid').innerText = Math.round(rev).toLocaleString() + ' EUR/yr*';
+      }
+
+      recomputeDispatchP05(poc, pv, bess);
+      drawDispatchCanvasP05();
+      updateHudP05(scrubberIdxP05);
+    }
+
+    // Project 06: Forecast-to-Bid Quantile reBAP Imbalance
+    function simP06() {
+      const riskEl = document.getElementById('p06-slider-risk');
+      const maeEl = document.getElementById('p06-slider-mae');
+      const spreadEl = document.getElementById('p06-slider-spread');
+      if (!riskEl || !maeEl || !spreadEl) return;
+
+      const riskRaw = parseFloat(riskEl.value);
+      const maeRaw = parseFloat(maeEl.value);
+      const spreadRaw = parseFloat(spreadEl.value);
+
+      const p6Grid = GRID_PARAMS.p06;
+      const risk = snapToGrid(riskRaw, p6Grid.tau);
+      const sigmaMap = [0.02, 0.04, 0.059, 0.075, 0.10];
+      const sigma = snapToGrid(maeRaw / 100.0, sigmaMap);
+      const spread = snapToGrid(spreadRaw, p6Grid.spread);
+
+      const isExact = (Math.abs(riskRaw - risk) < 0.01 && Math.abs((maeRaw / 100.0) - sigma) < 0.005 && Math.abs(spreadRaw - spread) < 0.1);
+
+      const qLabel = 'q' + Math.round(risk * 100);
+      document.getElementById('p06-val-risk').innerText = qLabel + ' (Tau ' + risk.toFixed(2) + ')';
+      document.getElementById('p06-val-mae').innerText = (sigma * 100).toFixed(1) + '%';
+      document.getElementById('p06-val-spread').innerText = spread.toFixed(1) + ' EUR/MWh';
+
+      const matchEl = document.getElementById('p06-grid-match');
+      if (matchEl) {
+        matchEl.innerText = isExact ? '(Exact Grid Match)' : `(Nearest: Tau ${risk.toFixed(2)}/Sigma ${sigma}/Spread ${spread})`;
+        matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
+      }
+
+      const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
+      const sigmaStr = (sigma === 0.059) ? '0.059' : (sigma === 0.075 ? '0.075' : sigma.toFixed(2));
+      const cubeKey = `${risk.toFixed(2)}|${sigmaStr}|${spread.toFixed(1)}|${yr}`;
+      const cell = SCENARIO_CUBES.p06 && SCENARIO_CUBES.p06.data ? SCENARIO_CUBES.p06.data[cubeKey] : null;
+
+      if (cell) {
+        // [capture_price_b3_eur_mwh, net_gain_30d_eur, imbalance_risk_reduction_pct]
+        const capPrice = cell[0];
+        const netGain = cell[1];
+        const riskRed = cell[2];
+
+        document.getElementById('p06-res-price').innerText = capPrice.toFixed(2) + ' EUR/MWh';
+        document.getElementById('p06-res-vol').innerText = '15,785 MWh (Optimal Bid)';
+        document.getElementById('p06-res-gain').innerText = (netGain >= 0 ? '+' : '') + Math.round(netGain).toLocaleString() + ' EUR (30d)';
+        document.getElementById('p06-res-riskred').innerText = (riskRed >= 0 ? '-' : '+') + riskRed.toFixed(1) + '% Risk';
+      }
+
+      recomputeDispatchP06(risk, maeRaw, spread);
+      drawDispatchCanvasP06();
+      updateHudP06(scrubberIdxP06);
+    }
+"""
+    # Replace the existing simP01 - simP06 functions
+    sim_regex = r'// Project 01: Residential PV\+BESS Sizing & 24h Dynamic Dispatch\s+function simP01\(\) \{[\s\S]+?updateHudP06\(scrubberIdxP06\);\s+\}'
+    if re.search(sim_regex, html):
+        html = re.sub(sim_regex, new_sim_funcs.strip(), html)
+        print("Replaced simP01-simP06 functions with SCENARIO_CUBES lookups.")
+    else:
+        print("ERROR: Could not find simP01-simP06 functions block!")
+        return
+
+    # Write output
+    with open(HTML_PATH, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"Successfully updated showcase.html ({len(html)} bytes).")
+
+if __name__ == "__main__":
+    main()

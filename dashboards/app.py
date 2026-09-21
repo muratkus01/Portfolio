@@ -142,7 +142,7 @@ with ui.sidebar(width=300):
                         choices=["1200.0", "2400.0", "3600.0"], selected="2400.0")
         ui.input_slider("p02_wear", "Mode-Change Penalty (EUR/switch)", min=0, max=300, value=100, step=50)
         ui.input_select("p02_pol",  "Dispatch Policy",
-                        choices=["b1", "b2", "b3"], selected="b3")
+                        choices=["b1", "b2", "b3", "rl_smoothed", "rl_unsmoothed"], selected="b3")
 
     # --- P03 sliders ---
     with ui.panel_conditional("input.project === 'p03'"):
@@ -184,6 +184,7 @@ with ui.sidebar(width=300):
 
     ui.hr(style="border-color: #1e2d47;")
     ui.markdown(f'<span style="color:{SUB}; font-size:0.75rem;">Results load from precomputed parquet tables in `simulations/results/`. Run `--full` overnight simulation to populate all cells.</span>')
+    ui.markdown(f'<span style="color:{SUB}; font-size:0.72rem; display:block; margin-top:6px;">*Note: Projects 02 and 05 evaluate a 14-day telemetry window extrapolated to 365 days (scaled by 365/14). In schema, these metrics are designated with `_per_year_extrapolated` alongside `eval_days=14` and `annualised=True`.</span>')
 
 
 # ===========================================================================
@@ -378,7 +379,8 @@ with ui.card():
 
         elif proj == "p02":
             grp_col = "wear_eur"
-            b1_col  = "out_b1_revenue_eur"; b3_col = "out_b3_revenue_eur"
+            b1_col  = "out_b1_revenue_eur_per_year_extrapolated" if "out_b1_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_b1_revenue_eur"
+            b3_col  = "out_b3_revenue_eur_per_year_extrapolated" if "out_b3_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_b3_revenue_eur"
             if not all(c in df_yr.columns for c in [grp_col, b1_col, b3_col]):
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
             summary = df_yr.groupby(grp_col)[[b1_col, b3_col]].mean()
@@ -417,11 +419,13 @@ with ui.card():
         elif proj == "p05":
             if "poc_mw" not in df_yr.columns:
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
-            summary = df_yr.groupby("poc_mw")[["out_b1_revenue_eur", "out_b3_revenue_eur"]].mean()
+            b1_col_p5 = "out_b1_revenue_eur_per_year_extrapolated" if "out_b1_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_b1_revenue_eur"
+            b3_col_p5 = "out_b3_revenue_eur_per_year_extrapolated" if "out_b3_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_b3_revenue_eur"
+            summary = df_yr.groupby("poc_mw")[[b1_col_p5, b3_col_p5]].mean()
             x = np.arange(len(summary))
             w = 0.35
-            ax.bar(x - w/2, summary["out_b1_revenue_eur"], w, label="B1 No-BESS", color=AMBER, alpha=0.85)
-            ax.bar(x + w/2, summary["out_b3_revenue_eur"], w, label="B3 Rolling MPC", color=ACCENT, alpha=0.85)
+            ax.bar(x - w/2, summary[b1_col_p5], w, label="B1 No-BESS", color=AMBER, alpha=0.85)
+            ax.bar(x + w/2, summary[b3_col_p5], w, label="B3 Rolling MPC", color=ACCENT, alpha=0.85)
             ax.set_xticks(x); ax.set_xticklabels([f"{v:.0f} MW" for v in summary.index])
             ax.set_xlabel("Grid Connection (MW)")
             ax.set_ylabel("Annual Revenue (EUR)")
@@ -485,10 +489,10 @@ with ui.card():
             ax.set_title("Net Annual Cost Heatmap (EUR)")
             plt.colorbar(im, ax=ax)
 
-        elif proj == "p02":
-            if not all(c in df_yr.columns for c in ["turb_mw_unit", "wear_eur", "out_revenue_eur"]):
+            rev_col_p2 = "out_revenue_eur_per_year_extrapolated" if "out_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_revenue_eur"
+            if not all(c in df_yr.columns for c in ["turb_mw_unit", "wear_eur", rev_col_p2]):
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
-            pivot = df_yr.groupby(["turb_mw_unit", "wear_eur"])["out_revenue_eur"].mean().unstack(fill_value=0)
+            pivot = df_yr.groupby(["turb_mw_unit", "wear_eur"])[rev_col_p2].mean().unstack(fill_value=0)
             im = ax.imshow(pivot.values, cmap="YlGn", aspect="auto")
             ax.set_xticks(range(len(pivot.columns))); ax.set_xticklabels([str(c) for c in pivot.columns])
             ax.set_yticks(range(len(pivot.index)));   ax.set_yticklabels([str(r) for r in pivot.index])
@@ -518,10 +522,10 @@ with ui.card():
             ax.set_title("Weekly Welfare Surplus Heatmap (EUR)")
             plt.colorbar(im, ax=ax)
 
-        elif proj == "p05":
-            if not all(c in df_yr.columns for c in ["poc_mw", "bess_mwh", "out_revenue_eur"]):
+            rev_col_p5 = "out_revenue_eur_per_year_extrapolated" if "out_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_revenue_eur"
+            if not all(c in df_yr.columns for c in ["poc_mw", "bess_mwh", rev_col_p5]):
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
-            pivot = df_yr.groupby(["poc_mw", "bess_mwh"])["out_revenue_eur"].mean().unstack(fill_value=0)
+            pivot = df_yr.groupby(["poc_mw", "bess_mwh"])[rev_col_p5].mean().unstack(fill_value=0)
             im = ax.imshow(pivot.values, cmap="plasma", aspect="auto")
             ax.set_xticks(range(len(pivot.columns))); ax.set_xticklabels([str(c) for c in pivot.columns])
             ax.set_yticks(range(len(pivot.index)));   ax.set_yticklabels([str(r) for r in pivot.index])

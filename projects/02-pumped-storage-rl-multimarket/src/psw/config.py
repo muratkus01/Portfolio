@@ -31,15 +31,15 @@ class PlantConfig:
 
     # --- units ---
     n_units: int = 4
-    p_turb_max_unit: float = 75.0    # MW per unit generating
-    p_turb_min_unit: float = 25.0    # MW per unit (below this, cavitation / rough zone)
-    p_pump_unit: float = 78.0        # MW per unit pumping (fixed-speed pumps are near-constant)
+    p_turb_max_unit: float = 30.0    # MW per unit generating (4 x 30 MW = 120 MW reference plant)
+    p_turb_min_unit: float = 7.5     # MW per unit (below this, cavitation / rough zone)
+    p_pump_unit: float = 28.0        # MW per unit pumping (4 x 28 MW = 112 MW)
     eta_turb: float = 0.90
     eta_pump: float = 0.88
 
     # --- dynamics ---
-    ramp_mw_per_step: float = 150.0  # MW change permitted per 15-min step
-    mode_change_cost: float = 300.0  # EUR per pump<->turbine transition (wear, water, time)
+    ramp_mw_per_step: float = 60.0   # MW change permitted per 15-min step
+    mode_change_cost: float = 100.0  # EUR per pump<->turbine transition (wear, water, time)
     start_cost: float = 120.0        # EUR per unit start
     min_up_steps: int = 2            # 30 min
     min_down_steps: int = 2

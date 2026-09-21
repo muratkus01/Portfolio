@@ -24,17 +24,15 @@ assistants: [Antigravity, Claude Pro, Claude Code]
 
 ---
 
-## 🚦 Current State: 2026-09-21 (Overnight Multi-Project Simulations Complete, 0 Violations, 100% Green Suite)
+## 🚦 Current State: 2026-09-21 (Portfolio Dashboard & Scenario Grid Complete, 2,256 Scenarios, 0 Violations, 100% Green Suite)
 
-Monorepo synchronized across worktrees and verified against Claude's review:
-* **Overnight Multi-Project Scenario Simulations Complete:** Computed full parameter sweep across all 6 projects (2,040 total scenario evaluations across both 2024 and 2025 DE-LU market data) with 0 physical invariant violations. Stored in Apache Parquet (`simulations/results/p01_scenarios.parquet` through `p06_scenarios.parquet`) and compact multidimensional lookup cubes (`simulations/results/lookup_cubes.json`).
-* **Review Findings Addressed:**
-  1. P05 solve time reduced via `resolve_every=4` (hourly MILP updates on receding horizon).
-  2. P03 inert buffer storage parameter pinned to 0.0, avoiding redundant runs.
-  3. P04 Owen core stability and break-even network charge computed via `rec.game` (exhaustive for n <= 12, Monte Carlo sampled for n > 12).
-  4. P02 plant capacity scaled to reference pumped storage parameters with annual extrapolation.
-* **Interactive Shiny Express Dashboard:** Native application deployed in `dashboards/app.py` (`shiny run dashboards/app.py`) featuring real parameter sliders, dynamic KPI summary cards, benchmark ladder comparison bar charts, and 2D parameter sensitivity heatmaps.
-* **Expanded Multi-Project 24h Dispatch Canvases (380px Height) & Multi-Year Engine:** Interactive discrete dispatch engine with dual Y-axes expanded across all 6 projects in `showcase.html`. Fully synchronized across 2024, 2025, and 2026 (Jan 1 to Sep 21 YTD, 25,340 real 15-min intervals). Features 108 calibrated seasonal and extreme market dynamic regimes, live telemetry scrubbers, discrete clickable legend cards, 300 DPI benchmark plots for all 3 years, and bespoke physics overlays (bidirectional zero-centered flow for P02, §14a dimming ceiling for P03, P2P peer trade area for P04, over-planting curtailment shading for P05, and probabilistic quantile fan ribbons for P06).
+Monorepo synchronized across worktrees and verified against all review work items:
+* **Overnight Multi-Project Scenario Simulations Complete (2,256 Runs, 0 Violations):** Full parameter sweep across all 6 projects (2024 and 2025 DE-LU market telemetry) with 0 physical invariant violations. Project 02 expanded to full 540 rows across 5 distinct policies (`['b1', 'b2', 'b3', 'rl_smoothed', 'rl_unsmoothed']`), completing the RL benchmark ladder against rolling MPC. Stored in Apache Parquet (`simulations/results/p01_scenarios.parquet` through `p06_scenarios.parquet`) and lookup cubes (`simulations/results/lookup_cubes.json`, 154 KB).
+* **Schema Annualisation & Extrapolation Transparency:** Added `eval_days` (365/366 for P01/P06; 14 for P02, P03, P04, P05) and `annualised` boolean flags across all scenario parquets. Renamed scaled annual columns in P02 and P05 to `*_per_year_extrapolated`. Added clarifying footnotes to both `dashboards/app.py` and `showcase.html`.
+* **Scenario Cubes Wired into showcase.html:** Inlined `SCENARIO_CUBES` (154 KB) into `showcase.html`. Snapped all sliders in HTML and JS to empirical parameter grids. Replaced heuristic client-side approximations with direct cell lookups into precomputed model cubes. Added dynamic `(Exact Grid Match)` and `(Nearest Grid: ...)` status badges. Labeled 24h dispatch canvases as illustrative telemetry.
+* **Showcase Published & Linked:** Added automated GitHub Pages deployment workflow (`.github/workflows/pages.yml`), root `index.html` redirect, and live showcase badge and link in `README.md` (`https://muratkus01.github.io/Portfolio/showcase.html`).
+* **Plant Rating & Editorial Consistency:** Reconciled Project 02 plant capacity to 120 MW (4 x 30 MW units) / 2,400 MWh upper reservoir across `psw/config.py`, `showcase.py`, and `showcase.html`. Removed "production-grade" claim from `showcase.html` abstract. Verified reBAP documented as single uniform imbalance price.
+* **100% Green Test Suite:** 207 passed, 1 skipped. `python showcase.py --tests` completes all 6 live demos and passes full test suite with 0 errors.
 
 ---
 
@@ -163,3 +161,4 @@ terminal value is needed at short horizons, it must be concave and state-depende
 - 2026-09-21 · Antigravity · Updated author academic credentials across showcase.html, README.md, and showcase.py to specify M.Sc. Sustainable Energy Systems (FH Upper Austria) and B.Sc. Artificial Intelligence (JKU Linz) - In Progress.
 - 2026-09-21 · Antigravity · Synchronized market telemetry console subtitles dynamically across 2024, 2025, and 2026: updated negative hours percentage, gross price volatility spread, and regulatory environment details per year, and set 2026 as the default evaluation year.
 - 2026-09-21 · Antigravity · Upgraded Project 01 Figure 1 (p01_dispatch_{year}.png) generation to use authentic prosumer LP optimal dispatch with real May 01 to May 03 DE-LU wholesale prices, empirical rooftop solar PV generation, and dynamic tariffs: clarified 72-hour continuous operational window, eliminated static heuristic that froze battery and SoC curves across years, added day demarcations and twin Y-axes, regenerated 2024, 2025, and 2026 figures with distinct active arbitrage trajectories, and synchronized worktrees.
+- 2026-09-21 · Antigravity · Portfolio dashboard completion: scenario cubes wired into showcase.html with grid snapping and KPI lookups, P02 RL grid completed (540 rows, 0 violations), eval_days schema annualisation, 120 MW P02 alignment, GitHub Pages workflow deployed and linked in README.

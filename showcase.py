@@ -113,7 +113,7 @@ def demo_02(real: bool) -> dict:
                  ("B2 perfect foresight", f"{b2:12,.0f} EUR"),
                  ("B3 rolling MPC (24 h horizon)", f"{b3:12,.0f} EUR")],
         "headline": f"B3 recovers {(b3 - b1) / max(b2 - b1, 1e-9) * 100:.0f}% of the headroom "
-                    f"on a 300 MW / 2,400 MWh plant over {days} days; {viol} violations",
+                    f"on a 120 MW / 2,400 MWh plant over {days} days; {viol} violations",
     }
 
 
