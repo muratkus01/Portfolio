@@ -1332,8 +1332,8 @@
         <div class="global-year-selector">
           <span class="year-label">Evaluation Year:</span>
           <button class="year-btn" id="ybtn-2024" onclick="setGlobalYear(2024)">2024</button>
-          <button class="year-btn active" id="ybtn-2025" onclick="setGlobalYear(2025)">2025</button>
-          <button class="year-btn" id="ybtn-2026" onclick="setGlobalYear(2026)">2026 (Jan-Sep YTD)</button>
+          <button class="year-btn" id="ybtn-2025" onclick="setGlobalYear(2025)">2025</button>
+          <button class="year-btn active" id="ybtn-2026" onclick="setGlobalYear(2026)">2026 (Jan-Sep YTD)</button>
         </div>
         <a class="nav-btn-github" href="https://github.com/muratkus01/Portfolio" target="_blank">
           GitHub
@@ -1362,33 +1362,33 @@
             <span class="pulse-dot"></span>
             <span>EPEX SPOT & Balancing Market Conditions · DE-LU Bidding Zone</span>
           </div>
-          <div class="market-console-tag" id="market-year-tag">2025 Benchmark Anchor (8,760 Hours)</div>
+          <div class="market-console-tag" id="market-year-tag">2026 Jan-Sep 21 YTD (6,312 Hours)</div>
         </div>
         <div class="market-telemetry-grid">
           <div class="market-cell">
             <div class="mkt-lbl">Mean Day-Ahead Spot Price</div>
-            <div class="mkt-val cyan" id="mkt-spot-mean">78.45 €/MWh</div>
-            <div class="mkt-sub" id="mkt-spot-sub">Base load wholesale index</div>
+            <div class="mkt-val cyan" id="mkt-spot-mean">105.77 €/MWh</div>
+            <div class="mkt-sub" id="mkt-spot-sub">Base load wholesale index (Jan-Sep 21, 6,312 hrs)</div>
           </div>
           <div class="market-cell">
             <div class="mkt-lbl">Negative Price Hours (EEG §51)</div>
-            <div class="mkt-val amber" id="mkt-neg-hours">468 Hours</div>
-            <div class="mkt-sub" id="mkt-neg-sub">5.3% of annual intervals (Subsidies cut)</div>
+            <div class="mkt-val amber" id="mkt-neg-hours">384 Hours</div>
+            <div class="mkt-sub" id="mkt-neg-sub">6.1% of YTD intervals (EEG §51/§51a cutoff)</div>
           </div>
           <div class="market-cell">
             <div class="mkt-lbl">Spot Volatility Range</div>
-            <div class="mkt-val" id="mkt-vol-range">-84.5 to +312.0 €/MWh</div>
-            <div class="mkt-sub" id="mkt-vol-sub">396.5 €/MWh gross spread</div>
+            <div class="mkt-val" id="mkt-vol-range">-499.99 to +747.10 €/MWh</div>
+            <div class="mkt-sub" id="mkt-vol-sub">1,247.1 €/MWh gross spread</div>
           </div>
           <div class="market-cell">
             <div class="mkt-lbl">aFRR Capacity Auction Mean</div>
-            <div class="mkt-val emerald" id="mkt-afrr-mean">24.15 €/MW/h</div>
-            <div class="mkt-sub" id="mkt-afrr-sub">Symmetric balancing reserve</div>
+            <div class="mkt-val emerald" id="mkt-afrr-mean">21.80 €/MW/h</div>
+            <div class="mkt-sub" id="mkt-afrr-sub">Symmetric balancing reserve (FCR/aFRR)</div>
           </div>
           <div class="market-cell">
             <div class="mkt-lbl">Grid Regulatory Environment</div>
-            <div class="mkt-val purple" id="mkt-reg-env">§14a EnWG Dimming</div>
-            <div class="mkt-sub" id="mkt-reg-sub">Dynamic curtailment modules 1-3</div>
+            <div class="mkt-val purple" id="mkt-reg-env">§14a EnWG Dynamic Dimming Enforced</div>
+            <div class="mkt-sub" id="mkt-reg-sub">Automated SteuVE dimming & §41a dynamic tariffs</div>
           </div>
         </div>
       </div>
@@ -3599,10 +3599,15 @@
         label: '2024 Full Year (8,784 Hours)',
         chip: '2024 DE-LU EPEX SPOT & Balancing',
         spotMean: '67.24 €/MWh',
+        spotSub: 'Base load wholesale index (8,784 hrs)',
         negHours: '301 Hours',
+        negSub: '3.4% of annual intervals (EEG §51 cutoff)',
         volRange: '-72.0 to +245.0 €/MWh',
+        volSub: '317.0 €/MWh gross spread',
         afrrMean: '18.40 €/MW/h',
-        regEnv: 'Redispatch 2.0 (Active)',
+        afrrSub: 'Symmetric balancing reserve (FCR/aFRR)',
+        regEnv: 'Redispatch 2.0 & EnWG §14a Intro',
+        regSub: 'Static §14a baseline & §118(6) exemption',
         p01: {
           b3Metric: '56.2% Rec',
           rlMetric: '27.2% Rec',
@@ -3687,10 +3692,15 @@
         label: '2025 Standard Benchmark (8,760 Hours)',
         chip: 'Real 2025 Market Anchor',
         spotMean: '78.45 €/MWh',
+        spotSub: 'Base load wholesale index (8,760 hrs)',
         negHours: '468 Hours',
+        negSub: '5.3% of annual intervals (EEG §51 cutoff)',
         volRange: '-84.5 to +312.0 €/MWh',
+        volSub: '396.5 €/MWh gross spread',
         afrrMean: '24.15 €/MW/h',
+        afrrSub: 'Symmetric balancing reserve (FCR/aFRR)',
         regEnv: '§14a EnWG Mandatory (Active)',
+        regSub: 'Dynamic curtailment modules 1-3 active',
         p01: {
           b3Metric: '56.0% Rec',
           rlMetric: '27.0% Rec',
@@ -3775,10 +3785,15 @@
         label: '2026 Jan-Sep 21 YTD (6,312 Hours)',
         chip: '2026 DE-LU EPEX SPOT & Balancing (Jan-Sep 21)',
         spotMean: '105.77 €/MWh',
+        spotSub: 'Base load wholesale index (Jan-Sep 21, 6,312 hrs)',
         negHours: '384 Hours',
+        negSub: '6.1% of YTD intervals (EEG §51/§51a cutoff)',
         volRange: '-499.99 to +747.10 €/MWh',
+        volSub: '1,247.1 €/MWh gross spread',
         afrrMean: '21.80 €/MW/h',
+        afrrSub: 'Symmetric balancing reserve (FCR/aFRR)',
         regEnv: '§14a EnWG Dynamic Dimming Enforced',
+        regSub: 'Automated SteuVE dimming & §41a dynamic tariffs',
         p01: {
           b3Metric: '56.5% Rec',
           rlMetric: '26.9% Rec',
@@ -3877,14 +3892,19 @@
         if (el) el.innerText = val;
       };
 
-      // Update Market Console
+      // Update Market Console (Values and Year-Specific Subtitles)
       setEl('market-year-tag', cfg.label);
       setEl('hero-market-chip', cfg.chip);
       setEl('mkt-spot-mean', cfg.spotMean);
+      setEl('mkt-spot-sub', cfg.spotSub);
       setEl('mkt-neg-hours', cfg.negHours);
+      setEl('mkt-neg-sub', cfg.negSub);
       setEl('mkt-vol-range', cfg.volRange);
+      setEl('mkt-vol-sub', cfg.volSub);
       setEl('mkt-afrr-mean', cfg.afrrMean);
+      setEl('mkt-afrr-sub', cfg.afrrSub);
       setEl('mkt-reg-env', cfg.regEnv);
+      setEl('mkt-reg-sub', cfg.regSub);
 
       // P01
       setEl('p01-metric-b3', cfg.p01.b3Metric);
@@ -6939,8 +6959,8 @@
       setupCanvasListenersP05();
       setupCanvasListenersP06();
 
-      // Initialize all 6 project simulators with defaults and selected year
-      setGlobalYear(2025);
+      // Initialize all 6 project simulators with defaults and selected year (2026 default)
+      setGlobalYear(2026);
 
       updateHud(scrubberIdx);
       updateHudP02(scrubberIdxP02);
