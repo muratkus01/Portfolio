@@ -266,7 +266,7 @@ def main() -> int:
 
     print("=" * 84)
     print("  AI for Renewable Energy Systems: applied research portfolio")
-    print("  Murat Kus | Dipl.-Ing. | M.Sc. Sustainable Energy Systems | B.Sc. AI (in progress)")
+    print("  Murat Kus | Dipl.-Ing. | M.Sc. Sustainable Energy Systems (FH Upper Austria) | B.Sc. Artificial Intelligence (JKU Linz) - In Progress")
     print(f"  inputs: {'DE-LU 2025 day-ahead prices (datakit)' if args.real_data else 'synthetic, offline'}"
           f" | every number below is computed now")
     print("=" * 84)
