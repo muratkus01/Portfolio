@@ -129,7 +129,7 @@ with ui.sidebar(width=300):
     with ui.panel_conditional("input.project === 'p01'"):
         ui.h6("PV+BESS Parameters", style=f"color: {ACCENT};")
         ui.input_slider("p01_pv",   "PV Capacity (kWp)",   min=4,  max=14,   value=8,    step=2)
-        ui.input_slider("p01_bess", "BESS Capacity (kWh)", min=0,  max=20,   value=9.37, step=2.5)
+        ui.input_slider("p01_bess", "BESS Capacity (kWh)", min=0,  max=20,   value=9.37, step=0.5)
         ui.input_select("p01_inv",  "Inverter Rating (kW)",
                         choices=["3.68", "5.63", "8.0", "10.0"], selected="5.63")
 
@@ -137,7 +137,7 @@ with ui.sidebar(width=300):
     with ui.panel_conditional("input.project === 'p02'"):
         ui.h6("Pumped Storage Parameters", style=f"color: {ACCENT};")
         ui.input_select("p02_turb", "Turbine Capacity / Unit (MW)",
-                        choices=["20.0", "30.0", "40.0"], selected="30.0")
+                        choices=["50.0", "75.0", "100.0"], selected="75.0")
         ui.input_select("p02_eres", "Upper Reservoir (MWh)",
                         choices=["1200.0", "2400.0", "3600.0"], selected="2400.0")
         ui.input_slider("p02_wear", "Mode-Change Penalty (EUR/switch)", min=0, max=300, value=100, step=50)
@@ -213,7 +213,7 @@ def _cube_lookup():
     if proj == "p01":
         # Snap slider to nearest grid value
         pv_grid   = [4.0, 6.0, 8.0, 10.0, 12.0, 14.0]
-        bess_grid = [0.0, 5.0, 7.5, 9.37, 12.5, 15.0, 20.0]
+        bess_grid = [0.0, 2.0, 3.5, 5.0, 7.5, 9.37, 12.5, 15.0, 20.0]
         pv_val   = min(pv_grid, key=lambda x: abs(x - input.p01_pv()))
         bess_val = min(bess_grid, key=lambda x: abs(x - input.p01_bess()))
         inv_val  = float(input.p01_inv())

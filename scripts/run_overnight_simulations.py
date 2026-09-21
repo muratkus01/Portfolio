@@ -137,7 +137,7 @@ def _check_invariants(project: str, params: dict, result: dict) -> list:
 # ============================================================
 def _p01_grid(smoke: bool) -> list:
     pv_kwp   = [4.0, 14.0] if smoke else [4.0, 6.0, 8.0, 10.0, 12.0, 14.0]
-    bess_kwh = [0.0, 9.37] if smoke else [0.0, 5.0, 7.5, 9.37, 12.5, 15.0, 20.0]
+    bess_kwh = [0.0, 9.37] if smoke else [0.0, 2.0, 3.5, 5.0, 7.5, 9.37, 12.5, 15.0, 20.0]
     inv_kw   = [5.63]      if smoke else [3.68, 5.63, 8.0, 10.0]
     years    = [2025]      if smoke else [2024, 2025]
     return [{"pv_kwp": p, "bess_kwh": b, "inv_kw": i, "year": y}
