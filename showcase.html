@@ -208,22 +208,15 @@
       font-weight: 700;
     }
     .hero-lead {
-      font-size: 1.05rem;
+      font-size: 1.06rem;
       color: var(--text-sub);
-      max-width: 1060px;
-      line-height: 1.7;
-      margin-bottom: 14px;
+      max-width: 100%;
+      line-height: 1.72;
+      margin-bottom: 32px;
     }
     .hero-lead strong {
       color: var(--text-main);
       font-weight: 600;
-    }
-    .hero-sublead {
-      font-size: 0.95rem;
-      color: var(--text-muted);
-      max-width: 1060px;
-      line-height: 1.65;
-      margin-bottom: 34px;
     }
 
     /* Global Evaluation Year Selector */
@@ -355,20 +348,20 @@
       color: var(--text-sub);
     }
 
-    /* Section Navigator Pill Bar */
+    /* Section Navigator Pill Bar (Prominent Navigators) */
     .section-nav-sticky {
       position: sticky;
       top: 61px;
       z-index: 90;
-      background: rgba(6, 9, 17, 0.9);
-      backdrop-filter: blur(14px);
+      background: rgba(6, 9, 17, 0.92);
+      backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border-subtle);
-      padding: 12px 0;
-      margin-bottom: 48px;
+      padding: 14px 0;
+      margin-bottom: 44px;
     }
     .pills-scroll {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       overflow-x: auto;
       padding-bottom: 4px;
       scrollbar-width: none;
@@ -377,32 +370,38 @@
     .nav-pill {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
+      gap: 8px;
+      padding: 10px 20px;
       border-radius: 999px;
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       color: var(--text-sub);
       text-decoration: none;
-      font-size: 0.82rem;
+      font-size: 0.96rem;
       font-weight: 600;
+      letter-spacing: -0.01em;
       white-space: nowrap;
-      transition: all 0.2s;
+      cursor: pointer;
+      transition: all 0.2s ease;
     }
     .nav-pill:hover {
-      border-color: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.25);
       color: var(--text-main);
+      background: rgba(255, 255, 255, 0.04);
+      transform: translateY(-1px);
     }
     .nav-pill.active {
-      background: rgba(6, 182, 212, 0.15);
+      background: rgba(6, 182, 212, 0.18);
       border-color: var(--cyan);
-      color: #fff;
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(6, 182, 212, 0.25);
     }
     .pill-dot {
-      width: 6px;
-      height: 6px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
     }
 
     /* Project Detailed Analysis Tabs */
@@ -488,8 +487,9 @@
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 8px;
       padding: 8px 14px;
-      margin-bottom: 18px;
-      font-size: 0.76rem;
+      margin-top: 14px;
+      margin-bottom: 0;
+      font-size: 0.78rem;
       font-family: var(--font-mono);
       color: var(--text-sub);
       overflow-x: auto;
@@ -621,49 +621,45 @@
     }
 
     .sec-header {
-      margin-bottom: 32px;
+      margin-bottom: 30px;
     }
-    .sec-top-meta {
-      display: flex;
+    .sec-num-badge {
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-    }
-    .sec-number {
+      justify-content: center;
       font-family: var(--font-mono);
-      font-size: 0.85rem;
+      font-size: 0.95rem;
       font-weight: 700;
       color: var(--cyan);
       background: rgba(6, 182, 212, 0.12);
-      border: 1px solid rgba(6, 182, 212, 0.25);
-      padding: 4px 10px;
-      border-radius: 6px;
-      text-transform: uppercase;
-    }
-    .chip {
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 4px 12px;
-      border-radius: 6px;
+      border: 1px solid rgba(6, 182, 212, 0.28);
+      padding: 2px 10px;
+      border-radius: 8px;
+      margin-right: 12px;
+      vertical-align: middle;
       letter-spacing: 0.02em;
-      font-family: var(--font-mono);
     }
-    .chip-reg { background: rgba(16, 185, 129, 0.15); color: var(--emerald-bright); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .chip-scale { background: rgba(245, 158, 11, 0.15); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.3); }
-    .chip-stack { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
-
     .sec-title {
       font-size: clamp(1.8rem, 3vw, 2.3rem);
       font-weight: 800;
       letter-spacing: -0.03em;
       color: var(--text-main);
       margin-bottom: 12px;
+      line-height: 1.25;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
     }
     .sec-summary {
       font-size: 1.05rem;
       color: var(--text-sub);
-      max-width: 940px;
+      max-width: 100%;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+    .sec-summary strong {
+      color: var(--text-main);
+      font-weight: 600;
     }
 
     /* Full-Width Showcase Architecture: Dedicated Visuals & Engineering Rows */
@@ -1350,21 +1346,13 @@
 
     <!-- Hero Section -->
     <header class="hero">
-      <div class="hero-badge-row">
-        <div class="hero-badge">Quantitative Energy Economics & Power Systems Engineering</div>
-        <span class="chip chip-reg">DE-LU Bidding Zone</span>
-        <span class="chip chip-scale">EPEX SPOT · regelleistung.net · reBAP</span>
-        <span class="chip chip-stack" id="hero-market-chip">Real 2025 Market Anchor</span>
-      </div>
+      <span id="hero-market-chip" style="display:none">Real 2025 Market Anchor</span>
       <h1 class="hero-title">Applied AI & Algorithmic Dispatch for Modern Power Systems</h1>
       <div class="hero-author">
         <strong>Murat Kus</strong> · Dipl.-Ing. | M.Sc. Sustainable Energy Systems | B.Sc. AI (in progress) | JKU Linz
       </div>
       <p class="hero-lead">
         Quantitative flexibility valuation, multi-market dispatch co-optimization, and risk-constrained decision-making under uncertainty in decarbonized electricity systems. Six production-grade implementations spanning behind-the-meter prosumer storage under dynamic retail pricing (EnWG §41a), pumped-storage hydro multi-settlement bidding across Day-Ahead (EPEX SPOT SDAC) and balancing capacity auctions (aFRR / FCR) under §118(6) EnWG grid fee exemptions, commercial EV fleet charging coordination under DSO dynamic capacity curtailment mandates (§14a EnWG), local energy market clearing with cooperative game-theoretic cost allocation (EU RED II / Austrian EAG), co-located utility-scale hybrid wind-solar-BESS dispatch behind constrained grid connections (EEG §51), and probabilistic forecast-to-bid optimization under asymmetric balancing market exposure (reBAP).
-      </p>
-      <p class="hero-sublead">
-        Every system formalizes an operations research hierarchy: baseline operational heuristics, deterministic global upper bounds via Mixed-Integer Linear Programming (MILP), certainty-equivalent rolling-horizon Model Predictive Control (MPC), and deep Reinforcement Learning policies under non-linear asset degradation, validated against 15-minute empirical market telemetry from the German-Luxembourg (DE-LU) bidding zone across operational years 2024 to 2026 YTD.
       </p>
 
       <!-- Market & Grid Regulatory Console -->
@@ -1424,12 +1412,10 @@
     <!-- ========================================================================================= -->
     <section id="p01" class="project-section active">
       <div class="sec-header">
-        <div class="sec-top-meta">
-          <span class="sec-number">Project 01</span>
-          <span class="chip chip-reg">§14a / §41a EnWG Dynamic Tariffs</span>
-          <span class="chip chip-scale">8 kWp PV · 9.37 kWh BESS · 5.63 kW Inverter</span>
-          <span class="chip chip-stack">Fast LP-MPC + Rescaled SAC RL</span>
-        </div>
+        <h2 class="sec-title"><span class="sec-num-badge">01</span> Residential PV+BESS Energy Management under Dynamic Spot Tariffs</h2>
+        <p class="sec-summary">
+          Behind-the-meter residential flexibility coordinating an <strong>8 kWp solar PV array</strong>, <strong>9.37 kWh battery storage (BESS)</strong>, and <strong>5.63 kW hybrid inverter</strong> under German <strong>§14a / §41a EnWG dynamic retail spot tariffs</strong>. Enforces battery cycling degradation bounds, non-negative inverter conversion limits, and terminal state-of-charge valuation, benchmarked across rolling LP-MPC and rescaled Soft Actor-Critic (SAC) reinforcement learning.
+        </p>
         <div class="topology-strip">
           <span class="topo-node amber">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
@@ -1445,10 +1431,6 @@
           <span class="topo-arrow">&harr;</span>
           <span class="topo-node">Home Load & 15-min Spot Grid</span>
         </div>
-        <h2 class="sec-title">Residential PV+BESS Energy Management under Dynamic Spot Tariffs</h2>
-        <p class="sec-summary">
-          Optimal 15-minute residential energy scheduling under German dynamic retail pricing and EEG export remuneration. Enforces battery cycling efficiency, non-negative inverter conversion bounds, and terminal horizon valuation across classical and learned controllers.
-        </p>
       </div>
 
       <div class="sec-body-grid">
@@ -1777,12 +1759,10 @@
     <!-- ========================================================================================= -->
     <section id="p02" class="project-section">
       <div class="sec-header">
-        <div class="sec-top-meta">
-          <span class="sec-number">Project 02</span>
-          <span class="chip chip-reg">§118(6) EnWG Exempt · FCR/aFRR Balancing</span>
-          <span class="chip chip-scale">300 MW Turbine · 312 MW Pump · 2,400 MWh PSH</span>
-          <span class="chip chip-stack">Binary Mode MILP + Multi-Timescale RL</span>
-        </div>
+        <h2 class="sec-title"><span class="sec-num-badge">02</span> Pumped Storage Hydro Multi-Market Dispatch & Wear Optimization</h2>
+        <p class="sec-summary">
+          Reversible pumped storage hydro facility featuring a <strong>30 MW turbine / 28 MW pump</strong> unit and <strong>2,400 MWh upper reservoir</strong>. Co-optimizes multi-market bidding across <strong>EPEX Spot Day-Ahead</strong> and 4-hour <strong>aFRR/FCR secondary balancing capacity auctions</strong> under <strong>§118(6) EnWG grid fee exemptions</strong>, enforcing binary mode mutual exclusion via MILP and continuous action smoothing via RL to prevent destructive hydraulic reversals.
+        </p>
         <div class="topology-strip">
           <span class="topo-node accent">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20M4 20l4-14h8l4 14"/></svg>
@@ -1795,10 +1775,6 @@
           <span class="topo-arrow">&harr;</span>
           <span class="topo-node purple">EPEX Spot & aFRR Balancing</span>
         </div>
-        <h2 class="sec-title">Pumped Storage Hydro Multi-Market Dispatch & Wear Optimization</h2>
-        <p class="sec-summary">
-          Sequential multi-market decision making across Day-Ahead energy spot markets, 4-hour aFRR capacity auctions, and real-time balancing activation calls. Solves binary mode mutual exclusion to protect reversible machines from destructive rotor direction reversals.
-        </p>
       </div>
 
       <div class="sec-body-grid">
@@ -2123,12 +2099,10 @@
     <!-- ========================================================================================= -->
     <section id="p03" class="project-section">
       <div class="sec-header">
-        <div class="sec-top-meta">
-          <span class="sec-number">Project 03</span>
-          <span class="chip chip-reg">§14a EnWG Modules 1-3 Dimming</span>
-          <span class="chip chip-scale">40-Connector Depot · 250 kW Limit</span>
-          <span class="chip chip-stack">Constrained LP + EDF Safety Floor</span>
-        </div>
+        <h2 class="sec-title"><span class="sec-num-badge">03</span> Smart EV Charging Hub Control & Dynamic Grid Dimming</h2>
+        <p class="sec-summary">
+          Commercial fleet depot orchestrating a <strong>40-connector EV charging hub</strong> connected to a <strong>250 kVA distribution feeder</strong>. Complies with statutory distribution system operator (DSO) dynamic curtailment orders under <strong>§14a EnWG (Modules 1 to 3)</strong>, guaranteeing zero missed vehicle departures through <strong>Earliest Deadline First (EDF)</strong> aggregate energy floor protection and constrained LP scheduling.
+        </p>
         <div class="topology-strip">
           <span class="topo-node accent">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
@@ -2141,10 +2115,6 @@
           <span class="topo-arrow">&rarr;</span>
           <span class="topo-node purple">40-Connector Commercial EV Fleet</span>
         </div>
-        <h2 class="sec-title">Smart EV Charging Hub Control & Dynamic Grid Dimming</h2>
-        <p class="sec-summary">
-          Commercial fleet depot charging management under statutory grid operator curtailment orders (§14a EnWG). Guaranteed zero missed declared departures via Earliest Deadline First (EDF) aggregate energy floor reservations.
-        </p>
       </div>
 
       <div class="sec-body-grid">
@@ -2434,12 +2404,10 @@
     <!-- ========================================================================================= -->
     <section id="p04" class="project-section">
       <div class="sec-header">
-        <div class="sec-top-meta">
-          <span class="sec-number">Project 04</span>
-          <span class="chip chip-reg">EU RED II Art. 22 · §42b EnWG</span>
-          <span class="chip chip-scale">20 Members · 100 kW PV · 15-min Settlement</span>
-          <span class="chip chip-stack">Mechanism Design + Cooperative Game Theory</span>
-        </div>
+        <h2 class="sec-title"><span class="sec-num-badge">04</span> Energy Sharing in Renewable Energy Communities (RECs)</h2>
+        <p class="sec-summary">
+          Decentralized local energy community comprising <strong>20 prosumer members</strong> and <strong>100 kW aggregated rooftop solar PV</strong>. Implements 15-minute peer-to-peer electricity sharing under <strong>EU RED II Article 22</strong> and <strong>§42b EnWG</strong>, proving coalitional core stability across all 1,023 sub-coalitions and settling welfare gains via cooperative game-theoretic <strong>Shapley and Owen value mechanisms</strong>.
+        </p>
         <div class="topology-strip">
           <span class="topo-node amber">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
@@ -2452,10 +2420,6 @@
           <span class="topo-arrow">&harr;</span>
           <span class="topo-node purple">Owen Core Stability Engine</span>
         </div>
-        <h2 class="sec-title">Energy Sharing in Renewable Energy Communities (RECs)</h2>
-        <p class="sec-summary">
-          Evaluates economic stability and coalition formation for peer-to-peer electricity sharing. Analyzes core non-emptiness across all 1,023 sub-coalitions and derives the analytical break-even local network charge threshold.
-        </p>
       </div>
 
       <div class="sec-body-grid">
@@ -2757,12 +2721,10 @@
     <!-- ========================================================================================= -->
     <section id="p05" class="project-section">
       <div class="sec-header">
-        <div class="sec-top-meta">
-          <span class="sec-number">Project 05</span>
-          <span class="chip chip-reg">EEG §51 / §51a Negative Price Rules</span>
-          <span class="chip chip-scale">50 MW Wind · 30 MW PV · 40 MWh BESS · 40 MW Interconnection</span>
-          <span class="chip chip-stack">Co-located LP + Rolling-Horizon MPC</span>
-        </div>
+        <h2 class="sec-title"><span class="sec-num-badge">05</span> Utility Hybrid Wind+PV+BESS Plant Dispatch</h2>
+        <p class="sec-summary">
+          Co-located hybrid power plant integrating <strong>50 MW wind</strong>, <strong>30 MW solar PV</strong>, and a <strong>40 MWh BESS</strong> behind a strictly constrained <strong>40 MW grid interconnection point</strong> (2.0x over-planting ratio). Dispatched via rolling-horizon MILP and continuous MPC to prevent line overloading and eliminate renewable revenue forfeiture under statutory <strong>EEG §51 / §51a negative price rules</strong>.
+        </p>
         <div class="topology-strip">
           <span class="topo-node accent">50 MW Wind + 30 MW PV</span>
           <span class="topo-arrow">&rarr;</span>
@@ -2772,10 +2734,6 @@
           <span class="topo-arrow">&rarr;</span>
           <span class="topo-node purple">EEG §51 Market Gate</span>
         </div>
-        <h2 class="sec-title">Utility Hybrid Wind+PV+BESS Plant Dispatch</h2>
-        <p class="sec-summary">
-          Arbitrage and forced curtailment mitigation behind a constrained 40 MW grid interconnection point (2.0x over-planted). Implements rolling-horizon MILP dispatch respecting statutory negative spot price remuneration suspensions.
-        </p>
       </div>
 
       <div class="sec-body-grid">
@@ -3085,12 +3043,10 @@
     <!-- ========================================================================================= -->
     <section id="p06" class="project-section">
       <div class="sec-header">
-        <div class="sec-top-meta">
-          <span class="sec-number">Project 06</span>
-          <span class="chip chip-reg">German reBAP Imbalance Settlement</span>
-          <span class="chip chip-scale">300 MW Renewable Portfolio</span>
-          <span class="chip chip-stack">Quantile Loss + Deadband Stochastic MPC</span>
-        </div>
+        <h2 class="sec-title"><span class="sec-num-badge">06</span> Probabilistic Forecast-to-Bid Pipeline & Asymmetric Imbalance</h2>
+        <p class="sec-summary">
+          Risk-aware trading engine for a <strong>300 MW renewable wind and solar portfolio</strong>. Translates non-parametric multi-quantile forecasts (<strong>q10 to q90 Pinball loss regression</strong> on numerical weather predictions) into optimal asymmetric bids across EPEX Intraday and the German uniform balancing market (<strong>reBAP</strong>), minimizing heavy-tailed cashout penalties via deadband stochastic MPC.
+        </p>
         <div class="topology-strip">
           <span class="topo-node accent">ECMWF / GFS Ensembles</span>
           <span class="topo-arrow">&rarr;</span>
@@ -3100,10 +3056,6 @@
           <span class="topo-arrow">&rarr;</span>
           <span class="topo-node purple">EPEX Intraday & reBAP Cashout</span>
         </div>
-        <h2 class="sec-title">Probabilistic Forecast-to-Bid Pipeline & Asymmetric Imbalance</h2>
-        <p class="sec-summary">
-          Translates multi-quantile wind and solar forecasts (q10 to q90) into risk-aware intraday trading bids. Maximises realized portfolio revenue under heavy-tailed asymmetric German uniform imbalance settlement (reBAP).
-        </p>
       </div>
 
       <div class="sec-body-grid">
