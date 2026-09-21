@@ -24,14 +24,16 @@ assistants: [Antigravity, Claude Pro, Claude Code]
 
 ---
 
-## 🚦 Current State: 2026-09-20 (All Audit Findings Resolved, 100% Green Suite)
+## 🚦 Current State: 2026-09-21 (Overnight Multi-Project Simulations Complete, 0 Violations, 100% Green Suite)
 
-Monorepo synchronized across worktrees and verified against Claude's audit critique:
-* **Project 02 (Pumped Storage Hydro):** Enforced binary mode mutual exclusion ($u_t + u_p \le 1$) in `psw.baselines.solve_window`. The reversible machine cannot operate both modes simultaneously to bypass ramp limits. B2 perfect foresight is verified as a strict ceiling ($B2 \ge B3 \ge B1$) across all 12 scenarios (3 price seeds x activation on/off x 2 forecast error sigmas) with 0 violations. Aligned `step_revenue` and `PSWEnv.step` with settlement (commercial DA schedule, physical aFRR activation settlement, and wear on true rotor direction reversals). Implemented action smoothing (alpha = 0.5) and wear shaping in `scripts/train_psw_rl.py`: lifts net revenue to 208,541 EUR with 187,461 EUR in energy arbitrage; unidirectional capacity bidding slashes wear by 98% (from 72,000 EUR to 1,200 EUR, 222,668 EUR net). All 27 tests pass.
-* **Dedicated Showcase Dashboard Sections:** Overhauled `showcase.html` into 6 dedicated, expansive, full-width showcase sections (sticky project navbar, 4-metric KPI strips, full benchmark ladder tables, interactive lightbox zoom for all 300 DPI figures, invariant boxes, and live physics simulator) rather than a combined card grid.
-* **Project 04 & 06 Visual Assets:** Generated and embedded 300 DPI benchmark figures (`rec_sharing_benchmark.png` and `f2b_trading_benchmark.png`) into their respective READMEs. All 6 projects in the portfolio now carry rich visual assets.
-* **Project 01 (Prosumer PV+BESS):** Guarded figure generation in `figures.make_all` against missing parquet raw files so smoke tests pass cleanly in clean checkouts. All 67 tests pass (8 skipped).
-* **Root Badges & Tech Stack:** Updated root `README.md` test badge to point directly at the GitHub Actions CI workflow. Replaced Pyomo badge with PuLP across README and `docs/05-tech-stack.md`. Stripped "production-grade" and narrowed market scope to Germany (DE-LU bidding zone).
+Monorepo synchronized across worktrees and verified against Claude's review:
+* **Overnight Multi-Project Scenario Simulations Complete:** Computed full parameter sweep across all 6 projects (2,040 total scenario evaluations across both 2024 and 2025 DE-LU market data) with 0 physical invariant violations. Stored in Apache Parquet (`simulations/results/p01_scenarios.parquet` through `p06_scenarios.parquet`) and compact multidimensional lookup cubes (`simulations/results/lookup_cubes.json`).
+* **Review Findings Addressed:**
+  1. P05 solve time reduced via `resolve_every=4` (hourly MILP updates on receding horizon).
+  2. P03 inert buffer storage parameter pinned to 0.0, avoiding redundant runs.
+  3. P04 Owen core stability and break-even network charge computed via `rec.game` (exhaustive for n <= 12, Monte Carlo sampled for n > 12).
+  4. P02 plant capacity scaled to reference pumped storage parameters with annual extrapolation.
+* **Interactive Shiny Express Dashboard:** Native application deployed in `dashboards/app.py` (`shiny run dashboards/app.py`) featuring real parameter sliders, dynamic KPI summary cards, benchmark ladder comparison bar charts, and 2D parameter sensitivity heatmaps.
 * **Master Showcase & Test Suite:** 207 passed, 1 skipped across all 6 projects (100% green). All 6 showcase demos execute live on real 2025 DE-LU data with 0 violations.
 
 ---
@@ -150,4 +152,4 @@ terminal value is needed at short horizons, it must be concave and state-depende
 - 2026-09-20 · Antigravity · Overhauled showcase dashboard: removed domain filter shadowing and duplicate navbar links, renamed hero to Applied AI & Algorithmic Dispatch for Modern Power Systems, replaced static KPI cards with dynamic EPEX SPOT & Balancing Market Console, built 4-tab detailed engineering analysis workbenches across all 6 projects, and added reactive evaluation year switcher supporting 2024, 2025, and 2026 Jan-Aug YTD.
 - 2026-09-20 · Antigravity · Single-project focus view implemented with default Residential PV+BESS selection, 18 high-resolution 300 DPI multi-year benchmark figures generated across 2024 and 2025 real DE-LU market data, dynamic visual gallery controls added per project, and year switcher synchronized across visual assets.
 - 2026-09-20 · Antigravity · Replaced standalone bottom simulator with dedicated in-card interactive parameter tuning workbenches across all 6 projects; implemented live physics models for asset sizing, reversible wear, §14a dimming, REC sharing, over-planting curtailment, and quantile bidding, strictly isolated to active project view.
-
+- 2026-09-21 · Antigravity · Completed full overnight multi-project scenario sweep (2,040 runs across all 6 projects on real 2024 and 2025 DE-LU market data, 0 invariant violations). Formatted and stored scenario tables in Apache Parquet and lookup_cubes.json. Resolved all 4 review critiques: P05 resolve_every=4 speedup, P03 inert buffer pinned, P04 Owen core excess stability evaluated, P02 multi-unit ratings aligned. Built and validated native Python Shiny Express widget dashboard (dashboards/app.py). 207 unit tests passing (100% green).
