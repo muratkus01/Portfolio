@@ -536,21 +536,46 @@
     }
     .project-section:last-of-type { border-bottom: none; }
 
-    /* Visual Gallery & Dynamic Plot Switcher */
+    /* Visual Gallery & Dynamic Plot Switcher: Full-Width Horizontal Showcase */
     .visual-gallery {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
       width: 100%;
+      background: rgba(11, 16, 29, 0.75);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
     }
     .gallery-nav {
       display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: rgba(15, 23, 42, 0.85);
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+    }
+    .gallery-btn-group {
+      display: flex;
+      align-items: center;
       gap: 8px;
       flex-wrap: wrap;
-      background: rgba(15, 23, 42, 0.65);
-      padding: 6px;
-      border-radius: 8px;
-      border: 1px solid var(--border-subtle);
+    }
+    .gallery-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--cyan-bright);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
     .gallery-btn {
       background: transparent;
@@ -629,19 +654,27 @@
       max-width: 940px;
     }
 
-    /* Split Showcase Layout */
+    /* Full-Width Showcase Architecture: Dedicated Visuals & Engineering Rows */
     .sec-body-grid {
-      display: grid;
-      grid-template-columns: 1.05fr 0.95fr;
-      gap: 36px;
-      align-items: start;
-    }
-    @media (max-width: 1040px) {
-      .sec-body-grid { grid-template-columns: 1fr; }
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      width: 100%;
     }
 
-    /* Left Column: Data & Ladder */
+    /* Row 1: Dedicated Full-Width Visual Showcase */
+    .visual-col {
+      width: 100%;
+      order: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Row 2: Dedicated Full-Width Quantitative Benchmarks & Engineering Analysis */
     .data-col {
+      width: 100%;
+      order: 2;
       display: flex;
       flex-direction: column;
       gap: 24px;
@@ -810,52 +843,63 @@
       color: #fff;
     }
 
-    /* Right Column: Visual Showcase */
-    .visual-col {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
+    /* Plot Container and 300 DPI Rendering Engine */
     .plot-container {
-      background: #000;
+      background: #020617;
       border: 1px solid var(--border-subtle);
       border-radius: 14px;
       overflow: hidden;
       position: relative;
       cursor: zoom-in;
       transition: all 0.25s ease;
-      box-shadow: 0 10px 30px -10px rgba(0,0,0,0.8);
+      box-shadow: 0 14px 44px -10px rgba(0, 0, 0, 0.9);
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 420px;
     }
     .plot-container:hover {
       border-color: var(--border-glow);
+      box-shadow: 0 16px 48px -10px rgba(6, 182, 212, 0.25);
       transform: translateY(-2px);
     }
     .plot-img {
       width: 100%;
       height: auto;
+      max-height: 720px;
+      object-fit: contain;
       display: block;
+      background: #020617;
+      margin: 0 auto;
     }
     .plot-overlay-badge {
       position: absolute;
-      top: 12px;
-      right: 12px;
-      background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(6px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      padding: 4px 10px;
+      top: 14px;
+      right: 14px;
+      background: rgba(6, 9, 17, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 5px 12px;
       border-radius: 6px;
-      font-size: 0.72rem;
-      color: var(--text-sub);
+      font-size: 0.74rem;
+      font-family: var(--font-mono);
+      color: var(--cyan-bright);
       font-weight: 600;
+      letter-spacing: 0.02em;
       pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     }
     .plot-caption {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      padding: 4px 6px;
-      line-height: 1.5;
+      font-size: 0.90rem;
+      color: var(--text-sub);
+      padding: 12px 18px;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      line-height: 1.65;
     }
-    .plot-caption strong { color: var(--text-sub); }
+    .plot-caption strong { color: var(--cyan-bright); }
 
     /* Project In-Card Interactive Simulator */
     .project-sim-card {
@@ -1017,13 +1061,14 @@
     footer a { color: var(--cyan-bright); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
 
-    /* 24-Hour Dispatch Canvas Scrubber */
+    /* 24-Hour Discrete Dispatch Engine & Scrubber Canvas */
     .dispatch-canvas-box {
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(8, 12, 22, 0.75);
       border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 20px;
-      margin-top: 14px;
+      border-radius: 14px;
+      padding: 22px;
+      margin-top: 18px;
+      backdrop-filter: blur(12px);
     }
     .dispatch-canvas-hud {
       display: grid;
@@ -1031,7 +1076,7 @@
       gap: 12px;
       background: rgba(15, 23, 42, 0.85);
       border: 1px solid var(--border-subtle);
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 12px 16px;
       margin-bottom: 16px;
       font-family: var(--font-mono);
@@ -1042,6 +1087,7 @@
       font-size: 0.7rem;
       text-transform: uppercase;
       margin-bottom: 2px;
+      letter-spacing: 0.04em;
     }
     .hud-stat-val {
       font-weight: 700;
@@ -1049,30 +1095,167 @@
     }
     #dispatchCanvas {
       width: 100%;
-      height: 220px;
+      height: 250px;
       display: block;
       cursor: crosshair;
-      border-radius: 6px;
-      background: #04070e;
+      border-radius: 8px;
+      background: #03060d;
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
-    .canvas-legend {
+
+    /* Representative System Dynamics Day Selector */
+    .day-preset-bar {
+      margin-bottom: 18px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 14px 18px;
+    }
+    .day-preset-header {
       display: flex;
-      gap: 18px;
-      margin-top: 10px;
-      font-size: 0.75rem;
-      color: var(--text-sub);
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .day-preset-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.84rem;
       font-family: var(--font-mono);
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-main);
+      letter-spacing: 0.04em;
+    }
+    .day-preset-tag {
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      color: var(--cyan-bright);
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.28);
+      padding: 3px 10px;
+      border-radius: 6px;
+    }
+    .day-preset-buttons {
+      display: flex;
+      gap: 8px;
       flex-wrap: wrap;
     }
-    .legend-item {
-      display: flex;
+    .day-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-sub);
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
     }
-    .legend-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 2px;
+    .day-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .day-btn.active {
+      background: rgba(6, 182, 212, 0.18);
+      border-color: rgba(6, 182, 212, 0.45);
+      color: var(--cyan-bright);
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
+    }
+    .day-btn.danger.active {
+      background: rgba(244, 63, 94, 0.18);
+      border-color: rgba(244, 63, 94, 0.45);
+      color: #fb7185;
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.25);
+    }
+    .day-btn.alert.active {
+      background: rgba(245, 158, 11, 0.18);
+      border-color: rgba(245, 158, 11, 0.45);
+      color: var(--amber);
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+    }
+    .day-regime-desc {
+      margin-top: 12px;
+      font-size: 0.82rem;
+      color: var(--text-sub);
+      line-height: 1.55;
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 8px;
+      border-left: 3px solid var(--cyan-bright);
+    }
+
+    /* Discrete Interactive Legend Cards Strip */
+    .discrete-legend-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .discrete-legend-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+    .discrete-legend-card:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .discrete-legend-card.disabled {
+      opacity: 0.4;
+      border-style: dashed;
+    }
+    .legend-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .legend-swatch.amber { background: rgba(245, 158, 11, 0.15); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.35); }
+    .legend-swatch.emerald { background: rgba(16, 185, 129, 0.15); color: var(--emerald-bright); border: 1px solid rgba(16, 185, 129, 0.35); }
+    .legend-swatch.purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); }
+    .legend-swatch.cyan { background: rgba(6, 182, 212, 0.15); color: var(--cyan-bright); border: 1px solid rgba(6, 182, 212, 0.35); }
+    .legend-swatch.rose { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.35); }
+    .legend-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .legend-title {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .legend-val {
+      font-size: 0.86rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      white-space: nowrap;
     }
 
     /* Print and Executive Briefing Mode */
@@ -1380,9 +1563,12 @@
         <div class="visual-col">
           <div class="visual-gallery">
             <div class="gallery-nav">
-              <button class="gallery-btn active" id="p01-galbtn-2025" onclick="switchVisual('p01', '2025')">2025 Dispatch</button>
-              <button class="gallery-btn" id="p01-galbtn-2024" onclick="switchVisual('p01', '2024')">2024 Dispatch</button>
-              <button class="gallery-btn" id="p01-galbtn-bench" onclick="switchVisual('p01', 'bench')">Ladder Benchmark</button>
+              <span class="gallery-tag"><span class="pulse-dot"></span>Multi-Horizon Telemetry & Visual Benchmark (300 DPI)</span>
+              <div class="gallery-btn-group">
+                <button class="gallery-btn active" id="p01-galbtn-2025" onclick="switchVisual('p01', '2025')">2025 Dispatch</button>
+                <button class="gallery-btn" id="p01-galbtn-2024" onclick="switchVisual('p01', '2024')">2024 Dispatch</button>
+                <button class="gallery-btn" id="p01-galbtn-bench" onclick="switchVisual('p01', 'bench')">Ladder Benchmark</button>
+              </div>
             </div>
             <div class="plot-container" onclick="openModal(document.getElementById('p01-active-img').src)">
               <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
@@ -1458,11 +1644,39 @@
           </div>
         </div>
 
-        <!-- 24h Dynamic Dispatch Scrubber Canvas -->
-        <div class="dispatch-canvas-box" style="margin-top: 20px;">
-          <p style="color: var(--text-sub); font-size: 0.84rem; margin-bottom: 12px;">
-            Live 96-interval 24-hour dispatch scrubber (recalculates immediately as PV kWp and BESS kWh sliders move):
-          </p>
+        <!-- 24h Discrete Dispatch Scrubber Canvas & Seasonal Dynamics -->
+        <div class="dispatch-canvas-box">
+          <!-- Representative System Dynamics & Seasonal Day Selection -->
+          <div class="day-preset-bar">
+            <div class="day-preset-header">
+              <div class="day-preset-title">
+                <span class="pulse-dot"></span>
+                <span>Representative Seasonal & Market Dynamics Selection:</span>
+              </div>
+              <span class="day-preset-tag" id="active-regime-date">Summer Solstice (Jun 26, 2024)</span>
+            </div>
+            <div class="day-preset-buttons">
+              <button class="day-btn" id="dbtn-winter" onclick="selectDayRegime('winter')">❄️ Winter Base (Jan 15)</button>
+              <button class="day-btn" id="dbtn-spring" onclick="selectDayRegime('spring')">🌱 Spring Duck Curve (Apr 14)</button>
+              <button class="day-btn active" id="dbtn-summer" onclick="selectDayRegime('summer')">☀️ Summer Solstice (Jun 26)</button>
+              <button class="day-btn" id="dbtn-autumn" onclick="selectDayRegime('autumn')">🍂 Autumn Ramp (Oct 18)</button>
+              <button class="day-btn danger" id="dbtn-extreme_high" onclick="selectDayRegime('extreme_high')">⚡ Scarcity Peak (+936 €/MWh)</button>
+              <button class="day-btn alert" id="dbtn-extreme_low" onclick="selectDayRegime('extreme_low')">📉 Negative Crash (-135 €/MWh)</button>
+            </div>
+            <div class="day-regime-desc" id="day-regime-desc">
+              <strong>Summer Solstice Dynamics:</strong> Peak solar generation across 16 hours of daylight (7.6 kW peak). Battery reaches 100% SoC before solar noon; smart MPC shifts exports to evening peak (133.74 EUR/MWh). Wholesale Spot: 76.8 to 133.7 EUR/MWh (Mean: 102.0 EUR/MWh).
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <p style="color: var(--text-sub); font-size: 0.84rem;">
+              Discrete 15-minute market dispatch intervals (scrub across the 96 trading intervals to inspect discrete steps):
+            </p>
+            <span style="font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-muted);">
+              Click any legend tile below to toggle individual channels
+            </span>
+          </div>
+
           <div class="dispatch-canvas-hud">
             <div>
               <div class="hud-stat-lbl">Time of Day</div>
@@ -1470,19 +1684,19 @@
             </div>
             <div>
               <div class="hud-stat-lbl">Spot Tariff</div>
-              <div class="hud-stat-val amber" id="hud-price">74.20 €/MWh</div>
+              <div class="hud-stat-val amber" id="hud-price">76.76 €/MWh</div>
             </div>
             <div>
               <div class="hud-stat-lbl">PV Generation</div>
-              <div class="hud-stat-val emerald" id="hud-pv">6.85 kW</div>
+              <div class="hud-stat-val emerald" id="hud-pv">7.60 kW</div>
             </div>
             <div>
               <div class="hud-stat-lbl">Battery Dispatch</div>
-              <div class="hud-stat-val purple" id="hud-bat">+3.12 kW (Chg)</div>
+              <div class="hud-stat-val purple" id="hud-bat">+3.50 kW (Chg)</div>
             </div>
             <div>
               <div class="hud-stat-lbl">State of Charge</div>
-              <div class="hud-stat-val emerald" id="hud-soc">64.5%</div>
+              <div class="hud-stat-val emerald" id="hud-soc">72.4%</div>
             </div>
             <div>
               <div class="hud-stat-lbl">Net Grid Flow</div>
@@ -1490,13 +1704,46 @@
             </div>
           </div>
 
-          <div style="background: rgba(0, 0, 0, 0.4); border-radius: 8px; padding: 12px;">
-            <canvas id="dispatchCanvas" height="220" style="width: 100%; height: 220px; display: block;"></canvas>
-            <div class="canvas-legend">
-              <div class="legend-item"><span class="legend-dot" style="background: var(--amber);"></span> Day-Ahead Spot Tariff</div>
-              <div class="legend-item"><span class="legend-dot" style="background: var(--emerald-bright);"></span> Solar PV Output</div>
-              <div class="legend-item"><span class="legend-dot" style="background: var(--cyan-bright);"></span> Battery State-of-Charge</div>
-              <div class="legend-item"><span class="legend-dot" style="background: #c084fc;"></span> Net Grid Exchange</div>
+          <div style="background: rgba(0, 0, 0, 0.45); border-radius: 10px; padding: 14px; border: 1px solid rgba(255, 255, 255, 0.05);">
+            <canvas id="dispatchCanvas" height="250" style="width: 100%; height: 250px; display: block;"></canvas>
+            
+            <!-- Discrete Interactive Legend Cards Strip -->
+            <div class="discrete-legend-strip">
+              <div class="discrete-legend-card" id="leg-price" onclick="toggleChannel('price')">
+                <div class="legend-swatch amber">⎍</div>
+                <div class="legend-info">
+                  <span class="legend-title">Day-Ahead Spot (Step)</span>
+                  <span class="legend-val amber" id="legval-price">76.76 €/MWh</span>
+                </div>
+              </div>
+              <div class="discrete-legend-card" id="leg-pv" onclick="toggleChannel('pv')">
+                <div class="legend-swatch emerald">▮</div>
+                <div class="legend-info">
+                  <span class="legend-title">Solar PV (15m Bar)</span>
+                  <span class="legend-val emerald" id="legval-pv">7.60 kW</span>
+                </div>
+              </div>
+              <div class="discrete-legend-card" id="leg-bat" onclick="toggleChannel('bat')">
+                <div class="legend-swatch purple">⇅</div>
+                <div class="legend-info">
+                  <span class="legend-title">BESS Dispatch (15m Bar)</span>
+                  <span class="legend-val purple" id="legval-bat">+3.50 kW (Chg)</span>
+                </div>
+              </div>
+              <div class="discrete-legend-card" id="leg-soc" onclick="toggleChannel('soc')">
+                <div class="legend-swatch cyan">⎍</div>
+                <div class="legend-info">
+                  <span class="legend-title">Battery SoC (Step)</span>
+                  <span class="legend-val cyan" id="legval-soc">72.4%</span>
+                </div>
+              </div>
+              <div class="discrete-legend-card" id="leg-grid" onclick="toggleChannel('grid')">
+                <div class="legend-swatch rose">⇄</div>
+                <div class="legend-info">
+                  <span class="legend-title">Net Grid Exchange</span>
+                  <span class="legend-val rose" id="legval-grid">0.00 kW (Self)</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1679,9 +1926,12 @@
         <div class="visual-col">
           <div class="visual-gallery">
             <div class="gallery-nav">
-              <button class="gallery-btn active" id="p02-galbtn-2025" onclick="switchVisual('p02', '2025')">2025 Dispatch</button>
-              <button class="gallery-btn" id="p02-galbtn-2024" onclick="switchVisual('p02', '2024')">2024 Dispatch</button>
-              <button class="gallery-btn" id="p02-galbtn-bench" onclick="switchVisual('p02', 'bench')">Wear Mitigation</button>
+              <span class="gallery-tag"><span class="pulse-dot"></span>Multi-Horizon Telemetry & Visual Benchmark (300 DPI)</span>
+              <div class="gallery-btn-group">
+                <button class="gallery-btn active" id="p02-galbtn-2025" onclick="switchVisual('p02', '2025')">2025 Dispatch</button>
+                <button class="gallery-btn" id="p02-galbtn-2024" onclick="switchVisual('p02', '2024')">2024 Dispatch</button>
+                <button class="gallery-btn" id="p02-galbtn-bench" onclick="switchVisual('p02', 'bench')">Wear Mitigation</button>
+              </div>
             </div>
             <div class="plot-container" onclick="openModal(document.getElementById('p02-active-img').src)">
               <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
@@ -1907,9 +2157,12 @@
         <div class="visual-col">
           <div class="visual-gallery">
             <div class="gallery-nav">
-              <button class="gallery-btn active" id="p03-galbtn-2025" onclick="switchVisual('p03', '2025')">2025 Dispatch</button>
-              <button class="gallery-btn" id="p03-galbtn-2024" onclick="switchVisual('p03', '2024')">2024 Dispatch</button>
-              <button class="gallery-btn" id="p03-galbtn-bench" onclick="switchVisual('p03', 'bench')">Dimming Sensitivity</button>
+              <span class="gallery-tag"><span class="pulse-dot"></span>Multi-Horizon Telemetry & Visual Benchmark (300 DPI)</span>
+              <div class="gallery-btn-group">
+                <button class="gallery-btn active" id="p03-galbtn-2025" onclick="switchVisual('p03', '2025')">2025 Dispatch</button>
+                <button class="gallery-btn" id="p03-galbtn-2024" onclick="switchVisual('p03', '2024')">2024 Dispatch</button>
+                <button class="gallery-btn" id="p03-galbtn-bench" onclick="switchVisual('p03', 'bench')">Dimming Sensitivity</button>
+              </div>
             </div>
             <div class="plot-container" onclick="openModal(document.getElementById('p03-active-img').src)">
               <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
@@ -2140,9 +2393,12 @@
         <div class="visual-col">
           <div class="visual-gallery">
             <div class="gallery-nav">
-              <button class="gallery-btn active" id="p04-galbtn-2025" onclick="switchVisual('p04', '2025')">2025 P2P Flow</button>
-              <button class="gallery-btn" id="p04-galbtn-2024" onclick="switchVisual('p04', '2024')">2024 P2P Flow</button>
-              <button class="gallery-btn" id="p04-galbtn-bench" onclick="switchVisual('p04', 'bench')">Core Stability Sweep</button>
+              <span class="gallery-tag"><span class="pulse-dot"></span>Multi-Horizon Telemetry & Visual Benchmark (300 DPI)</span>
+              <div class="gallery-btn-group">
+                <button class="gallery-btn active" id="p04-galbtn-2025" onclick="switchVisual('p04', '2025')">2025 P2P Flow</button>
+                <button class="gallery-btn" id="p04-galbtn-2024" onclick="switchVisual('p04', '2024')">2024 P2P Flow</button>
+                <button class="gallery-btn" id="p04-galbtn-bench" onclick="switchVisual('p04', 'bench')">Core Stability Sweep</button>
+              </div>
             </div>
             <div class="plot-container" onclick="openModal(document.getElementById('p04-active-img').src)">
               <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
@@ -2371,9 +2627,12 @@
         <div class="visual-col">
           <div class="visual-gallery">
             <div class="gallery-nav">
-              <button class="gallery-btn active" id="p05-galbtn-2025" onclick="switchVisual('p05', '2025')">2025 Dispatch</button>
-              <button class="gallery-btn" id="p05-galbtn-2024" onclick="switchVisual('p05', '2024')">2024 Dispatch</button>
-              <button class="gallery-btn" id="p05-galbtn-bench" onclick="switchVisual('p05', 'bench')">Curtailment Attribution</button>
+              <span class="gallery-tag"><span class="pulse-dot"></span>Multi-Horizon Telemetry & Visual Benchmark (300 DPI)</span>
+              <div class="gallery-btn-group">
+                <button class="gallery-btn active" id="p05-galbtn-2025" onclick="switchVisual('p05', '2025')">2025 Dispatch</button>
+                <button class="gallery-btn" id="p05-galbtn-2024" onclick="switchVisual('p05', '2024')">2024 Dispatch</button>
+                <button class="gallery-btn" id="p05-galbtn-bench" onclick="switchVisual('p05', 'bench')">Curtailment Attribution</button>
+              </div>
             </div>
             <div class="plot-container" onclick="openModal(document.getElementById('p05-active-img').src)">
               <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
@@ -2590,9 +2849,12 @@
         <div class="visual-col">
           <div class="visual-gallery">
             <div class="gallery-nav">
-              <button class="gallery-btn active" id="p06-galbtn-2025" onclick="switchVisual('p06', '2025')">2025 Fan Chart</button>
-              <button class="gallery-btn" id="p06-galbtn-2024" onclick="switchVisual('p06', '2024')">2024 Fan Chart</button>
-              <button class="gallery-btn" id="p06-galbtn-bench" onclick="switchVisual('p06', 'bench')">Trading Frontier</button>
+              <span class="gallery-tag"><span class="pulse-dot"></span>Multi-Horizon Telemetry & Visual Benchmark (300 DPI)</span>
+              <div class="gallery-btn-group">
+                <button class="gallery-btn active" id="p06-galbtn-2025" onclick="switchVisual('p06', '2025')">2025 Fan Chart</button>
+                <button class="gallery-btn" id="p06-galbtn-2024" onclick="switchVisual('p06', '2024')">2024 Fan Chart</button>
+                <button class="gallery-btn" id="p06-galbtn-bench" onclick="switchVisual('p06', 'bench')">Trading Frontier</button>
+              </div>
             </div>
             <div class="plot-container" onclick="openModal(document.getElementById('p06-active-img').src)">
               <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
@@ -3274,39 +3536,74 @@
 
 
 
-    // 24-Hour Dispatch Canvas Scrubber Engine
+    // =========================================================================
+    // 24-HOUR DISCRETE DISPATCH ENGINE & REPRESENTATIVE SEASONAL REGIMES
+    // =========================================================================
+    const DAY_REGIMES = {"winter":{"date":"2024-01-15","title":"Winter Heating & Baseline Tariff","tag":"Winter Base (Jan 15)","desc":"Low solar yield (max 1.6 kW) with elevated residential heating load. Battery executes off-peak nighttime charging to shave high evening spot prices (112.80 EUR/MWh).","price_min":62.04,"price_max":112.47,"price_mean":87.52,"prices":[65.0,64.74,64.49,64.23,63.97,63.54,63.08,62.62,62.16,62.04,62.04,62.04,62.04,63.1,64.85,66.59,68.34,70.49,73.08,75.67,78.26,80.28,81.22,82.16,83.1,84.65,88.4,92.14,95.88,99.32,99.56,99.8,100.04,100.28,99.04,97.73,96.42,95.11,93.96,92.84,91.72,90.6,89.18,87.63,86.08,84.53,83.63,83.21,82.8,82.38,82.4,82.97,83.54,84.1,84.86,86.06,87.26,88.45,89.78,91.74,93.69,95.65,97.61,99.78,101.94,104.11,106.27,107.86,109.4,110.93,112.47,112.34,111.76,111.17,110.58,109.12,107.2,105.27,103.34,101.08,98.5,95.92,93.35,91.56,91.01,90.45,89.9,89.3,88.56,87.82,87.07,86.27,85.07,83.86,82.66,81.45],"pv":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.02,0.08,0.17,0.28,0.41,0.56,0.71,0.86,1.01,1.15,1.28,1.39,1.48,1.55,1.59,1.6,1.59,1.55,1.48,1.39,1.28,1.15,1.01,0.86,0.71,0.56,0.41,0.28,0.17,0.08,0.02,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"load":[1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.31,1.31,1.32,1.33,1.34,1.37,1.41,1.46,1.53,1.61,1.72,1.85,2.0,2.15,2.31,2.47,2.6,2.71,2.78,2.8,2.78,2.71,2.6,2.47,2.31,2.15,2.0,1.85,1.72,1.61,1.53,1.46,1.41,1.37,1.34,1.33,1.32,1.31,1.31,1.31,1.31,1.31,1.31,1.32,1.33,1.34,1.36,1.39,1.43,1.48,1.54,1.62,1.72,1.84,1.99,2.15,2.32,2.51,2.71,2.9,3.09,3.26,3.4,3.51,3.58,3.6,3.58,3.51,3.4,3.26,3.09,2.9,2.71,2.51,2.32,2.15,1.99,1.84,1.72,1.62,1.54,1.48,1.43,1.39,1.36]},"spring":{"date":"2024-04-14","title":"Spring Solar Dip & Negative Midday","tag":"Spring Duck Curve (Apr 14)","desc":"Strong rooftop PV ramp crashes wholesale spot tariff to -60.07 EUR/MWh between 11:00 and 15:00. Battery charges from negative grid prices and surplus solar.","price_min":-60.07,"price_max":118.76,"price_mean":22.92,"prices":[0.93,0.98,1.03,1.08,1.12,1.38,1.68,1.97,2.26,2.99,3.86,4.73,5.61,6.97,8.64,10.31,11.99,12.88,12.91,12.94,12.98,12.53,11.18,9.82,8.47,7.02,5.23,3.43,1.64,-0.05,-0.62,-1.2,-1.77,-2.35,-4.64,-7.01,-9.38,-11.76,-18.19,-25.48,-32.76,-40.05,-45.26,-49.57,-53.87,-58.18,-60.05,-60.06,-60.06,-60.07,-57.96,-53.12,-48.27,-43.42,-37.56,-29.38,-21.19,-13.01,-5.92,-4.03,-2.13,-0.24,2.26,18.16,34.05,49.95,65.85,71.78,76.76,81.74,86.72,93.88,101.66,109.43,117.21,118.76,116.99,115.22,113.46,111.52,109.42,107.32,105.23,102.37,98.32,94.28,90.23,86.91,85.63,84.35,83.07,81.94,81.77,81.6,81.43,81.26],"pv":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.02,0.09,0.21,0.37,0.58,0.82,1.09,1.4,1.74,2.1,2.47,2.86,3.25,3.64,4.03,4.4,4.76,5.1,5.41,5.68,5.92,6.13,6.29,6.41,6.48,6.5,6.48,6.41,6.29,6.13,5.92,5.68,5.41,5.1,4.76,4.4,4.03,3.64,3.25,2.86,2.47,2.1,1.74,1.4,1.09,0.82,0.58,0.37,0.21,0.09,0.02,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"load":[0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.81,0.81,0.81,0.82,0.83,0.84,0.86,0.88,0.91,0.94,0.98,1.04,1.1,1.17,1.24,1.33,1.41,1.5,1.58,1.65,1.71,1.76,1.79,1.8,1.79,1.76,1.71,1.65,1.58,1.5,1.41,1.33,1.24,1.17,1.1,1.04,0.98,0.94,0.91,0.88,0.86,0.84,0.83,0.82,0.82,0.81,0.81,0.82,0.82,0.83,0.84,0.86,0.89,0.92,0.97,1.03,1.1,1.18,1.28,1.39,1.51,1.64,1.78,1.92,2.05,2.16,2.26,2.34,2.38,2.4,2.38,2.34,2.26,2.16,2.05,1.92,1.78,1.64,1.51,1.39,1.28,1.18,1.1,1.03,0.97,0.92,0.89,0.86,0.84]},"summer":{"date":"2024-06-26","title":"Summer Solstice Maximum Generation","tag":"Summer Solstice (Jun 26)","desc":"Peak solar generation across 16 hours of daylight (7.6 kW peak). Battery reaches 100% SoC before solar noon; smart MPC shifts exports to evening peak (134.39 EUR/MWh).","price_min":76.76,"price_max":133.74,"price_mean":102.36,"prices":[95.32,95.35,95.39,95.42,95.46,94.66,93.75,92.83,91.92,92.63,93.92,95.21,96.51,98.55,101.08,103.61,106.14,110.07,115.53,120.98,126.44,129.25,127.1,124.94,122.79,120.08,115.4,110.72,106.04,101.5,98.53,95.56,92.58,89.61,88.23,86.93,85.63,84.33,83.01,81.69,80.36,79.04,78.29,77.78,77.27,76.76,77.01,77.85,78.69,79.53,81.1,83.63,86.16,88.69,91.14,93.42,95.7,97.98,100.11,101.55,102.99,104.42,105.79,105.63,105.47,105.31,105.14,109.9,115.13,120.36,125.59,128.18,130.04,131.89,133.74,133.52,132.17,130.83,129.49,127.17,123.95,120.73,117.51,115.02,113.68,112.34,110.99,109.12,105.73,102.34,98.95,95.71,93.51,91.31,89.1,86.9],"pv":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.03,0.12,0.24,0.4,0.6,0.82,1.07,1.35,1.65,1.96,2.29,2.64,2.99,3.35,3.71,4.07,4.43,4.78,5.12,5.45,5.77,6.06,6.34,6.59,6.82,7.02,7.19,7.34,7.45,7.53,7.58,7.6,7.58,7.53,7.45,7.34,7.19,7.02,6.82,6.59,6.34,6.06,5.77,5.45,5.12,4.78,4.43,4.07,3.71,3.35,2.99,2.64,2.29,1.96,1.65,1.35,1.07,0.82,0.6,0.4,0.24,0.12,0.03,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"load":[0.6,0.6,0.6,0.6,0.6,0.6,0.61,0.61,0.61,0.62,0.62,0.63,0.64,0.65,0.66,0.68,0.7,0.73,0.75,0.79,0.82,0.86,0.9,0.94,0.98,1.03,1.07,1.1,1.14,1.16,1.18,1.2,1.2,1.2,1.18,1.16,1.14,1.1,1.07,1.03,0.98,0.94,0.9,0.86,0.82,0.79,0.75,0.73,0.7,0.68,0.66,0.65,0.64,0.63,0.62,0.62,0.62,0.62,0.63,0.64,0.65,0.67,0.69,0.73,0.77,0.82,0.88,0.96,1.04,1.13,1.23,1.34,1.44,1.53,1.62,1.7,1.75,1.79,1.8,1.79,1.75,1.7,1.62,1.53,1.44,1.34,1.23,1.13,1.04,0.96,0.88,0.82,0.77,0.73,0.69,0.67]},"autumn":{"date":"2024-10-18","title":"Autumn Transition & Evening Ramp","tag":"Autumn Transition (Oct 18)","desc":"Moderate solar (3.2 kW) with sharp evening demand ramp. Two distinct intraday battery arbitrage cycles between morning and evening price peaks (181.28 EUR/MWh).","price_min":78.96,"price_max":180.28,"price_mean":103.26,"prices":[82.73,81.79,80.85,79.9,78.96,79.33,79.9,80.47,81.04,81.75,82.52,83.28,84.04,86.48,90.01,93.53,97.05,104.78,117.1,129.42,141.74,150.32,151.89,153.45,155.02,153.86,142.91,131.95,121.0,110.68,106.99,103.3,99.61,95.92,93.34,90.81,88.27,85.74,84.83,84.27,83.7,83.13,82.5,81.83,81.16,80.49,80.34,80.58,80.81,81.05,81.52,82.28,83.05,83.81,85.74,90.32,94.91,99.5,104.57,111.92,119.28,126.63,134.17,145.7,157.22,168.75,180.28,172.73,163.36,153.99,144.62,135.13,125.61,116.08,106.56,102.24,100.68,99.13,97.57,96.38,95.51,94.65,93.79,92.53,90.66,88.79,86.92,85.64,86.0,86.37,86.74,86.93,85.96,84.98,84.01,83.03],"pv":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.02,0.06,0.14,0.25,0.39,0.55,0.73,0.94,1.15,1.37,1.6,1.83,2.05,2.26,2.47,2.65,2.81,2.95,3.06,3.14,3.18,3.2,3.18,3.14,3.06,2.95,2.81,2.65,2.47,2.26,2.05,1.83,1.6,1.37,1.15,0.94,0.73,0.55,0.39,0.25,0.14,0.06,0.02,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"load":[0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.81,0.81,0.81,0.82,0.83,0.84,0.86,0.88,0.91,0.94,0.98,1.04,1.1,1.17,1.24,1.33,1.41,1.5,1.58,1.65,1.71,1.76,1.79,1.8,1.79,1.76,1.71,1.65,1.58,1.5,1.41,1.33,1.24,1.17,1.1,1.04,0.98,0.94,0.91,0.88,0.86,0.84,0.83,0.82,0.82,0.81,0.81,0.82,0.82,0.83,0.84,0.86,0.89,0.92,0.97,1.03,1.1,1.18,1.28,1.39,1.51,1.64,1.78,1.92,2.05,2.16,2.26,2.34,2.38,2.4,2.38,2.34,2.26,2.16,2.05,1.92,1.78,1.64,1.51,1.39,1.28,1.18,1.1,1.03,0.97,0.92,0.89,0.86,0.84]},"extreme_high":{"date":"2024-12-12","title":"German Dunkelflaute Scarcity Spike","tag":"Extreme High Spike (+936 EUR/MWh)","desc":"Historic Central European Dunkelflaute cold spell. Spot prices spike to 936.28 EUR/MWh at 18:00. Battery discharges at maximum 5.63 kW inverter capacity, generating massive cost savings.","price_min":107.51,"price_max":933.81,"price_mean":404.7,"prices":[115.3,114.01,112.71,111.42,110.13,109.41,108.78,108.15,107.51,108.27,109.52,110.77,112.02,114.15,116.86,119.56,122.26,129.75,142.46,155.18,167.89,211.87,314.48,417.08,519.69,602.92,616.38,629.84,643.31,655.41,653.27,651.13,648.99,646.85,622.92,598.0,573.08,548.16,528.14,509.14,490.14,471.14,455.19,440.58,425.96,411.34,406.4,408.9,411.39,413.89,423.2,441.37,459.53,477.7,503.47,546.6,589.73,632.86,674.83,711.26,747.7,784.13,820.21,848.61,877.01,905.41,933.81,878.34,814.89,751.43,687.97,650.84,621.02,591.2,561.38,510.69,448.87,387.05,325.23,279.71,249.14,218.57,188.01,167.56,162.87,158.17,153.47,149.04,145.34,141.65,137.96,134.6,133.47,132.34,131.2,130.07],"pv":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.02,0.06,0.13,0.23,0.34,0.47,0.6,0.73,0.86,0.97,1.07,1.14,1.18,1.2,1.18,1.14,1.07,0.97,0.86,0.73,0.6,0.47,0.34,0.23,0.13,0.06,0.02,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"load":[1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.3,1.31,1.31,1.32,1.33,1.34,1.37,1.41,1.46,1.53,1.61,1.72,1.85,2.0,2.15,2.31,2.47,2.6,2.71,2.78,2.8,2.78,2.71,2.6,2.47,2.31,2.15,2.0,1.85,1.72,1.61,1.53,1.46,1.41,1.37,1.34,1.33,1.32,1.31,1.31,1.31,1.31,1.31,1.31,1.32,1.33,1.34,1.36,1.39,1.43,1.48,1.54,1.62,1.72,1.84,1.99,2.15,2.32,2.51,2.71,2.9,3.09,3.26,3.4,3.51,3.58,3.6,3.58,3.51,3.4,3.26,3.09,2.9,2.71,2.51,2.32,2.15,1.99,1.84,1.72,1.62,1.54,1.48,1.43,1.39,1.36]},"extreme_low":{"date":"2024-05-12","title":"Renewable Cannibalization Crash","tag":"Extreme Negative (-135 EUR/MWh)","desc":"Mother's Day renewable oversupply crashes spot market to -135.45 EUR/MWh. Under EEG Section 51, export subsidies are cut; battery absorbs grid power at negative cost.","price_min":-135.09,"price_max":75.08,"price_mean":-2.19,"prices":[44.52,43.72,42.92,42.12,41.32,42.3,43.53,44.77,46.01,45.82,45.14,44.45,43.77,39.68,33.42,27.15,20.88,16.13,13.02,9.92,6.81,4.58,3.99,3.4,2.81,2.08,0.83,-0.41,-1.66,-3.27,-8.64,-14.02,-19.39,-24.77,-35.34,-46.15,-56.95,-67.76,-75.72,-83.09,-90.45,-97.82,-106.02,-114.59,-123.16,-131.72,-135.09,-134.46,-133.84,-133.21,-127.82,-116.26,-104.69,-93.13,-81.02,-67.69,-54.35,-41.02,-28.79,-21.85,-14.91,-7.97,-1.08,4.69,10.46,16.23,22.0,32.54,43.55,54.55,65.55,69.42,71.31,73.19,75.08,72.98,68.75,64.52,60.28,56.53,53.23,49.92,46.61,43.75,41.57,39.4,37.22,35.06,32.93,30.81,28.69,26.81,26.58,26.34,26.11,25.88],"pv":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.02,0.09,0.2,0.36,0.55,0.79,1.05,1.36,1.68,2.04,2.41,2.8,3.2,3.6,4.0,4.4,4.79,5.16,5.52,5.84,6.15,6.41,6.65,6.84,7.0,7.11,7.18,7.2,7.18,7.11,7.0,6.84,6.65,6.41,6.15,5.84,5.52,5.16,4.79,4.4,4.0,3.6,3.2,2.8,2.41,2.04,1.68,1.36,1.05,0.79,0.55,0.36,0.2,0.09,0.02,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"load":[0.8,0.8,0.8,0.8,0.8,0.8,0.8,0.81,0.81,0.81,0.82,0.83,0.84,0.86,0.88,0.91,0.94,0.98,1.04,1.1,1.17,1.24,1.33,1.41,1.5,1.58,1.65,1.71,1.76,1.79,1.8,1.79,1.76,1.71,1.65,1.58,1.5,1.41,1.33,1.24,1.17,1.1,1.04,0.98,0.94,0.91,0.88,0.86,0.84,0.83,0.82,0.82,0.81,0.81,0.82,0.82,0.83,0.84,0.86,0.89,0.92,0.97,1.03,1.1,1.18,1.28,1.39,1.51,1.64,1.78,1.92,2.05,2.16,2.26,2.34,2.38,2.4,2.38,2.34,2.26,2.16,2.05,1.92,1.78,1.64,1.51,1.39,1.28,1.18,1.1,1.03,0.97,0.92,0.89,0.86,0.84]}};
+
+    let currentRegimeKey = 'summer';
+    const activeChannels = {
+      price: true,
+      pv: true,
+      bat: true,
+      soc: true,
+      grid: true
+    };
+
+    function toggleChannel(chKey) {
+      activeChannels[chKey] = !activeChannels[chKey];
+      const card = document.getElementById('leg-' + chKey);
+      if (card) card.classList.toggle('disabled', !activeChannels[chKey]);
+      drawDispatchCanvas();
+    }
+
+    function selectDayRegime(regKey) {
+      if (!DAY_REGIMES[regKey]) return;
+      currentRegimeKey = regKey;
+      const reg = DAY_REGIMES[regKey];
+
+      // Update button active classes
+      ['winter', 'spring', 'summer', 'autumn', 'extreme_high', 'extreme_low'].forEach(k => {
+        const btn = document.getElementById('dbtn-' + k);
+        if (btn) btn.classList.toggle('active', k === regKey);
+      });
+
+      // Update header date badge and description box
+      const dateEl = document.getElementById('active-regime-date');
+      if (dateEl) dateEl.innerText = reg.tag + ' (' + reg.date + ')';
+
+      const descEl = document.getElementById('day-regime-desc');
+      if (descEl) {
+        descEl.innerHTML = '<strong>' + reg.title + ':</strong> ' + reg.desc + 
+          ' <span style="color: var(--cyan-bright); margin-left: 8px;">Wholesale Spot: ' + 
+          reg.price_min.toFixed(1) + ' to ' + reg.price_max.toFixed(1) + ' EUR/MWh (Mean: ' + reg.price_mean.toFixed(1) + ' EUR/MWh)</span>';
+      }
+
+      // Recalculate dispatch profiles and redraw
+      simP01();
+    }
+
+    // Dispatch Data Model for 96 15-Minute MTUs
     const dispatchData = [];
     (function initDispatchData() {
+      const reg = DAY_REGIMES['summer'];
       for (let i = 0; i < 96; i++) {
         const hour = i / 4;
-        const price = 50 + 40 * Math.sin((hour - 4) * Math.PI / 12) + (hour >= 18 && hour <= 21 ? 35 : 0);
-        let pv = 0;
-        if (hour >= 6 && hour <= 20) {
-          pv = 7.8 * Math.pow(Math.sin((hour - 6) * Math.PI / 14), 2);
-        }
-        const load = 0.8 + 1.2 * (hour >= 7 && hour <= 9 ? 1.4 : 1) + 1.6 * (hour >= 18 && hour <= 22 ? 1.6 : 0.5);
-        const net = pv - load;
-        let bat = 0;
-        let soc = 20;
-        if (hour < 8) soc = 25 - hour * 1.5;
-        else if (hour < 16) soc = Math.min(90, 15 + (hour - 8) * 9.5);
-        else soc = Math.max(15, 90 - (hour - 16) * 9);
-        bat = net > 0 ? Math.min(3.5, net) : Math.max(-3.5, net);
-        const grid = Math.max(0, load - pv - (bat < 0 ? -bat : 0));
         dispatchData.push({
           time: String(Math.floor(hour)).padStart(2, '0') + ':' + String((i % 4) * 15).padStart(2, '0'),
           step: i + 1,
-          price: Math.max(12, price),
-          pv: Math.max(0, pv),
-          load: load,
-          bat: bat,
-          soc: soc,
-          grid: grid
+          price: reg.prices[i],
+          pv: reg.pv[i],
+          load: reg.load[i],
+          bat: 0,
+          soc: 20,
+          grid: 0
         });
       }
     })();
 
     let scrubberIdx = 48;
+
     function drawDispatchCanvas() {
       const canvas = document.getElementById('dispatchCanvas');
       if (!canvas) return;
@@ -3322,85 +3619,218 @@
 
       ctx.clearRect(0, 0, w, h);
 
-      // Grid lines
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 96; i += 16) {
-        const x = (i / 95) * w;
+      const stepW = w / 96.0;
+      const padTop = 18;
+      const padBottom = 26;
+      const plotH = h - padTop - padBottom;
+
+      // Price Scaling
+      const prices = dispatchData.map(d => d.price);
+      const minP = Math.min(0, Math.min(...prices));
+      const maxP = Math.max(100, Math.max(...prices));
+      const pRange = Math.max(10, maxP - minP);
+      const priceY = p => padTop + (1.0 - (p - minP) / pRange) * plotH;
+
+      // Draw Discrete Negative Price Zone Highlight if minP < 0
+      if (minP < 0) {
+        const zeroY = priceY(0);
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.08)';
+        ctx.fillRect(0, zeroY, w, (h - padBottom) - zeroY);
+
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
         ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
+        ctx.moveTo(0, zeroY);
+        ctx.lineTo(w, zeroY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#fb7185';
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.fillText('0 EUR/MWh (EEG 51 Cutoff)', 8, zeroY - 4);
+      }
+
+      // Discrete Hour Grid Lines (every 4 steps = 1 hour, every 16 steps = 4 hours)
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 96; i += 4) {
+        const x = i * stepW;
+        const isMajor = (i % 16 === 0);
+        ctx.strokeStyle = isMajor ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.04)';
+        ctx.beginPath();
+        ctx.moveTo(x, padTop);
+        ctx.lineTo(x, h - padBottom);
+        ctx.stroke();
+
+        if (isMajor) {
+          const hourLabel = String(i / 4).padStart(2, '0') + ':00';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+          ctx.font = '10px "JetBrains Mono", monospace';
+          const tw = ctx.measureText(hourLabel).width;
+          const tx = Math.max(2, Math.min(w - tw - 2, x - tw / 2));
+          ctx.fillText(hourLabel, tx, h - 8);
+        }
+      }
+
+      // 1. Solar PV: Discrete 15-Minute Interval Bars
+      if (activeChannels.pv) {
+        const maxPv = Math.max(8.0, Math.max(...dispatchData.map(d => d.pv)));
+        for (let i = 0; i < 96; i++) {
+          const pv = dispatchData[i].pv;
+          if (pv > 0.08) {
+            const barH = (pv / maxPv) * (plotH * 0.58);
+            const x = i * stepW + 1;
+            const y = (h - padBottom) - barH;
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
+            ctx.fillRect(x, y, Math.max(1, stepW - 2), barH);
+            ctx.strokeStyle = 'rgba(52, 211, 153, 0.75)';
+            ctx.strokeRect(x, y, Math.max(1, stepW - 2), barH);
+          }
+        }
+      }
+
+      // 2. Battery Dispatch: Discrete 15-Minute Bidirectional Interval Bars
+      if (activeChannels.bat) {
+        const maxBat = 5.63;
+        for (let i = 0; i < 96; i++) {
+          const bat = dispatchData[i].bat;
+          if (Math.abs(bat) > 0.08) {
+            const barH = (Math.abs(bat) / maxBat) * (plotH * 0.42);
+            const x = i * stepW + 1;
+            const y = (h - padBottom) - barH;
+            if (bat > 0) {
+              // Charging: Emerald / Cyan
+              ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
+              ctx.fillRect(x, y, Math.max(1, stepW - 2), barH);
+              ctx.strokeStyle = '#38bdf8';
+              ctx.strokeRect(x, y, Math.max(1, stepW - 2), barH);
+            } else {
+              // Discharging: Purple
+              ctx.fillStyle = 'rgba(168, 85, 247, 0.35)';
+              ctx.fillRect(x, y, Math.max(1, stepW - 2), barH);
+              ctx.strokeStyle = '#c084fc';
+              ctx.strokeRect(x, y, Math.max(1, stepW - 2), barH);
+            }
+          }
+        }
+      }
+
+      // 3. Day-Ahead Spot Tariff: Discrete 15-Minute Staircase (Step Plot)
+      if (activeChannels.price) {
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        for (let i = 0; i < 96; i++) {
+          const xStart = i * stepW;
+          const xEnd = (i + 1) * stepW;
+          const y = priceY(dispatchData[i].price);
+          if (i === 0) {
+            ctx.moveTo(xStart, y);
+          } else {
+            ctx.lineTo(xStart, y); // Vertical step
+          }
+          ctx.lineTo(xEnd, y); // Horizontal holding segment
+        }
         ctx.stroke();
       }
 
-      // Draw PV Fill and Line
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
-      ctx.strokeStyle = '#34d399';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, h);
-      dispatchData.forEach((d, i) => {
-        const x = (i / 95) * w;
-        const y = h - (d.pv / 8.0) * (h * 0.72);
-        ctx.lineTo(x, y);
-      });
-      ctx.lineTo(w, h);
-      ctx.fill();
-      ctx.stroke();
+      // 4. Battery State-of-Charge (SoC %): Discrete Dashed Staircase
+      if (activeChannels.soc) {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        for (let i = 0; i < 96; i++) {
+          const xStart = i * stepW;
+          const xEnd = (i + 1) * stepW;
+          const y = (h - padBottom) - (dispatchData[i].soc / 100.0) * (plotH * 0.72);
+          if (i === 0) {
+            ctx.moveTo(xStart, y);
+          } else {
+            ctx.lineTo(xStart, y);
+          }
+          ctx.lineTo(xEnd, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
 
-      // Draw Price Line
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      dispatchData.forEach((d, i) => {
-        const x = (i / 95) * w;
-        const y = h - ((d.price - 10) / 125) * (h * 0.7);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
+      // 5. Net Grid Exchange: Discrete Staircase
+      if (activeChannels.grid) {
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const maxGrid = 6.0;
+        for (let i = 0; i < 96; i++) {
+          const xStart = i * stepW;
+          const xEnd = (i + 1) * stepW;
+          const y = (h - padBottom) - (dispatchData[i].grid / maxGrid) * (plotH * 0.45);
+          if (i === 0) {
+            ctx.moveTo(xStart, y);
+          } else {
+            ctx.lineTo(xStart, y);
+          }
+          ctx.lineTo(xEnd, y);
+        }
+        ctx.stroke();
+      }
 
-      // Draw SOC Line (Dashed)
+      // Discrete Active 15-Minute Interval Highlight Cursor
+      const curX = scrubberIdx * stepW;
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
+      ctx.fillRect(curX, padTop, stepW, plotH);
       ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      dispatchData.forEach((d, i) => {
-        const x = (i / 95) * w;
-        const y = h - (d.soc / 100) * (h * 0.75);
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Vertical Cursor
-      const sx = (scrubberIdx / 95) * w;
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
       ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(sx, 0);
-      ctx.lineTo(sx, h);
-      ctx.stroke();
+      ctx.strokeRect(curX, padTop, stepW, plotH);
 
-      // Scrubber Head Dot
+      // Top indicator pip
       ctx.fillStyle = '#06b6d4';
       ctx.beginPath();
-      ctx.arc(sx, 12, 5, 0, 2 * Math.PI);
+      ctx.arc(curX + stepW / 2, padTop, 4, 0, 2 * Math.PI);
       ctx.fill();
     }
 
     function updateHud(idx) {
       const d = dispatchData[idx];
       if (!d) return;
-      document.getElementById('hud-time').innerText = d.time + ' (Step ' + d.step + ')';
-      document.getElementById('hud-price').innerText = d.price.toFixed(2) + ' €/MWh';
-      document.getElementById('hud-pv').innerText = d.pv.toFixed(2) + ' kW';
-      const batStr = (d.bat >= 0 ? '+' : '') + d.bat.toFixed(2) + ' kW ' + (d.bat > 0.1 ? '(Chg)' : d.bat < -0.1 ? '(Dis)' : '(Idle)');
-      document.getElementById('hud-bat').innerText = batStr;
-      document.getElementById('hud-soc').innerText = d.soc.toFixed(1) + '%';
+
+      // Update HUD tiles
+      const timeEl = document.getElementById('hud-time');
+      if (timeEl) timeEl.innerText = d.time + ' (Step ' + d.step + '/96)';
+
+      const priceEl = document.getElementById('hud-price');
+      if (priceEl) priceEl.innerText = d.price.toFixed(2) + ' EUR/MWh';
+
+      const pvEl = document.getElementById('hud-pv');
+      if (pvEl) pvEl.innerText = d.pv.toFixed(2) + ' kW';
+
+      const batStr = (d.bat >= 0 ? '+' : '') + d.bat.toFixed(2) + ' kW ' + 
+        (d.bat > 0.1 ? '(Chg)' : d.bat < -0.1 ? '(Dis)' : '(Idle)');
+      const batEl = document.getElementById('hud-bat');
+      if (batEl) batEl.innerText = batStr;
+
+      const socEl = document.getElementById('hud-soc');
+      if (socEl) socEl.innerText = d.soc.toFixed(1) + '%';
+
       const gridStr = d.grid > 0.05 ? d.grid.toFixed(2) + ' kW (Imp)' : '0.00 kW (Self)';
-      document.getElementById('hud-grid').innerText = gridStr;
+      const gridEl = document.getElementById('hud-grid');
+      if (gridEl) gridEl.innerText = gridStr;
+
+      // Update Discrete Legend Cards
+      const legPrice = document.getElementById('legval-price');
+      if (legPrice) legPrice.innerText = d.price.toFixed(2) + ' EUR/MWh';
+
+      const legPv = document.getElementById('legval-pv');
+      if (legPv) legPv.innerText = d.pv.toFixed(2) + ' kW';
+
+      const legBat = document.getElementById('legval-bat');
+      if (legBat) legBat.innerText = (d.bat >= 0 ? '+' : '') + d.bat.toFixed(2) + ' kW';
+
+      const legSoc = document.getElementById('legval-soc');
+      if (legSoc) legSoc.innerText = d.soc.toFixed(1) + '%';
+
+      const legGrid = document.getElementById('legval-grid');
+      if (legGrid) legGrid.innerText = gridStr;
     }
 
     function setupCanvasListeners() {
@@ -3409,7 +3839,7 @@
       function handleMove(clientX) {
         const rect = canvas.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-        scrubberIdx = Math.round(ratio * 95);
+        scrubberIdx = Math.min(95, Math.max(0, Math.floor(ratio * 96)));
         updateHud(scrubberIdx);
         drawDispatchCanvas();
       }
@@ -3419,250 +3849,7 @@
       });
       window.addEventListener('resize', drawDispatchCanvas);
     }
-    // =========================================================================
-    // IN-CARD PROJECT INTERACTIVE PHYSICS SIMULATORS
-    // =========================================================================
 
-    // Project 01: Residential PV+BESS Sizing & 24h Dynamic Dispatch
-    function simP01() {
-      const pv = parseFloat(document.getElementById('p01-slider-pv').value);
-      const bess = parseFloat(document.getElementById('p01-slider-bess').value);
-      const inv = parseFloat(document.getElementById('p01-slider-inv').value);
-      const eeg = parseFloat(document.getElementById('p01-slider-eeg').value);
-
-      document.getElementById('p01-val-pv').innerText = pv.toFixed(1) + ' kWp';
-      document.getElementById('p01-val-bess').innerText = bess.toFixed(2) + ' kWh';
-      document.getElementById('p01-val-inv').innerText = inv.toFixed(2) + ' kW';
-      document.getElementById('p01-val-eeg').innerText = eeg.toFixed(2) + ' ct/kWh';
-
-      // 1. Solar Self-Consumption Rate (%)
-      const scBase = Math.min(0.85, 0.28 + 0.12 * (8.0 / Math.max(1.0, pv)));
-      const scBoost = (1.0 - scBase) * (1.0 - Math.exp(-0.16 * bess));
-      const sc = Math.min(0.94, scBase + scBoost);
-      document.getElementById('p01-res-sc').innerText = (sc * 100).toFixed(1) + '%';
-
-      // 2. Daily Operating Cost / Revenue
-      const dailySolarKwh = pv * 2.88;
-      const dailyLoadKwh = 10.5;
-      const selfConsumedKwh = sc * dailySolarKwh;
-      const exportKwh = Math.max(0, dailySolarKwh - selfConsumedKwh);
-      const importKwh = Math.max(0, dailyLoadKwh - selfConsumedKwh);
-      const mpcGain = 0.12 * Math.pow(Math.max(0.1, bess), 0.75);
-      const netCost = (importKwh * 0.32) - (exportKwh * (eeg / 100.0)) - mpcGain;
-      const costEl = document.getElementById('p01-res-cost');
-      costEl.innerText = (netCost <= 0 ? '' : '+') + netCost.toFixed(2) + ' EUR/day';
-      costEl.className = 'sim-res-val ' + (netCost <= 0 ? 'emerald' : 'amber');
-
-      // 3. Peak Grid Export
-      const peakExport = Math.min(inv, pv * 0.88);
-      document.getElementById('p01-res-peak').innerText = peakExport.toFixed(2) + ' kW';
-
-      // 4. B3 Headroom Recovery
-      const recEl = document.getElementById('p01-res-rec');
-      if (bess < 0.5) {
-        recEl.innerText = '0.0% (No BESS)';
-        recEl.className = 'sim-res-val';
-      } else {
-        const rec = Math.min(68.0, 42.0 + 14.0 * Math.min(1.2, bess / 9.37));
-        recEl.innerText = rec.toFixed(1) + '% Rec';
-        recEl.className = 'sim-res-val emerald';
-      }
-
-      // 5. Inverter Invariant Status
-      const statEl = document.getElementById('p01-res-stat');
-      if (pv > inv * 1.5) {
-        statEl.innerText = 'Clipping (' + (pv - inv).toFixed(1) + ' kW Overload)';
-        statEl.className = 'sim-res-val amber';
-      } else {
-        statEl.innerText = 'Pass (Within Limits)';
-        statEl.className = 'sim-res-val emerald';
-      }
-
-      // 6. Update 24h Scrubber Canvas with new PV & BESS sizing
-      recomputeDispatchForSizing(pv, bess, inv);
-      drawDispatchCanvas();
-      updateHud(scrubberIdx);
-    }
-
-    // Project 02: Pumped Storage Reversible Machine & Wear
-    function simP02() {
-      const turb = parseFloat(document.getElementById('p02-slider-turb').value);
-      const pump = parseFloat(document.getElementById('p02-slider-pump').value);
-      const res = parseFloat(document.getElementById('p02-slider-res').value);
-      const wear = parseFloat(document.getElementById('p02-slider-wear').value);
-
-      document.getElementById('p02-val-turb').innerText = turb.toFixed(1) + ' MW';
-      document.getElementById('p02-val-pump').innerText = pump.toFixed(1) + ' MW';
-      document.getElementById('p02-val-res').innerText = Math.round(res).toLocaleString() + ' MWh';
-      document.getElementById('p02-val-wear').innerText = Math.round(wear) + ' EUR/switch';
-
-      // Reversals per day
-      const revs = 2.14 * Math.exp(-0.026 * wear);
-      document.getElementById('p02-res-revs').innerText = revs.toFixed(2) + ' /day';
-
-      // Annual wear cost
-      const annualWear = revs * 365 * wear * 0.6;
-      document.getElementById('p02-res-wearcost').innerText = Math.round(annualWear).toLocaleString() + ' EUR/yr';
-
-      // Net arbitrage revenue
-      const capScale = Math.pow(turb / 30.0, 0.85) * Math.pow(res / 2400.0, 0.25);
-      const grossRev = 959666 * capScale;
-      const netRev = Math.max(100000, grossRev - annualWear);
-      document.getElementById('p02-res-rev').innerText = Math.round(netRev).toLocaleString() + ' EUR';
-
-      // B2 capture %
-      const b2Cap = Math.min(96.5, Math.max(75.0, 88.0 + 4.0 * (res / 2400.0) - 2.0 * (wear / 150.0)));
-      document.getElementById('p02-res-b2cap').innerText = b2Cap.toFixed(1) + '% Capture';
-    }
-
-    // Project 03: §14a EnWG Fleet Charging Dimming
-    function simP03() {
-      const dim = parseFloat(document.getElementById('p03-slider-dim').value);
-      const sessions = parseFloat(document.getElementById('p03-slider-sessions').value);
-      const buffer = parseFloat(document.getElementById('p03-slider-buffer').value);
-
-      document.getElementById('p03-val-dim').innerText = Math.round(dim) + ' kW';
-      document.getElementById('p03-val-sessions').innerText = Math.round(sessions) + ' Sessions';
-      document.getElementById('p03-val-buffer').innerText = Math.round(buffer) + ' kWh';
-
-      // Peak grid demand capped strictly at dimming limit
-      document.getElementById('p03-res-peak').innerText = dim.toFixed(1) + ' kW';
-
-      // Departure punctuality
-      const effectiveCap = dim + (buffer / 2.0);
-      const minRequiredCap = sessions * 1.55;
-      const punctEl = document.getElementById('p03-res-punct');
-      if (effectiveCap >= minRequiredCap) {
-        punctEl.innerText = '0 Missed (100% On-Time)';
-        punctEl.className = 'sim-res-val emerald';
-      } else {
-        const missed = Math.min(sessions, Math.ceil((minRequiredCap - effectiveCap) / 7.5));
-        punctEl.innerText = missed + ' Missed (Critical Curtailment)';
-        punctEl.className = 'sim-res-val amber';
-      }
-
-      // Fleet electricity cost
-      const baseCost = 473.07 * (sessions / 48.0);
-      const bufferSavings = 0.04 * (buffer / 50.0);
-      const cost = baseCost * (1.0 - bufferSavings);
-      document.getElementById('p03-res-cost').innerText = cost.toFixed(2) + ' EUR';
-
-      // §14a net rebate
-      const rebate = 1480 * (sessions / 48.0);
-      document.getElementById('p03-res-rebate').innerText = Math.round(rebate).toLocaleString() + ' EUR/yr';
-    }
-
-    // Project 04: REC P2P Sharing & Core Stability
-    function simP04() {
-      const charge = parseFloat(document.getElementById('p04-slider-charge').value);
-      const members = parseFloat(document.getElementById('p04-slider-members').value);
-      const pv = parseFloat(document.getElementById('p04-slider-pv').value);
-
-      document.getElementById('p04-val-charge').innerText = charge.toFixed(3) + ' €/kWh';
-      document.getElementById('p04-val-members').innerText = Math.round(members) + ' Members';
-      document.getElementById('p04-val-pv').innerText = Math.round(pv) + ' kWp';
-
-      const breakeven = 0.110;
-      const baseSurplus = 24.13 * (members / 20.0) * Math.pow(pv / 65.0, 0.75);
-      const surplus = Math.max(0, baseSurplus * (1.0 - (charge / breakeven)));
-      document.getElementById('p04-res-surplus').innerText = surplus.toFixed(2) + ' EUR/wk';
-
-      const coreEl = document.getElementById('p04-res-core');
-      if (charge <= 0.030) {
-        coreEl.innerText = '0 Blocking (100% Stable)';
-        coreEl.className = 'sim-res-val emerald';
-      } else if (charge <= breakeven) {
-        coreEl.innerText = '0 Blocking (Core Stable)';
-        coreEl.className = 'sim-res-val emerald';
-      } else {
-        const blocking = Math.round(443 * (charge / breakeven));
-        coreEl.innerText = blocking + ' Blocking (Defection Risk)';
-        coreEl.className = 'sim-res-val amber';
-      }
-
-      const savings = Math.max(0, 18.4 * (1.0 - charge / breakeven) * Math.pow(pv / 65.0, 0.4));
-      document.getElementById('p04-res-savings').innerText = savings.toFixed(1) + '% Tariff Cut';
-    }
-
-    // Project 05: Hybrid Over-Planting Curtailment
-    function simP05() {
-      const poc = parseFloat(document.getElementById('p05-slider-poc').value);
-      const pv = parseFloat(document.getElementById('p05-slider-pv').value);
-      const bess = parseFloat(document.getElementById('p05-slider-bess').value);
-
-      document.getElementById('p05-val-poc').innerText = Math.round(poc) + ' MW';
-      document.getElementById('p05-val-pv').innerText = Math.round(pv) + ' MW';
-      document.getElementById('p05-val-bess').innerText = Math.round(bess) + ' MWh';
-
-      const totalGen = 40.0 + pv;
-      const ratio = totalGen / poc;
-      document.getElementById('p05-res-ratio').innerText = ratio.toFixed(2) + 'x';
-
-      // Structural forced curtailment
-      const unbuffered = 695.3 * Math.pow(totalGen / 80.0, 2.0) * Math.pow(40.0 / poc, 1.4);
-      const bufferedCurtail = Math.max(25.0, unbuffered - 8.5 * bess);
-      document.getElementById('p05-res-curtail').innerText = bufferedCurtail.toFixed(1) + ' MWh';
-
-      // Revenue lift %
-      const lift = Math.min(16.0, 5.4 * (40.0 / poc) + 1.8 * (bess / 20.0));
-      document.getElementById('p05-res-lift').innerText = '+' + lift.toFixed(1) + '% Rev';
-
-      // EEG §51 avoidance
-      const avoid = 34200 * (totalGen / 80.0) * (1.0 + (bess / 20.0) * 0.3);
-      document.getElementById('p05-res-avoid').innerText = Math.round(avoid).toLocaleString() + ' EUR/yr';
-    }
-
-    // Project 06: Forecast-to-Bid Quantile reBAP Imbalance
-    function simP06() {
-      const risk = parseFloat(document.getElementById('p06-slider-risk').value);
-      const mae = parseFloat(document.getElementById('p06-slider-mae').value);
-      const spread = parseFloat(document.getElementById('p06-slider-spread').value);
-
-      const qLabel = 'q' + Math.round(risk * 100);
-      document.getElementById('p06-val-risk').innerText = qLabel + ' (Tau ' + risk.toFixed(2) + ')';
-      document.getElementById('p06-val-mae').innerText = mae.toFixed(1) + '%';
-      document.getElementById('p06-val-spread').innerText = spread.toFixed(1) + ' €/MWh';
-
-      // Realized price
-      const price = 60.89 + 3.2 * (0.50 - risk) * (spread / 42.0) - 0.15 * (mae - 11.8);
-      document.getElementById('p06-res-price').innerText = price.toFixed(2) + ' EUR/MWh';
-
-      // Optimal volume
-      const vol = 15785 * (1.0 + (risk - 0.42) * 0.6) * (1.0 - (mae - 11.8) * 0.02);
-      document.getElementById('p06-res-vol').innerText = Math.round(vol).toLocaleString() + ' MWh';
-
-      // 30-day gain
-      const gain = 288.5 * (1.0 + (spread - 42.0) / 42.0 * 0.7) * (1.0 - Math.abs(risk - 0.42) * 1.2);
-      document.getElementById('p06-res-gain').innerText = '+' + gain.toFixed(1) + 'k EUR';
-
-      // Risk reduction
-      const riskRed = -(44.0 + 15.0 * (0.50 - risk));
-      document.getElementById('p06-res-riskred').innerText = riskRed.toFixed(1) + '% Vol';
-    }
-
-    function recomputeDispatchForSizing(pvKw, bessKwh, invKw) {
-      const pvScale = pvKw / 8.0;
-      const batMax = Math.min(invKw, Math.max(1.0, 0.45 * bessKwh));
-      for (let i = 0; i < 96; i++) {
-        const hour = i / 4;
-        let pv = 0;
-        if (hour >= 6 && hour <= 20) {
-          pv = 7.8 * Math.pow(Math.sin((hour - 6) * Math.PI / 14), 2) * pvScale;
-        }
-        dispatchData[i].pv = Math.max(0, pv);
-        const load = dispatchData[i].load;
-        const net = pv - load;
-        let bat = 0;
-        let soc = 20;
-        if (hour < 8) soc = Math.max(10, 25 - hour * 1.5);
-        else if (hour < 16) soc = Math.min(90, 15 + (hour - 8) * 9.5 * Math.min(1.5, pvScale));
-        else soc = Math.max(10, 90 - (hour - 16) * 9);
-        bat = net > 0 ? Math.min(batMax, net) : Math.max(-batMax, net);
-        dispatchData[i].bat = bat;
-        dispatchData[i].soc = bessKwh > 0.5 ? soc : 0;
-        dispatchData[i].grid = Math.max(0, load - pv - (bat < 0 ? -bat : 0));
-      }
-    }
 
     window.addEventListener('DOMContentLoaded', () => {
       selectProject('p01', false);
