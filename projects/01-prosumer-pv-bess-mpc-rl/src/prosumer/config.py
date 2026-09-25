@@ -83,10 +83,11 @@ class TariffConfig:
     fixed_energy_price: float = 0.090     # EUR/kWh, used when spot_passthrough is False
 
     # --- export side ---
-    # "feed_in_tariff" | "market_premium" | "spot" | "spot_gross_floored"
-    export_mode: str = "feed_in_tariff"
-    feed_in_tariff: float = 0.0786        # EUR/kWh, EEG Teileinspeisung class
-    market_premium_fee: float = 0.005     # EUR/kWh direct-marketing fee, market_premium mode
+    # "spot_gross_floored" | "spot" | "market_premium" | "feed_in_tariff"
+    export_mode: str = "spot_gross_floored"
+    feed_in_tariff: float = 0.0786        # EUR/kWh, legacy EEG option (kept for backwards compatibility)
+    market_premium_fee: float = 0.010     # EUR/kWh retail service fee (thesis Section 3.3.2)
+    export_min_spot: float = 0.0          # EUR/kWh threshold below which export is floored to 0.0
 
     # --- negative-price rule (EEG s51, tightened for new plants) ---
     # "none"     : premium always paid (older vintages / simplification)

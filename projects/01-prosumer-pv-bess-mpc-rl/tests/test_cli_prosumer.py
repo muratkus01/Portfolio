@@ -38,3 +38,17 @@ def legacy_csv(tmp_path):
 def test_cli_command_runs(legacy_csv, capsys, argv, expect):
     assert main(argv[:1] + ["--data", legacy_csv] + argv[1:]) == 0
     assert expect in capsys.readouterr().out
+
+
+def test_cli_sensitivity_runs(capsys):
+    assert main(["sensitivity", "--type", "2", "--fixed-pv", "15"]) == 0
+    out = capsys.readouterr().out
+    assert "Type 2 Targeted Sensitivity" in out
+    assert "Optimal Sweet Spot" in out
+
+
+def test_cli_national_impact_runs(capsys):
+    assert main(["national-impact", "--year", "2024", "--day", "summer"]) == 0
+    out = capsys.readouterr().out
+    assert "Germany-Wide System-Level Impact Analysis" in out
+    assert "Marginal Fossil Gas Displaced" in out

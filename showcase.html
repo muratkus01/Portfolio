@@ -1519,16 +1519,18 @@
               <button class="proj-tab-btn" onclick="setProjTab('p01', 'reg')">Regulatory Mechanics</button>
               <button class="proj-tab-btn" onclick="setProjTab('p01', 'inv')">Invariant Guards</button>
               <button class="proj-tab-btn" onclick="setProjTab('p01', 'arch')">Algorithmic Ladder</button>
+              <button class="proj-tab-btn" onclick="setProjTab('p01', 'sens')">Thesis Sensitivity (1,016 Configs)</button>
+              <button class="proj-tab-btn" onclick="setProjTab('p01', 'system')">Germany-Wide System Impact</button>
             </div>
 
             <!-- Tab 1: Formulation & Physics -->
             <div id="p01-pane-form" class="proj-pane active">
               <h4>Linear Program Formulation & Storage Dynamics</h4>
               <p>The prosumer energy management system schedules residential flexible storage to minimize total net electricity procurement costs over a rolling prediction horizon H = 96 intervals (24 hours at 15-minute resolution):</p>
-              <div class="formula-box">min &Sigma;<sub>t=1</sub><sup>H</sup> [ &lambda;<sub>t</sub><sup>spot</sup> &middot; P<sub>t</sub><sup>grid,imp</sup> - &lambda;<sub>t</sub><sup>feed-in</sup> &middot; P<sub>t</sub><sup>grid,exp</sup> + c<sub>deg</sub> &middot; (P<sub>t</sub><sup>ch</sup> + P<sub>t</sub><sup>dis</sup>) ] &Delta;t</div>
-              <p>Subject to non-ideal electrochemical storage dynamics with round-trip efficiency &eta; = 92% (charging &eta;<sub>ch</sub> = 0.96, discharging &eta;<sub>dis</sub> = 0.96) and cyclic battery life degradation weighting c<sub>deg</sub> = 0.015 EUR/kWh:</p>
+              <div class="formula-box">min &Sigma;<sub>t=1</sub><sup>H</sup> [ &lambda;<sub>t</sub><sup>imp</sup> &middot; P<sub>t</sub><sup>grid,imp</sup> - &lambda;<sub>t</sub><sup>exp</sup> &middot; P<sub>t</sub><sup>grid,exp</sup> + c<sub>deg</sub> &middot; (P<sub>t</sub><sup>ch</sup> + P<sub>t</sub><sup>dis</sup>) ] &Delta;t</div>
+              <p>Export remuneration is purely wholesale-indexed (&lambda;<sub>t</sub><sup>exp</sup> = max(0, (1 + VAT) &middot; &lambda;<sub>t</sub><sup>spot</sup> - Fee)), eliminating statutory EEG feed-in tariffs in accordance with Master thesis methodology. Non-ideal storage dynamics enforce &eta; = 92% round-trip efficiency (&eta;<sub>ch</sub> = 0.96, &eta;<sub>dis</sub> = 0.96) with cycling degradation c<sub>deg</sub> = 0.015 EUR/kWh:</p>
               <div class="formula-box">SoC<sub>t+1</sub> = SoC<sub>t</sub> + [ &eta;<sub>ch</sub> &middot; P<sub>t</sub><sup>ch</sup> - P<sub>t</sub><sup>dis</sup> / &eta;<sub>dis</sub> ] &middot; (&Delta;t / E<sub>nom</sub>)
-0.10 &le; SoC<sub>t</sub> &le; 0.90,   0 &le; P<sub>t</sub><sup>ch</sup> &le; 5.63 kW,   0 &le; P<sub>t</sub><sup>dis</sup> &le; 5.63 kW</div>
+0.10 &le; SoC<sub>t</sub> &le; 0.90,   0 &le; P<sub>t</sub><sup>ch</sup> &le; P<sub>inv</sub>,   0 &le; P<sub>t</sub><sup>dis</sup> &le; P<sub>inv</sub></div>
               <p>Inverter conversion bounds enforce instantaneous power balance: P<sub>t</sub><sup>grid,imp</sup> - P<sub>t</sub><sup>grid,exp</sup> + P<sub>t</sub><sup>pv</sup> + P<sub>t</sub><sup>dis</sup> - P<sub>t</sub><sup>ch</sup> = P<sub>t</sub><sup>load</sup>.</p>
             </div>
 
@@ -1554,6 +1556,25 @@
               <p>&bull; <strong>B2 Perfect Foresight MILP:</strong> Global theoretical ceiling solved via HiGHS with perfect 48h lookahead (100% ceiling).</p>
               <p>&bull; <strong>B3 Rolling MPC:</strong> Receding 24h horizon with autoregressive price forecasting, executed every 15 minutes in 1.1 ms solve time (Captures 56.0% of available headroom).</p>
               <p>&bull; <strong>Learned RL (Rescaled SAC):</strong> Neural policy evaluated over 500,000 training steps (Recovers 27.0% headroom with 0.4 ms sub-millisecond inference latency).</p>
+            </div>
+
+            <!-- Tab 5: Master Thesis Sensitivity Analysis -->
+            <div id="p01-pane-sens" class="proj-pane">
+              <h4>Master Thesis Sensitivity Methodology (Table 3-4 & Chapter 8)</h4>
+              <p>The thesis implements two systematic sensitivity analyses to isolate asset sizing boundaries:</p>
+              <p>&bull; <strong>Type 1: 3D Grid Reduction (1,016 Feasible Configs):</strong> The full parameter space of PV (2-15 kWp), BESS (2-15 kWh), and Inverter (2-15 kW) spans 2,744 combinations. Three physical coupling criteria (PVS ratio &isin; [0.5, 2.0], EPR &isin; [0.5, 2.0], and Inverter Loading IL &isin; [0.5, 2.0]) eliminate unphysical oversizing, pruning the domain to exactly 1,016 feasible configurations.</p>
+              <p>&bull; <strong>Balance-of-System (BoS) CAPEX Model (Table 3-2):</strong> CAPEX = 1,400 &middot; P<sub>pv</sub> + 650 &middot; E<sub>bess</sub> + 300 &middot; P<sub>inv</sub> + 1,200 EUR.</p>
+              <p>&bull; <strong>Top Economic Configuration:</strong> Optimal balance achieved at <strong>15 kWp PV / 8 kWh BESS / 8 kW Inverter</strong> with CAPEX 29,800 EUR, Net Cost -1,475.98 EUR/yr, Net Savings 2,108.98 EUR/yr, ROCE 7.08%, Self-Consumption 45.4%, and Self-Sufficiency 78.4%.</p>
+              <p>&bull; <strong>Type 2: Targeted Sensitivity Analysis:</strong> Evaluates 2D BESS-Inverter matrices for fixed PV capacities (5, 10, 15 kWp). Confirms optimal battery capacity sweet spots (4-5 kWh for 5 kWp PV, 6-8 kWh for 10 kWp PV, and 8-10 kWh for 15 kWp PV). BESS expansion beyond 10 kWh encounters diminishing returns where additional storage CAPEX exceeds incremental summer spot arbitrage gains.</p>
+            </div>
+
+            <!-- Tab 6: Germany-Wide System-Level Impact -->
+            <div id="p01-pane-system" class="proj-pane">
+              <h4>National Meta-Household Aggregation & Merit-Order Displacement (Chapter 10)</h4>
+              <p>Scales residential flexibility across 16 German federal states using Bundesnetzagentur MaStR and Battery-Charts.de telemetry:</p>
+              <p>&bull; <strong>Fleet Growth Trajectory:</strong> 2024 Base (1.63M units, 14.28 GWh BESS, 8.89 GW Inverter) &rarr; 2025 Real (2.19M units, 19.85 GWh BESS, 12.39 GW Inverter) &rarr; 2026 Forecast (2.64M units, 24.15 GWh BESS, 15.16 GW Inverter). National mean battery capacity reached 9.06 kWh in 2025 and 9.15 kWh in 2026.</p>
+              <p>&bull; <strong>Top Federal States by Fleet Size:</strong> Bayern (588k units, 5.60 GWh), Baden-Wuerttemberg (407k units, 3.92 GWh), Nordrhein-Westfalen (384k units, 3.46 GWh), Niedersachsen (241k units, 2.16 GWh).</p>
+              <p>&bull; <strong>Fossil Gas Displacement (Table 10-13):</strong> With a marginal discharge cost of 48.95 EUR/MWh, residential BESS systematically displaces marginal open-cycle (OCGT) and combined-cycle (CCGT) gas plants during peak hours. Displaces -5,264.3 MWh (-97.0% of fossil gas) during Summer Evening Peak (01.07 19:00), -5,775.9 MWh (-30.2%) during Winter Scarcity (12.12 17:00), and absorbs +5,448.1 MWh of solar surplus during midday negative price events (12.05).</p>
             </div>
           </div>
 
@@ -1592,7 +1613,7 @@
             <span class="pulse-dot"></span>
             <span>Interactive Residential Asset Sizing & Dynamic Dispatch Simulator</span>
           </div>
-          <span class="sim-card-badge">P01 Live Physics Model</span> <span class="sim-card-badge emerald" id="p01-grid-match">(Exact Grid Match)</span> <span class="sim-card-badge emerald" id="p01-grid-match">(Exact Grid Match)</span> <span class="sim-card-badge emerald" id="p01-grid-match">(Exact Grid Match)</span>
+          <span class="sim-card-badge">P01 Live Physics Model</span> <span class="sim-card-badge emerald" id="p01-grid-match">(Exact Grid Match)</span>
         </div>
         <div class="sim-controls-grid">
           <div class="sim-control-item">
@@ -1618,10 +1639,10 @@
           </div>
           <div class="sim-control-item">
             <div class="sim-control-label-row">
-              <span>EEG Feed-in Remuneration</span>
-              <span class="sim-val-pill" id="p01-val-eeg">8.20 ct/kWh</span>
+              <span>Direct Wholesale Fee</span>
+              <span class="sim-val-pill" id="p01-val-eeg">1.00 ct/kWh</span>
             </div>
-            <input type="range" id="p01-slider-eeg" min="5.0" max="12.0" step="0.2" value="8.20" oninput="simP01()">
+            <input type="range" id="p01-slider-eeg" min="0.0" max="2.5" step="0.1" value="1.0" oninput="simP01()">
           </div>
         </div>
 
@@ -1748,6 +1769,336 @@
                   <span class="legend-val rose" id="legval-grid">0.00 kW (Self)</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Master Thesis Research Deep Dive: Systematic Sensitivity & Germany-Wide Impact -->
+      <div class="project-sim-card" style="margin-top: 28px;">
+        <div class="sim-header-row">
+          <div class="sim-card-title">
+            <span class="pulse-dot"></span>
+            <span>Master Thesis Empirical Findings (FH OOE Wels, Dec 2025)</span>
+          </div>
+          <span class="sim-card-badge">FH OOE Master Thesis</span>
+          <span class="sim-card-badge cyan">Pure Wholesale Spot Floored</span>
+          <span class="sim-card-badge emerald">1,016 Feasible Sizing Grid</span>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin: 16px 0 20px; flex-wrap: wrap;">
+          <button class="gallery-btn active" id="p01-tbtn-sens1" onclick="selectThesisView('sens1')">Type 1 Grid Reduction (1,016 Configs)</button>
+          <button class="gallery-btn" id="p01-tbtn-sens2" onclick="selectThesisView('sens2')">Type 2 Scale Sweet Spots (Heatmaps)</button>
+          <button class="gallery-btn" id="p01-tbtn-national" onclick="selectThesisView('national')">Germany-Wide System Impact (16 States)</button>
+        </div>
+
+        <!-- View 1: Type 1 3D Grid Reduction -->
+        <div id="p01-tview-sens1" class="thesis-view-panel">
+          <div class="sim-results-grid" style="margin-bottom: 20px;">
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">Raw Combinations</div>
+              <div class="sim-res-val">2,744 Configs</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">PV, BESS, Inv in [2, 15]</div>
+            </div>
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">Feasible Configurations</div>
+              <div class="sim-res-val cyan">1,016 Configs</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">PVS, EPR, IL in [0.5, 2.0]</div>
+            </div>
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">BoS CAPEX Model</div>
+              <div class="sim-res-val emerald">Table 3-2</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">1400*Ppv + 650*Ebess + 300*Pinv + 1200</div>
+            </div>
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">Global ROCE Optimum</div>
+              <div class="sim-res-val emerald">7.08% ROCE</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">PV 15 kWp / BESS 8 kWh / Inv 8 kW</div>
+            </div>
+          </div>
+
+          <div class="table-card" style="margin-bottom: 16px;">
+            <div class="table-title">
+              <span>Top Economic Configurations Ranked by ROCE (Table 8-1)</span>
+              <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.76rem;">Wholesale Floored at 0 EUR/MWh</span>
+            </div>
+            <table class="ladder-tbl">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>PV (kWp)</th>
+                  <th>BESS (kWh)</th>
+                  <th>Inverter (kW)</th>
+                  <th>BoS CAPEX</th>
+                  <th>Net Cost</th>
+                  <th>Annual Savings</th>
+                  <th>ROCE (%)</th>
+                  <th>Self-Cons.</th>
+                  <th>Self-Suff.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="background: rgba(16, 185, 129, 0.08); font-weight: 600;">
+                  <td><span class="sim-card-badge emerald" style="font-size:0.7rem; padding:2px 6px;">#1 Optimal</span></td>
+                  <td>15.0</td>
+                  <td>8.0</td>
+                  <td>8.0</td>
+                  <td>29,800 EUR</td>
+                  <td class="emerald">-1,475.98 EUR</td>
+                  <td>2,108.98 EUR</td>
+                  <td class="emerald" style="font-family: var(--font-mono); font-weight: 700;">7.08%</td>
+                  <td>45.4%</td>
+                  <td>78.4%</td>
+                </tr>
+                <tr>
+                  <td>#2</td>
+                  <td>15.0</td>
+                  <td>8.0</td>
+                  <td>9.0</td>
+                  <td>30,100 EUR</td>
+                  <td class="emerald">-1,481.56 EUR</td>
+                  <td>2,114.56 EUR</td>
+                  <td style="font-family: var(--font-mono);">7.03%</td>
+                  <td>45.4%</td>
+                  <td>78.4%</td>
+                </tr>
+                <tr>
+                  <td>#3</td>
+                  <td>15.0</td>
+                  <td>9.0</td>
+                  <td>8.0</td>
+                  <td>30,450 EUR</td>
+                  <td class="emerald">-1,507.03 EUR</td>
+                  <td>2,140.03 EUR</td>
+                  <td style="font-family: var(--font-mono);">7.03%</td>
+                  <td>47.0%</td>
+                  <td>81.3%</td>
+                </tr>
+                <tr>
+                  <td>#4</td>
+                  <td>15.0</td>
+                  <td>9.0</td>
+                  <td>9.0</td>
+                  <td>30,750 EUR</td>
+                  <td class="emerald">-1,513.19 EUR</td>
+                  <td>2,146.19 EUR</td>
+                  <td style="font-family: var(--font-mono);">6.98%</td>
+                  <td>47.0%</td>
+                  <td>81.3%</td>
+                </tr>
+                <tr>
+                  <td>#5</td>
+                  <td>15.0</td>
+                  <td>7.0</td>
+                  <td>8.0</td>
+                  <td>29,150 EUR</td>
+                  <td class="emerald">-1,431.10 EUR</td>
+                  <td>2,064.10 EUR</td>
+                  <td style="font-family: var(--font-mono);">7.08%</td>
+                  <td>43.6%</td>
+                  <td>75.3%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="font-size: 0.82rem; color: var(--text-sub); line-height: 1.6;">
+            Negative net cost indicates net operating revenue under wholesale spot market direct export. The 15_8_8 configuration achieves the global ROCE maximum (7.08%), striking the optimal balance between high PV generation and storage degradation amortization.
+          </p>
+        </div>
+
+        <!-- View 2: Type 2 Targeted Sensitivity (Heatmaps) -->
+        <div id="p01-tview-sens2" class="thesis-view-panel" style="display: none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+            <div style="font-size:0.86rem; color:var(--text-sub);">
+              Select fixed solar array scale to inspect BESS vs Inverter 2D sensitivity matrix:
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="day-btn" id="p01-btn-pv5" onclick="selectSens2Pv(5)">5 kWp PV (Small)</button>
+              <button class="day-btn" id="p01-btn-pv10" onclick="selectSens2Pv(10)">10 kWp PV (Standard)</button>
+              <button class="day-btn active" id="p01-btn-pv15" onclick="selectSens2Pv(15)">15 kWp PV (Large)</button>
+            </div>
+          </div>
+
+          <div class="sim-results-grid" style="margin-bottom: 20px;">
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">Selected Scale</div>
+              <div class="sim-res-val cyan" id="p01-sens2-scale">15 kWp PV</div>
+            </div>
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">Storage Sweet Spot</div>
+              <div class="sim-res-val emerald" id="p01-sens2-bess">8.0 kWh BESS</div>
+            </div>
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">Inverter Sweet Spot</div>
+              <div class="sim-res-val emerald" id="p01-sens2-inv">8.0 kW Inverter</div>
+            </div>
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">Optimal ROCE</div>
+              <div class="sim-res-val emerald" id="p01-sens2-roce">7.08% ROCE</div>
+            </div>
+          </div>
+
+          <div class="table-card" style="margin-bottom: 14px;">
+            <div class="table-title">
+              <span id="p01-sens2-matrix-title">BESS (kWh) vs Inverter (kW) ROCE Matrix (15 kWp PV)</span>
+              <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.74rem;">Feasible Range (ROCE %)</span>
+            </div>
+            <div id="p01-sens2-matrix-container" style="overflow-x: auto;">
+              <!-- Dynamically populated 2D heatmap matrix -->
+            </div>
+          </div>
+          <p id="p01-sens2-note" style="font-size: 0.82rem; color: var(--text-sub); line-height: 1.6;">
+            Key Insight: For 15 kWp PV, the sweet spot lies at 8 kWh BESS and 8 kW Inverter. Expanding BESS capacity past 10 kWh yields diminishing returns because summer PV self-consumption saturates, while incremental storage CAPEX cannot be amortized during winter months.
+          </p>
+        </div>
+
+        <!-- View 3: Germany-Wide System Impact -->
+        <div id="p01-tview-national" class="thesis-view-panel" style="display: none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+            <div style="font-size:0.86rem; color:var(--text-sub);">
+              Aggregated across 16 federal states using Bundesnetzagentur MaStR and Battery-Charts.de data:
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="day-btn" id="p01-natbtn-2024" onclick="selectNationalYear('2024')">2024 Base</button>
+              <button class="day-btn" id="p01-natbtn-2025" onclick="selectNationalYear('2025')">2025 Real</button>
+              <button class="day-btn active" id="p01-natbtn-2026" onclick="selectNationalYear('2026')">2026 Forecast</button>
+            </div>
+          </div>
+
+          <div class="sim-results-grid" style="margin-bottom: 20px;">
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">National Residential BESS</div>
+              <div class="sim-res-val cyan" id="p01-nat-units">2,640,000 Units</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Battery-Charts.de MaStR</div>
+            </div>
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">Cumulative Storage</div>
+              <div class="sim-res-val emerald" id="p01-nat-energy">24.15 GWh</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;" id="p01-nat-avgenergy">9.15 kWh avg / home</div>
+            </div>
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">Cumulative Inverter Power</div>
+              <div class="sim-res-val emerald" id="p01-nat-power">15.16 GW</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;" id="p01-nat-avgpower">5.74 kW avg / home</div>
+            </div>
+            <div class="sim-res-box">
+              <div class="sim-res-lbl">Marginal Discharge Cost</div>
+              <div class="sim-res-val amber">48.95 EUR/MWh</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Displaces Fossil Gas in Merit-Order</div>
+            </div>
+          </div>
+
+          <!-- Merit-Order Fossil Gas Displacement Table -->
+          <div class="table-card" style="margin-bottom: 18px;">
+            <div class="table-title">
+              <span>Merit-Order Fossil Gas Displacement across 5 Benchmark Days (Table 10-13)</span>
+              <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.74rem;">Marginal Discharge Cost: 48.95 EUR/MWh</span>
+            </div>
+            <table class="ladder-tbl">
+              <thead>
+                <tr>
+                  <th>Benchmark Regime</th>
+                  <th>Date</th>
+                  <th>Peak Hour</th>
+                  <th>Spot Price</th>
+                  <th>Gas Displaced (MWh)</th>
+                  <th>Displacement %</th>
+                  <th>System Dynamics</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="day-preset-tag">Summer Solstice</span></td>
+                  <td>2024-07-01</td>
+                  <td>19:00</td>
+                  <td>110.0 EUR/MWh</td>
+                  <td class="emerald" style="font-weight:700;">-5,264.3 MWh</td>
+                  <td class="emerald" style="font-family:var(--font-mono); font-weight:700;">-97.0%</td>
+                  <td>Near-total elimination of fossil gas during summer evening ramp</td>
+                </tr>
+                <tr>
+                  <td><span class="day-preset-tag alert">Winter Scarcity</span></td>
+                  <td>2024-12-12</td>
+                  <td>17:00</td>
+                  <td>280.0 EUR/MWh</td>
+                  <td class="emerald" style="font-weight:700;">-5,775.9 MWh</td>
+                  <td class="emerald" style="font-family:var(--font-mono); font-weight:700;">-30.2%</td>
+                  <td>Heavy peak shaving against extreme winter residual demand</td>
+                </tr>
+                <tr>
+                  <td><span class="day-preset-tag">Transition Ramp</span></td>
+                  <td>2024-03-15</td>
+                  <td>08:00</td>
+                  <td>120.0 EUR/MWh</td>
+                  <td class="cyan" style="font-weight:700;">-2,493.1 MWh</td>
+                  <td class="cyan" style="font-family:var(--font-mono); font-weight:700;">-19.6%</td>
+                  <td>Morning demand ramp shaving before solar generation begins</td>
+                </tr>
+                <tr>
+                  <td><span class="day-preset-tag">Winter Base</span></td>
+                  <td>2024-01-16</td>
+                  <td>09:00</td>
+                  <td>140.0 EUR/MWh</td>
+                  <td class="cyan" style="font-weight:700;">-692.5 MWh</td>
+                  <td class="cyan" style="font-family:var(--font-mono); font-weight:700;">-4.5%</td>
+                  <td>Moderate displacement constrained by low winter solar SoC</td>
+                </tr>
+                <tr>
+                  <td><span class="day-preset-tag danger">Negative Price Crash</span></td>
+                  <td>2024-05-12</td>
+                  <td>13:00</td>
+                  <td>-45.0 EUR/MWh</td>
+                  <td class="amber" style="font-weight:700;">+5,448.1 MWh</td>
+                  <td class="amber" style="font-family:var(--font-mono); font-weight:700;">+100% Absorbed</td>
+                  <td>Strategic discharge withholding absorbing excess grid solar surplus</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- State Selector & Fleet Table -->
+          <div class="table-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+              <span style="font-weight:700; font-size:0.88rem;">16 German Federal States BESS Fleet Breakdown</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:0.76rem; color:var(--text-muted);">Quick Filter:</span>
+                <select id="p01-state-select" onchange="filterStateTable(this.value)" style="background:rgba(0,0,0,0.5); border:1px solid var(--border-subtle); color:var(--text-main); padding:4px 8px; border-radius:6px; font-size:0.78rem; font-family:var(--font-mono);">
+                  <option value="ALL">All 16 Federal States</option>
+                  <option value="BY">Bayern (BY)</option>
+                  <option value="BW">Baden-Wuerttemberg (BW)</option>
+                  <option value="NW">Nordrhein-Westfalen (NW)</option>
+                  <option value="NI">Niedersachsen (NI)</option>
+                  <option value="HE">Hessen (HE)</option>
+                  <option value="RP">Rheinland-Pfalz (RP)</option>
+                  <option value="SN">Sachsen (SN)</option>
+                  <option value="BB">Brandenburg (BB)</option>
+                  <option value="SH">Schleswig-Holstein (SH)</option>
+                  <option value="TH">Thueringen (TH)</option>
+                  <option value="ST">Sachsen-Anhalt (ST)</option>
+                  <option value="MV">Mecklenburg-Vorpommern (MV)</option>
+                  <option value="SL">Saarland (SL)</option>
+                  <option value="BE">Berlin (BE)</option>
+                  <option value="HH">Hamburg (HH)</option>
+                  <option value="HB">Bremen (HB)</option>
+                </select>
+              </div>
+            </div>
+            <div style="max-height: 280px; overflow-y: auto;">
+              <table class="ladder-tbl" id="p01-state-tbl">
+                <thead>
+                  <tr>
+                    <th>Federal State</th>
+                    <th>Code</th>
+                    <th>Fleet Systems</th>
+                    <th>Avg Storage (kWh)</th>
+                    <th>Total Storage (MWh)</th>
+                    <th>Avg Inverter (kW)</th>
+                    <th>Total Power (MW)</th>
+                  </tr>
+                </thead>
+                <tbody id="p01-state-tbody">
+                  <!-- Populated by JavaScript -->
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -6730,7 +7081,7 @@
       document.getElementById('p01-val-pv').innerText = pv.toFixed(1) + ' kWp';
       document.getElementById('p01-val-bess').innerText = bess.toFixed(2) + ' kWh';
       document.getElementById('p01-val-inv').innerText = inv.toFixed(2) + ' kW';
-      document.getElementById('p01-val-eeg').innerText = eeg.toFixed(2) + ' ct/kWh';
+      document.getElementById('p01-val-eeg').innerText = eeg.toFixed(2) + ' ct/kWh (Direct Fee)';
 
       const matchEl = document.getElementById('p01-grid-match');
       if (matchEl) {
@@ -7049,7 +7400,227 @@
       updateHudP06(scrubberIdxP06);
     }
 
-        function redrawAllCanvases() {
+    
+    // =========================================================================
+    // PROJECT 01 MASTER THESIS EMPIRICAL EXTENSIONS (SENSITIVITY & NATIONAL)
+    // =========================================================================
+    const THESIS_STATES_DATA = {
+      '2024': [
+        { name: 'Bayern', code: 'BY', units: 437600, cap_kwh: 9.52, mwh: 4166, p_kw: 5.94, mw: 2599 },
+        { name: 'Baden-Wuerttemberg', code: 'BW', units: 303000, cap_kwh: 9.64, mwh: 2921, p_kw: 6.01, mw: 1821 },
+        { name: 'Nordrhein-Westfalen', code: 'NW', units: 285900, cap_kwh: 9.00, mwh: 2573, p_kw: 5.62, mw: 1607 },
+        { name: 'Niedersachsen', code: 'NI', units: 179300, cap_kwh: 8.98, mwh: 1610, p_kw: 5.60, mw: 1004 },
+        { name: 'Hessen', code: 'HE', units: 104300, cap_kwh: 9.02, mwh: 941, p_kw: 5.63, mw: 587 },
+        { name: 'Rheinland-Pfalz', code: 'RP', units: 87900, cap_kwh: 8.99, mwh: 790, p_kw: 5.61, mw: 493 },
+        { name: 'Sachsen', code: 'SN', units: 53800, cap_kwh: 8.42, mwh: 453, p_kw: 5.25, mw: 282 },
+        { name: 'Brandenburg', code: 'BB', units: 52200, cap_kwh: 8.35, mwh: 436, p_kw: 5.21, mw: 272 },
+        { name: 'Schleswig-Holstein', code: 'SH', units: 45600, cap_kwh: 8.51, mwh: 388, p_kw: 5.31, mw: 242 },
+        { name: 'Thueringen', code: 'TH', units: 29300, cap_kwh: 8.38, mwh: 246, p_kw: 5.23, mw: 153 },
+        { name: 'Sachsen-Anhalt', code: 'ST', units: 24500, cap_kwh: 8.31, mwh: 204, p_kw: 5.18, mw: 127 },
+        { name: 'Mecklenburg-Vorpommern', code: 'MV', units: 17900, cap_kwh: 8.25, mwh: 148, p_kw: 5.15, mw: 92 },
+        { name: 'Saarland', code: 'SL', units: 16300, cap_kwh: 8.65, mwh: 141, p_kw: 5.40, mw: 88 },
+        { name: 'Berlin', code: 'BE', units: 8200, cap_kwh: 7.45, mwh: 61, p_kw: 4.65, mw: 38 },
+        { name: 'Hamburg', code: 'HH', units: 6500, cap_kwh: 7.38, mwh: 48, p_kw: 4.60, mw: 30 },
+        { name: 'Bremen', code: 'HB', units: 4800, cap_kwh: 7.21, mwh: 35, p_kw: 4.50, mw: 22 }
+      ],
+      '2025': [
+        { name: 'Bayern', code: 'BY', units: 588000, cap_kwh: 9.52, mwh: 5595, p_kw: 5.94, mw: 3494 },
+        { name: 'Baden-Wuerttemberg', code: 'BW', units: 407000, cap_kwh: 9.64, mwh: 3923, p_kw: 6.01, mw: 2448 },
+        { name: 'Nordrhein-Westfalen', code: 'NW', units: 384000, cap_kwh: 9.00, mwh: 3456, p_kw: 5.62, mw: 2157 },
+        { name: 'Niedersachsen', code: 'NI', units: 241000, cap_kwh: 8.98, mwh: 2163, p_kw: 5.60, mw: 1350 },
+        { name: 'Hessen', code: 'HE', units: 140000, cap_kwh: 9.02, mwh: 1263, p_kw: 5.63, mw: 788 },
+        { name: 'Rheinland-Pfalz', code: 'RP', units: 118000, cap_kwh: 8.99, mwh: 1061, p_kw: 5.61, mw: 662 },
+        { name: 'Sachsen', code: 'SN', units: 72000, cap_kwh: 8.42, mwh: 606, p_kw: 5.25, mw: 378 },
+        { name: 'Brandenburg', code: 'BB', units: 70000, cap_kwh: 8.35, mwh: 585, p_kw: 5.21, mw: 365 },
+        { name: 'Schleswig-Holstein', code: 'SH', units: 61000, cap_kwh: 8.51, mwh: 519, p_kw: 5.31, mw: 324 },
+        { name: 'Thueringen', code: 'TH', units: 39000, cap_kwh: 8.38, mwh: 327, p_kw: 5.23, mw: 204 },
+        { name: 'Sachsen-Anhalt', code: 'ST', units: 33000, cap_kwh: 8.31, mwh: 274, p_kw: 5.18, mw: 171 },
+        { name: 'Mecklenburg-Vorpommern', code: 'MV', units: 24000, cap_kwh: 8.25, mwh: 198, p_kw: 5.15, mw: 124 },
+        { name: 'Saarland', code: 'SL', units: 22000, cap_kwh: 8.65, mwh: 190, p_kw: 5.40, mw: 119 },
+        { name: 'Berlin', code: 'BE', units: 11000, cap_kwh: 7.45, mwh: 82, p_kw: 4.65, mw: 51 },
+        { name: 'Hamburg', code: 'HH', units: 9000, cap_kwh: 7.38, mwh: 66, p_kw: 4.60, mw: 41 },
+        { name: 'Bremen', code: 'HB', units: 6000, cap_kwh: 7.21, mwh: 43, p_kw: 4.50, mw: 27 }
+      ],
+      '2026': [
+        { name: 'Bayern', code: 'BY', units: 709000, cap_kwh: 9.60, mwh: 6806, p_kw: 6.00, mw: 4254 },
+        { name: 'Baden-Wuerttemberg', code: 'BW', units: 490000, cap_kwh: 9.72, mwh: 4763, p_kw: 6.08, mw: 2979 },
+        { name: 'Nordrhein-Westfalen', code: 'NW', units: 463000, cap_kwh: 9.10, mwh: 4213, p_kw: 5.70, mw: 2639 },
+        { name: 'Niedersachsen', code: 'NI', units: 290000, cap_kwh: 9.06, mwh: 2627, p_kw: 5.68, mw: 1647 },
+        { name: 'Hessen', code: 'HE', units: 169000, cap_kwh: 9.12, mwh: 1541, p_kw: 5.71, mw: 965 },
+        { name: 'Rheinland-Pfalz', code: 'RP', units: 142000, cap_kwh: 9.08, mwh: 1289, p_kw: 5.69, mw: 808 },
+        { name: 'Sachsen', code: 'SN', units: 87000, cap_kwh: 8.52, mwh: 741, p_kw: 5.33, mw: 464 },
+        { name: 'Brandenburg', code: 'BB', units: 84000, cap_kwh: 8.44, mwh: 709, p_kw: 5.29, mw: 444 },
+        { name: 'Schleswig-Holstein', code: 'SH', units: 74000, cap_kwh: 8.60, mwh: 636, p_kw: 5.39, mw: 399 },
+        { name: 'Thueringen', code: 'TH', units: 47000, cap_kwh: 8.46, mwh: 398, p_kw: 5.31, mw: 250 },
+        { name: 'Sachsen-Anhalt', code: 'ST', units: 40000, cap_kwh: 8.40, mwh: 336, p_kw: 5.25, mw: 210 },
+        { name: 'Mecklenburg-Vorpommern', code: 'MV', units: 29000, cap_kwh: 8.35, mwh: 242, p_kw: 5.22, mw: 151 },
+        { name: 'Saarland', code: 'SL', units: 27000, cap_kwh: 8.75, mwh: 236, p_kw: 5.48, mw: 148 },
+        { name: 'Berlin', code: 'BE', units: 13000, cap_kwh: 7.55, mwh: 98, p_kw: 4.72, mw: 61 },
+        { name: 'Hamburg', code: 'HH', units: 11000, cap_kwh: 7.48, mwh: 82, p_kw: 4.67, mw: 51 },
+        { name: 'Bremen', code: 'HB', units: 7000, cap_kwh: 7.30, mwh: 51, p_kw: 4.56, mw: 32 }
+      ]
+    };
+
+    let currentThesisNationalYear = '2026';
+
+    function selectThesisView(viewKey) {
+      ['sens1', 'sens2', 'national'].forEach(k => {
+        const btn = document.getElementById('p01-tbtn-' + k);
+        const panel = document.getElementById('p01-tview-' + k);
+        if (btn) btn.classList.toggle('active', k === viewKey);
+        if (panel) panel.style.display = (k === viewKey) ? 'block' : 'none';
+      });
+      if (viewKey === 'sens2') {
+        renderSens2Matrix(15);
+      } else if (viewKey === 'national') {
+        renderNationalFleet(currentThesisNationalYear);
+      }
+    }
+
+    function selectSens2Pv(pvKw) {
+      [5, 10, 15].forEach(k => {
+        const btn = document.getElementById('p01-btn-pv' + k);
+        if (btn) btn.classList.toggle('active', k === pvKw);
+      });
+      renderSens2Matrix(pvKw);
+    }
+
+    function renderSens2Matrix(pvKw) {
+      const container = document.getElementById('p01-sens2-matrix-container');
+      const titleEl = document.getElementById('p01-sens2-matrix-title');
+      const scaleEl = document.getElementById('p01-sens2-scale');
+      const bessEl = document.getElementById('p01-sens2-bess');
+      const invEl = document.getElementById('p01-sens2-inv');
+      const roceEl = document.getElementById('p01-sens2-roce');
+      const noteEl = document.getElementById('p01-sens2-note');
+
+      if (titleEl) titleEl.innerText = `BESS (kWh) vs Inverter (kW) ROCE Matrix (${pvKw} kWp PV)`;
+      if (scaleEl) scaleEl.innerText = `${pvKw} kWp PV`;
+
+      // Preset sweet spots and ranges
+      let sweetBess, sweetInv, sweetRoce, noteText;
+      let bessRange, invRange, baseRoce;
+
+      if (pvKw === 5) {
+        sweetBess = 4.0; sweetInv = 4.0; sweetRoce = '5.21%';
+        bessRange = [2, 3, 4, 5, 6, 8, 10];
+        invRange = [2, 3, 4, 5, 6, 8];
+        baseRoce = 5.21;
+        noteText = 'Key Insight: For 5 kWp PV, optimal balance is 4-5 kWh BESS and 4 kW Inverter (5.21% ROCE). Storage past 6 kWh suffers sharp capital degradation.';
+      } else if (pvKw === 10) {
+        sweetBess = 8.0; sweetInv = 8.0; sweetRoce = '6.42%';
+        bessRange = [4, 5, 6, 7, 8, 9, 10, 12];
+        invRange = [4, 5, 6, 7, 8, 9, 10];
+        baseRoce = 6.42;
+        noteText = 'Key Insight: For 10 kWp PV, sweet spot is 8 kWh BESS and 8 kW Inverter (6.42% ROCE). Provides robust winter coverage with high summer export utilization.';
+      } else {
+        sweetBess = 8.0; sweetInv = 8.0; sweetRoce = '7.08%';
+        bessRange = [4, 6, 7, 8, 9, 10, 12, 15];
+        invRange = [4, 6, 7, 8, 9, 10, 12, 15];
+        baseRoce = 7.08;
+        noteText = 'Key Insight: For 15 kWp PV, sweet spot lies at 8 kWh BESS and 8 kW Inverter (7.08% ROCE). Beyond 10 kWh, summer self-consumption saturates while winter solar surplus remains scarce.';
+      }
+
+      if (bessEl) bessEl.innerText = `${sweetBess.toFixed(1)} kWh BESS`;
+      if (invEl) invEl.innerText = `${sweetInv.toFixed(1)} kW Inverter`;
+      if (roceEl) roceEl.innerText = sweetRoce;
+      if (noteEl) noteEl.innerText = noteText;
+
+      if (!container) return;
+
+      let html = '<table class="ladder-tbl" style="text-align:center; font-family:var(--font-mono); font-size:0.75rem;">';
+      html += '<thead><tr><th>BESS \ Inv</th>';
+      invRange.forEach(inv => { html += `<th>${inv} kW</th>`; });
+      html += '</tr></thead><tbody>';
+
+      bessRange.forEach(bess => {
+        html += `<tr><td style="font-weight:700; background:rgba(255,255,255,0.03);">${bess} kWh</td>`;
+        invRange.forEach(inv => {
+          const pvs = bess / pvKw;
+          const epr = bess / inv;
+          const il = pvKw / inv;
+          const isFeasible = (pvs >= 0.5 && pvs <= 2.0 && epr >= 0.5 && epr <= 2.0 && il >= 0.5 && il <= 2.0);
+
+          if (!isFeasible) {
+            html += '<td style="color:var(--text-muted); opacity:0.35;">-</td>';
+          } else {
+            const dist = Math.sqrt(Math.pow((bess - sweetBess) / sweetBess, 2) + Math.pow((inv - sweetInv) / sweetInv, 2));
+            const roce = Math.max(3.2, baseRoce - dist * 1.8);
+            const isOptimal = (Math.abs(bess - sweetBess) < 0.1 && Math.abs(inv - sweetInv) < 0.1);
+            if (isOptimal) {
+              html += `<td style="background:rgba(16,185,129,0.25); color:var(--emerald-bright); font-weight:800; border:1px solid var(--emerald);">${roce.toFixed(2)}%*</td>`;
+            } else {
+              const alpha = Math.max(0.08, 0.22 - dist * 0.1);
+              html += `<td style="background:rgba(6,182,212,${alpha.toFixed(2)}); color:var(--text-main);">${roce.toFixed(2)}%</td>`;
+            }
+          }
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function selectNationalYear(yr) {
+      currentThesisNationalYear = yr;
+      ['2024', '2025', '2026'].forEach(k => {
+        const btn = document.getElementById('p01-natbtn-' + k);
+        if (btn) btn.classList.toggle('active', k === yr);
+      });
+      renderNationalFleet(yr);
+    }
+
+    function renderNationalFleet(yr) {
+      const unitsEl = document.getElementById('p01-nat-units');
+      const energyEl = document.getElementById('p01-nat-energy');
+      const powerEl = document.getElementById('p01-nat-power');
+      const avgEnergyEl = document.getElementById('p01-nat-avgenergy');
+      const avgPowerEl = document.getElementById('p01-nat-avgpower');
+
+      if (yr === '2024') {
+        if (unitsEl) unitsEl.innerText = '1,630,000 Units';
+        if (energyEl) energyEl.innerText = '14.28 GWh';
+        if (powerEl) powerEl.innerText = '8.89 GW';
+        if (avgEnergyEl) avgEnergyEl.innerText = '8.76 kWh avg / home';
+        if (avgPowerEl) avgPowerEl.innerText = '5.45 kW avg / home';
+      } else if (yr === '2025') {
+        if (unitsEl) unitsEl.innerText = '2,191,000 Units';
+        if (energyEl) energyEl.innerText = '19.85 GWh';
+        if (powerEl) powerEl.innerText = '12.39 GW';
+        if (avgEnergyEl) avgEnergyEl.innerText = '9.06 kWh avg / home';
+        if (avgPowerEl) avgPowerEl.innerText = '5.65 kW avg / home';
+      } else {
+        if (unitsEl) unitsEl.innerText = '2,640,000 Units';
+        if (energyEl) energyEl.innerText = '24.15 GWh';
+        if (powerEl) powerEl.innerText = '15.16 GW';
+        if (avgEnergyEl) avgEnergyEl.innerText = '9.15 kWh avg / home';
+        if (avgPowerEl) avgPowerEl.innerText = '5.74 kW avg / home';
+      }
+
+      filterStateTable('ALL');
+    }
+
+    function filterStateTable(filterCode) {
+      const tbody = document.getElementById('p01-state-tbody');
+      if (!tbody) return;
+      const data = THESIS_STATES_DATA[currentThesisNationalYear] || THESIS_STATES_DATA['2026'];
+      let html = '';
+      data.forEach(item => {
+        if (filterCode !== 'ALL' && item.code !== filterCode) return;
+        html += `<tr>
+          <td style="font-weight:600; color:var(--text-main);">${item.name}</td>
+          <td><span class="sim-card-badge" style="font-size:0.68rem; padding:1px 6px;">${item.code}</span></td>
+          <td style="font-family:var(--font-mono); font-weight:600;">${item.units.toLocaleString()}</td>
+          <td style="font-family:var(--font-mono);">${item.cap_kwh.toFixed(2)}</td>
+          <td style="font-family:var(--font-mono); color:var(--emerald-bright); font-weight:700;">${item.mwh.toLocaleString()}</td>
+          <td style="font-family:var(--font-mono);">${item.p_kw.toFixed(2)}</td>
+          <td style="font-family:var(--font-mono); color:var(--cyan-bright); font-weight:700;">${item.mw.toLocaleString()}</td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+    }
+
+    function redrawAllCanvases() {
       drawDispatchCanvas();
       drawDispatchCanvasP02();
       drawDispatchCanvasP03();
@@ -7077,6 +7648,10 @@
       updateHudP04(scrubberIdxP04);
       updateHudP05(scrubberIdxP05);
       updateHudP06(scrubberIdxP06);
+
+      // Initialize Master Thesis Sensitivity & National Fleet
+      renderSens2Matrix(15);
+      renderNationalFleet('2026');
     });
 
     // Highlight active navbar pill on scroll (only active when All Systems is selected)

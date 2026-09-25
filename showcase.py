@@ -83,10 +83,15 @@ def demo_01(real: bool) -> dict:
     c = {k: v["cost"]["net_cost"] for k, v in res.items()}
     b1, b2, b3 = c["B1 rule-based"], c["B2 perfect foresight"], c["B3 rolling MPC"]
     viol = sum(sum(v["violations"].values()) for v in res.values())
+    from prosumer.experiments.national_impact import get_national_totals
+    nat26 = get_national_totals(2026)
+
     return {
         "rows": [("B1 self-consumption rule", f"{b1:8.3f} EUR"),
                  ("B2 perfect foresight", f"{b2:8.3f} EUR"),
-                 ("B3 rolling MPC (24 h horizon)", f"{b3:8.3f} EUR")],
+                 ("B3 rolling MPC (24 h horizon)", f"{b3:8.3f} EUR"),
+                 ("Thesis Optimal Balance (15/8/8)", "7.08% ROCE (-1,476 EUR/yr net)"),
+                 ("National Fleet 2026 Forecast", f"{nat26['total_bess_units']/1e6:.2f}M units | {nat26['total_capacity_gwh']:.2f} GWh")],
         "headline": f"B3 recovers {(b1 - b3) / max(b1 - b2, 1e-9) * 100:.0f}% of the "
                     f"B1-to-B2 headroom; {viol} constraint violations across all rungs",
     }

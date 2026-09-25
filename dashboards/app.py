@@ -489,6 +489,7 @@ with ui.card():
             ax.set_title("Net Annual Cost Heatmap (EUR)")
             plt.colorbar(im, ax=ax)
 
+        elif proj == "p02":
             rev_col_p2 = "out_revenue_eur_per_year_extrapolated" if "out_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_revenue_eur"
             if not all(c in df_yr.columns for c in ["turb_mw_unit", "wear_eur", rev_col_p2]):
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
@@ -522,6 +523,7 @@ with ui.card():
             ax.set_title("Weekly Welfare Surplus Heatmap (EUR)")
             plt.colorbar(im, ax=ax)
 
+        elif proj == "p05":
             rev_col_p5 = "out_revenue_eur_per_year_extrapolated" if "out_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_revenue_eur"
             if not all(c in df_yr.columns for c in ["poc_mw", "bess_mwh", rev_col_p5]):
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig

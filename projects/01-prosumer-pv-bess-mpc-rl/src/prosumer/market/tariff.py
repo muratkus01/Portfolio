@@ -77,7 +77,9 @@ def export_price(spot: np.ndarray, cfg: TariffConfig) -> np.ndarray:
     elif cfg.export_mode == "market_premium":
         price = spot - cfg.market_premium_fee
     elif cfg.export_mode == "spot_gross_floored":
-        price = np.maximum(0.0, (1.0 + cfg.vat) * spot - cfg.market_premium_fee)
+        gross = (1.0 + cfg.vat) * spot - cfg.market_premium_fee
+        min_spot = getattr(cfg, "export_min_spot", 0.0)
+        price = np.where(spot < min_spot, 0.0, np.maximum(0.0, gross))
     else:
         price = spot.copy()
 

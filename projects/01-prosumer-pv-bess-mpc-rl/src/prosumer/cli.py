@@ -240,6 +240,58 @@ def cmd_sizing(args) -> None:
         print(res.to_string(index=False))
 
 
+def cmd_sensitivity(args) -> None:
+    from .experiments.sensitivity import run_type1_sensitivity, run_type2_fixed_pv_sensitivity
+
+    if args.type in ("1", "all"):
+        print("\n=== Type 1 Component-Level Sensitivity Analysis (1,016 Feasible Configurations) ===")
+        df = run_type1_sensitivity()
+        print(f"Total feasible configurations evaluated: {len(df)}")
+        print("\nTop 10 Configurations by Return on Capital Expenditure (ROCE):")
+        cols = ["rank", "config_id", "pv_kwp", "bess_kwh", "inverter_kw", "capex_eur", "opt_profit_eur", "roce"]
+        print(df[cols].head(10).to_string(index=False))
+
+    if args.type in ("2", "all"):
+        fixed_pvs = [args.fixed_pv] if args.fixed_pv else [5.0, 10.0, 15.0]
+        for pv in fixed_pvs:
+            print(f"\n=== Type 2 Targeted Sensitivity for Fixed PV = {pv} kWp ===")
+            res = run_type2_fixed_pv_sensitivity(pv)
+            opt = res["optimum"]
+            print(f"Feasible (BESS, Inverter) pairs: {res['valid_count']}")
+            print(f"Optimal Sweet Spot: {opt['bess_kwh']} kWh BESS with {opt['inverter_kw']} kW Inverter "
+                  f"(EPR={opt['epr']}, PBR={opt['pbr']}, CAPEX={opt['capex_eur']} EUR, ROCE={opt['roce']:.4f})")
+            if args.verbose:
+                print("\nROCE Heatmap Matrix (Rows = BESS kWh, Cols = Inverter kW):")
+                print(res["heatmap"].to_string())
+
+
+def cmd_national_impact(args) -> None:
+    from .experiments.national_impact import (
+        FEDERAL_STATES,
+        REPRESENTATIVE_DAYS,
+        evaluate_fossil_gas_displacement,
+        get_national_totals,
+    )
+
+    print(f"\n=== Germany-Wide System-Level Impact Analysis ({args.year}) ===")
+    totals = get_national_totals(args.year)
+    print(f"Total Residential BESS Fleet: {totals['total_bess_units']:,} systems")
+    print(f"Aggregated Storage Capacity:  {totals['total_capacity_gwh']:.2f} GWh ({totals['total_capacity_mwh']:,.1f} MWh)")
+    print(f"Aggregated Inverter Power:    {totals['total_power_gw']:.2f} GW ({totals['total_power_mw']:,.1f} MW)")
+    print(f"Average System Sizing:        {totals['mean_capacity_kwh']:.2f} kWh / {totals['mean_power_kw']:.2f} kW")
+
+    if args.day:
+        day_key = args.day
+        if day_key in REPRESENTATIVE_DAYS:
+            d = REPRESENTATIVE_DAYS[day_key]
+            disp = evaluate_fossil_gas_displacement(d["peak_shift_mwh"], d["fossil_gas_mwh"])
+            print(f"\nRepresentative Day: {day_key.upper()} ({d['date']}) - {d['description']}")
+            print(f"Peak Operational Hour:         {d['peak_hour']:02d}:00")
+            print(f"Nationwide Grid Shift:         {d['peak_shift_mwh']:+,.2f} MWh")
+            print(f"Marginal Fossil Gas Displaced:  {disp['displaced_gas_mwh']:,.1f} MWh ({disp['displacement_pct']:.1f}%)")
+            print(f"System Cost Savings (Gas vs BESS): {disp['cost_saving_eur']:,.2f} EUR/h")
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="prosumer", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -248,8 +300,8 @@ def main(argv: list[str] | None = None) -> int:
     def common(sp):
         sp.add_argument("--data", required=True, help="legacy CSV path")
         sp.add_argument("--prices", default=None, help="parquet of spot prices to substitute")
-        sp.add_argument("--export-mode", default="feed_in_tariff",
-                        choices=["feed_in_tariff", "market_premium", "spot"])
+        sp.add_argument("--export-mode", default="spot_gross_floored",
+                        choices=["spot_gross_floored", "spot", "market_premium", "feed_in_tariff"])
         sp.add_argument("--fast", action="store_true", help="skip B3 (much faster)")
 
     sp = sub.add_parser("legacy"); sp.add_argument("--data", required=True)
@@ -318,6 +370,18 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--controllers", default="b3,b2")
     sp.add_argument("--workers", type=int, default=6)
     sp.set_defaults(func=cmd_sizing)
+
+    sp = sub.add_parser("sensitivity", help="thesis sensitivity analysis (type 1 3D grid and type 2 fixed-PV)")
+    sp.add_argument("--type", default="all", choices=["1", "2", "all"])
+    sp.add_argument("--fixed-pv", type=float, default=None, choices=[5.0, 10.0, 15.0])
+    sp.add_argument("--verbose", action="store_true")
+    sp.set_defaults(func=cmd_sensitivity)
+
+    sp = sub.add_parser("national-impact", help="Germany-wide 16-state impact and merit-order displacement")
+    sp.add_argument("--year", type=int, default=2024, choices=[2024, 2025, 2026])
+    sp.add_argument("--day", default="summer",
+                    choices=["winter", "transition", "summer", "negative_price", "scarcity_peak"])
+    sp.set_defaults(func=cmd_national_impact)
 
     args = p.parse_args(argv)
     args.func(args)
