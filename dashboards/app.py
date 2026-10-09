@@ -85,11 +85,11 @@ def _load_cubes() -> dict:
 
 CUBES = _load_cubes()
 
+# Projects 02, 03 and 04 were archived on 2026-10-09, so they are no longer offered in the
+# selector. Their input panels and lookup branches below are unreachable as a result; their
+# scenario rows are still present in the cubes. See archive/README.md.
 PROJECT_LABELS = {
     "p01": "01 Residential PV+BESS",
-    "p02": "02 Pumped Storage Hydro",
-    "p03": "03 Smart EV Charging",
-    "p04": "04 Energy Sharing REC",
     "p05": "05 Utility Hybrid Plant",
     "p06": "06 Probabilistic F2B",
 }

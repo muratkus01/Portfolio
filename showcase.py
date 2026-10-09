@@ -22,11 +22,10 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+# Projects 02, 03 and 04 were archived on 2026-10-09 and are no longer part of the
+# showcase. They still build and still run their tests; see archive/README.md.
 PROJECTS = {
     "01": "01-prosumer-pv-bess-mpc-rl",
-    "02": "02-pumped-storage-rl-multimarket",
-    "03": "03-smart-ev-charging-14a",
-    "04": "04-energy-sharing-rec",
     "05": "05-utility-hybrid-plant-dispatch",
     "06": "06-probabilistic-forecast-to-bid",
 }
@@ -97,88 +96,6 @@ def demo_01(real: bool) -> dict:
     }
 
 
-def demo_02(real: bool) -> dict:
-    from psw.baselines import run_ladder
-    from psw.config import RunConfig
-    from psw.market import activation_series, expand_blocks, rebap_series
-
-    run = RunConfig(dt=0.25, horizon_steps=96)
-    days = 4
-    price = real_prices_eur_mwh(days) if real else synthetic_prices_eur_mwh(days * 96, 1)
-    n = len(price)
-    sold = expand_blocks(np.full(int(np.ceil(n / 16)), 0.15 * run.plant.p_turb_max), n, 16)
-    act = activation_series(n, sold, sold, run.market, np.random.default_rng(1))
-    reb = rebap_series(n, price, run.market, np.random.default_rng(2))
-    res = run_ladder(price, run, sold, sold, act, reb)
-    r = {k: v["cost"]["net_revenue"] for k, v in res.items()}
-    b1, b2, b3 = r["B1 price threshold"], r["B2 perfect foresight"], r["B3 rolling MPC"]
-    viol = sum(sum(v["violations"].values()) for v in res.values())
-    return {
-        "rows": [("B1 price-threshold rule", f"{b1:12,.0f} EUR"),
-                 ("B2 perfect foresight", f"{b2:12,.0f} EUR"),
-                 ("B3 rolling MPC (24 h horizon)", f"{b3:12,.0f} EUR")],
-        "headline": f"B3 recovers {(b3 - b1) / max(b2 - b1, 1e-9) * 100:.0f}% of the headroom "
-                    f"on a 300 MW / 2,400 MWh plant over {days} days; {viol} violations",
-    }
-
-
-def demo_03(real: bool) -> dict:
-    from evc.baselines import b0_uncontrolled, b1_equal_share, b3_price_greedy, cost
-    from evc.config import ARCHETYPES, RunConfig, SiteConfig
-    from evc.sessions import generate
-
-    run = RunConfig(days=3, archetype=ARCHETYPES["depot"],
-                    site=SiteConfig(n_connectors=16, site_limit_kw=100.0))
-    sessions = generate(run)
-    n = run.days * run.steps_per_day
-    spot = (real_prices_eur_mwh(run.days) if real else synthetic_prices_eur_mwh(n, 3)) / 1000.0
-    hours = diurnal(n).astype(int)
-    rows, missed = [], {}
-    for name, fn in (("B0 uncontrolled", b0_uncontrolled), ("B1 equal share", b1_equal_share),
-                     ("B3 price-aware", b3_price_greedy)):
-        res = fn(sessions, n, run, spot)
-        c = cost(res, spot, hours, run)
-        missed[name] = res["missed_departures"]
-        rows.append((name, f"{c['net_cost']:8.2f} EUR, peak {res['peak_kw']:5.1f} kW, "
-                           f"{res['missed_departures']} missed"))
-    return {
-        "rows": rows,
-        "headline": f"{len(sessions)} sessions on 16 connectors behind a 100 kW limit; the "
-                    f"EDF safety layer holds the site limit on every rung",
-    }
-
-
-def demo_04(real: bool) -> dict:
-    from rec.community import allocate, member_profiles, pv_profile, settle
-    from rec.config import REGIMES, RunConfig, default_members
-    from rec.game import (all_coalition_values, break_even_network_charge, build_game,
-                          core_excess, owen_allocation, shapley_exact)
-
-    run = RunConfig(days=7, members=default_members(10, 0), regime=REGIMES["para_42b"])
-    cons = member_profiles(run)
-    gen = pv_profile(run, 60.0)
-    game = build_game(run, cons, gen)
-    v = all_coalition_values(game)
-    checks = {
-        "Owen core allocation": owen_allocation(game),
-        "Shapley value": shapley_exact(v, game.n),
-        "Optimisation mechanism": settle(cons, allocate(gen, cons, "optimisation", run),
-                                         gen, run)["member_payoff"],
-    }
-    rows = []
-    for name, x in checks.items():
-        c = core_excess(game, x, v)
-        rows.append((name, f"{c['blocking_coalitions']:4d} of {c['checked']} coalitions "
-                           f"block, {c['blocking_singletons']} would leave alone"))
-    be = break_even_network_charge(RunConfig(members=run.members,
-                                             regime=REGIMES["energy_sharing"]))
-    return {
-        "rows": rows,
-        "headline": f"cooperation surplus {v[-1] - sum(v[1 << i] for i in range(game.n)):.2f} "
-                    f"EUR; sharing stays worth doing up to a network charge of {be:.3f} EUR/kWh",
-    }
-
-
 def demo_05(real: bool) -> dict:
     from hybrid.baselines import run_ladder
     from hybrid.config import PlantConfig, RunConfig
@@ -240,9 +157,6 @@ def demo_06(real: bool) -> dict:
 
 DEMOS = {
     "01": ("Prosumer PV + battery at 15-minute resolution", demo_01),
-    "02": ("Pumped-storage multi-market dispatch", demo_02),
-    "03": ("Smart EV charging under s14a EnWG", demo_03),
-    "04": ("Energy sharing: who would leave the community?", demo_04),
     "05": ("Hybrid wind + PV + battery behind one connection", demo_05),
     "06": ("Probabilistic forecast-to-bid", demo_06),
 }

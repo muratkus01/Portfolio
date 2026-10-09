@@ -128,6 +128,59 @@ terminal value is needed at short horizons, it must be concave and state-depende
 
 ---
 
+## Portfolio narrowed to three projects (2026-10-09, Claude Code)
+
+Murat's decision: keep three projects he can defend in depth rather than six he can only
+list. Chosen against the skill frequencies in `Documents/Jobsuche/bewerbung/skill_matrix.md`,
+derived from 19 collected job postings.
+
+**Kept:** P01 prosumer PV+BESS (BESS 11x, optimisation 12x, and it is his own thesis),
+P05 hybrid wind+PV+BESS (energy market and regulatory knowledge, 15x, the most frequent
+requirement of all), P06 probabilistic forecast-to-bid (forecasting 13x, named in the skill
+matrix as the largest gap).
+
+**Archived to `archive/`:** P02 pumped storage, P03 EV charging under 14a, P04 energy sharing.
+Pre-archive state tagged `archive/six-project-portfolio`. Their 88 tests still run, so the
+suite is unchanged at 219 passed and 1 skipped. Reasons per project in `archive/README.md`.
+The aFRR capacity and energy co-optimisation from P02 should move into P05, where the fields
+`afrr_enabled`, `afrr_capacity_eur_mw_h` and `afrr_block_steps` are already declared.
+
+**Changed:** `showcase.html` (165 KB smaller: three HTML sections, three nav pills, the
+dispatch canvas engines, day regime blobs, huds, listeners and parameter simulators for the
+archived projects, plus every call site that ran on load), `README.md`, `CLAUDE.md`,
+`pyproject.toml`, `.github/workflows/tests.yml`, `showcase.py`, `dashboards/app.py`,
+`scripts/verify_html_integrity.py`, `scripts/build_multiyear_dispatch.py`,
+`scripts/make_rec_figure.py`, `scripts/train_psw_rl.py`.
+
+**Two faults found while verifying, one fixed, one left for a decision:**
+
+1. Fixed. `updateRepresentativeDaysForYear` threw `TypeError` on year 2024, because the 2024
+   records in `DAY_REGIMES_MULTIYEAR` carry no `price_min` or `price_max` for P05 or P06. The
+   throw aborted the function, so P06 never updated either. Pre-existing, unrelated to the
+   archiving. Guarded, so the spot range is simply omitted where the data is missing. The
+   proper fix is to regenerate the 2024 regime records with those two fields.
+
+2. Open, and it needs Murat's decision. **Project 01 reports three different values for the
+   same quantity.** B3 headroom recovery is:
+   - **87.9 %** in `reports/rolling_eval_htw_H28/rolling_eval_summary.csv`, column
+     "capture of B1->B2 %", row "B3 NWP PV, SLP load, fitted TV". This is the README headline.
+   - **46.6 % (2024) and 48.3 % (2025)** in `simulations/results/p01_scenarios.parquet`,
+     column `out_gap_closure_frac`, for `pv_kwp=8.0, bess_kwh=9.37, inv_kw=5.63`. The ladder
+     widget in `showcase.html` is fed from this grid and shows about 56 % for its default
+     configuration.
+   - **90 %** printed by `showcase.py` demo_01.
+
+   The two runs are not the same experiment: the H28 evaluation reports a net cost of
+   -387 EUR/a, the scenario grid +661 EUR/a for the same nameplate, so the tariff or the load
+   differs. Until this is reconciled, the earlier note of 2026-09-25 calling the figure's
+   56 % "fabricated" is too strong: the number is consistent with the scenario grid. What is
+   wrong is that nothing reconciles the three, and the README presents one of them as the
+   headline. No number in `showcase.html` was changed, deliberately: picking one is Murat's
+   call, not a silent edit.
+
+**Next:** reconcile the three P01 headroom numbers, then regenerate the 2024 regime records.
+
+
 ## ▶️ Next Concrete Actions (in order)
 
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
@@ -205,3 +258,4 @@ Brief handed to Antigravity covers all five in priority order, with the rule tha
 reaches a figure, a README or the showcase unless it traces to a committed CSV.
 
 - 2026-09-25 · Claude Code · Reviewed the Project 01 thesis extension against disk. Found p01_ladder_benchmark.png built from hardcoded literals showing B3 at 56.0 % against a measured 87.9 %, published on showcase.html beside text stating 87.9 %; dispatch figures built from a synthetic analytic load and national solar rescaled to 7.5 kWp while the project ships 73 measured households and an 8 kWp site; 4 of 8 figures unreferenced in the README; five results with committed CSVs and no figure; and the 2026-09-23 thesis methodology work still untracked. Wrote the Antigravity brief to fix the figures first, then deepen them from the existing CSVs.
+- 2026-10-09 · Claude Code · Portfolio auf drei Projekte verkleinert: P02, P03 und P04 nach `archive/` verschoben (Tag `archive/six-project-portfolio`, 88 Tests laufen weiter), showcase.html um 165 KB bereinigt (Sektionen, Nav, Canvas-Engines, Simulatoren und alle Aufrufe beim Laden), README, CLAUDE.md, pyproject, CI, showcase.py, dashboards/app.py und verify_html_integrity.py angepasst. Verifiziert: 219 passed / 1 skipped, Integritaetscheck gruen, 83 onclick-Bindungen aufloesbar, Browser-Konsole fehlerfrei bei allen Jahres- und Projektwechseln. Dabei gefunden: ein vorbestehender TypeError fuer Jahr 2024 (behoben) und drei widerspruechliche Werte fuer die B3-Headroom in P01 (87,9 % / 46-56 % / 90 %), die Murat entscheiden muss.

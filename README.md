@@ -1,6 +1,6 @@
 # ⚡ AI for Renewable Energy Systems: Applied Research Portfolio
 
-> Six engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems: strictly grounded in actual German market designs, grid codes, and regulatory frameworks.
+> Three engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems: strictly grounded in actual German market designs, grid codes, and regulatory frameworks.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![Live Showcase](https://img.shields.io/badge/Live_Showcase-GitHub_Pages-6c63ff.svg)](https://muratkus01.github.io/Portfolio/showcase.html)
@@ -17,17 +17,17 @@
 ## 🎯 60-Second Executive Quickstart
 
 ### 🌐 Interactive Web Showcase
-Simulate the full 2,256-scenario parameter grid across all 6 projects with live sensitivity sweeps and 15-minute dispatch profiles directly in your browser:  
+Simulate the full 1,082-scenario parameter grid across the three projects with live sensitivity sweeps and 15-minute dispatch profiles directly in your browser:  
 👉 **[muratkus01.github.io/Portfolio/showcase.html](https://muratkus01.github.io/Portfolio/showcase.html)**
 
 ### 💻 Local Execution
-Run the master interactive showcase dashboard to simulate live benchmarks across all 6 projects:
+Run the master interactive showcase dashboard to simulate live benchmarks across the three projects:
 
 ```bash
-# Clone and install all 6 packages in editable mode
+# Clone and install the three packages in editable mode
 git clone https://github.com/muratkus01/Portfolio.git
 cd Portfolio
-pip install -e projects/01-prosumer-pv-bess-mpc-rl -e projects/02-pumped-storage-rl-multimarket -e projects/03-smart-ev-charging-14a -e projects/04-energy-sharing-rec -e projects/05-utility-hybrid-plant-dispatch -e projects/06-probabilistic-forecast-to-bid
+pip install -e projects/01-prosumer-pv-bess-mpc-rl -e projects/05-utility-hybrid-plant-dispatch -e projects/06-probabilistic-forecast-to-bid
 
 # Run the Master Showcase Runner
 python showcase.py
@@ -38,39 +38,35 @@ pytest -v
 
 ---
 
-## 🚀 The 6 Portfolio Projects
+## 🚀 The Three Portfolio Projects
 
 Each project is a fully structured Python package with clean modular `src/`, reproducible unit test suite in `tests/`, and CLI execution tools:
 
 ```mermaid
 flowchart TB
     subgraph FOUND["Shared Foundations"]
-        F1["5-Rung Benchmark Ladder: B0 → B1 → B2 → B3 → RL"]
+        F1["5-Rung Benchmark Ladder: B0 -> B1 -> B2 -> B3 -> RL"]
         F2["15-Min MTU Market Model (DA, ID, aFRR, reBAP)"]
-        F3["German Regulatory Constraint Layer (§14a, §41a, EEG §51)"]
-        F4["Probabilistic Uncertainty & Forecasting Engine (P06)"]
+        F3["German Regulatory Constraint Layer (§41a, §51, reBAP)"]
+        F4["Issue-Time Forecast Store (no look-ahead by construction)"]
     end
 
-    subgraph BTM["Behind the Meter (Distributed Flexibility)"]
-        P1["01 · Prosumer PV + BESS<br/>(15-min Dynamic Tariffs)"]
-        P3["03 · Smart EV Charging<br/>(§14a EnWG Dimming)"]
-        P4["04 · Energy Sharing & REC<br/>(P2P Game-Theoretic Settlement)"]
+    subgraph BTM["Behind the Meter"]
+        P1["01 · Prosumer PV + BESS<br/>(15-min Dynamic Tariffs, §41a EnWG)"]
     end
 
-    subgraph FTM["Front of the Meter (Utility & Market Operations)"]
-        P5["05 · Utility Hybrid Plant<br/>(Wind+PV+BESS Behind Connection Cap)"]
-        P2["02 · Pumped Storage Hydro<br/>(Multi-Market Co-Optimization)"]
+    subgraph FTM["Front of the Meter"]
+        P5["05 · Utility Hybrid Plant<br/>(Wind+PV+BESS Behind a Connection Cap, EEG §51)"]
         P6["06 · Forecast-to-Bid Pipeline<br/>(reBAP Imbalance Risk Minimization)"]
     end
 
     FOUND --> BTM
     FOUND --> FTM
-    P1 -->|Aggregation| P4
-    P3 -->|Flexibility Pooling| P4
-    P4 -->|Aggregated Portfolio| P6
-    P5 -->|Market Bidding| P6
-    P6 -->|Scenarios & Quantiles| P2
-    P6 -->|Scenarios & Quantiles| P5
+    P6 -->|Quantiles & Scenarios| P1
+    P6 -->|Quantiles & Scenarios| P5
+    P1 -->|Value of Forecast Skill| VAL["Cross-Asset Comparison:<br/>what is a better forecast worth per year?"]
+    P5 -->|Value of Forecast Skill| VAL
+    P6 -->|Value of Forecast Skill| VAL
 ```
 
 ---
@@ -80,11 +76,14 @@ flowchart TB
 | # | Project Dossier | Core Method | Asset / Scale | Regulatory Framework | Quickstart Command |
 |:---:|---|---|---|---|---|
 | **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Fast LP-MPC + Rescaled SAC RL | 8 kWp PV, 9.37 kWh BESS, 5.63 kW Inverter | §14a / §41a EnWG, EEG 2023 | `prosumer rolling-eval` |
-| **02** | [**Pumped-Storage Hydro Multi-Market**](projects/02-pumped-storage-rl-multimarket/) | Binary Mode MILP + Mode-Reversal Wear | 300 MW / 2,400 MWh PSH | aFRR Balancing, §118(6) EnWG Exemptions | `python -m psw.cli ladder` |
-| **03** | [**Smart EV Charging Hub Control**](projects/03-smart-ev-charging-14a/) | Constrained Greedy/LP + EDF Reserve | 40-Connector Depot / 250 kW Limit | §14a EnWG Modules 1-3, Dimming | `python -m evc.cli ladder` |
-| **04** | [**Energy Sharing in RECs**](projects/04-energy-sharing-rec/) | Mechanism Design + Cooperative Game Theory | 20-Member Community / 100 kW PV | EU RED II Art. 22, §42b EnWG | `python -m rec.cli mechanisms` |
 | **05** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/05-utility-hybrid-plant-dispatch/) | Co-located LP + B3 Rolling MPC | 50 MW Wind, 30 MW PV, 40 MWh BESS | EEG §51 / §51a Negative Price Rules | `python -m hybrid.cli ladder` |
 | **06** | [**Probabilistic Forecast-to-Bid**](projects/06-probabilistic-forecast-to-bid/) | Quantile Loss + Newsvendor Fractile | 300 MW Portfolio | SIDC Intraday, German reBAP | `python -m f2b.cli policies` |
+
+**Scope decision, 2026-10-09.** The portfolio was narrowed from six projects to three, so that each
+one can be defended in depth rather than listed. Pumped-storage multi-market dispatch, smart EV
+charging under §14a EnWG, and cooperative energy sharing in renewable energy communities moved to
+[`archive/`](archive/). They still build, and their 88 tests still run in CI. See
+[`archive/README.md`](archive/README.md) for what each one established and why it was set aside.
 
 ---
 
@@ -128,13 +127,14 @@ Portfolio/
 ├── CLAUDE.md                          ← Assistant instructions & quickstart guide
 ├── datakit/                           ← Shared market data loaders & spot price connectors
 ├── docs/                              ← Energy market primers, regulatory guides & math
-└── projects/
-    ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (76 tests, 8 skipped without private data)
-    ├── 02-pumped-storage-rl-multimarket/ ← Package: psw (27 tests passing)
-    ├── 03-smart-ev-charging-14a/      ← Package: evc (20 tests passing)
-    ├── 04-energy-sharing-rec/         ← Package: rec (41 tests passing)
-    ├── 05-utility-hybrid-plant-dispatch/ ← Package: hybrid (26 tests passing)
-    └── 06-probabilistic-forecast-to-bid/ ← Package: f2b (18 tests passing)
+├── projects/                          ← The three active projects (132 tests)
+│   ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (88 tests, 1 skipped without private data)
+│   ├── 05-utility-hybrid-plant-dispatch/ ← Package: hybrid (26 tests)
+│   └── 06-probabilistic-forecast-to-bid/ ← Package: f2b (18 tests)
+└── archive/                           ← Set aside 2026-10-09, still tested (88 tests)
+    ├── 02-pumped-storage-rl-multimarket/ ← Package: psw (27 tests)
+    ├── 03-smart-ev-charging-14a/      ← Package: evc (20 tests)
+    └── 04-energy-sharing-rec/         ← Package: rec (41 tests)
 ```
 
 ---

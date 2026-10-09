@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [main, p01-thesis-extension]
+    branches: [main]
   pull_request:
-    branches: [main, p01-thesis-extension]
+    branches: [main]
 
 jobs:
   test:
@@ -29,9 +29,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest pytest-cov gymnasium xlrd pvlib
           pip install -e "projects/01-prosumer-pv-bess-mpc-rl[dev]"
-          pip install -e "projects/02-pumped-storage-rl-multimarket[dev]"
-          pip install -e "projects/03-smart-ev-charging-14a[dev]"
-          pip install -e "projects/04-energy-sharing-rec[dev]"
+          pip install -e "archive/02-pumped-storage-rl-multimarket[dev]"
+          pip install -e "archive/03-smart-ev-charging-14a[dev]"
+          pip install -e "archive/04-energy-sharing-rec[dev]"
           pip install -e "projects/05-utility-hybrid-plant-dispatch[dev]"
           pip install -e "projects/06-probabilistic-forecast-to-bid[dev]"
 

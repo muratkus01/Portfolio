@@ -6,25 +6,28 @@ addopts = "--import-mode=importlib"
 filterwarnings = ["ignore::DeprecationWarning:pulp.*"]
 testpaths = [
     "projects/01-prosumer-pv-bess-mpc-rl/tests",
-    "projects/02-pumped-storage-rl-multimarket/tests",
-    "projects/03-smart-ev-charging-14a/tests",
-    "projects/04-energy-sharing-rec/tests",
     "projects/05-utility-hybrid-plant-dispatch/tests",
     "projects/06-probabilistic-forecast-to-bid/tests",
+    # Archived 2026-10-09: no longer part of the portfolio, kept under test so the
+    # history stays green and the code stays runnable. See archive/README.md.
+    "archive/02-pumped-storage-rl-multimarket/tests",
+    "archive/03-smart-ev-charging-14a/tests",
+    "archive/04-energy-sharing-rec/tests",
 ]
 pythonpath = [
     ".",
     "datakit",
     "projects/01-prosumer-pv-bess-mpc-rl/src",
-    "projects/02-pumped-storage-rl-multimarket/src",
-    "projects/03-smart-ev-charging-14a/src",
-    "projects/04-energy-sharing-rec/src",
     "projects/05-utility-hybrid-plant-dispatch/src",
     "projects/06-probabilistic-forecast-to-bid/src",
+    # archived, see above
+    "archive/02-pumped-storage-rl-multimarket/src",
+    "archive/03-smart-ev-charging-14a/src",
+    "archive/04-energy-sharing-rec/src",
 ]
 
 [tool.coverage.run]
-source = ["prosumer", "psw", "evc", "rec", "hybrid", "f2b"]
+source = ["prosumer", "hybrid", "f2b", "psw", "evc", "rec"]
 omit = ["*/tests/*"]
 
 [tool.coverage.report]

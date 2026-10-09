@@ -80,55 +80,55 @@ def build():
 
     old_p02_vis = """      p02: {
         '2025': {
-          src: 'projects/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2025.png',
+          src: 'archive/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2025.png',
           caption: '<strong>Figure 2 (2025):</strong> Multi-market dispatch on 2025 DE-LU spot prices: Day-Ahead spot arbitrage, aFRR reserve capacity, and upper reservoir head trajectory.'
         },"""
     new_p02_vis = """      p02: {
         '2026': {
-          src: 'projects/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2026.png',
+          src: 'archive/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2026.png',
           caption: '<strong>Figure 2 (2026 YTD):</strong> Multi-market dispatch on 2026 DE-LU spot prices: Day-Ahead spot arbitrage, aFRR reserve capacity, and upper reservoir head trajectory under record market spreads.'
         },
         '2025': {
-          src: 'projects/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2025.png',
+          src: 'archive/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2025.png',
           caption: '<strong>Figure 2 (2025):</strong> Multi-market dispatch on 2025 DE-LU spot prices: Day-Ahead spot arbitrage, aFRR reserve capacity, and upper reservoir head trajectory.'
         },"""
-    if "'2026': {\n          src: 'projects/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2026.png'" not in html:
+    if "'2026': {\n          src: 'archive/02-pumped-storage-rl-multimarket/docs/figures/p02_dispatch_2026.png'" not in html:
         assert old_p02_vis in html, "Could not find old p02 visual"
         html = html.replace(old_p02_vis, new_p02_vis, 1)
 
     old_p03_vis = """      p03: {
         '2025': {
-          src: 'projects/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2025.png',
+          src: 'archive/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2025.png',
           caption: '<strong>Figure 3 (2025):</strong> Depot 48-session charging dispatch respecting the 100 kW dynamic grid dimming constraint with EDF departure guarantee.'
         },"""
     new_p03_vis = """      p03: {
         '2026': {
-          src: 'projects/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2026.png',
+          src: 'archive/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2026.png',
           caption: '<strong>Figure 3 (2026 YTD):</strong> Depot 48-session charging dispatch respecting the 100 kW dynamic grid dimming constraint under 2026 dynamic retail tariffs.'
         },
         '2025': {
-          src: 'projects/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2025.png',
+          src: 'archive/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2025.png',
           caption: '<strong>Figure 3 (2025):</strong> Depot 48-session charging dispatch respecting the 100 kW dynamic grid dimming constraint with EDF departure guarantee.'
         },"""
-    if "'2026': {\n          src: 'projects/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2026.png'" not in html:
+    if "'2026': {\n          src: 'archive/03-smart-ev-charging-14a/docs/figures/p03_dispatch_2026.png'" not in html:
         assert old_p03_vis in html, "Could not find old p03 visual"
         html = html.replace(old_p03_vis, new_p03_vis, 1)
 
     old_p04_vis = """      p04: {
         '2025': {
-          src: 'projects/04-energy-sharing-rec/docs/figures/p04_sharing_2025.png',
+          src: 'archive/04-energy-sharing-rec/docs/figures/p04_sharing_2025.png',
           caption: '<strong>Figure 4 (2025):</strong> 20-member community P2P matching under 2025 conditions (PV self-consumption, local sharing, and cooperative surplus accumulation).'
         },"""
     new_p04_vis = """      p04: {
         '2026': {
-          src: 'projects/04-energy-sharing-rec/docs/figures/p04_sharing_2026.png',
+          src: 'archive/04-energy-sharing-rec/docs/figures/p04_sharing_2026.png',
           caption: '<strong>Figure 4 (2026 YTD):</strong> 20-member community P2P matching under 2026 conditions (PV self-consumption, local sharing, and cooperative surplus accumulation).'
         },
         '2025': {
-          src: 'projects/04-energy-sharing-rec/docs/figures/p04_sharing_2025.png',
+          src: 'archive/04-energy-sharing-rec/docs/figures/p04_sharing_2025.png',
           caption: '<strong>Figure 4 (2025):</strong> 20-member community P2P matching under 2025 conditions (PV self-consumption, local sharing, and cooperative surplus accumulation).'
         },"""
-    if "'2026': {\n          src: 'projects/04-energy-sharing-rec/docs/figures/p04_sharing_2026.png'" not in html:
+    if "'2026': {\n          src: 'archive/04-energy-sharing-rec/docs/figures/p04_sharing_2026.png'" not in html:
         assert old_p04_vis in html, "Could not find old p04 visual"
         html = html.replace(old_p04_vis, new_p04_vis, 1)
 

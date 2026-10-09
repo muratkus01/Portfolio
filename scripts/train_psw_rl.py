@@ -188,7 +188,7 @@ def run_experiment(year=2025, train_days=90, eval_days=10, total_timesteps=60_00
     print(f"RL unidirectional cap recovery: {(cost_unidir['net_revenue'] - b1_c['net_revenue']) / headroom * 100:.1f}% ({cost_unidir['net_revenue'] - b1_c['net_revenue']:,.0f} EUR)")
 
     # Save model
-    model_dir = Path("projects/02-pumped-storage-rl-multimarket/models")
+    model_dir = Path("archive/02-pumped-storage-rl-multimarket/models")
     model_dir.mkdir(parents=True, exist_ok=True)
     model_path = model_dir / "ppo_psw_reference"
     model.save(model_path)

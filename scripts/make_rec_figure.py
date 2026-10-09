@@ -123,7 +123,7 @@ ax3.grid(True, linestyle="--", alpha=0.5)
 ax3.legend(loc="upper left", fontsize=8.5, framealpha=0.9)
 
 plt.tight_layout()
-out_path = Path("projects/04-energy-sharing-rec/docs/figures/rec_sharing_benchmark.png")
+out_path = Path("archive/04-energy-sharing-rec/docs/figures/rec_sharing_benchmark.png")
 out_path.parent.mkdir(parents=True, exist_ok=True)
 plt.savefig(out_path, dpi=300, bbox_inches="tight")
 print("Saved figure to:", out_path)
