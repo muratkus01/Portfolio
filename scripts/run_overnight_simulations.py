@@ -675,10 +675,13 @@ def _p06_run(params: dict) -> dict:
 
     capture_b0 = float(r_b0["eur_per_mwh"])
     capture_b3 = float(r_b3["eur_per_mwh"])
-    net_gain   = float(r_b3["net_revenue"]) * (30.0 / (n / 96.0))
+    # True net financial gain of B3 over B0 day-ahead baseline scaled to 30 days.
+    # Note: Can be negative when intraday transaction frictions exceed balancing savings,
+    # or when B0's unhedged positions are fortuitously settled at favorable reBAP cashout prices.
+    net_gain   = (float(r_b3["net_revenue"]) - float(r_b0["net_revenue"])) * (30.0 / (n / 96.0))
     imb_b0     = max(float(r_b0["imbalance_mwh"]), 1.0)
     imb_b3     = float(r_b3["imbalance_mwh"])
-    risk_red   = float(max(0.0, 1.0 - imb_b3 / imb_b0)) * 100
+    vol_red    = float(max(0.0, 1.0 - imb_b3 / imb_b0)) * 100
 
     return {
         "eval_days": 366 if year == 2024 else 365,
@@ -686,7 +689,7 @@ def _p06_run(params: dict) -> dict:
         "capture_price_b0_eur_mwh": capture_b0,
         "capture_price_b3_eur_mwh": capture_b3,
         "net_gain_30d_eur": net_gain,
-        "imbalance_risk_reduction_pct": risk_red,
+        "imbalance_volume_reduction_pct": vol_red,
     }
 
 
@@ -746,9 +749,10 @@ METRIC_COLS = {
     "p04": ["out_welfare_eur_per_week", "out_consumer_saving_eur",
             "out_owner_gain_eur", "out_self_consumption_pct", "out_breakeven_tariff_eur_kwh"],
     "p05": ["out_revenue_eur_per_year_extrapolated", "out_curtail_mwh_per_year_extrapolated", "out_overplanting_factor",
-            "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated", "out_revenue_lift_pct"],
+            "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated", "out_revenue_lift_pct",
+            "out_neg_price_avoided_eur_per_year_extrapolated"],
     "p06": ["out_capture_price_b3_eur_mwh", "out_net_gain_30d_eur",
-            "out_imbalance_risk_reduction_pct"],
+            "out_imbalance_volume_reduction_pct"],
 }
 
 
@@ -770,7 +774,8 @@ def build_tasks(smoke: bool, project_filter: str | None = None) -> list:
     return tasks
 
 
-def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None, reset_p06: bool = False) -> None:
+def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None,
+              reset_p05: bool = False, reset_p06: bool = False) -> None:
     tasks     = build_tasks(smoke, project_filter=project_filter)
     completed = _load_checkpoint()
     commit    = _get_git_commit()
@@ -791,6 +796,12 @@ def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None, re
             if "git_commit" not in df.columns:
                 df["git_commit"] = commit
             rows_by_proj[proj].extend(df.to_dict("records"))
+
+    if reset_p05 or project_filter == "p05":
+        log.info("Resetting P05 scenario cache and completed IDs for re-run.")
+        p05_sids = {_scenario_id("p05", p) for p in _p05_grid(smoke)}
+        completed.difference_update(p05_sids)
+        rows_by_proj["p05"] = []
 
     if reset_p06 or project_filter == "p06":
         log.info("Resetting P06 scenario cache and completed IDs for re-run.")
@@ -862,9 +873,10 @@ def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None, re
                        "violations": len(violations_all),
                        "violation_details": violations_all}, f, indent=2)
 
-    # Validation check: fail loudly if any metric column is constant 0.0 across all scenarios
-    for p, rows in rows_by_proj.items():
-        if rows and (project_filter is None or p == project_filter):
+    # Validation check across active projects (p01, p05, p06): fail loudly if any metric column is constant 0.0
+    for p in ["p01", "p05", "p06"]:
+        rows = rows_by_proj.get(p, [])
+        if rows:
             df_p = pd.DataFrame(rows)
             for m in METRIC_COLS.get(p, []):
                 if m in df_p.columns:
@@ -923,6 +935,7 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 4) - 1))
     ap.add_argument("--project", type=str, choices=["p01", "p02", "p03", "p04", "p05", "p06"], default=None,
                     help="Run scenarios only for a specific project")
+    ap.add_argument("--reset-p05", action="store_true", help="Force re-run of P05 scenarios")
     ap.add_argument("--reset-p06", action="store_true", help="Force re-run of P06 scenarios")
     args = ap.parse_args()
 
@@ -935,4 +948,5 @@ if __name__ == "__main__":
     log.info("=" * 72)
 
     run_batch(smoke=args.smoke_test, n_workers=args.workers,
-              project_filter=args.project, reset_p06=args.reset_p06)
+              project_filter=args.project,
+              reset_p05=args.reset_p05, reset_p06=args.reset_p06)

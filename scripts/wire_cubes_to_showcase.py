@@ -589,15 +589,23 @@ def main():
       const cell = SCENARIO_CUBES.p06 && SCENARIO_CUBES.p06.data ? SCENARIO_CUBES.p06.data[cubeKey] : null;
 
       if (cell) {
-        // [capture_price_b3_eur_mwh, net_gain_30d_eur, imbalance_risk_reduction_pct]
+        // [capture_price_b3_eur_mwh, net_gain_30d_eur, imbalance_volume_reduction_pct]
         const capPrice = cell[0];
         const netGain = cell[1];
-        const riskRed = cell[2];
+        const volRed = cell[2];
 
         document.getElementById('p06-res-price').innerText = capPrice.toFixed(2) + ' EUR/MWh';
         document.getElementById('p06-res-vol').innerText = '15,785 MWh (Optimal Bid)';
-        document.getElementById('p06-res-gain').innerText = (netGain >= 0 ? '+' : '') + Math.round(netGain).toLocaleString() + ' EUR (30d)';
-        document.getElementById('p06-res-riskred').innerText = (riskRed >= 0 ? '-' : '+') + riskRed.toFixed(1) + '% Risk';
+        const gainSign = netGain >= 0 ? '+' : '';
+        const gainEl = document.getElementById('p06-res-gain');
+        if (gainEl) {
+          gainEl.innerText = gainSign + Math.round(netGain).toLocaleString() + ' EUR (30d)';
+          gainEl.className = 'sim-res-val ' + (netGain >= 0 ? 'emerald' : 'amber');
+        }
+        const volEl = document.getElementById('p06-res-riskred');
+        if (volEl) {
+          volEl.innerText = '-' + volRed.toFixed(1) + '% Vol';
+        }
       }
 
       recomputeDispatchP06(risk, maeRaw, spread);
