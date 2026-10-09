@@ -603,7 +603,7 @@ def _p05_run(params: dict) -> dict:
 
     revenue   = float(c_b3["net_revenue"] * scale)
     curtail   = float(c_b3["forced_curtail_mwh"] * scale)
-    neg_avoid = float(c_b3.get("neg_price_avoided_eur", 0.0) * scale)
+    neg_avoid = float(np.sum(r_b3["chosen_curtail"] * np.maximum(-price, 0.0)) * rc.dt * scale)
     overplant = (wind_mw + pv_mw) / poc_mw
     b1_rev = float(c_b1["net_revenue"] * scale)
     b3_rev = revenue
@@ -673,18 +673,20 @@ def _p06_run(params: dict) -> dict:
     )
     r_b3 = settle(pos_b3, trades_b3, truth, price_da, rebap, price_id, rc)
 
-    capture_b0 = float(r_b0.get("capture_eur_mwh", 0.0))
-    capture_b3 = float(r_b3.get("capture_eur_mwh", 0.0))
-    net_gain   = float(r_b3.get("net_gain_eur", 0.0))
-    imb_b0     = max(float(r_b0.get("imbalance_exposure_eur", 1.0)), 1.0)
-    imb_b3     = float(r_b3.get("imbalance_exposure_eur", 1.0))
+    capture_b0 = float(r_b0["eur_per_mwh"])
+    capture_b3 = float(r_b3["eur_per_mwh"])
+    net_gain   = float(r_b3["net_revenue"]) * (30.0 / (n / 96.0))
+    imb_b0     = max(float(r_b0["imbalance_mwh"]), 1.0)
+    imb_b3     = float(r_b3["imbalance_mwh"])
     risk_red   = float(max(0.0, 1.0 - imb_b3 / imb_b0)) * 100
 
     return {
-        "eval_days": n // 96,
+        "eval_days": 366 if year == 2024 else 365,
         "annualised": False,
-        "capture_price_b0_eur_mwh": capture_b0, "capture_price_b3_eur_mwh": capture_b3,
-        "net_gain_30d_eur": net_gain, "imbalance_risk_reduction_pct": risk_red,
+        "capture_price_b0_eur_mwh": capture_b0,
+        "capture_price_b3_eur_mwh": capture_b3,
+        "net_gain_30d_eur": net_gain,
+        "imbalance_risk_reduction_pct": risk_red,
     }
 
 
@@ -708,6 +710,8 @@ def _run_scenario(task: tuple) -> dict:
                "status": "ok", "violation": "|".join(violations),
                "seed": int(params.get("seed", 42)),
                "git_commit": _get_git_commit(),
+               "eval_days": result.get("eval_days", 366 if params.get("year") == 2024 else 365),
+               "annualised": result.get("annualised", False),
                **params}
         row.update({f"out_{k}": v for k, v in result.items()
                     if not isinstance(v, list)})
@@ -719,17 +723,45 @@ def _run_scenario(task: tuple) -> dict:
                 "status": "error", "violation": "", "error": f"{exc}\n{tb}",
                 "seed": int(params.get("seed", 42)),
                 "git_commit": _get_git_commit(),
+                "eval_days": 366 if params.get("year") == 2024 else 365,
+                "annualised": False,
                 **params}
+
+
+KEY_COLS = {
+    "p01": ["pv_kwp", "bess_kwh", "inv_kw", "year"],
+    "p02": ["turb_mw_unit", "e_max_mwh", "wear_eur", "policy", "year"],
+    "p03": ["dim_limit_kw", "sessions_per_day", "buffer_kwh", "year"],
+    "p04": ["c_net", "n_members", "shared_pv_kwp", "year"],
+    "p05": ["poc_mw", "pv_mw", "bess_mwh", "year"],
+    "p06": ["tau", "sigma_base", "rebap_asymmetry", "year"],
+}
+METRIC_COLS = {
+    "p01": ["out_net_cost_eur", "out_self_consumption_frac", "out_grid_independence_frac",
+            "out_b1_cost_eur", "out_b3_cost_eur", "out_gap_closure_frac"],
+    "p02": ["out_revenue_eur_per_year_extrapolated", "out_reversals_per_day", "out_wear_cost_eur_per_year_extrapolated",
+            "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated"],
+    "p03": ["out_cost_b0_eur", "out_cost_b3_eur", "out_savings_pct",
+            "out_departure_fulfillment_frac", "out_curtail_kwh"],
+    "p04": ["out_welfare_eur_per_week", "out_consumer_saving_eur",
+            "out_owner_gain_eur", "out_self_consumption_pct", "out_breakeven_tariff_eur_kwh"],
+    "p05": ["out_revenue_eur_per_year_extrapolated", "out_curtail_mwh_per_year_extrapolated", "out_overplanting_factor",
+            "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated", "out_revenue_lift_pct"],
+    "p06": ["out_capture_price_b3_eur_mwh", "out_net_gain_30d_eur",
+            "out_imbalance_risk_reduction_pct"],
+}
 
 
 # ============================================================
 # Batch engine
 # ============================================================
-def build_tasks(smoke: bool) -> list:
+def build_tasks(smoke: bool, project_filter: str | None = None) -> list:
     grids = {
         "p01": _p01_grid(smoke), "p02": _p02_grid(smoke), "p03": _p03_grid(smoke),
         "p04": _p04_grid(smoke), "p05": _p05_grid(smoke), "p06": _p06_grid(smoke),
     }
+    if project_filter:
+        grids = {project_filter: grids[project_filter]}
     tasks = []
     for proj, grid in grids.items():
         for params in grid:
@@ -738,8 +770,8 @@ def build_tasks(smoke: bool) -> list:
     return tasks
 
 
-def run_batch(smoke: bool, n_workers: int) -> None:
-    tasks     = build_tasks(smoke)
+def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None, reset_p06: bool = False) -> None:
+    tasks     = build_tasks(smoke, project_filter=project_filter)
     completed = _load_checkpoint()
     commit    = _get_git_commit()
 
@@ -759,6 +791,12 @@ def run_batch(smoke: bool, n_workers: int) -> None:
             if "git_commit" not in df.columns:
                 df["git_commit"] = commit
             rows_by_proj[proj].extend(df.to_dict("records"))
+
+    if reset_p06 or project_filter == "p06":
+        log.info("Resetting P06 scenario cache and completed IDs for re-run.")
+        p06_sids = {_scenario_id("p06", p) for p in _p06_grid(smoke)}
+        completed.difference_update(p06_sids)
+        rows_by_proj["p06"] = []
 
     pending       = [t for t in tasks if t[2] not in completed]
     total         = len(tasks)
@@ -824,6 +862,19 @@ def run_batch(smoke: bool, n_workers: int) -> None:
                        "violations": len(violations_all),
                        "violation_details": violations_all}, f, indent=2)
 
+    # Validation check: fail loudly if any metric column is constant 0.0 across all scenarios
+    for p, rows in rows_by_proj.items():
+        if rows and (project_filter is None or p == project_filter):
+            df_p = pd.DataFrame(rows)
+            for m in METRIC_COLS.get(p, []):
+                if m in df_p.columns:
+                    series = df_p[m].dropna()
+                    if len(series) > 0 and (series == 0.0).all():
+                        raise AssertionError(
+                            f"FATAL: Metric column '{m}' for project '{p}' is identically 0.0 across all {len(series)} scenarios! "
+                            "Simulation run failed non-zero validation check."
+                        )
+
     _build_lookup_cubes()
     log.info("Done. Results: %s", RESULTS)
 
@@ -831,29 +882,8 @@ def run_batch(smoke: bool, n_workers: int) -> None:
 def _build_lookup_cubes() -> None:
     log.info("Building lookup_cubes.json ...")
     cubes: dict = {}
-
-    key_cols = {
-        "p01": ["pv_kwp", "bess_kwh", "inv_kw", "year"],
-        "p02": ["turb_mw_unit", "e_max_mwh", "wear_eur", "policy", "year"],
-        "p03": ["dim_limit_kw", "sessions_per_day", "buffer_kwh", "year"],
-        "p04": ["c_net", "n_members", "shared_pv_kwp", "year"],
-        "p05": ["poc_mw", "pv_mw", "bess_mwh", "year"],
-        "p06": ["tau", "sigma_base", "rebap_asymmetry", "year"],
-    }
-    metric_cols = {
-        "p01": ["out_net_cost_eur", "out_self_consumption_frac", "out_grid_independence_frac",
-                "out_b1_cost_eur", "out_b3_cost_eur", "out_gap_closure_frac"],
-        "p02": ["out_revenue_eur_per_year_extrapolated", "out_reversals_per_day", "out_wear_cost_eur_per_year_extrapolated",
-                "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated"],
-        "p03": ["out_cost_b0_eur", "out_cost_b3_eur", "out_savings_pct",
-                "out_departure_fulfillment_frac", "out_curtail_kwh"],
-        "p04": ["out_welfare_eur_per_week", "out_consumer_saving_eur",
-                "out_owner_gain_eur", "out_self_consumption_pct", "out_breakeven_tariff_eur_kwh"],
-        "p05": ["out_revenue_eur_per_year_extrapolated", "out_curtail_mwh_per_year_extrapolated", "out_overplanting_factor",
-                "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated", "out_revenue_lift_pct"],
-        "p06": ["out_capture_price_b3_eur_mwh", "out_net_gain_30d_eur",
-                "out_imbalance_risk_reduction_pct"],
-    }
+    key_cols = KEY_COLS
+    metric_cols = METRIC_COLS
 
     for proj in ["p01","p02","p03","p04","p05","p06"]:
         pq = RESULTS / f"{proj}_scenarios.parquet"
@@ -891,12 +921,18 @@ if __name__ == "__main__":
     grp.add_argument("--smoke-test", action="store_true")
     grp.add_argument("--full", action="store_true")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 4) - 1))
+    ap.add_argument("--project", type=str, choices=["p01", "p02", "p03", "p04", "p05", "p06"], default=None,
+                    help="Run scenarios only for a specific project")
+    ap.add_argument("--reset-p06", action="store_true", help="Force re-run of P06 scenarios")
     args = ap.parse_args()
 
     log.info("=" * 72)
     log.info("Portfolio Overnight Simulation Runner")
     log.info("Mode: %s  |  Workers: %d", "SMOKE" if args.smoke_test else "FULL", args.workers)
+    if args.project:
+        log.info("Project filter: %s", args.project)
     log.info("Results dir: %s", RESULTS)
     log.info("=" * 72)
 
-    run_batch(smoke=args.smoke_test, n_workers=args.workers)
+    run_batch(smoke=args.smoke_test, n_workers=args.workers,
+              project_filter=args.project, reset_p06=args.reset_p06)

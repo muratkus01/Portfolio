@@ -28,18 +28,18 @@ python -m f2b.cli liquidity --year 2025 --days 30
 | 6 | 25.3 | 31.9 | 18.5 | 0.032 |
 | 24 | 49.6 | 65.3 | 35.7 | 0.062 |
 
-**Trading policies** (30 days of 2025, 43,212 MWh produced, 3 €/MWh half-spread):
+**Trading policies** (30 days of 2025, 41,395 MWh produced, 3 EUR/MWh half-spread; generated with `python -m f2b.cli policies --year 2025 --days 30`, commit `dadb2f1`):
 
-| Policy | Net € | €/MWh | Imbalance MWh | Traded MWh | ID cost € |
+| Policy | Net EUR | EUR/MWh | Imbalance MWh | Traded MWh | ID cost EUR |
 |---|---:|---:|---:|---:|---:|
-| B0 day-ahead only | 3,919,163 | 90.70 | 35,070 | 0 | 0 |
-| B1 point intraday | 3,287,532 | 76.08 | 10,453 | 112,453 | 635,078 |
-| NV newsvendor quantile | 3,293,141 | 76.21 | 10,416 | 111,554 | 629,223 |
-| **B3 stochastic MPC** | **3,576,029** | **82.76** | **7,805** | **63,212** | **341,409** |
-| REF zero imbalance | 3,870,860 | 89.58 | 0 | 0 | 0 |
-| CEIL perfect speculation | 9,205,043 | 213.02 | 108,839 | 0 | 0 |
+| B0 day-ahead only | 3,752,047 | 90.64 | 34,772 | 0 | 0 |
+| B1 point intraday | 3,127,412 | 75.55 | 10,435 | 111,684 | 630,240 |
+| NV newsvendor quantile | 3,133,150 | 75.69 | 10,396 | 110,757 | 624,230 |
+| **B3 stochastic MPC** | **3,413,522** | **82.46** | **7,791** | **62,728** | **338,696** |
+| REF zero imbalance | 3,705,854 | 89.52 | 0 | 0 | 0 |
+| CEIL perfect speculation | 9,042,671 | 218.45 | 108,854 | 0 | 0 |
 
-B3's deadband beats always-chasing-the-mean by **+288,497 €** while trading 44 % less volume:
+B3's deadband beats always-chasing-the-mean by **+286,110 EUR** while trading 44 % less volume:
 the mechanism is refusing to pay a spread for forecast revisions that are small relative to
 the remaining uncertainty.
 
