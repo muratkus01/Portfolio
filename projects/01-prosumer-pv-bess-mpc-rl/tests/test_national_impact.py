@@ -1,23 +1,34 @@
-"""Tests for Germany-wide system-level impact analysis and merit-order displacement."""
+"""Tests for Germany-wide system-level impact analysis and merit-order displacement.
+
+The fleet tests read the gitignored MaStR download and skip without it. The merit-order
+tests use no data and always run.
+"""
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
+from prosumer.data import mastr
 from prosumer.experiments.national_impact import (
-    FEDERAL_STATES,
     MARGINAL_COST_BESS_EUR_MWH,
     REPRESENTATIVE_DAYS,
     compute_grid_exchange_shift,
     evaluate_fossil_gas_displacement,
+    federal_states,
     get_national_totals,
 )
 
+needs_mastr = pytest.mark.skipif(
+    not mastr.available(), reason="MaStR download absent; see data/raw/mastr/SOURCE.md"
+)
 
+
+@needs_mastr
 def test_federal_states_completeness():
     """Verify all 16 German federal states are configured with coordinates and fleet data."""
-    assert len(FEDERAL_STATES) == 16
-    for code, state in FEDERAL_STATES.items():
+    states = federal_states()
+    assert len(states) == 16
+    for code, state in states.items():
         assert state.latitude > 45.0
         assert state.longitude > 5.0
         assert state.bess_count_2024 > 0
@@ -25,6 +36,7 @@ def test_federal_states_completeness():
         assert state.avg_power_kw_2024 > 3.0
 
 
+@needs_mastr
 def test_national_totals_2024_matches_thesis():
     """The 2024 snapshot still reproduces Master's Thesis Table 10-11.
 
@@ -45,6 +57,7 @@ def test_national_totals_2024_matches_thesis():
     assert totals["mean_power_kw"] == pytest.approx(5.53, abs=0.02)
 
 
+@needs_mastr
 def test_national_totals_2025_and_2026_expansion():
     """2025 and 2026 come from the register, not from a growth assumption.
 

@@ -267,7 +267,6 @@ def cmd_sensitivity(args) -> None:
 
 def cmd_national_impact(args) -> None:
     from .experiments.national_impact import (
-        FEDERAL_STATES,
         REPRESENTATIVE_DAYS,
         evaluate_fossil_gas_displacement,
         get_national_totals,

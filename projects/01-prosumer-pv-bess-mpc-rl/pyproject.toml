@@ -8,7 +8,9 @@ dependencies = [
     "pandas>=2.0",
     "scipy>=1.10",
     "matplotlib>=3.7",
-    "pulp>=2.7",
+    # 3.2 or later: the models divide an LpVariable by a float, which 3.0, 3.1 and 2.x reject,
+    # and 4.0 removed LpVariable.dicts.
+    "pulp>=3.2,<4",
     "requests>=2.28",
 ]
 

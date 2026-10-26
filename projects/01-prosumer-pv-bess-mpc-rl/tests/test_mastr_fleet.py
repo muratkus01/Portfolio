@@ -116,11 +116,11 @@ def test_national_totals_reproduce_the_thesis_2024_table():
 
 
 def test_national_totals_come_from_the_register_not_an_extrapolation():
-    from prosumer.experiments.national_impact import FEDERAL_STATES, SNAPSHOTS
+    from prosumer.experiments.national_impact import SNAPSHOTS, federal_states
     counts = mastr.count_by_state("Home storage")
     for year, date in SNAPSHOTS.items():
         ts = pd.Timestamp(date)
-        for code, state in FEDERAL_STATES.items():
+        for code, state in federal_states().items():
             assert getattr(state, f"bess_count_{year}") == int(round(float(counts.loc[ts, code])))
 
 
@@ -129,9 +129,9 @@ def test_fleet_counts_are_not_round_numbers():
 
     Register counts are never round, so this catches a silent return to estimates.
     """
-    from prosumer.experiments.national_impact import FEDERAL_STATES
+    from prosumer.experiments.national_impact import federal_states
     for year in (2024, 2025, 2026):
-        counts = [getattr(s, f"bess_count_{year}") for s in FEDERAL_STATES.values()]
+        counts = [getattr(s, f"bess_count_{year}") for s in federal_states().values()]
         assert sum(c % 500 == 0 for c in counts) <= 1
 
 

@@ -280,6 +280,30 @@ not add it. These two paths therefore stay local until Murat decides otherwise. 
 everything else still runs.
 
 
+## Fresh-clone fix and move to the company laptop (2026-10-26, Claude Code on EIM-MUK)
+
+Work continues on the company laptop EIM-MUK in `Vaults/MasterThesis`, a fresh clone of `main`. Scope stays P01 only.
+
+### What was wrong
+- GitHub CI has been red since 734fd17. `national_impact.py` built `FEDERAL_STATES` from the gitignored MaStR CSVs at import time, so on a fresh clone and in CI pytest failed while collecting tests and aborted the whole suite. The "240 passed, 1 skipped" above was true only on the machine that had the data.
+- A fresh install resolves PuLP 4.2, which removed `LpVariable.dicts`. PuLP 2.9, 3.0 and 3.1 reject `LpVariable / float` (`milp.py:75`). Measured: 3.2.0, 3.3.0 and 3.3.2 pass. pandas 3.1 is fine.
+
+### Fixed in this pass
+- `FEDERAL_STATES` is now `national_impact.federal_states()`: read on first call, cached, with a clear `FileNotFoundError` pointing to `data/raw/mastr/SOURCE.md` when the files are missing. `mastr.available()` says whether they are present. Item 1 of "Done in this pass" above still names the old constant.
+- The three fleet tests in `test_national_impact.py` and `test_cli_national_impact_runs` skip without the download. The merit-order tests always run.
+- P01 pins `pulp>=3.2,<4`.
+- Verified: without data 207 passed, 34 skipped; with data 240 passed, 1 skipped (the skip is `test_data_2024_2026.py`, which needs `prosumer build-data`). An independent review (three reviewers, each checked by a skeptic) found no defect in the change.
+
+### Data on this machine
+Copied from the USB stick into `projects/01-*/data/`, all gitignored: `processed/` (HTW 15-min parquet, `pv_state_calibration.json`, `spot_de_lu_2024.parquet`, `site_2025_06_18.parquet`), `raw/` (mastr with state_counts, prices, slp, thesis, thesis_pv, weather, legacy) and `Lastprofile/PL1.csv` to `PL3.csv`. Not on the stick, rebuild with `prosumer build-data` when needed: `site_2024_2026.parquet`, `site_2024_2026_htw_H28.parquet`, `spot_de_lu.parquet`, `rl_models/`. `raw/thesis_pv/` is the restricted company export and stays uncommitted, as before.
+
+### Left open (found in review, older than this change)
+- `showcase.py` demo 01 still fails on a fresh clone: line 85 calls `get_national_totals()` without a guard.
+- P05 and `archive/02` still declare `pulp>=2.7`. CI and the root README install are safe because P01's cap applies to the shared environment, but their standalone installs would get PuLP 4.
+- Test counts are stale in `README.md` (88 and 132 tests) and `CLAUDE.md` (219 passed). Collected now: 109 in P01, 241 in total.
+- `test_mastr_fleet.py` gates the whole module on one file, so its two data-free `parse_quantity` tests never run in CI, and a partial download fails instead of skipping.
+
+
 ## ▶️ Next Concrete Actions (in order)
 
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
@@ -361,3 +385,4 @@ reaches a figure, a README or the showcase unless it traces to a committed CSV.
 - 2026-10-09 · Antigravity · P06-Key-Bug in run_overnight_simulations.py behoben, 400 Szenarien neu gerechnet, lookup_cubes.json und showcase.html aktualisiert (400 Nullen auf 0), P06-README-Tabelle validiert, Nicht-Null-Assertion eingebaut.
 - 2026-10-09 · Antigravity · A15 abgeschlossen: P06 net_gain_30d_eur als echte B3-B0-Differenz mit Vorzeichen neu gerechnet, imbalance_volume_reduction_pct als Mengenmetrik benannt, P05 neu gerechnet (neg_avoid nicht mehr null, 1.168 EUR Mittel), P01-Identitaet verifiziert (111 Treffer, 0 Abweichungen), Nicht-Null-Assertion ueber alle 3 Projekte gruen.
 - 2026-10-26 · Claude Code · P01 Datenherkunft: Flottenzahlen aus dem MaStR-Register statt Fortschreibung (2025 war 24 % zu hoch, 2026 14 %), Anlagengröße im README an sieben Stellen auf 8,9 kWh / 5,51 kW korrigiert, showcase-Flottenwidget generiert (Bayern stand bei 437.600 statt 237.322), .gitignore reparierte sechs nicht committebare SOURCE.md. Lastprofilfrage gemessen: Spitze/Mittel 11,62 (ein Haushalt) gegen 2,70 (Summe 74) gegen 2,35 (H0); belegte Zirkularität: H0 als Wahrheit liefert 94,33 % statt 87,91 % B3-Capture. Neues Modul pv_states kalibriert alle 16 Bundesländer gegen das Referenzjahr, Median daily R2 0,903; die Stunde Versatz sitzt isoliert in der bayerischen Datei (+0,99 h gegen ±0,06 h bei den anderen 15). 240 passed, 1 skipped. Arbeit wird auf dem Firmenrechner fortgesetzt.
+- 2026-10-26 · Claude Code · EIM-MUK: fresh clone into Vaults/MasterThesis. CI was red since 734fd17 (MaStR read at import, PuLP 4 in fresh installs). The MaStR fleet now loads lazily through `federal_states()`, fleet tests skip without data, PuLP pinned to >=3.2,<4. 207 passed / 34 skipped without data, 240 passed / 1 skipped with the USB data. Committed locally, not pushed.

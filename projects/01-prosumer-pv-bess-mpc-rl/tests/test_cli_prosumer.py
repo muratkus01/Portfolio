@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 from prosumer.cli import main
+from prosumer.data import mastr
 
 
 @pytest.fixture()
@@ -47,6 +48,8 @@ def test_cli_sensitivity_runs(capsys):
     assert "Optimal Sweet Spot" in out
 
 
+@pytest.mark.skipif(not mastr.available(),
+                    reason="MaStR download absent; see data/raw/mastr/SOURCE.md")
 def test_cli_national_impact_runs(capsys):
     assert main(["national-impact", "--year", "2024", "--day", "summer"]) == 0
     out = capsys.readouterr().out

@@ -69,6 +69,17 @@ _STATE_FILE_CODE: dict[str, str] = {
 }
 
 
+def available() -> bool:
+    """True when the files the national fleet analysis reads are all present.
+
+    The CSVs are gitignored (see SOURCE.md), so a fresh clone and CI have none of them.
+    Tests use this to skip instead of failing.
+    """
+    if not (RAW / "home_storage_mean_energy_power.csv").exists():
+        return False
+    return all((RAW / "state_counts" / f"{stem}.csv").exists() for stem in _STATE_FILE_CODE)
+
+
 def parse_quantity(text: str) -> float:
     """`"5.38 GWh"` -> 5_380_000.0 kWh. Returns NaN for blanks.
 

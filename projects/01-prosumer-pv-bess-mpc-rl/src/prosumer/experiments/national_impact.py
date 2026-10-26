@@ -30,6 +30,7 @@ Features:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Literal
 
 import numpy as np
@@ -119,7 +120,21 @@ def _load_federal_states() -> dict[str, StateFleetData]:
     }
 
 
-FEDERAL_STATES: dict[str, StateFleetData] = _load_federal_states()
+@lru_cache(maxsize=1)
+def federal_states() -> dict[str, StateFleetData]:
+    """The fleet table of all 16 states, read from the MaStR download on first use.
+
+    Read lazily on purpose. The CSVs are gitignored, and a module-level read made every
+    import of this module fail on a fresh clone and in CI, which aborted test collection for
+    the whole portfolio. Returns {state code: StateFleetData}, e.g. {"BY": ..., "BW": ...}.
+    """
+    if not mastr.available():
+        raise FileNotFoundError(
+            f"MaStR fleet files not found under {mastr.RAW}; "
+            "download them as listed in data/raw/mastr/SOURCE.md"
+        )
+    return _load_federal_states()
+
 
 MARGINAL_COST_BESS_EUR_MWH = 48.95  # Table 10-13: PV-charged BESS marginal discharge cost
 
@@ -134,7 +149,7 @@ def get_national_totals(year: int = 2024) -> dict[str, float]:
     state_capacities = []
     state_powers = []
 
-    for state in FEDERAL_STATES.values():
+    for state in federal_states().values():
         if year == 2024:
             count = state.bess_count_2024
             cap = state.avg_capacity_kwh_2024
