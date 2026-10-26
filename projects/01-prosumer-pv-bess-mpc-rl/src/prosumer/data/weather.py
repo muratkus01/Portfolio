@@ -31,6 +31,7 @@ _RENAME = {"shortwave_radiation": "ghi", "direct_normal_irradiance": "dni",
            "wind_speed_10m": "wind_speed"}
 ACTUAL_URL = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 PREVIOUS_RUNS_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
+ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 
 
 def _get(url: str, params: dict, retries: int = 3) -> dict:
@@ -39,10 +40,12 @@ def _get(url: str, params: dict, retries: int = 3) -> dict:
         try:
             with urllib.request.urlopen(full, timeout=120) as resp:
                 return json.load(resp)
-        except OSError:
+        except OSError as exc:
             if attempt == retries - 1:
                 raise
-            time.sleep(5 * (attempt + 1))
+            # The archive answers 429 when several long ranges are requested back to back,
+            # and a short pause does not clear it.
+            time.sleep(60 if getattr(exc, "code", None) == 429 else 5 * (attempt + 1))
     raise RuntimeError("unreachable")
 
 
@@ -106,9 +109,41 @@ def fetch_weather_forecast(start: str, end: str, lead_days: int = 1, location=MU
     return df
 
 
+def fetch_era5_daily_temperature(start: str, end: str, location: tuple[float, float],
+                                 cache_dir: str | Path = "data/raw/weather") -> pd.Series:
+    """Daily mean 2 m temperature in degC from ERA5 for local dates [start, end).
+
+    ERA5 serves the fit year, the 1991-2020 normals and the application years alike, because
+    an anomaly only means something against a normal from the same product. One request per
+    site; daily data is small. Trailing missing days (ERA5 runs about five days behind) are
+    dropped, a missing day inside the range raises ValueError.
+    Example: fetch_era5_daily_temperature("1991-01-01", "2026-10-25", (52.3759, 9.732)).
+    """
+    cache = (Path(cache_dir)
+             / f"era5_tmean_daily_{location[0]}_{location[1]}_{start}_{end}.csv")
+    if cache.exists():
+        temp = pd.read_csv(cache, index_col=0, parse_dates=True)["temp_air"]
+    else:
+        last = (pd.Timestamp(end) - pd.Timedelta(days=1)).date().isoformat()
+        data = _get(ARCHIVE_URL, {"latitude": location[0], "longitude": location[1],
+                                  "start_date": start, "end_date": last, "models": "era5",
+                                  "daily": "temperature_2m_mean", "timezone": "Europe/Berlin"})
+        temp = pd.Series(data["daily"]["temperature_2m_mean"], dtype=float, name="temp_air",
+                         index=pd.DatetimeIndex(pd.to_datetime(data["daily"]["time"]), name="date"))
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        temp.to_csv(cache)
+        _write_source(cache.parent)
+    temp = temp.loc[:temp.last_valid_index()]
+    if temp.isna().any():
+        raise ValueError(f"missing ERA5 days inside {start}..{end} at {location}: "
+                         f"{list(temp.index[temp.isna()].date)[:5]}")
+    return temp
+
+
 def _write_source(folder: Path) -> None:
     (folder / "SOURCE.md").write_text(
         "# Source\n\n- Provider: Open-Meteo (open-meteo.com), licence CC BY 4.0\n"
         f"- Actual weather: {ACTUAL_URL} (minutely_15)\n"
         f"- Issue-time forecasts: {PREVIOUS_RUNS_URL} (hourly, *_previous_dayN)\n"
-        "- Index shifted to interval START (Open-Meteo labels the interval end)\n")
+        "- Index shifted to interval START (Open-Meteo labels the interval end)\n"
+        f"- Daily mean temperature: {ARCHIVE_URL} (models=era5, local dates Europe/Berlin)\n")
