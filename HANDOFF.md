@@ -181,6 +181,105 @@ archived projects, plus every call site that ran on load), `README.md`, `CLAUDE.
 **Next:** reconcile the three P01 headroom numbers, then regenerate the 2024 regime records.
 
 
+## Project 01 data provenance: state of play at commit c001488 (2026-10-26, Claude Code)
+
+Written so a session on another machine with no prior context can continue. Everything below
+was verified on disk, not taken from a log.
+
+### Verified status
+- 240 passed, 1 skipped. `python scripts/verify_html_integrity.py` green.
+- Three active projects: P01 prosumer, P05 hybrid, P06 forecast-to-bid. P02, P03, P04 archived
+  under `archive/`, still tested. See `archive/README.md`.
+
+### Done in this pass
+1. **Home-storage fleet now read from the MaStR register**, not extrapolated.
+   `prosumer.data.mastr` reads battery-charts.de exports; `national_impact.FEDERAL_STATES` is
+   built from them. 1 Jan snapshots: 2024 1,119,240 units / 10.03 GWh; 2025 1,670,776 / 14.90;
+   2026 2,190,625 / 19.12. The 2024 row reproduces thesis Table 10-11 to 0.2 %. The previous
+   hand-written extrapolation overstated 2025 by 24 % and 2026 by 14 %, and raised the mean
+   unit size when the register shows it falling. Data ends 2026-01-13, so 2026 is a January
+   snapshot, not a year.
+2. **Mean unit size is the published Germany-wide mean**, same for every state: 8.96 / 8.92 /
+   8.73 kWh. A per-state mean is biased (state energy covers all lithium-ion segments, the
+   count is home only), giving 14.8 kWh for Bremen. `mastr.mean_size_by_state` shows the bias.
+3. **README asset corrected** from 9.37 kWh / 5.63 kW to 8.9 / 5.51 in seven places. `cli.py`
+   never overrides `SiteConfig`, so every published result used 8.9 / 5.51. Sizing-sweep rows
+   that genuinely ran 9.37 kWh are unchanged. The sweep never ran 8.9 kWh.
+4. **showcase.html fleet widget generated from the register.** It had Bayern at 437,600 units
+   against a register count of 237,322.
+5. **`.gitignore` fixed**: a trailing-slash exclude stopped git descending, so the SOURCE.md
+   negation never fired and six provenance files were uncommittable.
+6. **`prosumer.data.pv_states`**: per-state 1 kWp PV from Open-Meteo through the existing pvlib
+   chain, one calibration scalar per state. All 16 calibrated. Median daily R2 0.903, hourly
+   nRMSE 0.536, peak ratio 1.077, worst month 13.1 %.
+
+### Load profile decision, and what the review changed
+The question was BDEW H0 (thesis `Data/SLP/`) or measured HTW (`data/Lastprofile/`). Measured,
+at 15-minute resolution: peak-to-mean is 11.62 for one HTW household, 2.70 for the measured
+sum of all 74, 2.35 for dynamised H0. The curve runs 12.63, 9.79, 5.60, 4.52, 3.66, 3.07, 2.70
+for 1, 2, 5, 10, 20, 40, 74 households, a clean 1/sqrt(n) above n=5.
+
+**Settled:** never one household's profile, and never one household's dispatch, multiplied by a
+state's household count. For Bavaria that gives an implied 1436 MW peak against 205 MW from
+H0. Call it the perfect-coincidence upper bound, not "physically impossible".
+
+**Corrections to earlier claims in this file and in chat:**
+- Peak-to-mean is scale-invariant, so the 4562-vs-3212 kWh/a energy difference explains **none**
+  of the 2.70-vs-2.35 gap. That gap is finite-sample peak bias: max() is convex, so 74
+  households overestimate the population peak-to-mean, and the sign is what theory requires.
+- The factor of 7 for Bavaria decomposes as 1.42 energy times 4.94 shape. Only 4.94 is
+  coincidence. The energy assumption is a separate decision and is where the larger error sits.
+- Use the **mean** 4684 kWh/a, not the median 4562, for anything multiplied by N.
+
+**Open, and the most important thing here:** H0 as truth for the aggregate is weather-blind. It
+has 9 archetype day shapes plus a smooth day-of-year polynomial, so it gives all 16 states the
+same load shape and decorrelates load from PV. On a cold dark December day the irradiance
+collapses correctly while the load does not respond, which biases residual-load extremes, the
+central quantity of a storage study. **Measured, committed evidence of the circularity:**
+`reports/rolling_eval` (H0 as truth) reports 94.33 % B3 capture against
+`reports/rolling_eval_htw_H28` (measured truth) at 87.91 %. Making the truth equal the forecast
+inflates controller quality by 6.4 points.
+
+### Next actions, in order
+1. Decide the aggregate load shape. Candidate that avoids both failure modes: fit a population
+   mean shape to the 74 HTW households on time-of-day by day-type by season plus a daily-mean
+   temperature covariate, then multiply by N. Keeps the weather coupling, removes the
+   1/sqrt(74) noise, and makes per-state shapes genuinely different.
+2. Two blockers for any per-state build, both verified:
+   - `slp.h0_profile` raises `ValueError` for any `holidays` other than `None` or `"BY"`
+     (`slp.py:119-120`). German public holidays differ by state, which is a second channel of
+     state dependence independent of irradiance.
+   - `slp.h0_profile(annual_kwh=3221.0)` default. Set the aggregate's energy explicitly;
+     home-storage households are not average households.
+3. Bavarian PV file timing. Fifteen state exports land within 0.06 h of the reference centroid;
+   Bavaria lands at +0.99 h. The fifteen label their index UTC and are read as UTC; Bavaria is
+   local-time with no offset and is currently read as CET without DST. Test reading its
+   `DateTime` as UTC. This is the file the thesis used for its Munich household.
+4. Generate per-state 1 kWp series for 2024 to 2026-10. Open-Meteo covers through 2026-10-24.
+5. Orientation diversity: `pv.PVSystem` defaults to one due-south 35 degree array. Multiplied
+   across a state fleet this biases the midday peak high and both shoulders low.
+6. Tests for `pv_states`, including the rolled-row repair on synthetic input.
+
+### Data that is NOT in this repository
+Gitignored, and two different reasons for it.
+
+**Too large for git, re-downloadable:**
+- `projects/01-*/data/Lastprofile/`, the HTW dataset, about 11 GB including a 5.8 GB zip and a
+  4.4 GB .mat. CC-BY-NC-4.0, Tjaden et al. 2015, see `Readme_EN.txt` inside it.
+- `projects/01-*/data/raw/mastr/`, six battery-charts.de exports plus 16 per-state count files.
+  Public data; re-download per `data/raw/mastr/SOURCE.md`.
+
+**Company reference export, restricted regardless of this repository's visibility:**
+- `projects/01-*/data/raw/thesis_pv/*.csv`, 16 company 1 kWp exports, copied from
+  `Study/SES-master/Master Thesis/Data/1kWp/`.
+- `projects/01-*/data/processed/pv_state_calibration.json`, the losses fitted to them.
+The standing rule in `~/.claude/CLAUDE.md` names `Thesis` and `Deutsch` as the only permitted
+destinations for company material. `Portfolio` is not on that list, and making it private does
+not add it. These two paths therefore stay local until Murat decides otherwise. Without them
+`pv_states` falls back to a literature loss of 11 % and reports `"fallback"` as the source, so
+everything else still runs.
+
+
 ## ▶️ Next Concrete Actions (in order)
 
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
@@ -261,3 +360,4 @@ reaches a figure, a README or the showcase unless it traces to a committed CSV.
 - 2026-10-09 · Claude Code · Portfolio auf drei Projekte verkleinert: P02, P03 und P04 nach `archive/` verschoben (Tag `archive/six-project-portfolio`, 88 Tests laufen weiter), showcase.html um 165 KB bereinigt (Sektionen, Nav, Canvas-Engines, Simulatoren und alle Aufrufe beim Laden), README, CLAUDE.md, pyproject, CI, showcase.py, dashboards/app.py und verify_html_integrity.py angepasst. Verifiziert: 219 passed / 1 skipped, Integritaetscheck gruen, 83 onclick-Bindungen aufloesbar, Browser-Konsole fehlerfrei bei allen Jahres- und Projektwechseln. Dabei gefunden: ein vorbestehender TypeError fuer Jahr 2024 (behoben) und drei widerspruechliche Werte fuer die B3-Headroom in P01 (87,9 % / 46-56 % / 90 %), die Murat entscheiden muss.
 - 2026-10-09 · Antigravity · P06-Key-Bug in run_overnight_simulations.py behoben, 400 Szenarien neu gerechnet, lookup_cubes.json und showcase.html aktualisiert (400 Nullen auf 0), P06-README-Tabelle validiert, Nicht-Null-Assertion eingebaut.
 - 2026-10-09 · Antigravity · A15 abgeschlossen: P06 net_gain_30d_eur als echte B3-B0-Differenz mit Vorzeichen neu gerechnet, imbalance_volume_reduction_pct als Mengenmetrik benannt, P05 neu gerechnet (neg_avoid nicht mehr null, 1.168 EUR Mittel), P01-Identitaet verifiziert (111 Treffer, 0 Abweichungen), Nicht-Null-Assertion ueber alle 3 Projekte gruen.
+- 2026-10-26 · Claude Code · P01 Datenherkunft: Flottenzahlen aus dem MaStR-Register statt Fortschreibung (2025 war 24 % zu hoch, 2026 14 %), Anlagengröße im README an sieben Stellen auf 8,9 kWh / 5,51 kW korrigiert, showcase-Flottenwidget generiert (Bayern stand bei 437.600 statt 237.322), .gitignore reparierte sechs nicht committebare SOURCE.md. Lastprofilfrage gemessen: Spitze/Mittel 11,62 (ein Haushalt) gegen 2,70 (Summe 74) gegen 2,35 (H0); belegte Zirkularität: H0 als Wahrheit liefert 94,33 % statt 87,91 % B3-Capture. Neues Modul pv_states kalibriert alle 16 Bundesländer gegen das Referenzjahr, Median daily R2 0,903; die Stunde Versatz sitzt isoliert in der bayerischen Datei (+0,99 h gegen ±0,06 h bei den anderen 15). 240 passed, 1 skipped. Arbeit wird auf dem Firmenrechner fortgesetzt.
