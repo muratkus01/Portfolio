@@ -291,6 +291,21 @@ def cmd_national_impact(args) -> None:
             print(f"System Cost Savings (Gas vs BESS): {disp['cost_saving_eur']:,.2f} EUR/h")
 
 
+def cmd_aggregate_load(args) -> None:
+    from .experiments.aggregate_load_fit import run_fit
+    from .experiments.aggregate_load_states import run_states
+
+    if not args.states_only:
+        m = run_fit(args.htw, args.out, n_splits=args.splits, n_boot=args.boot)
+        print(f"\nAggregate load model: beta {m.beta:+.4f} kWh/K per household-day, "
+              f"normal-weather energy {m.a_ref:,.1f} kWh/a, proxy site {m.proxy}")
+    run_states(args.out)
+    summary = pd.read_csv(f"{args.out}/validation_summary.csv")
+    with pd.option_context("display.width", 160, "display.max_colwidth", 50):
+        print(summary.to_string(index=False))
+    print(f"\n{int(summary['passed'].sum())} of {len(summary)} checks passed")
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="prosumer", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -381,6 +396,16 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--day", default="summer",
                     choices=["winter", "transition", "summer", "negative_price", "scarcity_peak"])
     sp.set_defaults(func=cmd_national_impact)
+
+    sp = sub.add_parser("aggregate-load",
+                        help="fit the per-state aggregate household load to HTW and validate it")
+    sp.add_argument("--htw", default="data/processed/htw_74_15min_2010.parquet")
+    sp.add_argument("--out", default="reports/aggregate_load")
+    sp.add_argument("--splits", type=int, default=50)
+    sp.add_argument("--boot", type=int, default=1000)
+    sp.add_argument("--states-only", action="store_true",
+                    help="skip the refit and rebuild only the per-state summary")
+    sp.set_defaults(func=cmd_aggregate_load)
 
     args = p.parse_args(argv)
     args.func(args)

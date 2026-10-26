@@ -1,0 +1,35 @@
+check,metric,variant,value,threshold,passed
+V1 clock,morning ramp step spring,file_clock,-0.060622374148023184,<0.25 h,True
+V1 clock,morning ramp step spring,mez_reading,0.939377625851975,>0.75 h,True
+V1 clock,morning ramp step autumn,file_clock,-0.017416225170496347,<0.25 h,True
+V1 clock,morning ramp step autumn,mez_reading,-1.0174162251704963,>0.75 h,True
+V2 holidays,nationwide weekday holidays observed,all,1.0,==1,True
+V2 holidays,holiday-consistent states,BE BB HB HH MV NI SH TH,8.0,>=1,True
+V3 daily,cv28 chosen vs no temperature,7 classes K3 weekend x season,0.6068454107932445,<=0.6548,True
+V3 daily,cv28 chosen vs 3 classes,7 classes K3 weekend x season,0.6068454107932445,<=0.6431,True
+V3 daily,cv28 chosen vs 31-day anomaly,7 classes K3 weekend x season,0.6068454107932445,<=0.6374,True
+V3 daily,cv28 chosen vs constant weekend uplift,7 classes K3 weekend x season,0.6068454107932445,<=0.6480,True
+V4 shape,cv28 15-min RMSE harmonic K2 vs BDEW table,harmonic_k2,0.06376521219995915,<=0.06469,True
+V5 slope,two-way 95 % CI excludes 0,seed 0,-0.031525616878970125,<0,True
+V5 slope,two-way 95 % CI excludes 0,seed 1,-0.03207663236226111,<0,True
+V6 proxy,max annual energy range across consistent sites,"2024, 16 states",0.16782527114795123,<=1 %,True
+V6 proxy,max range of the highest daily energy,"2024, 16 states",0.5771453753268388,<=3 %,True
+V7 split-half,splits where model beats H0 at 15 min,seed 0,50.0,>=45/50,True
+V7 split-half,splits where model beats same-day mean,seed 0,50.0,>=45/50,True
+V7 split-half,median nRMSE ratio model/H0,seed 0,0.8090782120487878,<=0.90,True
+V7 split-half,splits where model beats H0 at 15 min,seed 1,50.0,>=45/50,True
+V7 split-half,splits where model beats same-day mean,seed 1,50.0,>=45/50,True
+V7 split-half,median nRMSE ratio model/H0,seed 1,0.7967040703472383,<=0.90,True
+V9 in-sample,fit-day energy identity (relative gap),model,0.0,<1e-9,True
+V9 in-sample,peak-to-mean model <= measured,model,2.297010374925867,<=2.724,True
+V10 states,max |realised / normal-weather energy - 1|,2024,0.01063361569583443,<=0.03,True
+V10 states,max |realised / (annual_kwh x days/365) - 1|,2024,0.006998460055587796,<=0.03,True
+V10 states,max clipped days per state,2024,3.0,<=5,True
+V10 states,minimum household load kW,2024,0.13849015086153896,>0,True
+V10 states,max |realised / normal-weather energy - 1|,2025,0.0049822896609246214,<=0.03,True
+V10 states,max |realised / (annual_kwh x days/365) - 1|,2025,0.0026207991847564394,<=0.03,True
+V10 states,max clipped days per state,2025,0.0,<=5,True
+V10 states,minimum household load kW,2025,0.13681411057637888,>0,True
+V10 states,max |realised / normal-weather energy - 1|,2026,0.01121907267736677,<=0.03,True
+V10 states,max clipped days per state,2026,4.0,<=5,True
+V10 states,minimum household load kW,2026,0.1373530845818825,>0,True

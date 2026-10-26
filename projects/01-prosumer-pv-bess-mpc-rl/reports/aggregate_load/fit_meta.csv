@@ -1,0 +1,15 @@
+key,value
+a_ref_kwh,4658.888308022302
+anomaly_min_k,-13.012344949803678
+anomaly_max_k,10.40876852322355
+proxy,NI
+k_energy,3
+k_shape,2
+k_normal,2
+normal_years,1991-2020
+households,73
+excluded_households,H49
+fit_days,359
+htw_parquet_sha256,e7eaaf3d1ef5c5816590cbcda64e2df37c867d2f97307c71f54533c4951229a7
+temperature,"ERA5 daily mean, Open-Meteo archive"
+fit_year,2010
