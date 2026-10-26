@@ -8,15 +8,23 @@ https://solar.htw-berlin.de/elektrische-lastprofile-fuer-wohngebaeude/ and point
 `load_htw_15min` at the folder `CSV_74_Loadprofiles_1min_W_var`.
 
 The files hold active power per phase (PL1, PL2, PL3) in W, one column per household, one
-row per minute of 2010, timestamps in CET without daylight saving (MEZ).
+row per minute of 2010 (525,600 rows, so every day has 24 hours).
+
+Clock. The labels are legal local time (CET in winter, CEST in summer), not MEZ all year as
+this module assumed until 2026-10-26: the households' weekday morning ramp does not move when
+summer time starts or ends, where a MEZ reading makes it jump by an hour
+(`reports/aggregate_load/clock_check.csv`). The 15-minute cache still stores the labels the
+old way, read as MEZ and converted to UTC, so its index is NOT true UTC in summer. Read the
+household's clock with `file_labels`, never with a conversion to Europe/Berlin; until the
+fix, `replay_on_calendar` did the latter and replayed every summer one hour late.
 
 Use in this project
   * truth vs forecast: the household's real load is an HTW profile; the controller forecasts
     it with the BDEW standard load profile, as a supplier or an energy management system
     without household-specific history would.
   * calendar mapping: a 2010 profile is replayed on a target year by matching weekday and
-    season on the LOCAL clock (people live on daylight saving time even though the meter
-    recorded MEZ). Holidays of the target year take a 2010 Sunday.
+    season on the local clock: the slot labelled 07:00 in 2010 becomes 07:00 local time in
+    the target year, summer or winter. Holidays of the target year take a 2010 Sunday.
   * PV screen: the profiles must be gross consumption, otherwise a separately modelled PV
     system would be counted twice. `pv_screen` flags profiles with export or with the midday
     dip on sunny days that a PV household shows.
@@ -31,13 +39,28 @@ import pandas as pd
 
 from .slp import bavarian_holidays
 
-HTW_TZ = "Etc/GMT-1"                     # MEZ, no daylight saving
+# How the cached index encodes the file labels: read as MEZ (UTC+1) and converted to UTC.
+# This is a storage convention only; the labels themselves are legal local time.
+FILE_LABEL_TZ = "Etc/GMT-1"
 FLOOR_KW = 0.060                         # 15-min mean at the synthesis floor (~40 W)
 LOCAL_TZ = "Europe/Berlin"
 
 
+def file_labels(index: pd.DatetimeIndex) -> pd.DatetimeIndex:
+    """The file's own wall-clock labels (the household's legal local time), without time zone.
+
+    index: the index of a `load_htw_15min` frame or column. Every 2010 day has 96 labels,
+    including the two DST days, because the file has 24 hours on every day.
+    """
+    return index.tz_convert(FILE_LABEL_TZ).tz_localize(None)
+
+
 def load_htw_15min(folder: str | Path, cache: str | Path | None = None) -> pd.DataFrame:
-    """74 profiles as 15-minute mean total active power in kW, UTC index (2010)."""
+    """74 profiles as 15-minute mean total active power in kW for 2010.
+
+    The index stores the file labels read as MEZ (see the module docstring); use
+    `file_labels` to get the household's clock.
+    """
     if cache is not None and Path(cache).exists():
         return pd.read_parquet(cache)
     folder = Path(folder)
@@ -46,7 +69,7 @@ def load_htw_15min(folder: str | Path, cache: str | Path | None = None) -> pd.Da
         x = pd.read_csv(folder / f"{phase}.csv", header=None, dtype=np.float32).to_numpy()
         total = x if total is None else total + x
     n_min = total.shape[0]
-    idx_min = pd.date_range("2010-01-01", periods=n_min, freq="1min", tz=HTW_TZ)
+    idx_min = pd.date_range("2010-01-01", periods=n_min, freq="1min", tz=FILE_LABEL_TZ)
     q = total.reshape(n_min // 15, 15, -1).mean(axis=1) / 1000.0
     idx = idx_min[::15].tz_convert("UTC")
     df = pd.DataFrame(q, index=pd.DatetimeIndex(idx, name="timestamp"),
@@ -66,12 +89,13 @@ def pv_screen(profiles: pd.DataFrame, ghi_daily: pd.Series,
 
     negative_minutes : any negative 1-minute value means export, i.e. PV (or a meter
                        measuring net exchange)
-    sunny_midday_ratio : summer (May to Aug) midday load 11:00-15:00 CET on the sunniest
-                       third of days divided by that on the cloudiest third, each relative
-                       to the same day's evening load 18:00-22:00. A gross-consumption
-                       household is near 1; net metering behind PV falls clearly below.
+    sunny_midday_ratio : summer (May to Aug) midday load 11:00-15:00 on the household's
+                       clock on the sunniest third of days divided by that on the cloudiest
+                       third, each relative to the same day's evening load 18:00-22:00. A
+                       gross-consumption household is near 1; net metering behind PV falls
+                       clearly below.
     """
-    local = profiles.index.tz_convert(HTW_TZ)
+    local = file_labels(profiles.index)
     summer = local.month.isin([5, 6, 7, 8])
     day = pd.Index(local.date)
     hour = local.hour
@@ -108,7 +132,7 @@ def pv_screen(profiles: pd.DataFrame, ghi_daily: pd.Series,
 
 def household_features(profiles: pd.DataFrame) -> pd.DataFrame:
     """Shape features used to pick a representative household (all scale-free but the first)."""
-    local = profiles.index.tz_convert(HTW_TZ)
+    local = file_labels(profiles.index)
     total = profiles.sum()
     share = lambda m: profiles[m].sum() / total
     winter = local.month.isin([11, 12, 1, 2])
@@ -141,17 +165,21 @@ def replay_on_calendar(profile_2010: pd.Series, start: str, end: str,
 
     For each target local date the 2010 source day has the same weekday and the nearest
     day of year (at most 3 days away); target public holidays (Bavaria) take the nearest
-    2010 Sunday. Within the day the local clock is matched quarter-hour by quarter-hour.
-    The profile is scaled by its 2010 annual energy, so a full target year carries
-    approximately `annual_kwh` (None keeps the measured level).
+    2010 Sunday. Within the day the local clock is matched quarter-hour by quarter-hour:
+    the 2010 slot labelled 07:00 lands at 07:00 local time, because the file labels are
+    the household's own legal clock (`file_labels`). The profile is scaled by its 2010
+    annual energy, so a full target year carries approximately `annual_kwh` (None keeps the
+    measured level).
+
+    profile_2010: one column of a `load_htw_15min` frame, e.g. profiles["H28"].
     """
-    src_local = profile_2010.index.tz_convert(LOCAL_TZ)
-    src = pd.Series(profile_2010.to_numpy(), index=src_local)
-    src_slot = src_local.hour * 4 + src_local.minute // 15
+    labels = file_labels(profile_2010.index)
+    src = pd.Series(profile_2010.to_numpy(), index=labels)
+    src_slot = labels.hour * 4 + labels.minute // 15
     src_days = {}
-    for d, g in src.groupby(src_local.date):
-        day = pd.Series(g.to_numpy(), index=src_slot[src_local.date == d])
-        day = day[~day.index.duplicated(keep="last")]      # spring DST day has 92 slots
+    for d, g in src.groupby(labels.date):
+        day = pd.Series(g.to_numpy(), index=src_slot[labels.date == d])
+        day = day[~day.index.duplicated(keep="last")]      # guards input with gaps or repeats
         src_days[d] = day.reindex(range(96)).ffill().bfill().to_numpy()
 
     t0 = pd.Timestamp(start).tz_localize(LOCAL_TZ).tz_convert("UTC")
