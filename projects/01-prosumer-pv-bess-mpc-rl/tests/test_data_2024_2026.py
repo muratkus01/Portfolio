@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from prosumer.data.slp import _easter, bavarian_holidays, h0_profile
+from prosumer.data.slp import _COLUMNS, _easter, bavarian_holidays, h0_profile, state_holidays
 from prosumer.data.weather import _to_frame
 
 ROOT = Path(__file__).parents[1]
@@ -29,6 +29,55 @@ def test_bavarian_holidays_2025():
     assert len(h) == 13
     assert dt.date(2025, 6, 19) in h           # Corpus Christi
     assert dt.date(2025, 8, 15) in h           # Assumption Day (Munich)
+
+
+@pytest.mark.parametrize("code, n_2025", [
+    ("BW", 12), ("BY", 13), ("BE", 11), ("BB", 12), ("HB", 10), ("HH", 10), ("HE", 10),
+    ("MV", 11), ("NI", 10), ("NW", 11), ("RP", 11), ("SL", 12), ("SN", 11), ("ST", 11),
+    ("SH", 10), ("TH", 11),
+])
+def test_every_state_has_its_statutory_holiday_count_in_2025(code, n_2025):
+    assert len(state_holidays(code, 2025)) == n_2025
+
+
+def test_holidays_introduced_after_2010_do_not_leak_into_the_htw_year():
+    """The HTW profiles are from 2010; a holiday added later must not be applied to them."""
+    assert dt.date(2010, 10, 31) not in state_holidays("NI", 2010)
+    assert dt.date(2024, 10, 31) in state_holidays("NI", 2024)
+    assert dt.date(2010, 3, 8) not in state_holidays("BE", 2010)
+    assert dt.date(2024, 3, 8) in state_holidays("BE", 2024)
+    assert dt.date(2022, 3, 8) not in state_holidays("MV", 2022)
+    assert dt.date(2023, 3, 8) in state_holidays("MV", 2023)
+    assert dt.date(2010, 9, 20) not in state_holidays("TH", 2010)
+    assert dt.date(2025, 5, 8) in state_holidays("BE", 2025)
+    assert dt.date(2024, 5, 8) not in state_holidays("BE", 2024)
+
+
+def test_day_of_repentance_is_the_wednesday_before_23_november():
+    got = [next(d for d in state_holidays("SN", y) if d.month == 11)
+           for y in (2010, 2024, 2025, 2026)]
+    assert got == [dt.date(2010, 11, 17), dt.date(2024, 11, 20),
+                   dt.date(2025, 11, 19), dt.date(2026, 11, 18)]
+
+
+def test_unknown_state_code_is_rejected():
+    table = pd.DataFrame(1.0, index=range(96), columns=_COLUMNS)
+    with pytest.raises(ValueError):
+        state_holidays("XX", 2025)
+    with pytest.raises(ValueError):
+        h0_profile("2025-01-01", "2025-01-02", holidays="Bavaria", table=table)
+
+
+def test_h0_profile_applies_the_chosen_state_calendar():
+    """Reformation Day 2025, a Friday, is a holiday in Saxony and a working day in Bavaria."""
+    table = pd.DataFrame({c: [2.0 if c.endswith("sunday") else 1.0] * 96 for c in _COLUMNS})
+    day = {code: h0_profile("2025-10-30", "2025-11-01", holidays=code, table=table)
+           for code in ("SN", "BY")}
+    local = {code: q.index.tz_convert("Europe/Berlin").day for code, q in day.items()}
+    thursday = day["SN"][local["SN"] == 30].sum() / day["BY"][local["BY"] == 30].sum()
+    friday = day["SN"][local["SN"] == 31].sum() / day["BY"][local["BY"] == 31].sum()
+    assert thursday == pytest.approx(1.0, abs=0.02)     # only the annual scaling differs
+    assert friday == pytest.approx(2.0, abs=0.04)
 
 
 # --------------------------------------------------------------------------- load

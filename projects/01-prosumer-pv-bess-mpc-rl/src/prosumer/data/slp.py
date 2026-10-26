@@ -9,7 +9,8 @@ are parameters rather than silent changes:
 
   * `holidays`  : BDEW treats public holidays as Sundays and 24/31 December as Saturdays.
                   The thesis profile did not. `holidays=None` reproduces the thesis;
-                  `holidays="BY"` applies the Bavarian calendar (the household is in Munich).
+                  `holidays="BY"` applies the Bavarian calendar (the household is in Munich),
+                  and any other state code applies that state's calendar.
   * `local_tz`  : the profile describes behaviour on LOCAL clock time. The thesis used
                   CET without daylight saving (`"Etc/GMT-1"`); `"Europe/Berlin"` follows
                   the legal clock, so on the spring DST day one local hour is skipped and on
@@ -68,14 +69,76 @@ def _easter(year: int) -> _dt.date:
     return _dt.date(year, month, day + 1)
 
 
+# The 16 federal states, same codes as `mastr` and `national_impact`.
+STATES = ("BW", "BY", "BE", "BB", "HB", "HH", "HE", "MV",
+          "NI", "NW", "RP", "SL", "SN", "ST", "SH", "TH")
+
+# Statutory holidays that only some states keep. Holidays differ by state, so the calendar
+# is a channel of state dependence of its own, independent of weather. Only statewide
+# holidays are listed: Corpus Christi in parts of Saxony and Thuringia and the Augsburg peace
+# festival are local. Assumption Day in Bavaria is local too (Catholic-majority
+# municipalities), but it is kept because Munich, the thesis household's city, observes it.
+_EPIPHANY = {"BW", "BY", "ST"}                                  # 6 January
+_CORPUS_CHRISTI = {"BW", "BY", "HE", "NW", "RP", "SL"}          # Easter + 60
+_ASSUMPTION = {"BY", "SL"}                                      # 15 August
+_ALL_SAINTS = {"BW", "BY", "NW", "RP", "SL"}                    # 1 November
+_REFORMATION = {"BB", "MV", "SN", "ST", "TH"}                   # 31 October
+_REFORMATION_SINCE_2018 = {"HB", "HH", "NI", "SH"}
+_EASTER_AND_WHIT_SUNDAY = {"BB"}                                # Sundays anyway, listed for completeness
+
+
+def state_holidays(code: str, year: int) -> set[_dt.date]:
+    """Statewide public holidays of one federal state, e.g. `state_holidays("SN", 2025)`.
+
+    Year-dependent rules are applied where a state changed its law during the years this
+    project uses: Berlin added Women's Day in 2019 and Mecklenburg-Western Pomerania in 2023,
+    Thuringia added World Children's Day in 2019, the four northern states added
+    Reformation Day in 2018, and 2017 had it everywhere (500th anniversary). Berlin's one-off
+    Liberation Day holidays of 2020 and 2025 are included.
+    """
+    if code not in STATES:
+        raise ValueError(f"unknown state code {code!r}; expected one of {STATES}")
+    e = _easter(year)
+    days = {e + _dt.timedelta(days=d) for d in (-2, 1, 39, 50)}    # Good Friday, Easter Monday,
+    days |= {_dt.date(year, m, d) for m, d in                      # Ascension, Whit Monday
+             [(1, 1), (5, 1), (10, 3), (12, 25), (12, 26)]}
+    if code in _EPIPHANY:
+        days.add(_dt.date(year, 1, 6))
+    if code in _CORPUS_CHRISTI:
+        days.add(e + _dt.timedelta(days=60))
+    if code in _ASSUMPTION:
+        days.add(_dt.date(year, 8, 15))
+    if code in _ALL_SAINTS:
+        days.add(_dt.date(year, 11, 1))
+    if (code in _REFORMATION or year == 2017
+            or (code in _REFORMATION_SINCE_2018 and year >= 2018)):
+        days.add(_dt.date(year, 10, 31))
+    if code in _EASTER_AND_WHIT_SUNDAY:
+        days |= {e, e + _dt.timedelta(days=49)}
+    if (code == "BE" and year >= 2019) or (code == "MV" and year >= 2023):
+        days.add(_dt.date(year, 3, 8))                             # Women's Day
+    if code == "BE" and year in (2020, 2025):
+        days.add(_dt.date(year, 5, 8))                             # Liberation Day, one-off
+    if code == "TH" and year >= 2019:
+        days.add(_dt.date(year, 9, 20))                            # World Children's Day
+    if code == "SN":
+        nov22 = _dt.date(year, 11, 22)                             # Day of Repentance: the
+        days.add(nov22 - _dt.timedelta(days=(nov22.weekday() - 2) % 7))  # Wednesday before
+    return days
+
+
 def bavarian_holidays(year: int) -> set[_dt.date]:
     """Public holidays in Munich (Bavaria, including Assumption Day)."""
-    e = _easter(year)
-    rel = [-2, 1, 39, 50, 60]          # Good Friday, Easter Monday, Ascension, Whit Monday,
-    fixed = [(1, 1), (1, 6), (5, 1),   # Corpus Christi; New Year, Epiphany, Labour Day,
-             (8, 15), (10, 3), (11, 1),  # Assumption, Unity Day, All Saints,
-             (12, 25), (12, 26)]         # Christmas
-    return {e + _dt.timedelta(days=d) for d in rel} | {_dt.date(year, m, d) for m, d in fixed}
+    return state_holidays("BY", year)
+
+
+def _holiday_set(holidays: str | None, years) -> set[_dt.date]:
+    """Holidays of `holidays` (None or a state code) over `years`; validates the code."""
+    if holidays is None:
+        return set()
+    if holidays not in STATES:
+        raise ValueError(f"holidays must be None or a state code {STATES}, got {holidays!r}")
+    return set().union(*(state_holidays(holidays, y) for y in years))
 
 
 def _season(d: _dt.date) -> str:
@@ -115,9 +178,7 @@ def h0_profile(start: str, end: str, annual_kwh: float = 3221.0, holidays: str |
 
     dates = local.date
     years = sorted({d.year for d in dates})
-    hol = set().union(*(bavarian_holidays(y) for y in years)) if holidays == "BY" else set()
-    if holidays not in (None, "BY"):
-        raise ValueError("holidays must be None or 'BY'")
+    hol = _holiday_set(holidays, years)
 
     uniq = pd.unique(dates)
     col_of = {d: f"{_season(d)}_{_day_type(d, hol)}" for d in uniq}
@@ -145,7 +206,7 @@ def h0_profile_energy(year: int, holidays: str | None, local_tz: str,
     t0 = pd.Timestamp(f"{year}-01-01").tz_localize(local_tz).tz_convert("UTC")
     t1 = pd.Timestamp(f"{year + 1}-01-01").tz_localize(local_tz).tz_convert("UTC")
     idx = pd.date_range(t0, t1, freq="15min", inclusive="left").tz_convert(local_tz)
-    hol = bavarian_holidays(year) if holidays == "BY" else set()
+    hol = _holiday_set(holidays, [year])
     col_of = {d: f"{_season(d)}_{_day_type(d, hol)}" for d in pd.unique(idx.date)}
     slot = idx.hour * 4 + idx.minute // 15
     w = np.array([table[col_of[d]].to_numpy()[s] for d, s in zip(idx.date, slot)])
