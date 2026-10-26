@@ -4,7 +4,11 @@
 # `src/prosumer/data/`, so `loaders.py` was silently never committed and Project 01 could not
 # be imported from a fresh clone. Keep dataset directories and code packages distinguishable.
 /data/
-/projects/*/data/
+# Trailing-slash excludes stop git descending, so the SOURCE.md negation below never fired
+# and provenance files could not be committed at all. `/**` keeps the exclude anchored while
+# letting the two negations through: directories first, then the file.
+/projects/*/data/**
+!/projects/*/data/**/
 !/projects/*/data/**/SOURCE.md
 *.parquet
 !simulations/results/*.parquet

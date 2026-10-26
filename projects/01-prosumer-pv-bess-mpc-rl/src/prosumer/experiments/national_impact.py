@@ -6,10 +6,17 @@ Murat Kuş's M.Sc. thesis:
 
 Features:
 1. Meta-Household Framework across all 16 German federal states (Bundesländer).
-2. Sizing and fleet statistics updated across three data vintages:
-   - 2024 Baseline (1.117M residential BESS, 9.97 GWh, 6.17 GW) from MaStR Table 10-11
-   - 2025 Actual (2.080M residential BESS, 18.2 GWh, 11.6 GW) from battery-charts.de Table 10-2
-   - 2026 Expansion (~2.500M residential BESS, 22.2 GWh, 14.2 GW) from latest battery-charts.de
+2. Fleet statistics read from the MaStR register at three 1 January snapshots, not
+   extrapolated. Source and caveats: `data/raw/mastr/SOURCE.md`.
+   - 2024-01-01: 1,119,240 home storages, 10.03 GWh, 6.19 GW
+   - 2025-01-01: 1,670,776 home storages, 14.90 GWh, 9.46 GW
+   - 2026-01-01: 2,190,625 home storages, 19.12 GWh, 12.16 GW
+   The 2024 figures reproduce the thesis table (1.117M, 9.97 GWh, 6.17 GW) to within 0.6 %.
+   The 2025 and 2026 figures replace a hand-written extrapolation that overstated the fleet
+   by 24 % and 14 %.
+   These are lithium-ion only, which is 96.8 % of all home storages in 2024 and 97.2 % in
+   2026; the register counts the remainder under other chemistries.
+   The download ends 2026-01-13, so "2026" is a January snapshot and not a full year.
 3. Calculation of Grid Exchange Shift:
    Grid Exchange Shift_t = Net Grid Exchange_t^Optimized - Net Grid Exchange_t^RuleBased
 4. Merit-order overlay displacing marginal fossil gas generation at €48.95/MWh.
@@ -28,128 +35,94 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
+from ..data import mastr
+
 
 # --------------------------------------------------------------------------- State-Level Statistics
 @dataclass(frozen=True)
 class StateFleetData:
+    """Home-storage fleet of one federal state at three annual snapshots.
+
+    Counts come from the MaStR register via `prosumer.data.mastr`; see
+    `data/raw/mastr/SOURCE.md`. The mean size is the PUBLISHED Germany-wide mean and is
+    therefore the same for every state. That is deliberate:
+
+    A per-state mean would have to be state energy divided by state home count, but the
+    per-state energy series covers all lithium-ion segments while the count is home only.
+    Home storage is 83.9 % of installed energy in January 2024 and 80.1 % in January 2026,
+    and large-scale batteries are not spread evenly, so that quotient is biased high and
+    unevenly so: it returns 14.8 kWh for Bremen and 11.3 kWh for Bavaria against a published
+    national mean of 8.96 kWh. The thesis figure of 9.37 kWh for Bavaria is reproducible as
+    that biased quotient scaled by the national home share (9.44 kWh), which is why it looked
+    plausible. It is still an estimator with a state-dependent bias, so it is not used here.
+
+    `prosumer.data.mastr.mean_size_by_state` computes the per-state estimate with its bias
+    columns for anyone who wants to look at it.
+    """
     name: str
     capital: str
     latitude: float
     longitude: float
-    # 2024 baseline (01.01.2024, MaStR / Table 10-11)
     bess_count_2024: int
     avg_capacity_kwh_2024: float
     avg_power_kw_2024: float
-    # 2025 actual (22.09.2025, battery-charts.de / Table 10-2)
     bess_count_2025: int
     avg_capacity_kwh_2025: float
     avg_power_kw_2025: float
-    # 2026 expansion (Q1-Q3 2026, battery-charts.de / MaStR)
     bess_count_2026: int
     avg_capacity_kwh_2026: float
     avg_power_kw_2026: float
 
 
-FEDERAL_STATES: dict[str, StateFleetData] = {
-    "BW": StateFleetData(
-        name="Baden-Württemberg", capital="Stuttgart", latitude=48.7823, longitude=9.1770,
-        bess_count_2024=180822, avg_capacity_kwh_2024=8.98, avg_power_kw_2024=5.37,
-        bess_count_2025=315000, avg_capacity_kwh_2025=9.15, avg_power_kw_2025=5.50,
-        bess_count_2026=375000, avg_capacity_kwh_2026=9.20, avg_power_kw_2026=5.58,
-    ),
-    "BY": StateFleetData(
-        name="Bavaria", capital="Munich", latitude=48.1374, longitude=11.5753,
-        bess_count_2024=236713, avg_capacity_kwh_2024=9.37, avg_power_kw_2024=5.63,
-        bess_count_2025=460000, avg_capacity_kwh_2025=9.50, avg_power_kw_2025=5.80,
-        bess_count_2026=550000, avg_capacity_kwh_2026=9.55, avg_power_kw_2026=5.85,
-    ),
-    "BE": StateFleetData(
-        name="Berlin", capital="Berlin", latitude=52.5244, longitude=13.4105,
-        bess_count_2024=10841, avg_capacity_kwh_2024=8.63, avg_power_kw_2024=5.07,
-        bess_count_2025=21000, avg_capacity_kwh_2025=8.80, avg_power_kw_2025=5.25,
-        bess_count_2026=26000, avg_capacity_kwh_2026=8.90, avg_power_kw_2026=5.30,
-    ),
-    "BB": StateFleetData(
-        name="Brandenburg", capital="Potsdam", latitude=52.3989, longitude=13.0657,
-        bess_count_2024=38706, avg_capacity_kwh_2024=8.65, avg_power_kw_2024=5.00,
-        bess_count_2025=85000, avg_capacity_kwh_2025=8.80, avg_power_kw_2025=5.30,
-        bess_count_2026=105000, avg_capacity_kwh_2026=8.90, avg_power_kw_2026=5.40,
-    ),
-    "HB": StateFleetData(
-        name="Bremen", capital="Bremen", latitude=53.0752, longitude=8.8078,
-        bess_count_2024=2152, avg_capacity_kwh_2024=7.82, avg_power_kw_2024=4.69,
-        bess_count_2025=7500, avg_capacity_kwh_2025=8.00, avg_power_kw_2025=4.90,
-        bess_count_2026=9500, avg_capacity_kwh_2026=8.15, avg_power_kw_2026=5.00,
-    ),
-    "HH": StateFleetData(
-        name="Hamburg", capital="Hamburg", latitude=53.5753, longitude=10.0153,
-        bess_count_2024=5286, avg_capacity_kwh_2024=8.19, avg_power_kw_2024=4.95,
-        bess_count_2025=11500, avg_capacity_kwh_2025=8.35, avg_power_kw_2025=5.15,
-        bess_count_2026=14500, avg_capacity_kwh_2026=8.45, avg_power_kw_2026=5.25,
-    ),
-    "HE": StateFleetData(
-        name="Hesse", capital="Wiesbaden", latitude=50.0826, longitude=8.2493,
-        bess_count_2024=68017, avg_capacity_kwh_2024=8.90, avg_power_kw_2024=5.66,
-        bess_count_2025=135000, avg_capacity_kwh_2025=9.05, avg_power_kw_2025=5.75,
-        bess_count_2026=165000, avg_capacity_kwh_2026=9.10, avg_power_kw_2026=5.80,
-    ),
-    "MV": StateFleetData(
-        name="Mecklenburg-Western Pomerania", capital="Schwerin", latitude=53.6296, longitude=11.4148,
-        bess_count_2024=15744, avg_capacity_kwh_2024=8.59, avg_power_kw_2024=5.50,
-        bess_count_2025=34000, avg_capacity_kwh_2025=8.75, avg_power_kw_2025=5.70,
-        bess_count_2026=42000, avg_capacity_kwh_2026=8.85, avg_power_kw_2026=5.75,
-    ),
-    "NI": StateFleetData(
-        name="Lower Saxony", capital="Hannover", latitude=52.3759, longitude=9.7320,
-        bess_count_2024=137876, avg_capacity_kwh_2024=8.54, avg_power_kw_2024=5.46,
-        bess_count_2025=250000, avg_capacity_kwh_2025=8.75, avg_power_kw_2025=5.60,
-        bess_count_2026=305000, avg_capacity_kwh_2026=8.85, avg_power_kw_2026=5.70,
-    ),
-    "NW": StateFleetData(
-        name="North Rhine-Westphalia", capital="Düsseldorf", latitude=51.2217, longitude=6.7762,
-        bess_count_2024=217411, avg_capacity_kwh_2024=8.93, avg_power_kw_2024=5.63,
-        bess_count_2025=410000, avg_capacity_kwh_2025=9.10, avg_power_kw_2025=5.75,
-        bess_count_2026=490000, avg_capacity_kwh_2026=9.15, avg_power_kw_2026=5.82,
-    ),
-    "RP": StateFleetData(
-        name="Rhineland-Palatinate", capital="Mainz", latitude=49.9842, longitude=8.2791,
-        bess_count_2024=65936, avg_capacity_kwh_2024=8.92, avg_power_kw_2024=5.82,
-        bess_count_2025=120000, avg_capacity_kwh_2025=9.00, avg_power_kw_2025=5.95,
-        bess_count_2026=145000, avg_capacity_kwh_2026=9.05, avg_power_kw_2026=6.00,
-    ),
-    "SL": StateFleetData(
-        name="Saarland", capital="Saarbrücken", latitude=49.2333, longitude=7.0000,
-        bess_count_2024=11559, avg_capacity_kwh_2024=8.59, avg_power_kw_2024=6.10,
-        bess_count_2025=28000, avg_capacity_kwh_2025=8.75, avg_power_kw_2025=6.25,
-        bess_count_2026=34000, avg_capacity_kwh_2026=8.80, avg_power_kw_2026=6.30,
-    ),
-    "SN": StateFleetData(
-        name="Saxony", capital="Dresden", latitude=51.0509, longitude=13.7383,
-        bess_count_2024=40041, avg_capacity_kwh_2024=9.20, avg_power_kw_2024=5.45,
-        bess_count_2025=85000, avg_capacity_kwh_2025=9.35, avg_power_kw_2025=5.60,
-        bess_count_2026=105000, avg_capacity_kwh_2026=9.40, avg_power_kw_2026=5.68,
-    ),
-    "ST": StateFleetData(
-        name="Saxony-Anhalt", capital="Magdeburg", latitude=52.1277, longitude=11.6292,
-        bess_count_2024=25579, avg_capacity_kwh_2024=8.51, avg_power_kw_2024=5.46,
-        bess_count_2025=58000, avg_capacity_kwh_2025=8.65, avg_power_kw_2025=5.60,
-        bess_count_2026=70000, avg_capacity_kwh_2026=8.75, avg_power_kw_2026=5.68,
-    ),
-    "SH": StateFleetData(
-        name="Schleswig-Holstein", capital="Kiel", latitude=54.3213, longitude=10.1394,
-        bess_count_2024=35740, avg_capacity_kwh_2024=8.22, avg_power_kw_2024=5.10,
-        bess_count_2025=105000, avg_capacity_kwh_2025=8.45, avg_power_kw_2025=5.30,
-        bess_count_2026=130000, avg_capacity_kwh_2026=8.55, avg_power_kw_2026=5.40,
-    ),
-    "TH": StateFleetData(
-        name="Thuringia", capital="Erfurt", latitude=50.9848, longitude=11.0299,
-        bess_count_2024=24544, avg_capacity_kwh_2024=8.77, avg_power_kw_2024=5.53,
-        bess_count_2025=63000, avg_capacity_kwh_2025=8.90, avg_power_kw_2025=5.70,
-        bess_count_2026=78000, avg_capacity_kwh_2026=9.00, avg_power_kw_2026=5.75,
-    ),
+# Geography only. Not in the MaStR export, and not data that changes.
+_GEO: dict[str, tuple[str, str, float, float]] = {
+    "BW": ("Baden-W\u00fcrttemberg", "Stuttgart", 48.7823, 9.1770),
+    "BY": ("Bavaria", "Munich", 48.1374, 11.5753),
+    "BE": ("Berlin", "Berlin", 52.5244, 13.4105),
+    "BB": ("Brandenburg", "Potsdam", 52.3989, 13.0657),
+    "HB": ("Bremen", "Bremen", 53.0752, 8.8078),
+    "HH": ("Hamburg", "Hamburg", 53.5753, 10.0153),
+    "HE": ("Hesse", "Wiesbaden", 50.0826, 8.2493),
+    "MV": ("Mecklenburg-Western Pomerania", "Schwerin", 53.6296, 11.4148),
+    "NI": ("Lower Saxony", "Hannover", 52.3759, 9.7320),
+    "NW": ("North Rhine-Westphalia", "D\u00fcsseldorf", 51.2217, 6.7762),
+    "RP": ("Rhineland-Palatinate", "Mainz", 49.9842, 8.2791),
+    "SL": ("Saarland", "Saarbr\u00fccken", 49.2333, 7.0000),
+    "SN": ("Saxony", "Dresden", 51.0509, 13.7383),
+    "ST": ("Saxony-Anhalt", "Magdeburg", 52.1277, 11.6292),
+    "SH": ("Schleswig-Holstein", "Kiel", 54.3213, 10.1394),
+    "TH": ("Thuringia", "Erfurt", 50.9848, 11.0299),
 }
 
+# The snapshots the three annual scenarios refer to. 1 January of each year, which is the
+# convention the thesis used. The download ends on 2026-01-13, so 2026 is a January snapshot
+# and not a full year; `mastr.coverage()` says so, and the README repeats it.
+SNAPSHOTS: dict[int, str] = {2024: "2024-01-01", 2025: "2025-01-01", 2026: "2026-01-01"}
+
+
+def _load_federal_states() -> dict[str, StateFleetData]:
+    """Build the fleet table from the MaStR download. Raises if the files are missing."""
+    counts = mastr.count_by_state("Home storage")
+    means = mastr.home_storage_mean()
+    fields: dict[str, dict[str, object]] = {}
+    for year, date in SNAPSHOTS.items():
+        ts = pd.Timestamp(date)
+        for code in _GEO:
+            f = fields.setdefault(code, {})
+            f[f"bess_count_{year}"] = int(round(float(counts.loc[ts, code])))
+            f[f"avg_capacity_kwh_{year}"] = float(means.loc[ts, "mean_kwh"])
+            f[f"avg_power_kw_{year}"] = float(means.loc[ts, "mean_kw"])
+    return {
+        code: StateFleetData(name=geo[0], capital=geo[1], latitude=geo[2], longitude=geo[3],
+                             **fields[code])
+        for code, geo in _GEO.items()
+    }
+
+
+FEDERAL_STATES: dict[str, StateFleetData] = _load_federal_states()
+
 MARGINAL_COST_BESS_EUR_MWH = 48.95  # Table 10-13: PV-charged BESS marginal discharge cost
+
 
 
 def get_national_totals(year: int = 2024) -> dict[str, float]:

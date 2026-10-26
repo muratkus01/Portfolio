@@ -26,33 +26,50 @@ def test_federal_states_completeness():
 
 
 def test_national_totals_2024_matches_thesis():
-    """Verify 2024 national aggregation matches Master's Thesis Table 10-11 values."""
+    """The 2024 snapshot still reproduces Master's Thesis Table 10-11.
+
+    Exact equality was asserted until 2026-10-26, when the fleet table stopped being a
+    hardcoded copy of that table and started being read from the MaStR register
+    (`prosumer.data.mastr`). The register snapshot of 1 January 2024 gives 1,119,240 units
+    against the thesis table's 1,116,967, a difference of 0.20 % that comes from the export
+    date, so the tolerance is a fifth of a percent rather than zero.
+    """
     totals = get_national_totals(2024)
     # Thesis Table 10-11: 1,116,967 units, 9,972.33 MWh (9.972 GWh), 6,167 MW (6.167 GW)
-    assert totals["total_bess_units"] == 1116967
-    assert totals["total_capacity_gwh"] == pytest.approx(9.972, abs=0.01)
-    assert totals["total_power_gw"] == pytest.approx(6.167, abs=0.01)
-    assert totals["mean_capacity_kwh"] == pytest.approx(8.68, abs=0.05)
-    assert totals["mean_power_kw"] == pytest.approx(5.40, abs=0.05)
+    assert totals["total_bess_units"] == pytest.approx(1_116_967, rel=0.005)
+    assert totals["total_capacity_gwh"] == pytest.approx(9.972, rel=0.01)
+    assert totals["total_power_gw"] == pytest.approx(6.167, rel=0.01)
+    # Mean size is now the published Germany-wide mean, identical for every state, so the
+    # weighted and unweighted means coincide at the January 2024 value of 8.96 kWh / 5.53 kW.
+    assert totals["mean_capacity_kwh"] == pytest.approx(8.96, abs=0.02)
+    assert totals["mean_power_kw"] == pytest.approx(5.53, abs=0.02)
 
 
 def test_national_totals_2025_and_2026_expansion():
-    """Verify updated 2025 and 2026 fleet statistics from battery-charts.de reflect market growth."""
+    """2025 and 2026 come from the register, not from a growth assumption.
+
+    The previous thresholds (>2.0 M units in 2025, >=2.4 M in 2026) were written against a
+    hand-made extrapolation that overstated the fleet by 24 % and 14 %. The register gives
+    1,670,776 units at 2025-01-01 and 2,190,625 at 2026-01-01. Bounds are two-sided on
+    purpose: a one-sided ">" cannot catch an overstatement, which is how the old numbers
+    survived.
+    """
     t2024 = get_national_totals(2024)
     t2025 = get_national_totals(2025)
     t2026 = get_national_totals(2026)
 
-    # 2025: >2M residential systems, >18 GWh capacity, >11.5 GW power
-    assert t2025["total_bess_units"] > 2_000_000
-    assert t2025["total_capacity_gwh"] > 18.0
-    assert t2025["total_power_gw"] > 11.5
-    assert t2025["total_capacity_gwh"] > t2024["total_capacity_gwh"]
+    assert t2025["total_bess_units"] == pytest.approx(1_670_776, rel=0.001)
+    assert t2025["total_capacity_gwh"] == pytest.approx(14.90, rel=0.01)
+    assert t2025["total_power_gw"] == pytest.approx(9.46, rel=0.01)
 
-    # 2026: ~2.5M residential systems, ~22+ GWh capacity, ~14+ GW power
-    assert t2026["total_bess_units"] >= 2_400_000
-    assert t2026["total_capacity_gwh"] >= 22.0
-    assert t2026["total_power_gw"] >= 14.0
-    assert t2026["total_capacity_gwh"] > t2025["total_capacity_gwh"]
+    assert t2026["total_bess_units"] == pytest.approx(2_190_625, rel=0.001)
+    assert t2026["total_capacity_gwh"] == pytest.approx(19.12, rel=0.01)
+    assert t2026["total_power_gw"] == pytest.approx(12.16, rel=0.01)
+
+    # The fleet grows in count and in energy, but the mean unit gets SMALLER.
+    assert t2024["total_capacity_gwh"] < t2025["total_capacity_gwh"] < t2026["total_capacity_gwh"]
+    assert t2024["total_bess_units"] < t2025["total_bess_units"] < t2026["total_bess_units"]
+    assert t2024["mean_capacity_kwh"] > t2025["mean_capacity_kwh"] > t2026["mean_capacity_kwh"]
 
 
 def test_grid_exchange_shift_formula():

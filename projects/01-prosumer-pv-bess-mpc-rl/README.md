@@ -1,13 +1,13 @@
 # Project 01 · Prosumer PV + Battery Energy Management at 15-Minute Resolution
 
-**Rolling-horizon MILP-MPC and reinforcement learning for a German residential prosumer site with 8 kWp PV and 9.37 kWh battery storage operating under 15-minute dynamic tariffs (`§41a EnWG`) and realistic forecast information sets.**
+**Rolling-horizon MILP-MPC and reinforcement learning for a German residential prosumer site with 8 kWp PV and 8.9 kWh battery storage operating under 15-minute dynamic tariffs (`§41a EnWG`) and realistic forecast information sets.**
 
 | | |
 |---|---|
 | **Status** | **Implemented and evaluated** on 2025/2026 out-of-sample data, 73 measured households |
 | **Type** | Extension of the author's M.Sc. thesis ([`muratkus01/optimization`](https://github.com/muratkus01/optimization), tag `thesis-v1.0`) |
 | **Method** | Rolling-horizon LP-MPC on a realistic information set · Soft Actor-Critic with a safety layer |
-| **Asset** | 8 kWp PV, 9.37 kWh battery, 5.63 kW inverter (Munich residential prosumer) |
+| **Asset** | 8 kWp PV, 8.9 kWh battery, 5.51 kW inverter. The battery and inverter are the MaStR mean German home storage at January 2024 (8.96 kWh / 5.53 kW), which is what `SiteConfig()` carries and what every result below was produced with. |
 | **Resolution** | **15 min**, including the quarter-hour day-ahead market since 2025-10-01 |
 | **Horizon** | Until the last published price: 11 to 35 h (re-solved every 15 min) |
 
@@ -57,7 +57,7 @@ reproduces it; everything new uses correctly timed PV.
 
 ### Master benchmark comparison: 20.5-month out-of-sample evaluation
 
-Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kWh battery, 5.63 kW inverter) across the out-of-sample test period from 2025-01-01 to 2026-09-17 (625 days, 59,996 decision steps at 15-minute resolution). Net costs are negative (net export revenue exceeds import cost).
+Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 8.9 kWh battery, 5.51 kW inverter) across the out-of-sample test period from 2025-01-01 to 2026-09-17 (625 days, 59,996 decision steps at 15-minute resolution). Net costs are negative (net export revenue exceeds import cost).
 
 | Rung | Controller | Net Cost (20.5m) | Net Cost (€/a) | Headroom % | Annual Cycles | Violations | Mean Solve | Payback | ROCE |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -90,7 +90,7 @@ project's own tariff. On this day the export price falls to **0 ct/kWh between 1
   zero and only then charges, taking 8.9 kWh of otherwise worthless surplus and reaching
   full charge at 17:45. Its zero-price export is 24.3 kWh, a third less than B1's.
 - **Evening (18:00 to 23:00).** B3 discharges 6.1 kWh into the expensive hours, at up to the
-  full 5.63 kW inverter rating during the 40 ct peak. B1, having spent the day full and
+  full 5.51 kW inverter rating during the 40 ct peak. B1, having spent the day full and
   trickled into its own base load, contributes only 0.8 kWh there.
 - **Neither controller charges from the grid**, not even in the negative-price hours: the
   retail import price never drops below 19 ct/kWh, since taxes, levies and network charges
@@ -230,7 +230,7 @@ Full sweep across all 20 configurations: [`reports/sizing_grid/sizing_grid.csv`]
    distance between a real controller and a clairvoyant one.
 4. **Sweet spot.** For an 8 kWp array and 3,221 kWh/a of consumption, 5 to 7.5 kWh of storage
    with a 3 to 4.6 kW inverter maximises return (7.5 to 8.8 year payback, 11 to 13 % ROCE),
-   while the thesis configuration (9.37 kWh, 5.63 kW) trades about 3 points of ROCE for
+   while the 9.37 kWh / 5.63 kW point trades about 3 points of ROCE for
    140 EUR/a more absolute savings.
 
 ### Limitations
@@ -367,7 +367,7 @@ Full detail: [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-
 
 ### In scope
 
-- A 15-minute, rolling-horizon MILP-MPC energy management system for a German prosumer site with 8 kWp PV and 9.37 kWh battery storage.
+- A 15-minute, rolling-horizon MILP-MPC energy management system for a German prosumer site with 8 kWp PV and 8.9 kWh battery storage.
 - An SAC / PPO reinforcement learning controller on an identical physical and economic model, with a safety layer.
 - A **quantified resolution study**: 60 min vs. 15 min, same site, same year, same method: isolating the bias introduced by hourly modelling.
 - A **horizon study**: published day-ahead price horizon (11-35 h) with shadow terminal valuation.
@@ -424,7 +424,7 @@ flowchart TB
 
     subgraph SITE["Site model"]
         PV["PV array (8 kWp)"]
-        BAT["Battery (9.37 kWh)"]
+        BAT["Battery (8.9 kWh)"]
         LOAD["Household load (HTW H28)"]
         GCP["Grid connection point"]
     end
@@ -490,7 +490,7 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 | PV generation | Site generation | pvlib on Open-Meteo 15-min weather, calibrated to Munich site | 15 min | Complete, committed |
 | NWP forecasts | Day-ahead PV forecast | Open-Meteo previous runs | 15 min | Complete, committed |
 | Day-ahead prices | Dynamic retail tariff base | EPEX Spot DE-LU (hourly -> 15-min from Oct 2025) | 15 min | Complete, committed |
-| Battery parameters | Storage physics and degradation | Datasheet values (9.37 kWh, 5.63 kW, 95 % efficiency) | - | Complete, committed |
+| Battery parameters | Storage physics and degradation | Datasheet values (8.9 kWh, 5.51 kW, 95 % efficiency) | - | Complete, committed |
 
 ---
 

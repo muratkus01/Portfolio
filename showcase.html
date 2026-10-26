@@ -1566,7 +1566,7 @@
             <div id="p01-pane-system" class="proj-pane">
               <h4>National Meta-Household Aggregation & Merit-Order Displacement (Chapter 10)</h4>
               <p>Scales residential flexibility across 16 German federal states using Bundesnetzagentur MaStR and Battery-Charts.de telemetry:</p>
-              <p>&bull; <strong>Fleet Growth Trajectory:</strong> 2024 Base (1.63M units, 14.28 GWh BESS, 8.89 GW Inverter) &rarr; 2025 Real (2.19M units, 19.85 GWh BESS, 12.39 GW Inverter) &rarr; 2026 Forecast (2.64M units, 24.15 GWh BESS, 15.16 GW Inverter). National mean battery capacity reached 9.06 kWh in 2025 and 9.15 kWh in 2026.</p>
+              <p>&bull; <strong>Fleet Growth Trajectory:</strong> MaStR register, home storage, 1 January of each year: 2024 (1,119,240 units, 10.03 GWh, 6.19 GW) &rarr; 2025 (1,670,776 units, 14.90 GWh, 9.46 GW) &rarr; 2026 (2,190,625 units, 19.12 GWh, 12.16 GW). The mean unit gets SMALLER as the fleet grows, from 8.96 kWh to 8.73 kWh, because newly registered home storages are smaller than the installed base. The register export ends 13 January 2026, so 2026 is a January snapshot and not a full year.</p>
               <p>&bull; <strong>Top Federal States by Fleet Size:</strong> Bayern (588k units, 5.60 GWh), Baden-Wuerttemberg (407k units, 3.92 GWh), Nordrhein-Westfalen (384k units, 3.46 GWh), Niedersachsen (241k units, 2.16 GWh).</p>
               <p>&bull; <strong>Fossil Gas Displacement (Table 10-13):</strong> With a marginal discharge cost of 48.95 EUR/MWh, residential BESS systematically displaces marginal open-cycle (OCGT) and combined-cycle (CCGT) gas plants during peak hours. Displaces -5,264.3 MWh (-97.0% of fossil gas) during Summer Evening Peak (01.07 19:00), -5,775.9 MWh (-30.2%) during Winter Scarcity (12.12 17:00), and absorbs +5,448.1 MWh of solar surplus during midday negative price events (12.05).</p>
             </div>
@@ -5175,59 +5175,59 @@
     // =========================================================================
     const THESIS_STATES_DATA = {
       '2024': [
-        { name: 'Bayern', code: 'BY', units: 437600, cap_kwh: 9.52, mwh: 4166, p_kw: 5.94, mw: 2599 },
-        { name: 'Baden-Wuerttemberg', code: 'BW', units: 303000, cap_kwh: 9.64, mwh: 2921, p_kw: 6.01, mw: 1821 },
-        { name: 'Nordrhein-Westfalen', code: 'NW', units: 285900, cap_kwh: 9.00, mwh: 2573, p_kw: 5.62, mw: 1607 },
-        { name: 'Niedersachsen', code: 'NI', units: 179300, cap_kwh: 8.98, mwh: 1610, p_kw: 5.60, mw: 1004 },
-        { name: 'Hessen', code: 'HE', units: 104300, cap_kwh: 9.02, mwh: 941, p_kw: 5.63, mw: 587 },
-        { name: 'Rheinland-Pfalz', code: 'RP', units: 87900, cap_kwh: 8.99, mwh: 790, p_kw: 5.61, mw: 493 },
-        { name: 'Sachsen', code: 'SN', units: 53800, cap_kwh: 8.42, mwh: 453, p_kw: 5.25, mw: 282 },
-        { name: 'Brandenburg', code: 'BB', units: 52200, cap_kwh: 8.35, mwh: 436, p_kw: 5.21, mw: 272 },
-        { name: 'Schleswig-Holstein', code: 'SH', units: 45600, cap_kwh: 8.51, mwh: 388, p_kw: 5.31, mw: 242 },
-        { name: 'Thueringen', code: 'TH', units: 29300, cap_kwh: 8.38, mwh: 246, p_kw: 5.23, mw: 153 },
-        { name: 'Sachsen-Anhalt', code: 'ST', units: 24500, cap_kwh: 8.31, mwh: 204, p_kw: 5.18, mw: 127 },
-        { name: 'Mecklenburg-Vorpommern', code: 'MV', units: 17900, cap_kwh: 8.25, mwh: 148, p_kw: 5.15, mw: 92 },
-        { name: 'Saarland', code: 'SL', units: 16300, cap_kwh: 8.65, mwh: 141, p_kw: 5.40, mw: 88 },
-        { name: 'Berlin', code: 'BE', units: 8200, cap_kwh: 7.45, mwh: 61, p_kw: 4.65, mw: 38 },
-        { name: 'Hamburg', code: 'HH', units: 6500, cap_kwh: 7.38, mwh: 48, p_kw: 4.60, mw: 30 },
-        { name: 'Bremen', code: 'HB', units: 4800, cap_kwh: 7.21, mwh: 35, p_kw: 4.50, mw: 22 }
+        { name: 'Bayern', code: 'BY', units: 237322, cap_kwh: 8.96, mwh: 2126, p_kw: 5.53, mw: 1312 },
+        { name: 'Nordrhein-Westfalen', code: 'NW', units: 217973, cap_kwh: 8.96, mwh: 1953, p_kw: 5.53, mw: 1205 },
+        { name: 'Baden-Wuerttemberg', code: 'BW', units: 180768, cap_kwh: 8.96, mwh: 1620, p_kw: 5.53, mw: 1000 },
+        { name: 'Niedersachsen', code: 'NI', units: 138200, cap_kwh: 8.96, mwh: 1238, p_kw: 5.53, mw: 764 },
+        { name: 'Hessen', code: 'HE', units: 68223, cap_kwh: 8.96, mwh: 611, p_kw: 5.53, mw: 377 },
+        { name: 'Rheinland-Pfalz', code: 'RP', units: 66075, cap_kwh: 8.96, mwh: 592, p_kw: 5.53, mw: 365 },
+        { name: 'Sachsen', code: 'SN', units: 40226, cap_kwh: 8.96, mwh: 360, p_kw: 5.53, mw: 222 },
+        { name: 'Brandenburg', code: 'BB', units: 38756, cap_kwh: 8.96, mwh: 347, p_kw: 5.53, mw: 214 },
+        { name: 'Schleswig-Holstein', code: 'SH', units: 35849, cap_kwh: 8.96, mwh: 321, p_kw: 5.53, mw: 198 },
+        { name: 'Sachsen-Anhalt', code: 'ST', units: 25608, cap_kwh: 8.96, mwh: 229, p_kw: 5.53, mw: 142 },
+        { name: 'Thueringen', code: 'TH', units: 24612, cap_kwh: 8.96, mwh: 221, p_kw: 5.53, mw: 136 },
+        { name: 'Mecklenburg-Vorpommern', code: 'MV', units: 15754, cap_kwh: 8.96, mwh: 141, p_kw: 5.53, mw: 87 },
+        { name: 'Saarland', code: 'SL', units: 11560, cap_kwh: 8.96, mwh: 104, p_kw: 5.53, mw: 64 },
+        { name: 'Berlin', code: 'BE', units: 10864, cap_kwh: 8.96, mwh: 97, p_kw: 5.53, mw: 60 },
+        { name: 'Hamburg', code: 'HH', units: 5301, cap_kwh: 8.96, mwh: 47, p_kw: 5.53, mw: 29 },
+        { name: 'Bremen', code: 'HB', units: 2149, cap_kwh: 8.96, mwh: 19, p_kw: 5.53, mw: 12 },
       ],
       '2025': [
-        { name: 'Bayern', code: 'BY', units: 588000, cap_kwh: 9.52, mwh: 5595, p_kw: 5.94, mw: 3494 },
-        { name: 'Baden-Wuerttemberg', code: 'BW', units: 407000, cap_kwh: 9.64, mwh: 3923, p_kw: 6.01, mw: 2448 },
-        { name: 'Nordrhein-Westfalen', code: 'NW', units: 384000, cap_kwh: 9.00, mwh: 3456, p_kw: 5.62, mw: 2157 },
-        { name: 'Niedersachsen', code: 'NI', units: 241000, cap_kwh: 8.98, mwh: 2163, p_kw: 5.60, mw: 1350 },
-        { name: 'Hessen', code: 'HE', units: 140000, cap_kwh: 9.02, mwh: 1263, p_kw: 5.63, mw: 788 },
-        { name: 'Rheinland-Pfalz', code: 'RP', units: 118000, cap_kwh: 8.99, mwh: 1061, p_kw: 5.61, mw: 662 },
-        { name: 'Sachsen', code: 'SN', units: 72000, cap_kwh: 8.42, mwh: 606, p_kw: 5.25, mw: 378 },
-        { name: 'Brandenburg', code: 'BB', units: 70000, cap_kwh: 8.35, mwh: 585, p_kw: 5.21, mw: 365 },
-        { name: 'Schleswig-Holstein', code: 'SH', units: 61000, cap_kwh: 8.51, mwh: 519, p_kw: 5.31, mw: 324 },
-        { name: 'Thueringen', code: 'TH', units: 39000, cap_kwh: 8.38, mwh: 327, p_kw: 5.23, mw: 204 },
-        { name: 'Sachsen-Anhalt', code: 'ST', units: 33000, cap_kwh: 8.31, mwh: 274, p_kw: 5.18, mw: 171 },
-        { name: 'Mecklenburg-Vorpommern', code: 'MV', units: 24000, cap_kwh: 8.25, mwh: 198, p_kw: 5.15, mw: 124 },
-        { name: 'Saarland', code: 'SL', units: 22000, cap_kwh: 8.65, mwh: 190, p_kw: 5.40, mw: 119 },
-        { name: 'Berlin', code: 'BE', units: 11000, cap_kwh: 7.45, mwh: 82, p_kw: 4.65, mw: 51 },
-        { name: 'Hamburg', code: 'HH', units: 9000, cap_kwh: 7.38, mwh: 66, p_kw: 4.60, mw: 41 },
-        { name: 'Bremen', code: 'HB', units: 6000, cap_kwh: 7.21, mwh: 43, p_kw: 4.50, mw: 27 }
+        { name: 'Bayern', code: 'BY', units: 342733, cap_kwh: 8.92, mwh: 3057, p_kw: 5.66, mw: 1940 },
+        { name: 'Nordrhein-Westfalen', code: 'NW', units: 324822, cap_kwh: 8.92, mwh: 2897, p_kw: 5.66, mw: 1838 },
+        { name: 'Baden-Wuerttemberg', code: 'BW', units: 266643, cap_kwh: 8.92, mwh: 2378, p_kw: 5.66, mw: 1509 },
+        { name: 'Niedersachsen', code: 'NI', units: 206527, cap_kwh: 8.92, mwh: 1842, p_kw: 5.66, mw: 1169 },
+        { name: 'Hessen', code: 'HE', units: 107853, cap_kwh: 8.92, mwh: 962, p_kw: 5.66, mw: 610 },
+        { name: 'Rheinland-Pfalz', code: 'RP', units: 99366, cap_kwh: 8.92, mwh: 886, p_kw: 5.66, mw: 562 },
+        { name: 'Sachsen', code: 'SN', units: 58850, cap_kwh: 8.92, mwh: 525, p_kw: 5.66, mw: 333 },
+        { name: 'Brandenburg', code: 'BB', units: 57318, cap_kwh: 8.92, mwh: 511, p_kw: 5.66, mw: 324 },
+        { name: 'Schleswig-Holstein', code: 'SH', units: 56763, cap_kwh: 8.92, mwh: 506, p_kw: 5.66, mw: 321 },
+        { name: 'Sachsen-Anhalt', code: 'ST', units: 38623, cap_kwh: 8.92, mwh: 345, p_kw: 5.66, mw: 219 },
+        { name: 'Thueringen', code: 'TH', units: 38101, cap_kwh: 8.92, mwh: 340, p_kw: 5.66, mw: 216 },
+        { name: 'Mecklenburg-Vorpommern', code: 'MV', units: 24641, cap_kwh: 8.92, mwh: 220, p_kw: 5.66, mw: 139 },
+        { name: 'Saarland', code: 'SL', units: 18228, cap_kwh: 8.92, mwh: 163, p_kw: 5.66, mw: 103 },
+        { name: 'Berlin', code: 'BE', units: 17069, cap_kwh: 8.92, mwh: 152, p_kw: 5.66, mw: 97 },
+        { name: 'Hamburg', code: 'HH', units: 8683, cap_kwh: 8.92, mwh: 77, p_kw: 5.66, mw: 49 },
+        { name: 'Bremen', code: 'HB', units: 4556, cap_kwh: 8.92, mwh: 41, p_kw: 5.66, mw: 26 },
       ],
       '2026': [
-        { name: 'Bayern', code: 'BY', units: 709000, cap_kwh: 9.60, mwh: 6806, p_kw: 6.00, mw: 4254 },
-        { name: 'Baden-Wuerttemberg', code: 'BW', units: 490000, cap_kwh: 9.72, mwh: 4763, p_kw: 6.08, mw: 2979 },
-        { name: 'Nordrhein-Westfalen', code: 'NW', units: 463000, cap_kwh: 9.10, mwh: 4213, p_kw: 5.70, mw: 2639 },
-        { name: 'Niedersachsen', code: 'NI', units: 290000, cap_kwh: 9.06, mwh: 2627, p_kw: 5.68, mw: 1647 },
-        { name: 'Hessen', code: 'HE', units: 169000, cap_kwh: 9.12, mwh: 1541, p_kw: 5.71, mw: 965 },
-        { name: 'Rheinland-Pfalz', code: 'RP', units: 142000, cap_kwh: 9.08, mwh: 1289, p_kw: 5.69, mw: 808 },
-        { name: 'Sachsen', code: 'SN', units: 87000, cap_kwh: 8.52, mwh: 741, p_kw: 5.33, mw: 464 },
-        { name: 'Brandenburg', code: 'BB', units: 84000, cap_kwh: 8.44, mwh: 709, p_kw: 5.29, mw: 444 },
-        { name: 'Schleswig-Holstein', code: 'SH', units: 74000, cap_kwh: 8.60, mwh: 636, p_kw: 5.39, mw: 399 },
-        { name: 'Thueringen', code: 'TH', units: 47000, cap_kwh: 8.46, mwh: 398, p_kw: 5.31, mw: 250 },
-        { name: 'Sachsen-Anhalt', code: 'ST', units: 40000, cap_kwh: 8.40, mwh: 336, p_kw: 5.25, mw: 210 },
-        { name: 'Mecklenburg-Vorpommern', code: 'MV', units: 29000, cap_kwh: 8.35, mwh: 242, p_kw: 5.22, mw: 151 },
-        { name: 'Saarland', code: 'SL', units: 27000, cap_kwh: 8.75, mwh: 236, p_kw: 5.48, mw: 148 },
-        { name: 'Berlin', code: 'BE', units: 13000, cap_kwh: 7.55, mwh: 98, p_kw: 4.72, mw: 61 },
-        { name: 'Hamburg', code: 'HH', units: 11000, cap_kwh: 7.48, mwh: 82, p_kw: 4.67, mw: 51 },
-        { name: 'Bremen', code: 'HB', units: 7000, cap_kwh: 7.30, mwh: 51, p_kw: 4.56, mw: 32 }
-      ]
+        { name: 'Bayern', code: 'BY', units: 435232, cap_kwh: 8.73, mwh: 3800, p_kw: 5.55, mw: 2416 },
+        { name: 'Nordrhein-Westfalen', code: 'NW', units: 430146, cap_kwh: 8.73, mwh: 3755, p_kw: 5.55, mw: 2387 },
+        { name: 'Baden-Wuerttemberg', code: 'BW', units: 349130, cap_kwh: 8.73, mwh: 3048, p_kw: 5.55, mw: 1938 },
+        { name: 'Niedersachsen', code: 'NI', units: 271011, cap_kwh: 8.73, mwh: 2366, p_kw: 5.55, mw: 1504 },
+        { name: 'Hessen', code: 'HE', units: 144444, cap_kwh: 8.73, mwh: 1261, p_kw: 5.55, mw: 802 },
+        { name: 'Rheinland-Pfalz', code: 'RP', units: 131030, cap_kwh: 8.73, mwh: 1144, p_kw: 5.55, mw: 727 },
+        { name: 'Schleswig-Holstein', code: 'SH', units: 76499, cap_kwh: 8.73, mwh: 668, p_kw: 5.55, mw: 425 },
+        { name: 'Sachsen', code: 'SN', units: 76344, cap_kwh: 8.73, mwh: 666, p_kw: 5.55, mw: 424 },
+        { name: 'Brandenburg', code: 'BB', units: 74416, cap_kwh: 8.73, mwh: 650, p_kw: 5.55, mw: 413 },
+        { name: 'Sachsen-Anhalt', code: 'ST', units: 51004, cap_kwh: 8.73, mwh: 445, p_kw: 5.55, mw: 283 },
+        { name: 'Thueringen', code: 'TH', units: 50055, cap_kwh: 8.73, mwh: 437, p_kw: 5.55, mw: 278 },
+        { name: 'Mecklenburg-Vorpommern', code: 'MV', units: 32397, cap_kwh: 8.73, mwh: 283, p_kw: 5.55, mw: 180 },
+        { name: 'Saarland', code: 'SL', units: 25315, cap_kwh: 8.73, mwh: 221, p_kw: 5.55, mw: 140 },
+        { name: 'Berlin', code: 'BE', units: 23706, cap_kwh: 8.73, mwh: 207, p_kw: 5.55, mw: 132 },
+        { name: 'Hamburg', code: 'HH', units: 13106, cap_kwh: 8.73, mwh: 114, p_kw: 5.55, mw: 73 },
+        { name: 'Bremen', code: 'HB', units: 6790, cap_kwh: 8.73, mwh: 59, p_kw: 5.55, mw: 38 },
+      ],
     };
 
     let currentThesisNationalYear = '2026';
@@ -5347,25 +5347,24 @@
       const avgPowerEl = document.getElementById('p01-nat-avgpower');
 
       if (yr === '2024') {
-        if (unitsEl) unitsEl.innerText = '1,630,000 Units';
-        if (energyEl) energyEl.innerText = '14.28 GWh';
-        if (powerEl) powerEl.innerText = '8.89 GW';
-        if (avgEnergyEl) avgEnergyEl.innerText = '8.76 kWh avg / home';
-        if (avgPowerEl) avgPowerEl.innerText = '5.45 kW avg / home';
+        if (unitsEl) unitsEl.innerText = '1,119,240 Units';
+        if (energyEl) energyEl.innerText = '10.03 GWh';
+        if (powerEl) powerEl.innerText = '6.19 GW';
+        if (avgEnergyEl) avgEnergyEl.innerText = '8.96 kWh avg / home';
+        if (avgPowerEl) avgPowerEl.innerText = '5.53 kW avg / home';
       } else if (yr === '2025') {
-        if (unitsEl) unitsEl.innerText = '2,191,000 Units';
-        if (energyEl) energyEl.innerText = '19.85 GWh';
-        if (powerEl) powerEl.innerText = '12.39 GW';
-        if (avgEnergyEl) avgEnergyEl.innerText = '9.06 kWh avg / home';
-        if (avgPowerEl) avgPowerEl.innerText = '5.65 kW avg / home';
+        if (unitsEl) unitsEl.innerText = '1,670,776 Units';
+        if (energyEl) energyEl.innerText = '14.90 GWh';
+        if (powerEl) powerEl.innerText = '9.46 GW';
+        if (avgEnergyEl) avgEnergyEl.innerText = '8.92 kWh avg / home';
+        if (avgPowerEl) avgPowerEl.innerText = '5.66 kW avg / home';
       } else {
-        if (unitsEl) unitsEl.innerText = '2,640,000 Units';
-        if (energyEl) energyEl.innerText = '24.15 GWh';
-        if (powerEl) powerEl.innerText = '15.16 GW';
-        if (avgEnergyEl) avgEnergyEl.innerText = '9.15 kWh avg / home';
-        if (avgPowerEl) avgPowerEl.innerText = '5.74 kW avg / home';
+        if (unitsEl) unitsEl.innerText = '2,190,625 Units';
+        if (energyEl) energyEl.innerText = '19.12 GWh';
+        if (powerEl) powerEl.innerText = '12.16 GW';
+        if (avgEnergyEl) avgEnergyEl.innerText = '8.73 kWh avg / home';
+        if (avgPowerEl) avgPowerEl.innerText = '5.55 kW avg / home';
       }
-
       filterStateTable('ALL');
     }
 
