@@ -52,8 +52,8 @@ reproduces it; everything new uses correctly timed PV.
 | Prices | EPEX DE-LU day-ahead, Energy-Charts | 2024 matches the thesis exactly; hourly products until 2025-09-30, quarter-hour after |
 | PV | pvlib on Open-Meteo 15-min weather, loss calibrated to the thesis 2024 yield | daily correlation with the thesis PV 0.95; with measured German PV 0.77 (2024), 0.83 (2025), 0.82 (2026), same level as the company data (0.78) |
 | PV forecast | the same model on the weather forecast issued a day earlier (Open-Meteo previous runs) | nRMSE 0.30 to 0.38 in daytime, bias within 1.5 % |
-| Load | 74 measured households, HTW Berlin (Tjaden et al. 2015), scaled to 3221 kWh/a | one household shows PV behind the meter and is excluded ([screen](reports/htw_pv_screen.csv)) |
-| Load forecast | BDEW H0 standard profile with Bavarian holidays | nRMSE 1.03 at 15 min for a single household |
+| Load | 74 measured households, HTW Berlin (Tjaden et al. 2015), scaled to 3221 kWh/a and replayed on the 2024 to 2026 calendar on the households' own clock (legal local time) | one household shows PV behind the meter and is excluded ([screen](reports/htw_pv_screen.csv)) |
+| Load forecast | BDEW H0 standard profile with Bavarian holidays | nRMSE at 15 min, RMSE over mean load, 2024 to 2026: 0.82 for H28, 1.02 for H31 |
 
 ### Master benchmark comparison: 20.5-month out-of-sample evaluation
 
@@ -61,14 +61,17 @@ Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kW
 
 | Rung | Controller | Net Cost (20.5m) | Net Cost (€/a) | Headroom % | Annual Cycles | Violations | Mean Solve | Payback | ROCE |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **B0** | PV only (no battery baseline) | +104.67 € | +61.13 € | 0.0 % (ref) | 0.0 | 0 | - | - | - |
-| **B1** | Rule-based self-consumption | -321.46 € | -187.75 € | 0.0 % (B1 ref) | 174.0 | 0 | < 1 ms | 17.5 yr | 5.7 % |
-| **B2** | Perfect foresight MILP | -710.46 € | -414.94 € | 100.0 % | 298.2 | 0 | 4.2 s (yr) | 9.1 yr | 10.9 % |
-| **B3** | Deployable rolling MPC (realistic) | -663.45 € | -387.48 € | **87.9 %** | 287.8 | 0 | 5.9 ms | **9.7 yr** | **10.3 %** |
-| **RL** | Overhauled SAC (rescaled action, diff reward) | -426.38 € | -249.02 € | **27.0 %** | 275.4 | 0 | 1.2 ms | **14.0 yr** | **7.1 %** |
+| **B0** | PV only (no battery baseline) | +90.56 € | +52.89 € | 0.0 % (ref) | 0.0 | 0 | - | - | - |
+| **B1** | Rule-based self-consumption | -324.98 € | -189.80 € | 0.0 % (B1 ref) | 168.9 | 0 | < 1 ms | 17.9 yr | 5.6 % |
+| **B2** | Perfect foresight MILP | -716.68 € | -418.57 € | 100.0 % | 298.2 | 0 | 4.2 s (yr) | 9.2 yr | 10.8 % |
+| **B3** | Deployable rolling MPC (realistic) | -675.27 € | -394.38 € | **89.4 %** | 287.5 | 0 | 5.9 ms ¹ | **9.7 yr** | **10.3 %** |
+| **RL** | Overhauled SAC (rescaled action, diff reward), **before the clock fix** ² | -426.38 € | -249.02 € | **27.0 %** | 264.6 | 0 | 1.2 ms | **14.0 yr** | **7.1 %** |
 
-- **B3 Headroom Recovery:** The deployable rolling MPC captures **87.9 %** of the theoretical perfect-foresight ceiling (342 of 389 EUR headroom over B1) using only published prices, NWP irradiance forecasts, and standard load profiles. Zero constraint violations across all 59,996 quarter-hours.
-- **Economic Return:** Adding a battery under B3 dispatch turns an annual electricity expense of +61.13 EUR/a (PV only) into a net revenue of -387.48 EUR/a, an annual gain of **448.61 EUR/a**. Against the marginal CAPEX of 4,349 EUR (350 EUR/kWh storage plus 190 EUR/kW inverter) that is a **9.7-year simple payback** and **10.3 % return on capital**, against 17.5 years and 5.7 % for the price-blind rule-based operation. Perfect foresight would reach 9.1 years and 10.9 %, so the entire remaining control gap is worth about half a point of return.
+¹ Solve time measured on an idle machine before the clock fix; the rerun CSV shows 19.5 ms because eight jobs shared four cores. The fix does not touch the controller.
+² RL has not been rerun since the HTW clock fix (see the RL section); its row, payback and ROCE are pre-fix, against the pre-fix PV-only baseline of +61.13 EUR/a. Its annual cycles use the same annualisation as the other rows (264.6; 275.4 was printed before).
+
+- **B3 Headroom Recovery:** The deployable rolling MPC captures **89.4 %** of the theoretical perfect-foresight ceiling (350 of 392 EUR headroom over B1) using only published prices, NWP irradiance forecasts, and standard load profiles. Zero constraint violations across all 59,996 quarter-hours.
+- **Economic Return:** Adding a battery under B3 dispatch turns an annual electricity expense of +52.89 EUR/a (PV only) into a net revenue of -394.38 EUR/a, an annual gain of **447.27 EUR/a**. Against the marginal CAPEX of 4,349 EUR (350 EUR/kWh storage plus 190 EUR/kW inverter) that is a **9.7-year simple payback** and **10.3 % return on capital**, against 17.9 years and 5.6 % for the price-blind rule-based operation. Perfect foresight would reach 9.2 years and 10.8 %, so the entire remaining control gap is worth about half a point of return.
 
 ### Operational dispatch: 24-hour summer day comparison
 
@@ -78,26 +81,26 @@ The figure below isolates the physical dispatch of the price-blind rule-based he
 
 This is a real run of both controllers, warmed up over the three preceding days, on the
 project's own tariff. On this day the export price falls to **0 ct/kWh between 11:00 and
-16:00** (16 quarter-hours of negative spot price), while the evening peak reaches
+17:00** (16 quarter-hours of negative spot price), while the evening peak reaches
 **40 ct/kWh** around 21:00.
 
-- **Morning (06:00 to 11:00).** B1 charges on the first PV surplus and is full by 08:45. B3
-  leaves the battery almost empty: it entered the day at 7 % and stays there, because
-  surplus in the morning is still worth 12 ct/kWh on export while the evening peak is worth
-  far more to displace.
-- **Midday (11:00 to 16:00).** B1 is already full and exports 45.7 kWh over the day, of
+- **Morning (06:00 to 11:00).** B1 charges on the first PV surplus and is full by 08:30. B3
+  leaves the battery empty: it entered the day at 6 % and stays there, because surplus in
+  the morning is still worth 12 ct/kWh on export while the evening peak is worth far more
+  to displace.
+- **Midday (11:00 to 17:00).** B1 is already full and exports 46.0 kWh over the day, of
   which **33.0 kWh earn nothing at all**. B3 waits until the export price has collapsed to
   zero and only then charges, taking 8.9 kWh of otherwise worthless surplus and reaching
-  full charge at 17:45. Its zero-price export is 24.3 kWh, a third less than B1's.
+  full charge at 17:45. Its zero-price export is 24.3 kWh, about a quarter less than B1's.
 - **Evening (18:00 to 23:00).** B3 discharges 6.1 kWh into the expensive hours, at up to the
   full 5.63 kW inverter rating during the 40 ct peak. B1, having spent the day full and
   trickled into its own base load, contributes only 0.8 kWh there.
 - **Neither controller charges from the grid**, not even in the negative-price hours: the
   retail import price never drops below 19 ct/kWh, since taxes, levies and network charges
   dominate the spot component. Grid arbitrage does not pay for a German household.
-- **Result for the day:** -1.69 EUR for B3 against -0.68 EUR for B1 (negative is revenue), a
-  difference of about 1 EUR on a single summer day, earned purely by *when* the battery is
-  used rather than by using it more.
+- **Result for the day:** -1.76 EUR for B3 against -0.75 EUR for B1 (negative is revenue,
+  battery wear included), a difference of about 1 EUR on a single summer day, earned purely
+  by *when* the battery is used rather than by using it more.
 
 ### How much of the perfect-foresight gain does a deployable controller capture?
 
@@ -109,19 +112,20 @@ information from the test period is used.
 ![capture ladder](docs/figures/capture_ladder.png)
 
 For the most typical household (H28, closest to the median of all 73 on five load-shape
-features), the deployable B3 captures **87.9 %** of the gain that perfect foresight would
-achieve over the rule-based controller, 342 of 389 EUR over 20.5 months. The gap
+features), the deployable B3 captures **89.4 %** of the gain that perfect foresight would
+achieve over the rule-based controller, 350 of 392 EUR over 20.5 months. The gap
 decomposes cleanly: the price-limited horizon costs about 2 points, the household's load
-not following the standard profile about 8, and PV forecast error about 3. Zero
+not following the standard profile about 6, and PV forecast error about 3. Zero
 constraint violations in every run.
 
 ![household sweep](docs/figures/household_sweep.png)
 
-Across all 73 measured households the deployable B3 captures a **median 85.2 %** (middle
-half 83.5 to 87.3 %, range 75.0 to 91.4 %). That is the headline figure; H28 sits above the
-median. Households with high peaks capture less: H31, likely with an instantaneous electric
-water heater, reaches 97.9 % with perfect forecasts but 84.8 % with the standard-profile
-load forecast.
+**Before the clock fix, rerun pending:** across all 73 measured households the deployable
+B3 captured a median 85.2 % (middle half 83.5 to 87.3 %, range 75.0 to 91.4 %); the figure
+above is the same pre-fix run. The fix raised H28 by 1.5 points and H31 by 1.3, so the
+median is likely to rise by a similar amount once rerun. Households with high peaks capture
+less: H31, likely with an instantaneous electric water heater, reaches 97.9 % with perfect
+forecasts but 86.1 % with the standard-profile load forecast (both after the fix).
 
 ### What is the quarter-hour day-ahead market worth?
 
@@ -134,11 +138,13 @@ Reacting to quarter-hour prices is worth **26.3 EUR** in the first year for the 
 B3 (22.7 EUR with perfect foresight), about 11 % of the whole optimisation gain. It is
 earned mostly from March to October. The standard-profile household gives nearly the same
 values (24.9 and 22.3 EUR). An hourly model of the same household, as in the thesis,
-overstates the rule-based result by 12.0 EUR, because hourly averaging hides the
+overstates the rule-based result by 12.1 EUR, because hourly averaging hides the
 mismatch between PV and load inside the hour, and understates the optimised result by
-9.2 EUR.
+9.0 EUR.
 
 ### Reinforcement learning: formulation overhaul and diagnostic
+
+> **Before the HTW clock fix, not rerun.** Every RL number in this section was measured with the pre-fix replay (the household's summer load one hour late). Compare it with the pre-fix B3 capture of 87.9 %, not with the 89.4 % above. A rerun of all four formulations is pending.
 
 The preliminary RL benchmark (Soft Actor-Critic trained on 2024 data and tested over the 20.5-month out-of-sample period) captured a median of -5.9 % of the B1 to B2 gap (-7.1 % to -1.8 % across 3 seeds). A systematic failure mode audit revealed two architectural bottlenecks in standard home energy management RL formulations:
 
@@ -195,6 +201,8 @@ controller.
 Detailed per-seed statistics: [`reports/rl_eval_H28/`](reports/rl_eval_H28/).
 
 ### Economic bottom line and asset sizing
+
+> **Before the HTW clock fix, rerun pending.** The sizing grid below was computed with the pre-fix replay, so its 9.37 kWh / 5.63 kW row still shows the pre-fix B3 result (-387.5 EUR/a, 448.6 EUR/a savings, against the pre-fix PV-only baseline), not the rerun values in the benchmark table above.
 
 Twenty configurations, five battery capacities (5.0 to 15.0 kWh) against four inverter
 ratings (3.0, 4.6, 5.63, 7.5 kW), each operated over the same out-of-sample period as every
@@ -273,7 +281,7 @@ What it does not claim: it is not validated for any state or year (the only trut
 
 - The actual weather and the forecast come from the same provider's model family, so the PV forecast problem is slightly easier than against measurements (irradiance nRMSE 0.27 against its own analysis, 0.31 against independent ERA5).
 - The measured households are from 2010 (no heat pumps or electric vehicles) and from one unknown region; they are replayed on the 2024 to 2026 calendar by weekday and local clock.
-- **Fixed 2026-10-26 (c07847e), rerun in progress:** `htw.replay_on_calendar` read the HTW labels as MEZ, but they follow legal local time (see the aggregate load section), so every result above that uses an HTW household as truth replayed its summer behaviour one hour late against PV and prices. The replay is fixed and tested; the figures above are still the pre-fix ones and will be replaced once the rerun is committed: rolling evaluation H28/H31, household sweep, quarter-hour study, RL evaluation and ablation, sizing grid, the summer example day (2025-06-18) and its figure, and the load-forecast nRMSE in the data table.
+- **Fixed 2026-10-26 (c07847e):** `htw.replay_on_calendar` read the HTW labels as MEZ, but they follow legal local time (see the aggregate load section), so every result that uses an HTW household as truth replayed its summer behaviour one hour late against PV and prices. Rerun with the fix: the benchmark table (B0 to B3), the capture ladder and its figure, H31, the quarter-hour study and its figure, the summer example day and its figure, and the load-forecast nRMSE. With the old code the rebuilt dataset reproduced every published number to four decimals, so each change comes from the fix alone (B3 capture 87.9 % to 89.4 %). Still pre-fix and marked as such: the 73-household sweep and its figure, the sizing grid and the RL results.
 - The hourly counterfactual uses the hourly mean of the quarter-hour prices; bidding under hourly products would have differed, so the study measures the value of the finer signal, not a market counterfactual.
 - 2026 ends on 17 September.
 

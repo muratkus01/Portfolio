@@ -1,9 +1,9 @@
 ,net cost EUR,capture of B1->B2 %,cycles,violations,mean_solve_ms,mean_horizon_h
-B1 rule-based,-322.0519,0.0,307.133,0.0,,
-B2 perfect foresight,-710.2636,100.0,514.1867,0.0,,
-"B3 perfect PV+load, fitted TV",-702.1217,97.9027,508.0348,0.0,5.5579,23.1067
-"B3 perfect PV, SLP load, no TV",-656.8635,86.2446,497.4082,0.0,5.1477,23.1067
-"B3 perfect PV, SLP load, fitted TV",-662.1682,87.611,501.4019,0.0,5.3289,23.1067
-"B3 NWP PV, SLP load, no TV",-646.7701,83.6446,489.6738,0.0,4.9107,23.1067
-"B3 NWP PV, SLP load, blend TV",-646.7851,83.6485,493.3688,0.0,5.4041,23.1067
-"B3 NWP PV, SLP load, fitted TV",-651.3314,84.8196,493.0339,0.0,6.5997,23.1067
+B1 rule-based,-325.2309,0.0,303.8088,0.0,,
+B2 perfect foresight,-716.0052,100.0,514.438,0.0,,
+"B3 perfect PV+load, fitted TV",-707.8265,97.907,508.1508,0.0,29.2027,23.1067
+"B3 perfect PV, SLP load, no TV",-667.0956,87.4839,497.4613,0.0,20.5548,23.1067
+"B3 perfect PV, SLP load, fitted TV",-672.3212,88.8212,501.4541,0.0,20.6261,23.1067
+"B3 NWP PV, SLP load, no TV",-657.4147,85.0066,489.9601,0.0,19.8448,23.1067
+"B3 NWP PV, SLP load, blend TV",-656.4643,84.7634,493.2242,0.0,20.1686,23.1067
+"B3 NWP PV, SLP load, fitted TV",-661.6806,86.0982,492.9497,0.0,23.4116,23.1067
