@@ -380,6 +380,90 @@ Read this section first when continuing on the personal laptop. Everything below
 - To finish, on any machine with c07847e or later: build the data (`prosumer build-data`, then H28/H31 via `dataset.with_measured_load` and `save_dataset`; on EIM-MUK they already exist in `data/processed/`); delete `reports/household_sweep.csv` (it appends) and run `prosumer household-sweep --workers <cores>`; `prosumer sizing --workers <cores>`; the four `rl-eval` runs listed above; then `python -c "from prosumer.reporting.figures import make_all; make_all()"` (restores the RL bar); update the README sections marked "before the clock fix", remove the markers, review the numbers with the definitions above, commit. Rough budget on four cores: sweep 73 x 6 CPU-min, sizing 20 x 7 CPU-min, SAC 1.5 to 3 h per seed. Run it on the shared tree only after the other session's uncommitted solver edits are committed or dropped, otherwise in a clean worktree.
 - EIM-MUK scratchpad and its worktree disappear with the session; run `git worktree prune` there afterwards. Everything worth keeping was copied to `projects/01-prosumer-pv-bess-mpc-rl/data/claude_session_2026-10-26/` (scripts including `readme_numbers.py`, logs, partial results) and to the session note `portfolio-p01-thesis-ext` on EIM-MUK.
 
+## Runbook: rerun the four SAC formulations (2026-10-29, Claude Code)
+
+The RL section is the last part of Project 01 still measured on the pre-clock-fix replay, so
+the headline table compares RL at 27.0 % against a B3 of 89.4 % measured on a different
+dataset. This is how to close that. About 6 hours of compute, no decisions inside it.
+
+The driver is committed at `scripts/rerun_rl_formulations.py`.
+
+### Step 1: rebuild the H28 dataset
+It is gitignored, so it is absent after a clone.
+
+```bash
+cd projects/01-prosumer-pv-bess-mpc-rl
+export PYTHONPATH=src                      # cmd: set PYTHONPATH=src
+                                           # PowerShell: $env:PYTHONPATH="src"
+python -m prosumer.cli build-data          # minutes; fetches Open-Meteo and Energy-Charts
+python -c "import pandas as pd; from prosumer.data.dataset import load_dataset, with_measured_load, save_dataset; save_dataset(with_measured_load(load_dataset('data/processed/site_2024_2026.parquet'), pd.read_parquet('data/processed/htw_74_15min_2010.parquet'), 'H28', 3221.0), 'data/processed/site_2024_2026_htw_H28.parquet')"
+```
+
+Expected from `build-data`: 95,132 quarter-hours, 2023-12-31 23:00 to 2026-09-17 21:45 UTC.
+Expected H28 annual load: 3,235 kWh (2024), 3,248 (2025), 2,214 (2026 to 17 September), 0 NaN.
+
+This needs `data/processed/htw_74_15min_2010.parquet`, 9 MB. If it is missing, rebuild it from
+`data/Lastprofile/` through `prosumer.data.htw`, or carry that one parquet over by USB. The
+57 GB `Lastprofile/` folder itself is only needed for that rebuild.
+
+### Step 2: the gate. Do not skip it.
+```bash
+python -m prosumer.cli rolling-eval \
+  --data data/processed/site_2024_2026_htw_H28.parquet \
+  --out ../../tmp_verify --variants main
+```
+
+Required, exactly:
+
+| Rung | Net cost EUR | Capture % |
+|---|---:|---:|
+| B1 rule-based | -324.9827 | 0.0000 |
+| B2 perfect foresight | -716.6751 | 100.0000 |
+| B3 NWP PV, SLP load, fitted TV | -675.2715 | 89.4296 |
+
+Verified on the personal laptop on 2026-10-29: max absolute difference against the committed
+post-fix report was **0.0**. If any value differs, **stop**. The dataset is then not the one
+that produced the published numbers, and RL run against it would not be comparable with the
+rows above it in the table. `--variants main` is used instead of `all` so the gate costs
+minutes rather than about fifty.
+
+### Step 3: the rerun
+```bash
+cd ../..
+python scripts/rerun_rl_formulations.py
+python scripts/rerun_rl_formulations.py --only rescale_differential   # resume one failure
+```
+
+It **stages and does not publish**. Results land in
+`projects/01-prosumer-pv-bess-mpc-rl/data/processed/rl_rerun_stage/<formulation>/`. A
+half-finished rerun mixed into the committed reports would be worse than the stale numbers it
+replaces, so copying into `reports/` is a separate step after the numbers have been read.
+
+| Formulation | Pre-fix capture | Publish to |
+|---|---:|---|
+| `clip_net_cost` | -5.9 % | `reports/rl_ablation_clip_net_cost/` |
+| `rescale_net_cost` | -9.9 % | `reports/rl_ablation_rescale_net_cost/` |
+| `clip_differential` | +22.7 % | `reports/rl_ablation_clip_differential/` |
+| `rescale_differential` | +27.0 % | `reports/rl_eval_H28/` |
+
+Steps, seeds and workers stay at the published defaults of 500,000, 3 and 3. Changing them
+would make the pre- and post-fix numbers incomparable, which is the whole point of the rerun.
+
+### Step 4: after publishing, three README edits
+All in `projects/01-prosumer-pv-bess-mpc-rl/README.md`:
+1. The RL row of the benchmark table, plus its payback and ROCE. They currently use the
+   pre-fix PV-only baseline of +61.13 EUR/a and must move to +52.89.
+2. Delete footnote 2 and the pre-fix warning block above the RL section (around line 147).
+3. The ablation table in "Which of the two changes did the work".
+
+### Notes
+- `torch` is `2.13.0+cpu`, so SAC trains on the CPU and an RTX 4060 sits idle. That is where
+  the 83 to 90 minutes per seed comes from. A CUDA build would cut it, but it is a dependency
+  change on a currently green suite, so decide it deliberately rather than mid-run.
+- Still pre-fix after this, and marked as such in the README: the sizing grid and the
+  73-household sweep. Honest, but not current.
+- Suite at the time of writing: 294 passed, 7 skipped.
+
 ## ▶️ Next Concrete Actions (in order)
 
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
@@ -465,3 +549,4 @@ reaches a figure, a README or the showcase unless it traces to a committed CSV.
 - 2026-10-26 · Claude Code · EIM-MUK: next action 1 done. Per-state aggregate household load fitted to the 73 HTW households (day class, state holidays, season, ERA5 temperature anomaly), coefficients and ten validation checks committed under reports/aggregate_load (34/34 pass/fail rows pass, both seeds); state_holidays for all 16 states; ERA5 daily fetch. Out of sample 15-min nRMSE 0.20 vs H0 0.24. Adversarial review added a seasonal weekend uplift (CV error 0.648 to 0.607 kWh/day), the holiday detection limit and a fleet_load fix. Found: HTW labels are legal local time, so htw.py replays summer one hour late in every HTW-truth result (flagged in README, fix pending Murat); the households show no regional holiday (not Saarland, unless only a minority there). Committed locally, not pushed.
 - 2026-10-27 · Claude Code · EIM-MUK: HTW clock fixed in c07847e (replay on the households' own clock; regression tests fail on the old code). Rebuilt dataset reproduced the published numbers exactly with the old code; with the fix H28 B3 capture is 89.43 % (was 87.91), H31 86.10 %. Remaining reruns (sweep, sizing, RL, figures) running on EIM-MUK. README battery configuration corrected to 9.37 kWh / 5.63 kW. Handoff for the personal laptop written above; pushed to GitHub on Murat's request.
 - 2026-10-27 · Claude Code · EIM-MUK: rerun stopped on request after ten hours. Committed locally (not pushed): post-fix H28, H31 and quarter-hour results, three regenerated figures, README numbers (B3 89.4 %, B0 +52.89 EUR/a); household sweep, sizing and RL marked pre-fix with the steps to finish them in the status block above.
+- 2026-10-29 · Claude Code · Fehlgeschlagenen Test behoben: nicht der Test war falsch, sondern der Loader. pandas schreibt die kürzeste exakte float64-Darstellung, liest sie aber mit einem ungenauen Parser zurück (14.399999999999995 wurde 14.399999999999997); float_precision="round_trip" in load_model und load_state_normals. 294 passed, 7 skipped. Danach die RL-Wiederholung vorbereitet: H28-Datensatz neu gebaut und das Gate bestanden (B1 -324,9827 / B2 -716,6751 / B3 -675,2715 / 89,4296 %, maximale Abweichung 0,0 gegen den eingecheckten Post-Fix-Bericht). Treiber scripts/rerun_rl_formulations.py committet, staged nach data/processed/rl_rerun_stage und veröffentlicht nichts selbst. Lauf nicht gestartet: Murat führt ihn auf dem Firmenrechner aus, Runbook in diesem HANDOFF unter "Runbook: rerun the four SAC formulations".
