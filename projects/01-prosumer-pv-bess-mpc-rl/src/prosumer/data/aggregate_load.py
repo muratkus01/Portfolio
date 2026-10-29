@@ -334,7 +334,12 @@ def save_model(model: AggregateLoadModel, folder: str | Path, meta: dict | None 
 def load_model(folder: str | Path = MODEL_DIR) -> AggregateLoadModel:
     """Read the committed model; raises ValueError if a block has the wrong size."""
     folder = Path(folder)
-    coef = pd.read_csv(folder / "coefficients.csv")
+    # float_precision="round_trip" is load-bearing. pandas writes the shortest exact repr of a
+    # float64, but its default parser converts it back with a fast approximate strtod that can
+    # land one or two ULP away: 14.399999999999995 reads back as 14.399999999999997. The text
+    # on disk is correct, so a save/load cycle looked lossless and was not. Without this the
+    # committed coefficients differ in their last bits from the ones that were fitted.
+    coef = pd.read_csv(folder / "coefficients.csv", float_precision="round_trip")
     meta = pd.read_csv(folder / "fit_meta.csv").set_index("key")["value"]
     energy = coef[coef["block"] == "energy"]
     alpha = energy[energy["term"] == "alpha"].sort_values("day_class")["value"].to_numpy()
@@ -359,7 +364,9 @@ def load_model(folder: str | Path = MODEL_DIR) -> AggregateLoadModel:
 
 def load_state_normals(path: str | Path = MODEL_DIR / "state_normals.csv") -> dict[str, np.ndarray]:
     """Committed 1991-2020 ERA5 normal coefficients per state code, e.g. normals["BY"]."""
-    df = pd.read_csv(path).set_index("state")
+    # Same reason as in load_model: these are fitted float64 coefficients, so the parser has
+    # to read back the exact doubles that were written.
+    df = pd.read_csv(path, float_precision="round_trip").set_index("state")
     return {code: row[[c for c in df.columns if c.startswith("n")]].to_numpy(dtype=float)
             for code, row in df.iterrows()}
 
