@@ -119,12 +119,12 @@ constraint violations in every run.
 
 ![household sweep](docs/figures/household_sweep.png)
 
-**Before the clock fix, rerun pending:** across all 73 measured households the deployable
-B3 captured a median 85.2 % (middle half 83.5 to 87.3 %, range 75.0 to 91.4 %); the figure
-above is the same pre-fix run. The fix raised H28 by 1.5 points and H31 by 1.3, so the
-median is likely to rise by a similar amount once rerun. Households with high peaks capture
-less: H31, likely with an instantaneous electric water heater, reaches 97.9 % with perfect
-forecasts but 86.1 % with the standard-profile load forecast (both after the fix).
+Across all 73 measured households the deployable B3 captures a median **86.5 %** (middle
+half 84.8 to 88.3 %, range 76.8 to 91.2 %). The clock fix moved the median by +1.3 points
+(85.2 % before), H28 by +1.5 and H31 by +1.3, and no household by more than +3.6 or
+-1.8, so the ranking of households is essentially unchanged. Households with high peaks
+capture less: H31, likely with an instantaneous electric water heater, reaches 97.9 % with
+perfect forecasts but 86.1 % with the standard-profile load forecast.
 
 ### What is the quarter-hour day-ahead market worth?
 
@@ -202,8 +202,6 @@ Detailed per-seed statistics: [`reports/rl_eval_H28/`](reports/rl_eval_H28/).
 
 ### Economic bottom line and asset sizing
 
-> **Before the HTW clock fix, rerun pending.** The sizing grid below was computed with the pre-fix replay, so its 9.37 kWh / 5.63 kW row still shows the pre-fix B3 result (-387.5 EUR/a, 448.6 EUR/a savings, against the pre-fix PV-only baseline), not the rerun values in the benchmark table above.
-
 Twenty configurations, five battery capacities (5.0 to 15.0 kWh) against four inverter
 ratings (3.0, 4.6, 5.63, 7.5 kW), each operated over the same out-of-sample period as every
 other result here and each evaluated twice: once with the **deployable B3** and once with
@@ -213,12 +211,12 @@ savings are measured against the same site without a battery.
 
 | Battery | Inverter | CAPEX | Annual net cost (B3) | Annual savings (B3) | Cycles/a | Payback (B3) | ROCE (B3) | ROCE ceiling (B2) |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 5.00 kWh | 3.00 kW | 2,320 € | -247.8 € | 308.9 €/a | 316 | **7.5 yr** | **13.3 %** | 14.2 % |
-| 7.50 kWh | 4.60 kW | 3,499 € | -334.0 € | 395.2 €/a | 301 | 8.8 yr | 11.3 % | 12.0 % |
-| **9.37 kWh** | **5.63 kW** | **4,349 €** | **-387.5 €** | **448.6 €/a** | **288** | **9.7 yr** | **10.3 %** | 11.0 % |
-| 12.00 kWh | 5.63 kW | 5,270 € | -451.1 € | 512.2 €/a | 273 | 10.3 yr | 9.7 % | 10.3 % |
-| 15.00 kWh | 5.63 kW | 6,320 € | -513.8 € | 574.9 €/a | 260 | 11.0 yr | 9.1 % | 9.6 % |
-| 15.00 kWh | 7.50 kW | 6,675 € | -526.1 € | 587.2 €/a | 261 | 11.4 yr | 8.8 % | 9.3 % |
+| 5.00 kWh | 3.00 kW | 2,320 € | -255.8 € | 308.7 €/a | 316 | **7.5 yr** | **13.3 %** | 14.1 % |
+| 7.50 kWh | 4.60 kW | 3,499 € | -341.0 € | 393.9 €/a | 300 | 8.9 yr | 11.3 % | 11.9 % |
+| **9.37 kWh** | **5.63 kW** | **4,349 €** | **-394.4 €** | **447.3 €/a** | **287** | **9.7 yr** | **10.3 %** | 10.8 % |
+| 12.00 kWh | 5.63 kW | 5,270 € | -458.1 € | 511.0 €/a | 273 | 10.3 yr | 9.7 % | 10.2 % |
+| 15.00 kWh | 5.63 kW | 6,320 € | -520.6 € | 573.5 €/a | 259 | 11.0 yr | 9.1 % | 9.5 % |
+| 15.00 kWh | 7.50 kW | 6,675 € | -533.0 € | 585.9 €/a | 261 | 11.4 yr | 8.8 % | 9.2 % |
 
 Full sweep across all 20 configurations: [`reports/sizing_grid/sizing_grid.csv`](reports/sizing_grid/sizing_grid.csv).
 
@@ -230,16 +228,16 @@ Full sweep across all 20 configurations: [`reports/sizing_grid/sizing_grid.csv`]
    adds 126 EUR/a. The reason is visible in the cycle count, which falls from 316 to 260 full
    equivalent cycles a year: a larger battery spends more of the German winter unused.
 2. **The inverter saturates early.** On a 9.37 kWh battery, going from 4.6 to 7.5 kW adds
-   8.3 EUR/a for 551 EUR of extra equipment. Anything from 4.6 kW upward captures nearly all
+   8.8 EUR/a for 550 EUR of extra equipment. Anything from 4.6 kW upward captures nearly all
    of the value for an 8 kWp array.
 3. **Who operates the battery costs less than how big it is.** Across all 20 configurations
-   the deployable B3 realises 94 % of the perfect-foresight savings (93.6 to 95.6 %), a gap
-   of 0.5 to 0.9 points of ROCE. Choosing one size larger costs more return than the entire
+   the deployable B3 realises 95 % of the perfect-foresight savings (94.5 to 96.1 %), a gap
+   of 0.4 to 0.8 points of ROCE. Choosing one size larger costs more return than the entire
    distance between a real controller and a clairvoyant one.
 4. **Sweet spot.** For an 8 kWp array and 3,221 kWh/a of consumption, 5 to 7.5 kWh of storage
    with a 3 to 4.6 kW inverter maximises return (7.5 to 8.8 year payback, 11 to 13 % ROCE),
    while the 9.37 kWh / 5.63 kW point trades about 3 points of ROCE for
-   140 EUR/a more absolute savings.
+   139 EUR/a more absolute savings.
 
 ### Aggregate household load per federal state
 
@@ -281,7 +279,7 @@ What it does not claim: it is not validated for any state or year (the only trut
 
 - The actual weather and the forecast come from the same provider's model family, so the PV forecast problem is slightly easier than against measurements (irradiance nRMSE 0.27 against its own analysis, 0.31 against independent ERA5).
 - The measured households are from 2010 (no heat pumps or electric vehicles) and from one unknown region; they are replayed on the 2024 to 2026 calendar by weekday and local clock.
-- **Fixed 2026-10-26 (c07847e):** `htw.replay_on_calendar` read the HTW labels as MEZ, but they follow legal local time (see the aggregate load section), so every result that uses an HTW household as truth replayed its summer behaviour one hour late against PV and prices. Rerun with the fix: the benchmark table (B0 to B3), the capture ladder and its figure, H31, the quarter-hour study and its figure, the summer example day and its figure, and the load-forecast nRMSE. With the old code the rebuilt dataset reproduced every published number to four decimals, so each change comes from the fix alone (B3 capture 87.9 % to 89.4 %). All four RL formulations were retrained on the fixed data (3 seeds each); retrained policies also vary from seed to seed, so the RL changes are not attributed to the fix alone. Still pre-fix and marked as such: the 73-household sweep and its figure and the sizing grid.
+- **Fixed 2026-10-26 (c07847e):** `htw.replay_on_calendar` read the HTW labels as MEZ, but they follow legal local time (see the aggregate load section), so every result that uses an HTW household as truth replayed its summer behaviour one hour late against PV and prices. Rerun with the fix: the benchmark table (B0 to B3), the capture ladder and its figure, H31, the quarter-hour study and its figure, the summer example day and its figure, and the load-forecast nRMSE. With the old code the rebuilt dataset reproduced every published number to four decimals, so each change comes from the fix alone (B3 capture 87.9 % to 89.4 %). All four RL formulations were retrained on the fixed data (3 seeds each); retrained policies also vary from seed to seed, so the RL changes are not attributed to the fix alone. The 73-household sweep, its figure and the sizing grid were rerun last (2026-10-30): the sweep median moved 85.2 % to 86.5 % and the 9.37 kWh / 5.63 kW sizing row -387.5 to -394.4 EUR/a, so every number on this page now comes from the same dataset.
 - The hourly counterfactual uses the hourly mean of the quarter-hour prices; bidding under hourly products would have differed, so the study measures the value of the finer signal, not a market counterfactual.
 - 2026 ends on 17 September.
 
