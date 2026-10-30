@@ -65,10 +65,9 @@ Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kW
 | **B1** | Rule-based self-consumption | -324.98 € | -189.80 € | 0.0 % (B1 ref) | 168.9 | 0 | < 1 ms | 17.9 yr | 5.6 % |
 | **B2** | Perfect foresight MILP | -716.68 € | -418.57 € | 100.0 % | 298.2 | 0 | 4.2 s (yr) | 9.2 yr | 10.8 % |
 | **B3** | Deployable rolling MPC (realistic) | -675.27 € | -394.38 € | **89.4 %** | 287.5 | 0 | 5.9 ms ¹ | **9.7 yr** | **10.3 %** |
-| **RL** | Overhauled SAC (rescaled action, diff reward), **before the clock fix** ² | -426.38 € | -249.02 € | **27.0 %** | 264.6 | 0 | 1.2 ms | **14.0 yr** | **7.1 %** |
+| **RL** | Overhauled SAC (rescaled action, diff reward), median of 3 seeds | -451.82 € | -263.88 € | **32.4 %** | 267.8 | 0 | 1.2 ms | **13.7 yr** | **7.3 %** |
 
 ¹ Solve time measured on an idle machine before the clock fix; the rerun CSV shows 19.5 ms because eight jobs shared four cores. The fix does not touch the controller.
-² RL has not been rerun since the HTW clock fix (see the RL section); its row, payback and ROCE are pre-fix, against the pre-fix PV-only baseline of +61.13 EUR/a. Its annual cycles use the same annualisation as the other rows (264.6; 275.4 was printed before).
 
 - **B3 Headroom Recovery:** The deployable rolling MPC captures **89.4 %** of the theoretical perfect-foresight ceiling (350 of 392 EUR headroom over B1) using only published prices, NWP irradiance forecasts, and standard load profiles. Zero constraint violations across all 59,996 quarter-hours.
 - **Economic Return:** Adding a battery under B3 dispatch turns an annual electricity expense of +52.89 EUR/a (PV only) into a net revenue of -394.38 EUR/a, an annual gain of **447.27 EUR/a**. Against the marginal CAPEX of 4,349 EUR (350 EUR/kWh storage plus 190 EUR/kW inverter) that is a **9.7-year simple payback** and **10.3 % return on capital**, against 17.9 years and 5.6 % for the price-blind rule-based operation. Perfect foresight would reach 9.2 years and 10.8 %, so the entire remaining control gap is worth about half a point of return.
@@ -144,14 +143,12 @@ mismatch between PV and load inside the hour, and understates the optimised resu
 
 ### Reinforcement learning: formulation overhaul and diagnostic
 
-> **Before the HTW clock fix, not rerun.** Every RL number in this section was measured with the pre-fix replay (the household's summer load one hour late). Compare it with the pre-fix B3 capture of 87.9 %, not with the 89.4 % above. A rerun of all four formulations is pending.
+The preliminary RL benchmark (Soft Actor-Critic trained on 2024 data and tested over the 20.5-month out-of-sample period) captured a median of -7.3 % of the B1 to B2 gap (-12.7 % to +2.0 % across 3 seeds). A systematic failure mode audit revealed two architectural bottlenecks in standard home energy management RL formulations:
 
-The preliminary RL benchmark (Soft Actor-Critic trained on 2024 data and tested over the 20.5-month out-of-sample period) captured a median of -5.9 % of the B1 to B2 gap (-7.1 % to -1.8 % across 3 seeds). A systematic failure mode audit revealed two architectural bottlenecks in standard home energy management RL formulations:
-
-1. **Dead Gradient from Action Clipping (73 to 80 % clipping rate):** In raw action formulations where the policy outputs a normalized battery power setpoint $a \in [-1, 1]$ scaled to $[-P_{max}, P_{max}]$, the physical state of charge and grid limits frequently prevent the requested action. The safety layer clipped 73 to 80 % of actions. When actions are clipped by an external projection, policy gradient updates produce zero or misdirected gradient steps. This was the obvious suspect; the ablation below shows it was the lesser of the two problems, and that removing the clipping without fixing the reward makes the result worse.
+1. **Dead Gradient from Action Clipping (77 to 82 % clipping rate):** In raw action formulations where the policy outputs a normalized battery power setpoint $a \in [-1, 1]$ scaled to $[-P_{max}, P_{max}]$, the physical state of charge and grid limits frequently prevent the requested action. The safety layer clipped 77 to 82 % of actions. When actions are clipped by an external projection, policy gradient updates produce zero or misdirected gradient steps. This was the obvious suspect; the ablation below shows it was the lesser of the two problems, and that removing the clipping without fixing the reward makes no reliable difference.
 2. **Uncontrollable term in the step reward:** The raw reward was the total step electricity cost:
    $$r_t = - \left( c_{imp}(t) \cdot p_{imp}(t) - c_{exp}(t) \cdot p_{exp}(t) \right) \Delta t$$
-   Most of that cost is set by household load and irradiance, which the battery cannot influence. Measured on the test period, the no-battery step cost has a standard deviation of 4.5 ct while the battery's own contribution under B1 dispatch has 2.9 ct, so the uncontrollable part adds noise of roughly one and a half times the signal the agent is trying to learn from. It does not swamp the signal, but it does make credit assignment harder than it needs to be.
+   Most of that cost is set by household load and irradiance, which the battery cannot influence. Measured on the test period, the no-battery step cost has a standard deviation of 4.4 ct while the battery's own contribution under B1 dispatch has 2.9 ct, so the uncontrollable part adds noise of roughly one and a half times the signal the agent is trying to learn from. It does not swamp the signal, but it does make credit assignment harder than it needs to be.
 
 #### Implemented Solutions
 
@@ -162,7 +159,7 @@ To resolve these defects, two principled formulations were engineered and integr
   $$P_{max, feasible}(t) = \min\left( P_{dis, max}, \frac{(E(t) - E_{min})\eta_{dis}}{\Delta t} \right)$$
   The agent's action $a \in [-1, 1]$ is linearly mapped onto this feasible interval:
   $$p_{bat} = \frac{a + 1}{2} P_{max, feasible} + \frac{1 - a}{2} P_{min, feasible}$$
-  This guarantees that every proposed action is physically executable, reducing action clipping from 80 % to **0 %**.
+  This guarantees that every proposed action is physically executable, reducing action clipping from 77 to 82 % down to **0 %**.
 - **Differential Step Reward (`reward_mode="differential"`):** The reward function is reformulated to isolate the marginal economic value of battery dispatch:
   $$r_t = \text{Cost}_{no-battery}(t) - \text{Cost}_{with-battery}(t)$$
   By subtracting the uncontrollable base load and PV revenue, the policy observes an uncorrupted reward signal directly proportional to its arbitrage and peak-shaving decisions.
@@ -171,30 +168,33 @@ To resolve these defects, two principled formulations were engineered and integr
 
 With these two fixes applied, a 3-seed SAC evaluation was trained on 2024 and tested over the 20.5-month out-of-sample evaluation period (59,996 quarter-hours):
 
-- **Headroom Recovery:** Headroom recovery swung from **-5.9 %** to **+27.0 %** (range 26.2 % to 32.3 % across seeds), capturing an additional 105 EUR of economic value over the price-blind B1 heuristic.
-- **Action Clipping:** Safety layer action clipping dropped from **73-80 % down to exactly 0.0 %** across all seeds.
+- **Headroom Recovery:** Headroom recovery swung from **-7.3 %** to **+32.4 %** (range 31.7 % to 32.4 % across seeds), capturing an additional 127 EUR of economic value over the price-blind B1 heuristic. Before the HTW clock fix the same formulation reached 27.0 % (26.2 % to 32.3 %); one of those seeds already reached today's level, so with three seeds the change cannot be credited to the fix.
+- **Action Clipping:** Safety layer action clipping dropped from **77-82 % down to exactly 0.0 %** across all seeds.
 - **Physical Reliability:** Zero constraint violations across all 180,000 evaluated quarter-hours, verifying the safety layer guarantees.
 
 #### Which of the two changes did the work
 
-Both were introduced together, so each was rerun on its own for one seed
+Both were introduced together, so each was rerun on its own with the same three seeds
 (`reports/rl_ablation_*`). The answer is not the one the clipping statistic suggests:
 
-| Formulation | Clipping | Capture of the B1 to B2 gap |
+| Formulation | Clipping | Capture of the B1 to B2 gap, median (range) of 3 seeds |
 |---|---:|---:|
-| Original: clipped action, total-cost reward | 73 to 80 % | -5.9 % |
-| Feasible action rescaling only | 0 % | **-9.9 %** |
-| Differential reward only | 68 % | **+22.7 %** |
-| Both (reported above) | 0 % | **+27.0 %** |
+| Original: clipped action, total-cost reward | 77 to 82 % | -7.3 % (-12.7 to +2.0) |
+| Feasible action rescaling only | 0 % | **-3.4 %** (-4.7 to +0.7) |
+| Differential reward only | 67 to 71 % | **+27.0 %** (26.4 to 29.9) |
+| Both (reported above) | 0 % | **+32.4 %** (31.7 to 32.4) |
 
 The **reward** is what fixes the agent. Removing the uncontrollable part of the cost is worth
-about 29 points on its own, while action rescaling on its own is slightly harmful: with the
-old reward, a policy whose every request is executed simply acts on a signal it cannot read,
-and the clipping that looked like a defect was partly masking that. Rescaling does pay once
-the reward is informative, adding roughly 4 further points. Reporting clipping alone, as an
-intuitive diagnostic, would have pointed at the wrong fix.
+about 34 points on its own, while action rescaling on its own makes no reliable difference:
+its median is 3.9 points above the original, but the seed ranges overlap and the best seed
+of either captures only 2.0 % of the gap. Rescaling does pay once the
+reward is informative, adding about 5 further points; every seed with both changes beats
+every seed with the reward change alone. Reporting clipping alone, as an intuitive
+diagnostic, would have pointed at the wrong fix. Before the clock fix each ablation had one
+seed, and rescaling alone looked slightly harmful (-9.9 % against -5.9 %); three seeds show
+that difference was within the spread between seeds.
 
-Even so, RL remains far behind the deployable MPC (27 % against 87.9 %), and the honest
+Even so, RL remains far behind the deployable MPC (32 % against 89.4 %), and the honest
 reading is that this formulation is now a sound starting point rather than a competitive
 controller.
 
@@ -281,7 +281,7 @@ What it does not claim: it is not validated for any state or year (the only trut
 
 - The actual weather and the forecast come from the same provider's model family, so the PV forecast problem is slightly easier than against measurements (irradiance nRMSE 0.27 against its own analysis, 0.31 against independent ERA5).
 - The measured households are from 2010 (no heat pumps or electric vehicles) and from one unknown region; they are replayed on the 2024 to 2026 calendar by weekday and local clock.
-- **Fixed 2026-10-26 (c07847e):** `htw.replay_on_calendar` read the HTW labels as MEZ, but they follow legal local time (see the aggregate load section), so every result that uses an HTW household as truth replayed its summer behaviour one hour late against PV and prices. Rerun with the fix: the benchmark table (B0 to B3), the capture ladder and its figure, H31, the quarter-hour study and its figure, the summer example day and its figure, and the load-forecast nRMSE. With the old code the rebuilt dataset reproduced every published number to four decimals, so each change comes from the fix alone (B3 capture 87.9 % to 89.4 %). Still pre-fix and marked as such: the 73-household sweep and its figure, the sizing grid and the RL results.
+- **Fixed 2026-10-26 (c07847e):** `htw.replay_on_calendar` read the HTW labels as MEZ, but they follow legal local time (see the aggregate load section), so every result that uses an HTW household as truth replayed its summer behaviour one hour late against PV and prices. Rerun with the fix: the benchmark table (B0 to B3), the capture ladder and its figure, H31, the quarter-hour study and its figure, the summer example day and its figure, and the load-forecast nRMSE. With the old code the rebuilt dataset reproduced every published number to four decimals, so each change comes from the fix alone (B3 capture 87.9 % to 89.4 %). All four RL formulations were retrained on the fixed data (3 seeds each); retrained policies also vary from seed to seed, so the RL changes are not attributed to the fix alone. Still pre-fix and marked as such: the 73-household sweep and its figure and the sizing grid.
 - The hourly counterfactual uses the hourly mean of the quarter-hour prices; bidding under hourly products would have differed, so the study measures the value of the finer signal, not a market counterfactual.
 - 2026 ends on 17 September.
 

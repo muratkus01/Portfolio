@@ -1,0 +1,7 @@
+,net cost EUR,capture of B1->B2 %
+B1 rule-based,-324.9827,0.0
+B2 perfect foresight,-716.6751,100.0
+RL SAC seed 0,-332.8724,2.0143
+RL SAC seed 1,-275.4006,-12.6584
+RL SAC seed 2,-296.4363,-7.2879
+"B3 NWP PV, SLP load, fitted TV",-675.2716,89.4296

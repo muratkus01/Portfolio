@@ -1,0 +1,4 @@
+seed,cycles,violations,clipped_share,train_minutes,reward_mode,action_mode
+0,425.4646,0,0.7719,377.667,net_cost,clip
+1,384.5272,0,0.8247,378.8733,net_cost,clip
+2,393.5123,0,0.7965,377.9137,net_cost,clip

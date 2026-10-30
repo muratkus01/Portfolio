@@ -464,6 +464,55 @@ All in `projects/01-prosumer-pv-bess-mpc-rl/README.md`:
   73-household sweep. Honest, but not current.
 - Suite at the time of writing: 294 passed, 7 skipped.
 
+## RL rerun done and published (2026-10-30, Claude Code on EIM-MUK)
+
+The runbook above was followed on EIM-MUK in a clean worktree at 69bc045 (the shared tree there
+still holds the Teaching session's uncommitted solver edits, which `rl_eval` imports).
+
+- **Gate:** passed exactly (B1 -324.9827, B2 -716.6751, B3 -675.2715 EUR, 89.4296 %, max
+  difference 0.0). Idle solve time on EIM-MUK 12.3 ms; the README keeps 5.9 ms with its footnote.
+- **Run:** 2026-10-29 11:43 to 2026-10-30 13:35, 25.9 h, no failure; 500,000 steps, 3 seeds,
+  3 workers per formulation, torch 2.14.1 CPU; 370 to 400 min per formulation (the personal
+  laptop needs about a quarter of that). Order: headline first, so an interrupted run kept it.
+- **Published** into the four `reports/` folders of the runbook table (`rl_ablation_clip_net_cost`
+  is new) and `docs/figures/capture_ladder.png` regenerated with its RL bar (only that figure;
+  `make_all` would also rewrite the unchanged sweep and quarter-hour PNGs). Trained models stay
+  gitignored on EIM-MUK under `data/processed/rl_models_rerun/`.
+
+| Formulation | Pre-fix | Post-fix, median of 3 | Seeds | Clipping |
+|---|---:|---:|---|---:|
+| clip + net_cost (original) | -5.9 % (3 seeds) | -7.3 % | +2.0, -12.7, -7.3 | 77 to 82 % |
+| rescale + net_cost | -9.9 % (1 seed) | -3.4 % | +0.7, -4.7, -3.4 | 0 % |
+| clip + differential | +22.7 % (1 seed) | +27.0 % | 26.4, 27.0, 29.9 | 67 to 71 % |
+| rescale + differential (headline) | +27.0 % | **+32.4 %** | 31.7, 32.4, 32.4 | 0 % |
+
+- Benchmark row (median seed 1): -451.82 EUR, -263.88 EUR/a, 267.8 cycles/a, payback 13.7 yr,
+  ROCE 7.3 % against B0 +52.89 EUR/a. 0 violations in all 12 runs (179,988 quarter-hours per
+  formulation). RL is 127 EUR better than B1 over the 20.5 months.
+- **Claim corrected:** the README said action rescaling alone was "slightly harmful" (-9.9 against
+  -5.9, one seed against three). With three seeds each the ranges overlap; it now says rescaling
+  alone makes no reliable difference, and the "clipping was masking it" explanation is gone. The
+  reward effect is about 34 points (was 29), rescaling on top about 5 (was 4), and every
+  both-changes seed beats every reward-only seed.
+- **Not credited to the fix:** the headline moved 27.0 to 32.4 %, but one pre-fix seed already
+  reached 32.3 %; the README says so.
+- The reward-noise sentence recomputed on the fixed data: no-battery step cost std 4.45 ct
+  (pre-fix 4.49, which reproduced the old 4.5), battery part under B1 2.86 ct.
+- The number script used for every RL figure in the README is `rl_readme_numbers.py`
+  (EIM-MUK, `projects/01-*/data/claude_session_2026-10-26/scripts/`, gitignored); it reproduced
+  every pre-fix RL number from the old CSVs before it was run on the new ones.
+
+### Still to do, on the personal laptop
+1. Household sweep: delete `reports/household_sweep.csv` first (it appends), then
+   `python -m prosumer.cli household-sweep --workers <cores>` from the P01 folder with
+   `PYTHONPATH=src`; then `python -c "import matplotlib; matplotlib.use('Agg'); from pathlib import Path; from prosumer.reporting.figures import household_sweep; household_sweep(Path('reports'), Path('docs/figures'))"`.
+2. Sizing grid: `python -m prosumer.cli sizing --workers <cores>` (needs the H28 dataset of
+   the runbook's step 1).
+3. README: the household-sweep paragraph and the sizing section, both marked "Before the clock
+   fix", plus the limitations bullet; remove the markers; check the numbers against the CSVs.
+4. Owner decision: `showcase.html` still quotes RL 27.0 % (lines 1439, 1499 to 1500, 1552,
+   3032, 3039) and the old ladder (56 %, line 2866).
+
 ## ▶️ Next Concrete Actions (in order)
 
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
@@ -550,3 +599,4 @@ reaches a figure, a README or the showcase unless it traces to a committed CSV.
 - 2026-10-27 · Claude Code · EIM-MUK: HTW clock fixed in c07847e (replay on the households' own clock; regression tests fail on the old code). Rebuilt dataset reproduced the published numbers exactly with the old code; with the fix H28 B3 capture is 89.43 % (was 87.91), H31 86.10 %. Remaining reruns (sweep, sizing, RL, figures) running on EIM-MUK. README battery configuration corrected to 9.37 kWh / 5.63 kW. Handoff for the personal laptop written above; pushed to GitHub on Murat's request.
 - 2026-10-27 · Claude Code · EIM-MUK: rerun stopped on request after ten hours. Committed locally (not pushed): post-fix H28, H31 and quarter-hour results, three regenerated figures, README numbers (B3 89.4 %, B0 +52.89 EUR/a); household sweep, sizing and RL marked pre-fix with the steps to finish them in the status block above.
 - 2026-10-29 · Claude Code · Fehlgeschlagenen Test behoben: nicht der Test war falsch, sondern der Loader. pandas schreibt die kürzeste exakte float64-Darstellung, liest sie aber mit einem ungenauen Parser zurück (14.399999999999995 wurde 14.399999999999997); float_precision="round_trip" in load_model und load_state_normals. 294 passed, 7 skipped. Danach die RL-Wiederholung vorbereitet: H28-Datensatz neu gebaut und das Gate bestanden (B1 -324,9827 / B2 -716,6751 / B3 -675,2715 / 89,4296 %, maximale Abweichung 0,0 gegen den eingecheckten Post-Fix-Bericht). Treiber scripts/rerun_rl_formulations.py committet, staged nach data/processed/rl_rerun_stage und veröffentlicht nichts selbst. Lauf nicht gestartet: Murat führt ihn auf dem Firmenrechner aus, Runbook in diesem HANDOFF unter "Runbook: rerun the four SAC formulations".
+- 2026-10-30 · Claude Code · EIM-MUK: RL rerun of all four SAC formulations finished (25.9 h, 3 seeds each, gate exact) and published: headline 32.4 % (pre-fix 27.0), original -7.3 %, rescaling only -3.4 %, reward only +27.0 %. The README claim that rescaling alone is harmful did not survive three seeds and was corrected. Household sweep and sizing grid stay pre-fix, to be rerun on the personal laptop.

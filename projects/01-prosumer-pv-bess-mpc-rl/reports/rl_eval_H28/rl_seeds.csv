@@ -1,4 +1,4 @@
-seed,cycles,violations,clipped_share,train_minutes
-0,452.9746,0,0.0,90.3472
-1,444.3433,0,0.0,83.3065
-2,458.708,0,0.0,89.7861
+seed,cycles,violations,clipped_share,train_minutes,reward_mode,action_mode
+0,464.1966,0,0.0,399.9725,differential,rescale
+1,458.5386,0,0.0,398.459,differential,rescale
+2,465.6373,0,0.0,399.0813,differential,rescale
