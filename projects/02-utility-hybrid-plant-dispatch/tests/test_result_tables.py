@@ -419,6 +419,36 @@ def test_processes_side_by_side_lose_no_rows(tmp_path):
     assert len(pd.read_csv(path)) == 40
 
 
+def test_a_lock_or_table_held_for_a_moment_loses_no_rows(monkeypatch, tmp_path):
+    """Regression test: on Windows, os.open refuses a lock file that another process is
+    deleting with PermissionError, not FileExistsError, and os.replace refuses a table that
+    another program holds open for a moment, such as a virus scanner. Either crashed the merge
+    and lost its rows: four processes side by side kept 325 and 300 of 400 rows in two runs.
+    Here each is refused once, as Windows refuses it."""
+    import os
+
+    from hybrid import tables
+
+    real_open, real_replace = os.open, os.replace
+    refusals = {"open": 1, "replace": 1}
+
+    def busy(name, real):
+        def call(path, *args):
+            if refusals[name] and (name == "replace" or str(path).endswith(".lock")):
+                refusals[name] -= 1
+                raise PermissionError(13, "Permission denied", str(path))
+            return real(path, *args)
+        return call
+
+    monkeypatch.setattr(os, "open", busy("open", real_open))
+    monkeypatch.setattr(os, "replace", busy("replace", real_replace))
+    path = tmp_path / "run_meta.csv"
+    tables.merge_csv(path, [{"experiment": "a", "value": 1.0}], "experiment")
+
+    assert refusals == {"open": 0, "replace": 0}, "each was refused once"
+    assert path.read_text() == "experiment,value\na,1.0\n"
+
+
 def test_every_setting_is_recorded_or_named_inert():
     """A setting a table leaves out must be one no command reads, or a row could not be
     re-run from what it records; a new setting has to be put on one of the lists."""

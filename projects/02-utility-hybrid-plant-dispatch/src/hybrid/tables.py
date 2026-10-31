@@ -188,7 +188,28 @@ def merge_csv(path: Path, rows: list[dict], key: str) -> None:
                             ignore_index=True)
         partial = path.with_name(f"{path.name}.partial")
         new.sort_values(key, kind="stable").to_csv(partial, index=False, lineterminator="\n")
-        os.replace(partial, path)           # one step, so no reader sees half a file
+        # one step, so no reader sees half a file
+        _waiting_out_refusals(lambda: os.replace(partial, path))
+
+
+def _waiting_out_refusals(action, timeout_s: float = 30.0):
+    """Run `action`, a file operation, and repeat it while it fails with PermissionError, for
+    up to `timeout_s` seconds. Windows refuses to replace or delete a file that another
+    program holds open, and a virus scanner opens each new file for a moment; four processes
+    side by side lost a quarter of their rows to such refusals.
+
+    action: e.g. lambda: os.replace(partial, path). Returns what it returns.
+    Raises its last PermissionError once `timeout_s` has passed, e.g. while a viewer keeps
+    the file open.
+    """
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            return action()
+        except PermissionError:
+            if time.monotonic() > deadline:
+                raise
+            time.sleep(0.05)
 
 
 @contextlib.contextmanager
@@ -206,13 +227,15 @@ def _lock(path: Path, timeout_s: float = 300.0):
         try:
             handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             break
-        except FileExistsError:
+        except (FileExistsError, PermissionError) as err:
+            # Held by another process. Windows refuses a lock file that its holder is
+            # deleting with PermissionError rather than FileExistsError, for a moment.
             if time.monotonic() > deadline:
-                raise TimeoutError(f"{lock} has been held for {timeout_s:.0f} s; if no "
-                                   f"process is writing {path}, delete it") from None
+                raise TimeoutError(f"{lock} has been held for {timeout_s:.0f} s ({err}); if "
+                                   f"no process is writing {path}, delete it") from None
             time.sleep(0.05)
     try:
         yield
     finally:
         os.close(handle)
-        os.remove(lock)
+        _waiting_out_refusals(lambda: os.remove(lock))
