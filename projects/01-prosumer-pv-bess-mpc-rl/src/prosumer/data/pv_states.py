@@ -13,7 +13,9 @@ The method is deliberately split in two, because only one half can live in a pub
   * the CALIBRATION TARGETS are not. They come from a company reference export that Murat
     may use locally but not redistribute, so they are read at runtime from a gitignored file
     and are never written into committed code. `calibration_path()` says where. Without that
-    file the module still runs and falls back to a literature loss, and says so.
+    file the module still runs on a literature loss of 11 %, and says so: `generate()` and
+    `site_system()` issue a `FallbackLossWarning`, and `generate()` records the loss and its
+    source in the `attrs` of the series it returns.
 
 Reference-file repair. The 15 state exports carry a defect: their timestamp column is not
 monotonic. Exactly one row, always the last, is labelled one year and one hour before the
@@ -32,6 +34,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -80,6 +83,17 @@ STATE_SITES: dict[str, StateSite] = {
 # Used when no local calibration file is present. Mid-range of the 8 to 14 % band usually
 # quoted for lumped losses on a well-installed German rooftop array.
 FALLBACK_SYSTEM_LOSS = 0.11
+
+
+class FallbackLossWarning(UserWarning):
+    """A state is modelled with `FALLBACK_SYSTEM_LOSS` because no calibrated loss was found."""
+
+
+def _warn_fallback(code: str) -> None:
+    # A fallback run looks exactly like a calibrated one, so it must never be silent.
+    warnings.warn(f"{code}: no calibrated system loss in {calibration_path()}; using the "
+                  f"literature fallback of {FALLBACK_SYSTEM_LOSS:.0%}",
+                  FallbackLossWarning, stacklevel=3)
 
 
 def reference_dir() -> Path:
@@ -166,8 +180,15 @@ def find_reference_files(folder: str | Path | None = None) -> dict[str, Path]:
 
 # --------------------------------------------------------------------------- modelling
 def site_system(code: str, kwp: float = 1.0, system_loss: float | None = None) -> PVSystem:
+    """The south-facing array at a state's site, `kwp` peak, with the given lumped loss.
+
+    `system_loss=None` means `FALLBACK_SYSTEM_LOSS` and issues a `FallbackLossWarning`.
+    """
     site = STATE_SITES[code]
-    return PVSystem(kwp=kwp, system_loss=FALLBACK_SYSTEM_LOSS if system_loss is None else system_loss,
+    if system_loss is None:
+        _warn_fallback(code)
+        system_loss = FALLBACK_SYSTEM_LOSS
+    return PVSystem(kwp=kwp, system_loss=system_loss,
                     latitude=site.latitude, longitude=site.longitude, altitude=site.altitude)
 
 
@@ -257,12 +278,21 @@ def system_loss_for(code: str) -> tuple[float, str]:
 
 
 def generate(code: str, start: str, end: str) -> pd.Series:
-    """Per-kWp AC generation for a state over [start, end), 15-minute UTC index, kW."""
-    loss, _ = system_loss_for(code)
-    return model_1kwp(code, start, end, system_loss=loss)
+    """Per-kWp AC generation for a state over [start, end), 15-minute UTC index, kW.
+
+    The loss is the state's calibrated one when the local calibration file has it, else
+    `FALLBACK_SYSTEM_LOSS` with a `FallbackLossWarning`. Either way the series records it:
+    `attrs["system_loss"]` and `attrs["loss_source"]` ("calibrated" or "fallback").
+    """
+    loss, source = system_loss_for(code)
+    if source == "fallback":
+        _warn_fallback(code)
+    out = model_1kwp(code, start, end, system_loss=loss)
+    out.attrs.update(system_loss=loss, loss_source=source)
+    return out
 
 
-__all__ = ["STATE_SITES", "StateSite", "FALLBACK_SYSTEM_LOSS", "reference_dir",
-           "calibration_path", "load_reference_1kwp", "find_reference_files", "site_system",
-           "model_1kwp", "fit_system_loss", "validate", "load_calibration", "system_loss_for",
-           "generate"]
+__all__ = ["STATE_SITES", "StateSite", "FALLBACK_SYSTEM_LOSS", "FallbackLossWarning",
+           "reference_dir", "calibration_path", "load_reference_1kwp", "find_reference_files",
+           "site_system", "model_1kwp", "fit_system_loss", "validate", "load_calibration",
+           "system_loss_for", "generate"]
