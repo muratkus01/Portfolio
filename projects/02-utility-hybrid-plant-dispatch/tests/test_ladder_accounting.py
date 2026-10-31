@@ -6,7 +6,7 @@ import pytest
 
 import hybrid.baselines as baselines
 from hybrid.baselines import run_ladder
-from hybrid.config import PlantConfig, RunConfig
+from hybrid.config import MarketConfig, PlantConfig, RunConfig
 from hybrid.plant import simulate
 
 
@@ -69,9 +69,9 @@ def test_a_deviation_from_the_committed_schedule_is_settled_at_rebap(committed_m
     """Regression: run_ladder dropped the schedule whenever reBAP was given, so the imbalance
     cost was 0 in every run.
 
-    reBAP sits 70 EUR/MWh above spot (the system is short). A plant that delivers less than
-    it committed must buy the shortfall at reBAP, which is a cost; one that delivers more is
-    paid reBAP for the surplus, which is income.
+    reBAP sits 70 EUR/MWh above spot (the system is short). The settlement pays spot on all
+    delivered energy, so imbalance_cost is the deviation priced at the spread, reBAP minus
+    spot: a shortfall costs 70 EUR/MWh, and a surplus earns 70 EUR/MWh more than spot.
     """
     run = RunConfig(dt=0.25)
     wind, pv, price = window(16)
@@ -83,8 +83,26 @@ def test_a_deviation_from_the_committed_schedule_is_settled_at_rebap(committed_m
 
     for name, r in res.items():
         deviation = r["export"] - schedule
-        assert r["cost"]["imbalance_cost"] == pytest.approx(-np.sum(deviation * rebap) * run.dt)
+        assert r["cost"]["imbalance_cost"] == pytest.approx(-np.sum(deviation * 70.0) * run.dt)
         assert np.sign(r["cost"]["imbalance_cost"]) == sign, name
+
+
+def test_single_price_settlement_pays_the_deviation_once():
+    """Regression: the deviation was paid twice, at spot and again at reBAP.
+
+    Committed 10 MW, delivered 12 MW for an hour, spot 50 and reBAP 80 EUR/MWh. Single-price
+    settlement pays the 10 MWh committed at spot and the 2 MWh surplus at reBAP: 660 EUR, not
+    760. With no fee, no premium and a flat price the battery stays idle, so every rung
+    delivers the same 12 MW.
+    """
+    run = RunConfig(dt=0.25, market=MarketConfig(direct_marketing_fee=0.0))
+    n = 4
+
+    res = run_ladder(np.full(n, 12.0), np.zeros(n), np.full(n, 50.0), run, premium_rate=0.0,
+                     rebap=np.full(n, 80.0), include_b3=False, schedule=np.full(n, 10.0))
+
+    nets = {name: r["cost"]["net_revenue"] for name, r in res.items()}
+    assert nets == pytest.approx(dict.fromkeys(nets, 10 * 50.0 + 2 * 80.0))
 
 
 def test_imbalance_luck_does_not_trip_the_ladder_invariant():

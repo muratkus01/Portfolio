@@ -244,6 +244,7 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     rebap, schedule: imbalance price in EUR/MWh and the export the plant committed to, in MW,
         both per step. Each rung's deviation from the schedule is settled at reBAP only when
         both are given; no rung commits a schedule of its own, so reBAP alone settles nothing.
+        The settlement's imbalance_cost is the deviation priced at reBAP minus spot.
     export_cap: per-step export limit in MW (a redispatch order), or None for the connection.
     Returns {rung name: dispatch arrays plus "cost" (the settlement) and "violations"}.
     Raises AssertionError when a rung beats perfect foresight B2 on revenue before imbalance.
@@ -263,10 +264,15 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         out["B3 rolling MPC"] = b3_rolling(wind, pv, eff, wind_fc, pv_fc, price_fc, run,
                                            export_cap, progress=progress)
 
+    # Single-price settlement pays spot on the committed schedule and reBAP on the deviation.
+    # settle() pays spot on the whole export, so it must price the deviation at the spread,
+    # reBAP minus spot; handed reBAP itself, it paid the deviation twice.
+    spread = None if rebap is None else (np.asarray(rebap, dtype=float)
+                                         - np.asarray(price, dtype=float))
     for name, r in out.items():
         r["cost"] = _with_import_cost(
             settle(r, price, run.dt, run.plant, run.market,
-                   rebap=rebap, schedule=schedule, premium_rate=premium_rate),
+                   rebap=spread, schedule=schedule, premium_rate=premium_rate),
             r["import"], price, run.dt)
         r["violations"] = check_feasible(
             r, run.plant if "no battery" not in name
