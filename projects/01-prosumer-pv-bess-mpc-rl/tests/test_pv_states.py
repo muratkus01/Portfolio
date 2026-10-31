@@ -87,3 +87,20 @@ def test_state_sites_are_the_capitals_of_the_fleet_table():
 
     sites = {code: (s.latitude, s.longitude) for code, s in pv_states.STATE_SITES.items()}
     assert sites == {code: (geo[2], geo[3]) for code, geo in _GEO.items()}
+
+
+def test_site_altitude_barely_moves_the_yield():
+    """The comment on STATE_SITES: altitude enters only the solar position.
+
+    At the BY site on a clear June day, 520 m against sea level changes the yield by less
+    than 0.01 %.
+    """
+    pytest.importorskip("pvlib")
+    from prosumer.data.pv import PVSystem, pv_power
+
+    weather, site = _clear_june_day(), pv_states.STATE_SITES["BY"]
+    high, low = (pv_power(weather, PVSystem(kwp=1.0, latitude=site.latitude,
+                                            longitude=site.longitude, altitude=altitude)).sum()
+                 for altitude in (520.0, 0.0))
+    assert low > 0
+    assert abs(high / low - 1.0) < 1e-4

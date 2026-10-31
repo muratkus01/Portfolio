@@ -56,8 +56,8 @@ PROJECT = Path(__file__).resolve().parents[3]
 # One point per state: the city coordinates of the state capital, the same points as
 # `experiments.national_impact._GEO`. Munich is also the thesis household's site. Altitudes
 # are approximate and enter only the solar position (pvlib derives the air pressure from them;
-# the Faiman cell-temperature model takes no altitude): 520 m against 0 m changes the
-# modelled 2024 Bavarian yield by about 0.001 %.
+# the Faiman cell-temperature model takes no altitude), so they barely move the yield: less
+# than 0.01 % for 520 m against sea level on a clear day (tests/test_pv_states.py).
 @dataclass(frozen=True)
 class StateSite:
     code: str
