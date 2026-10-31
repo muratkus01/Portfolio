@@ -105,7 +105,7 @@ negative-price table above is unaffected, because on national data the connectio
 | **Status** | **Ladder implemented** on real 2025 wind/PV/price data · RL environment not yet built |
 | **Method** | Full benchmark ladder (B0-B3) + PPO/SAC with safety layer |
 | **Asset** | ~50 MW wind + ~30 MW PV + ~20 MW / 40 MWh battery behind a ~60 MW connection |
-| **Markets** | Day-ahead · intraday · imbalance · optional aFRR · EEG market premium |
+| **Markets** | Day-ahead · intraday · imbalance · EEG market premium · aFRR, not built yet (its settings in `MarketConfig` are inert) |
 | **Resolution** | 15 min |
 
 ---
@@ -155,7 +155,7 @@ is designed so every result is publishable and reproducible from open sources.
 | **Redispatch 2.0** (`§§13a, 14c EnWG`) | Plants ≥ 100 kW are subject to redispatch; planning data and forecasts are a regulatory obligation. Ordered curtailment is compensated and accounted separately from self-chosen curtailment |
 | **Grid connection capacity** | The hard constraint that defines the co-location problem. Flexible connection agreements (capping feed-in in exchange for faster/cheaper connection) are modelled as a configuration variant |
 | **Imbalance settlement / reBAP** | The dominant risk term for a weather-driven portfolio |
-| **Balancing markets** | Optional aFRR participation by the battery, subject to prequalification and to reserving headroom that then cannot be used for curtailment avoidance |
+| **Balancing markets** | Optional aFRR participation by the battery, subject to prequalification and to reserving headroom that then cannot be used for curtailment avoidance. **Not built yet:** the aFRR settings in `MarketConfig` are inert, and no command reads them |
 | **Storage regulatory treatment** | Whether the battery may charge from the grid or only from co-located generation materially changes both the optimisation and the EEG treatment. **A switchable configuration**, because the answer determines the business case |
 
 ---
@@ -174,7 +174,7 @@ is designed so every result is publishable and reproducible from open sources.
 - Curtailment decisions distinguishing self-chosen from ordered.
 - Battery sizing and connection-capacity sizing sensitivity - the design question a developer
   actually asks.
-- Optional aFRR participation and its opportunity cost against curtailment avoidance.
+- Optional aFRR participation and its opportunity cost against curtailment avoidance (not built yet; its settings are inert).
 
 ### Out of scope
 
@@ -206,7 +206,7 @@ is designed so every result is publishable and reproducible from open sources.
 | RQ2 | What is the optimal connection-capacity ratio? | H2: Well below the sum of nameplates, with the optimum shifting **upward** as the negative-price rule tightens (curtailment becomes cheap, so firm export capacity is worth less) |
 | RQ3 | Does a learned policy beat rolling MPC? | H3: Yes, modestly, and specifically in high-forecast-error periods, by managing imbalance-tail risk that a point-forecast MPC ignores |
 | RQ4 | What does the tightened negative-price rule cost a new plant relative to an old one? | H4: Material, and partly recoverable by storage - quantifying "partly" is the deliverable |
-| RQ5 | Is aFRR participation worth it for the battery? | H5: Only when the connection is not the binding constraint; where curtailment risk is high, reserved headroom is too expensive |
+| RQ5 | Is aFRR participation worth it for the battery? | H5: Only when the connection is not the binding constraint; where curtailment risk is high, reserved headroom is too expensive. Not testable yet: aFRR is not built |
 
 ---
 
@@ -230,12 +230,12 @@ flowchart TB
     end
 
     subgraph STG["Decision stages"]
-        S1["D-1 · day-ahead schedule<br/>(+ optional aFRR bid)"]
+        S1["D-1 · day-ahead schedule<br/>(+ aFRR bid, not built yet)"]
         S2["Intraday · correction"]
         S3["Real time · dispatch<br/>curtail vs. charge"]
     end
 
-    SAFE["Safety layer<br/>connection capacity · SoC bounds<br/>ramp limits · reserved aFRR headroom"]
+    SAFE["Safety layer<br/>connection capacity · SoC bounds<br/>ramp limits · aFRR headroom (not built yet)"]
 
     subgraph PLANT["Hybrid plant"]
         WT["Wind farm<br/>power curve + wake"]
@@ -288,7 +288,7 @@ import limit governing whether the battery may charge from the grid.
 subject to: generation availability `g_wind(t) ≤ ĝ_wind(t)`, `g_pv(t) ≤ ĝ_pv(t)` with explicit
 curtailment variables; battery energy balance and mutual exclusion of charge/discharge; **the
 point-of-interconnection export limit**; ramp limits; reserved headroom where aFRR capacity is
-sold; and a terminal value function on SoC.
+sold (aFRR is not built yet); and a terminal value function on SoC.
 
 The market premium's dependence on the **monthly** market value couples the whole month, so
 the rolling-horizon formulation carries a month-to-date accumulator as a state variable rather
@@ -300,12 +300,12 @@ wrong, weakening the baseline.
 | Element | Definition |
 |---------|-----------|
 | **State** | Battery SoC; committed schedule for the remaining horizon; realised generation; wind/PV forecast quantiles over the horizon (and their spread - the uncertainty signal); price forecasts for DA/ID/reBAP; month-to-date market-value accumulator; redispatch state; calendar features |
-| **Action** | Battery power setpoint; curtailment level per technology; intraday trade volume; optional aFRR capacity offer at the bid gate |
+| **Action** | Battery power setpoint; curtailment level per technology; intraday trade volume; optional aFRR capacity offer at the bid gate, once aFRR is built |
 | **Reward** | Step economic result including the correct premium treatment, minus degradation. **No hard-constraint penalties** |
 | **Risk** | Distributional critic; CVaR option on the daily result - the imbalance tail is the whole point |
-| **Safety layer** | Projection enforcing the export limit, SoC bounds, ramp limits, aFRR headroom reservation and any active redispatch order. Violations impossible by construction |
+| **Safety layer** | Projection enforcing the export limit, SoC bounds, ramp limits, aFRR headroom reservation (once aFRR is built) and any active redispatch order. Violations impossible by construction |
 | **Episode** | 14-30 days, so the monthly premium coupling is visible within an episode |
-| **Algorithm** | SAC for continuous dispatch; PPO where the aFRR bid decision is discretised |
+| **Algorithm** | SAC for continuous dispatch; PPO where the aFRR bid decision is discretised, once aFRR is built |
 
 ---
 
@@ -321,7 +321,7 @@ wrong, weakening the baseline.
 | reBAP | Imbalance settlement | netztransparenz.de | 15 min | Open |
 | Monthly market values & applicable values | EEG market premium | netztransparenz.de / BNetzA published values | Monthly | Open |
 | Redispatch measures | Override channel calibration | netztransparenz.de | Per measure | Open |
-| Balancing capacity prices | Optional aFRR revenue | `regelleistung.net` | Per 4-h product | Open |
+| Balancing capacity prices | Optional aFRR revenue (aFRR not built yet) | `regelleistung.net` | Per 4-h product | Open |
 | Battery parameters | Storage model | Manufacturer data + published ageing models | - | Open |
 | Realised plant generation | B0/B1 validation | ENTSO-E / SMARD aggregate by technology; site-level only with an operator partner | 15 min | Aggregate open; **site-level is the gap** |
 
@@ -345,12 +345,12 @@ plant-specific configuration remains a documented assumption.
 
 **Primary KPI:** annual net revenue (€/a), with mean, 5 %-quantile and CVaR₅ of the daily
 distribution. **Headline:** B3-gap closure. **Secondary:** revenue decomposition (DA / ID /
-imbalance / premium / aFRR), curtailed energy split into self-chosen and ordered, imbalance
+imbalance / premium / aFRR once built), curtailed energy split into self-chosen and ordered, imbalance
 volume and cost, battery equivalent full cycles, connection-limit violations (must be 0).
 
 Ablations: connection capacity ratio sweep (the sizing question); battery size sweep;
 negative-price rule by vintage; forecast quality (perfect / realistic / degraded / ensemble
-vs. point - this is the H3 test); aFRR participation on/off; grid-charging permitted or not;
+vs. point - this is the H3 test); aFRR participation on/off once aFRR is built; grid-charging permitted or not;
 storage degradation cost; safety layer on/off.
 
 The **value decomposition** (RQ1) is obtained by re-running the optimal policy with individual
