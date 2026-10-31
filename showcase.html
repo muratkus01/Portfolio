@@ -1568,11 +1568,11 @@
 
             <!-- Tab 6: Germany-Wide System-Level Impact -->
             <div id="p01-pane-system" class="proj-pane">
-              <h4>National Meta-Household Aggregation & Merit-Order Displacement (Chapter 10)</h4>
-              <p>Scales residential flexibility across 16 German federal states using Bundesnetzagentur MaStR and Battery-Charts.de telemetry:</p>
-              <p>&bull; <strong>Fleet Growth Trajectory:</strong> MaStR register, home storage, 1 January of each year: 2024 (1,119,240 units, 10.03 GWh, 6.19 GW) &rarr; 2025 (1,670,776 units, 14.90 GWh, 9.46 GW) &rarr; 2026 (2,190,625 units, 19.12 GWh, 12.16 GW). The mean unit gets SMALLER as the fleet grows, from 8.96 kWh to 8.73 kWh, because newly registered home storages are smaller than the installed base. The register export ends 13 January 2026, so 2026 is a January snapshot and not a full year.</p>
-              <p>&bull; <strong>Top Federal States by Fleet Size:</strong> Bayern (588k units, 5.60 GWh), Baden-Wuerttemberg (407k units, 3.92 GWh), Nordrhein-Westfalen (384k units, 3.46 GWh), Niedersachsen (241k units, 2.16 GWh).</p>
-              <p>&bull; <strong>Fossil Gas Displacement (Table 10-13):</strong> With a marginal discharge cost of 48.95 EUR/MWh, residential BESS systematically displaces marginal open-cycle (OCGT) and combined-cycle (CCGT) gas plants during peak hours. Displaces -5,264.3 MWh (-97.0% of fossil gas) during Summer Evening Peak (01.07 19:00), -5,775.9 MWh (-30.2%) during Winter Scarcity (12.12 17:00), and absorbs +5,448.1 MWh of solar surplus during midday negative price events (12.05).</p>
+              <h4>National Home-Storage Fleet (MaStR) and Thesis Merit-Order Results (Chapter 10)</h4>
+              <p>Sums the installed home-storage fleet of the 16 federal states from the Bundesnetzagentur MaStR register, as exported by Battery-Charts.de; no dispatch or flexibility is scaled:</p>
+              <p>&bull; <strong>Fleet Growth Trajectory:</strong> MaStR register, lithium-ion home storage (about 97% of all home storages), installed nameplate on 1 January of each year: 2024 (1,119,240 units, 10.03 GWh, 6.19 GW) &rarr; 2025 (1,670,776 units, 14.90 GWh, 9.46 GW) &rarr; 2026 (2,190,625 units, 19.12 GWh, 12.16 GW). The mean unit gets SMALLER as the fleet grows, from 8.96 kWh to 8.73 kWh, because newly registered home storages are smaller than the installed base. The register export ends 13 January 2026, so 2026 is a January snapshot and not a full year.</p>
+              <p>&bull; <strong>Top Federal States by Fleet Size (MaStR home storage, 1 January 2026):</strong> Bayern (435k units, 3.80 GWh), Nordrhein-Westfalen (430k units, 3.76 GWh), Baden-Wuerttemberg (349k units, 3.05 GWh), Niedersachsen (271k units, 2.37 GWh), energy at the Germany-wide mean of 8.73 kWh per unit.</p>
+              <p>&bull; <strong>Fossil Gas (thesis Table 10-13, copied here and not reproduced):</strong> if every extra MWh of battery export replaced gas one to one, the thesis's national hourly shifts would equal up to 97% of gas output in that hour (-5,264.3 MWh on 1 July 2024 at 19:00 CET). This is an accounting estimate with no merit-order or plant model. It is also an upper bound, because per unit it has nearly every home battery at full power in the same hour.</p>
             </div>
           </div>
 
@@ -1949,101 +1949,104 @@
         <div id="p01-tview-national" class="thesis-view-panel" style="display: none;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
             <div style="font-size:0.86rem; color:var(--text-sub);">
-              Aggregated across 16 federal states using Bundesnetzagentur MaStR and Battery-Charts.de data:
+              Installed home-storage fleet, summed over the 16 federal states (Bundesnetzagentur MaStR register, exported by Battery-Charts.de):
             </div>
             <div style="display:flex; gap:6px;">
-              <button class="day-btn" id="p01-natbtn-2024" onclick="selectNationalYear('2024')">2024 Base</button>
-              <button class="day-btn" id="p01-natbtn-2025" onclick="selectNationalYear('2025')">2025 Real</button>
-              <button class="day-btn active" id="p01-natbtn-2026" onclick="selectNationalYear('2026')">2026 Forecast</button>
+              <button class="day-btn" id="p01-natbtn-2024" onclick="selectNationalYear('2024')">1 Jan 2024</button>
+              <button class="day-btn" id="p01-natbtn-2025" onclick="selectNationalYear('2025')">1 Jan 2025</button>
+              <button class="day-btn active" id="p01-natbtn-2026" onclick="selectNationalYear('2026')">1 Jan 2026</button>
             </div>
           </div>
 
           <div class="sim-results-grid" style="margin-bottom: 20px;">
             <div class="sim-res-box">
-              <div class="sim-res-lbl">National Residential BESS</div>
-              <div class="sim-res-val cyan" id="p01-nat-units">2,640,000 Units</div>
+              <div class="sim-res-lbl">Home Storages (lithium-ion)</div>
+              <div class="sim-res-val cyan" id="p01-nat-units">2,190,625 Units</div>
               <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Battery-Charts.de MaStR</div>
             </div>
             <div class="sim-res-box">
-              <div class="sim-res-lbl">Cumulative Storage</div>
-              <div class="sim-res-val emerald" id="p01-nat-energy">24.15 GWh</div>
-              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;" id="p01-nat-avgenergy">9.15 kWh avg / home</div>
+              <div class="sim-res-lbl">Installed Storage Energy</div>
+              <div class="sim-res-val emerald" id="p01-nat-energy">19.12 GWh</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;" id="p01-nat-avgenergy">8.73 kWh avg / home</div>
             </div>
             <div class="sim-res-box">
-              <div class="sim-res-lbl">Cumulative Inverter Power</div>
-              <div class="sim-res-val emerald" id="p01-nat-power">15.16 GW</div>
-              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;" id="p01-nat-avgpower">5.74 kW avg / home</div>
+              <div class="sim-res-lbl">Installed Inverter Power (nameplate)</div>
+              <div class="sim-res-val emerald" id="p01-nat-power">12.16 GW</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;" id="p01-nat-avgpower">5.55 kW avg / home</div>
             </div>
             <div class="sim-res-box">
-              <div class="sim-res-lbl">Marginal Discharge Cost</div>
+              <div class="sim-res-lbl">Thesis Marginal Discharge Cost</div>
               <div class="sim-res-val amber">48.95 EUR/MWh</div>
-              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Displaces Fossil Gas in Merit-Order</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Thesis value from Table 10-13</div>
             </div>
           </div>
 
-          <!-- Merit-Order Fossil Gas Displacement Table -->
+          <!-- Thesis Table 10-13: national hourly grid-exchange shift on 5 days (hard-coded thesis values) -->
           <div class="table-card" style="margin-bottom: 18px;">
             <div class="table-title">
-              <span>Merit-Order Fossil Gas Displacement across 5 Benchmark Days (Table 10-13)</span>
-              <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.74rem;">Marginal Discharge Cost: 48.95 EUR/MWh</span>
+              <span>Thesis Table 10-13: National Hourly Shift on 5 Days (copied, not reproduced)</span>
+              <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.74rem;">Hard-coded thesis values</span>
             </div>
+            <p style="font-size: 0.78rem; color: var(--text-sub); line-height: 1.55; padding: 10px 20px 0;">
+              Copied from thesis Table 10-13 (2024 days) into <code>national_impact.REPRESENTATIVE_DAYS</code>; the method and the fleet behind the shifts are not reproduced in this repository. The shift is the optimised minus the rule-based national grid exchange in that hour (negative means more export or less import). The gas share assumes every extra MWh of battery export replaces gas one to one; there is no merit-order or plant model. Against the thesis 2024 fleet (1,116,967 home storages, 6,167 MW), the summer, negative-price and scarcity shifts equal 85 to 94% of every home battery's inverter rating for a full hour: an upper bound that assumes every battery takes part, with perfect foresight. The code gives the hours without a clock; on the thesis clock (CET, no summer time) the summer, scarcity and negative-price hours fall on the day's highest or lowest price, so the table uses CET. Prices are the EPEX day-ahead price of that hour in the public thesis input data.
+            </p>
             <table class="ladder-tbl">
               <thead>
                 <tr>
                   <th>Benchmark Regime</th>
                   <th>Date</th>
-                  <th>Peak Hour</th>
-                  <th>Spot Price</th>
-                  <th>Gas Displaced (MWh)</th>
-                  <th>Displacement %</th>
-                  <th>System Dynamics</th>
+                  <th>Hour (CET)</th>
+                  <th>Day-Ahead Price</th>
+                  <th>National Shift (MWh)</th>
+                  <th>Gas Share if 1:1</th>
+                  <th>What the Shift Is</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><span class="day-preset-tag">Summer Solstice</span></td>
+                  <td><span class="day-preset-tag">Summer Day</span></td>
                   <td>2024-07-01</td>
                   <td>19:00</td>
-                  <td>110.0 EUR/MWh</td>
+                  <td>166.79 EUR/MWh</td>
                   <td class="emerald" style="font-weight:700;">-5,264.3 MWh</td>
-                  <td class="emerald" style="font-family:var(--font-mono); font-weight:700;">-97.0%</td>
-                  <td>Near-total elimination of fossil gas during summer evening ramp</td>
+                  <td class="emerald" style="font-family:var(--font-mono); font-weight:700;">97.0%</td>
+                  <td>Extra battery export in the evening price peak</td>
                 </tr>
                 <tr>
                   <td><span class="day-preset-tag alert">Winter Scarcity</span></td>
                   <td>2024-12-12</td>
                   <td>17:00</td>
-                  <td>280.0 EUR/MWh</td>
+                  <td>936.28 EUR/MWh</td>
                   <td class="emerald" style="font-weight:700;">-5,775.9 MWh</td>
-                  <td class="emerald" style="font-family:var(--font-mono); font-weight:700;">-30.2%</td>
-                  <td>Heavy peak shaving against extreme winter residual demand</td>
+                  <td class="emerald" style="font-family:var(--font-mono); font-weight:700;">30.2%</td>
+                  <td>Extra battery export at the scarcity price peak</td>
                 </tr>
                 <tr>
                   <td><span class="day-preset-tag">Transition Ramp</span></td>
                   <td>2024-03-15</td>
                   <td>08:00</td>
-                  <td>120.0 EUR/MWh</td>
+                  <td>68.75 EUR/MWh</td>
                   <td class="cyan" style="font-weight:700;">-2,493.1 MWh</td>
-                  <td class="cyan" style="font-family:var(--font-mono); font-weight:700;">-19.6%</td>
-                  <td>Morning demand ramp shaving before solar generation begins</td>
+                  <td class="cyan" style="font-family:var(--font-mono); font-weight:700;">19.6%</td>
+                  <td>Extra battery export in the morning ramp</td>
                 </tr>
                 <tr>
                   <td><span class="day-preset-tag">Winter Base</span></td>
                   <td>2024-01-16</td>
                   <td>09:00</td>
-                  <td>140.0 EUR/MWh</td>
+                  <td>138.60 EUR/MWh</td>
                   <td class="cyan" style="font-weight:700;">-692.5 MWh</td>
-                  <td class="cyan" style="font-family:var(--font-mono); font-weight:700;">-4.5%</td>
-                  <td>Moderate displacement constrained by low winter solar SoC</td>
+                  <td class="cyan" style="font-family:var(--font-mono); font-weight:700;">4.5%</td>
+                  <td>Small extra battery export in the morning</td>
                 </tr>
                 <tr>
                   <td><span class="day-preset-tag danger">Negative Price Crash</span></td>
                   <td>2024-05-12</td>
-                  <td>13:00</td>
-                  <td>-45.0 EUR/MWh</td>
+                  <td>12:00</td>
+                  <td>-135.45 EUR/MWh</td>
                   <td class="amber" style="font-weight:700;">+5,448.1 MWh</td>
-                  <td class="amber" style="font-family:var(--font-mono); font-weight:700;">+100% Absorbed</td>
-                  <td>Strategic discharge withholding absorbing excess grid solar surplus</td>
+                  <td class="amber" style="font-family:var(--font-mono); font-weight:700;">0% (no extra export)</td>
+                  <td>Less export than the rule-based case: export withheld at a negative price</td>
                 </tr>
               </tbody>
             </table>
@@ -2076,6 +2079,9 @@
                 </select>
               </div>
             </div>
+            <p style="font-size: 0.78rem; color: var(--text-sub); line-height: 1.55; margin-bottom: 10px;">
+              Lithium-ion home storages on 1 January (MaStR). Mean size is the national MaStR mean in every state (per-state means are biased by large-scale batteries); MW is installed inverter power, not a coincident peak. Rows copied from <code>national_impact.federal_states()</code>; no script regenerates them.
+            </p>
             <div style="max-height: 280px; overflow-y: auto;">
               <table class="ladder-tbl" id="p01-state-tbl">
                 <thead>
