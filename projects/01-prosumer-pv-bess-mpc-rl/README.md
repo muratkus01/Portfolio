@@ -141,16 +141,16 @@ prices or their hourly means, and both are settled at the real quarter-hour pric
 
 ![quarter-hour value](docs/figures/quarter_hour_value.png)
 
-Reacting to quarter-hour prices is worth **26.3 EUR** for the deployable B3 over the 352
-days from 2025-10-01 to 2026-09-17, or 27.3 EUR a year (22.7 EUR, or 23.5 EUR a year, with
-perfect foresight). That is 11.2 % of the whole optimisation gain (B1 to B2) over the same
-days (9.6 % with perfect foresight). It is earned mostly from March to October. The
-standard-profile household gives nearly the same values (24.9 and 22.3 EUR over the 352
-days). An hourly model of the same household, as in the thesis, overstates the rule-based
-result by 12.1 EUR, because hourly averaging hides the mismatch between PV and load inside
-the hour, and understates the optimised result by 9.0 EUR. The values come from
-`resolution_summary.csv` in `reports/quarter_hour_study_H28/` and
-`reports/quarter_hour_study_slp/`.
+Reacting to quarter-hour prices is worth **26.3 EUR** to the deployable B3 over the 352
+days from 2025-10-01 to 2026-09-17, about 27 EUR/a if scaled pro rata to a full year
+(22.7 EUR over the 352 days with perfect foresight). That is 11.2 % of the whole
+optimisation gain (B1 to B2) over the same days (9.6 % with perfect foresight). It is earned
+mostly from March to October. The standard-profile household gives nearly the same values
+(24.9 and 22.3 EUR over the 352 days). An hourly model of the same household, as in the
+thesis, overstates the rule-based result by 12.1 EUR, because hourly averaging hides the
+mismatch between PV and load inside the hour, and understates the optimised result by
+9.0 EUR ([H28](reports/quarter_hour_study_H28/resolution_summary.csv),
+[standard profile](reports/quarter_hour_study_slp/resolution_summary.csv)).
 
 ### Reinforcement learning: formulation overhaul and diagnostic
 
