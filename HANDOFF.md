@@ -547,6 +547,100 @@ under `reports/` and cites them 16 times in its README; P02 and P03 have none an
 Antigravity could only mark them as unverified claims in the walkthroughs.
 
 
+## Open data-quality questions on P01, unanswered as of 2026-10-31
+
+Murat asked four questions on 2026-10-31. None is answered yet. An audit was started and stopped
+on his request after a few minutes, so there are no findings to carry over, only the questions.
+They are written here because answering them from memory is how this project got a wrong README
+figure once already: `scenarios.EXTENSION_RUN` overrides `SiteConfig`, so a default value in
+`config.py` is not evidence of what actually ran. Follow the call chain to the entry point before
+accepting any "the published results used X" claim.
+
+Read-only work. No reruns are needed to answer any of the four.
+
+### 1. Price resolution and the 2025-10-01 interval change
+The German day-ahead auction moved to 15-minute MTU on 2025-10-01. The simulated period straddles
+that date: about 21 months before it and 11.5 months after.
+
+- Where are spot prices fetched, and at what native resolution for 2024, for 2025 before October,
+  and for 2025-10 onward? Count the timestamps per day in `datakit/cache/` for a March 2025 day
+  against a November 2025 day. Do not infer this from the column name.
+- Quote the upsampling code that turns a 60-minute price into four quarter-hours.
+- The economic consequence, which is the real question: with a flat price across an hour, no
+  controller can arbitrage inside that hour. So does the pre-October portion bias B2 and B3
+  downward, or leave them unaffected? Reason from the optimiser's objective function, quoted,
+  not from intuition.
+- Is the change detected, flagged, documented or tested anywhere: a comment, a README sentence,
+  an assertion, a column, a split in the evaluation period?
+- What does the quarter-hour study actually compare, over which range, and is the comparison
+  contaminated by real 15-minute prices existing for only part of the period?
+- Which other series are hourly and upsampled: grid fees, feed-in tariff, levies, any reBAP?
+
+### 2. How sizing changes from one household to the whole country
+In `src/prosumer/experiments/national_impact.py`:
+
+- Does it multiply a quarter-hourly dispatch time series by a household count, or only annual
+  scalars (EUR/a, kWh/a)? Quote the arithmetic.
+- This matters because multiplying a time series by N assumes perfect simultaneity across N
+  households, which is the upper bound and not the expectation. Measured earlier in this project:
+  peak-to-mean is 11.62 for one HTW household, 2.70 for the measured sum of all 74, 2.35 for
+  dynamised H0. For Bavaria, one household's profile times the household count implies a 1436 MW
+  peak against 205 MW from H0. If any peak-power, grid-relief, peak-shaving or curtailment figure
+  is published, state which of the two bases it rests on. Scalars are safe; a time series is not.
+- Is the asset size one uniform national mean per state, or per state? Where is that reasoning
+  written down, code or handoff only?
+- Which published per-state quantities genuinely vary per state, and which are identical by
+  construction (same load shape, same asset, same tariff) so that only the unit count varies?
+- **Do `data/pv_states.py` and `data/aggregate_load.py` feed `national_impact` at all, or are they
+  a built-but-unconnected branch?** This one decides whether the data-quality work of 2026-10-26
+  has reached any published number yet. Answer it first; it is the cheapest of the four and it
+  gates the others.
+
+### 3. Steps of the per-state PV profile, to be written down as a recipe
+Walk `src/prosumer/data/pv_states.py` end to end and record it as a numbered recipe:
+
+- the 16 site coordinates and their provenance (centroids, capitals, or the company reference's
+  own sites?), and whether that provenance is in the code or nowhere
+- the Open-Meteo endpoint, variables, span, resolution, and the timezone it returns
+- the pvlib chain in order with its actual parameters: transposition, cell temperature, DC model,
+  loss model, tilt, azimuth, albedo
+- `fit_system_loss`: what is fitted, against what, one scalar per state, and the fitted range
+- what `validate()` deliberately excludes and why (annual yield, because the loss is fitted to it);
+  confirm from the code and quote the comment
+- the Bavaria `tz_localize` special case: whether the +0.99 h offset is resolved or worked around,
+  and whether anyone tested reading that file as UTC instead
+- whether a caller can distinguish a calibrated series from the 11 % literature fallback
+- orientation: one due-south array per state, and what that does to a fleet midday peak
+
+### 4. Steps of the per-state load profile, same treatment
+Walk `src/prosumer/data/aggregate_load.py` and `src/prosumer/data/slp.py`:
+
+- what `coefficients.csv` holds, over what basis, and how many coefficients
+- **whether any temperature or weather term survives into the output.** This is the central open
+  question: H0 has 9 archetype day shapes plus a day-of-year polynomial, so it gives all 16 states
+  the same shape and decorrelates load from PV, which biases residual-load extremes. The measured
+  circularity: `reports/rolling_eval` (H0 as truth) reports 94.33 % B3 capture against
+  `reports/rolling_eval_htw_H28` (measured truth) at 87.91 %.
+- the per-state household counts and their source
+- which annual kWh figure this pipeline uses. 3212, 3221, 4562 and 4684 all appear in this project
+  for different things; name the one in use and what it means. Use the mean 4684 and not the median
+  4562 for anything multiplied by N.
+- holiday handling: `slp.h0_profile` raises for any `holidays` other than `None` or `"BY"`
+  (`slp.py:119-120`). German public holidays differ by state, a second channel of per-state
+  variation independent of the weather. Is it modelled?
+- whether the load basis is gross household consumption or net metered load. Net would double-count
+  self-consumption once a PV model is added on top. Murat's stated reason for preferring BDEW was
+  exactly this, so confirm the code matches the intent.
+- whether the output is consumed by anything yet (see question 2's last bullet)
+
+### Status of the data-quality work these questions are about
+Done and verified: MaStR register replaces the hand-written fleet extrapolation; the
+`float_precision="round_trip"` loader fix; the HTW clock fix with every result now rerun on the
+fixed data (sweep, sizing grid and all four RL formulations, finished 2026-10-30); `pv_states`
+calibrated for all 16 states against the 2024 reference.
+
+Not established: everything in the four questions above.
+
 ## ▶️ Next Concrete Actions (in order)
 
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
@@ -636,3 +730,4 @@ reaches a figure, a README or the showcase unless it traces to a committed CSV.
 - 2026-10-30 · Claude Code · EIM-MUK: RL rerun of all four SAC formulations finished (25.9 h, 3 seeds each, gate exact) and published: headline 32.4 % (pre-fix 27.0), original -7.3 %, rescaling only -3.4 %, reward only +27.0 %. The README claim that rescaling alone is harmful did not survive three seeds and was corrected. Household sweep and sizing grid stay pre-fix, to be rerun on the personal laptop.
 - 2026-10-30 · Claude Code · Letzte beiden Wiederholungen nach dem HTW-Uhrzeit-Fix abgeschlossen, damit alle Zahlen in P01 aus demselben Datensatz kommen. Sizing-Grid (19,2 min) und 73-Haushalte-Sweep (ca. 35 min) auf dem privaten Rechner. Sweep-Median 85,2 % auf 86,5 % (H28 +1,51, H31 +1,28, kein Haushalt mehr als +3,6 oder -1,8); Sizing-Zeile 9,37 kWh / 5,63 kW auf -394,4 EUR/a, stimmt jetzt exakt mit der Benchmark-Tabelle. README: beide "before the clock fix"-Blöcke entfernt, Sizing-Tabelle und die vier Sizing-Insights neu gerechnet (B3 realisiert 95 % statt 94 % der Perfect-Foresight-Einsparung), household_sweep.png neu erzeugt. 295 passed, 6 skipped, HTML-Integrität grün. Nebenbefund: der Resume-Mechanismus im Sweep macht eine Wiederholung nach einem Datenfix zum stillen No-Op mit Rückgabewert 0.
 - 2026-10-31 · Claude Code · Projekte auf 01, 02, 03 umnummeriert: projects/05-utility-hybrid-plant-dispatch -> 02, projects/06-probabilistic-forecast-to-bid -> 03, inklusive Abbildungsnamen, Parquet-Namen, Cube-Keys, Labels und Figure-Nummern (515 Ersetzungen allein in showcase.html). Paketnamen hybrid und f2b unverändert. Archivierte Szenario-Parquets nach archive/<projekt>/results/ verschoben, damit p02 und p03 frei wurden. Dabei gefunden und behoben: der Runner hatte nach dem Umbenennen doppelte _p02_run und _p03_run Definitionen und doppelte Registry-Keys, die Python still auffrisst; die archivierten Hälften zeigten ohnehin seit 2026-10-09 auf verschobene Pfade. Verifiziert: 295 passed / 6 skipped, Integritätscheck grün, showcase.py 3 von 3, Browser-Konsole fehlerfrei, Badges 01/02/03.
+- 2026-10-31 · Claude Code · Vier offene Datenqualitätsfragen von Murat in den Abschnitt "Open data-quality questions on P01" geschrieben, statt sie aus dem Gedächtnis zu beantworten: Preisauflösung und der Wechsel auf 15-Minuten-MTU am 01.10.2025, Skalierung vom Haushalt auf Bundesland und Bund (Zeitreihe mal N wäre die Obergrenze bei perfekter Gleichzeitigkeit, Skalare sind unkritisch), und die Schritte der beiden neuen Pipelines pv_states und aggregate_load. Die billigste und zuerst zu beantwortende Frage: ob pv_states und aggregate_load überhaupt in national_impact einspeisen oder ein gebauter, aber nicht angeschlossener Zweig sind. Ein gestarteter Audit wurde auf Murats Wunsch nach wenigen Minuten abgebrochen, es gibt also keine Befunde, nur die Fragen. Keine Codeänderung in diesem Schritt.
