@@ -1,4 +1,4 @@
-"""Every CLI command runs end to end, offline, with the data loader stubbed."""
+"""The parametric noise ablation and its CLI commands, offline, with the data loader stubbed."""
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import pytest
-from f2b import cli
+from f2b import ablation, cli
 
 
 def fake_load(year: int, days: int, run, shift_after: int | None = None):
@@ -32,13 +32,13 @@ def args(**kw):
 
 
 @pytest.mark.parametrize("argv, expect", [
-    (["policies"], "Trading policies"),
-    (["forecast"], "Forecast quality by decision stage"),
-    (["crps-eur"], "Spearman rank correlation"),
-    (["liquidity"], "liquidity assumption"),
+    (["synthetic-policies"], "Trading policies"),
+    (["synthetic-forecast"], "Forecast quality by decision stage"),
+    (["synthetic-score-vs-value"], "Spearman rank correlation"),
+    (["synthetic-liquidity"], "liquidity assumption"),
 ])
 def test_cli_command_runs(monkeypatch, capsys, argv, expect):
-    monkeypatch.setattr(cli, "load", fake_load)
+    monkeypatch.setattr(ablation, "load", fake_load)
     assert cli.main(argv + ["--days", "3"]) == 0
     assert expect in capsys.readouterr().out
 
@@ -47,33 +47,33 @@ def test_rebap_draw_does_not_depend_on_the_forecast_store(monkeypatch):
     """Regression: the store and the synthetic reBAP shared one generator. Any forecast model
     that draws a different amount of randomness then changed the imbalance prices it was
     scored against."""
-    monkeypatch.setattr(cli, "load", fake_load)
-    a = cli._setup(args())
-    real_build = cli.build_store
+    monkeypatch.setattr(ablation, "load", fake_load)
+    a = ablation._setup(args())
+    real_build = ablation.build_store
 
     def hungrier_build(truth, cfg, dt, max_lead, rng, capacity):
         rng.standard_normal(1000)
         return real_build(truth, cfg, dt, max_lead, rng, capacity)
 
-    monkeypatch.setattr(cli, "build_store", hungrier_build)
-    b = cli._setup(args())
+    monkeypatch.setattr(ablation, "build_store", hungrier_build)
+    b = ablation._setup(args())
     np.testing.assert_array_equal(a.rebap, b.rebap)
 
 
 def test_newsvendor_fractile_ignores_the_evaluation_window(monkeypatch):
     """Regression: the fractile was estimated on the window it was then evaluated on."""
-    train_steps = cli.TRAIN_DAYS * 96
-    monkeypatch.setattr(cli, "load", fake_load)
-    a = cli._setup(args())
-    monkeypatch.setattr(cli, "load",
+    train_steps = ablation.TRAIN_DAYS * 96
+    monkeypatch.setattr(ablation, "load", fake_load)
+    a = ablation._setup(args())
+    monkeypatch.setattr(ablation, "load",
                         lambda y, d, r: fake_load(y, d, r, shift_after=train_steps))
-    b = cli._setup(args())
+    b = ablation._setup(args())
     assert not np.array_equal(a.rebap, b.rebap)
     assert a.tau == pytest.approx(b.tau)
 
 
 def test_evaluation_excludes_the_training_days(monkeypatch):
-    monkeypatch.setattr(cli, "load", fake_load)
-    s = cli._setup(args())
-    assert not s.mask[:cli.TRAIN_DAYS * 96].any()
+    monkeypatch.setattr(ablation, "load", fake_load)
+    s = ablation._setup(args())
+    assert not s.mask[:ablation.TRAIN_DAYS * 96].any()
     assert s.mask.sum() == 3 * 96

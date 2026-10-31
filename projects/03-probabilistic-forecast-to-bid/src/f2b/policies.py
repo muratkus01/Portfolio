@@ -52,10 +52,10 @@ def trade_cost(volume: np.ndarray, cfg: MarketConfig, stage_idx: int,
     return v * (cfg.id_spread_eur_mwh * widen + cfg.id_impact_eur_mwh_per_mw * v)
 
 
-def settle(position: np.ndarray, trades: list[np.ndarray], truth: np.ndarray,
-           price_da: np.ndarray, rebap: np.ndarray, price_id: np.ndarray,
-           run: RunConfig, rebap_long: np.ndarray | None = None) -> dict[str, float]:
-    """Settle a delivery period. `position` is the FINAL committed position per step.
+def settle_steps(position: np.ndarray, trades: list[np.ndarray], truth: np.ndarray,
+                 price_da: np.ndarray, rebap: np.ndarray, price_id: np.ndarray,
+                 run: RunConfig, rebap_long: np.ndarray | None = None) -> dict[str, np.ndarray]:
+    """EUR per step of each settlement leg. `position` is the FINAL committed position.
 
     German imbalance settlement uses one price, the reBAP, for both directions. The
     published series has a separate value for long balance groups only in quarter-hours with
@@ -67,31 +67,34 @@ def settle(position: np.ndarray, trades: list[np.ndarray], truth: np.ndarray,
 
     # day-ahead leg is the first committed position; intraday legs are the deltas
     da_position = position - sum(trades) if trades else position
-    da_revenue = float(np.sum(da_position * price_da) * dt)
-
-    id_revenue = 0.0
-    id_cost = 0.0
+    legs = {"da_revenue": da_position * price_da * dt,
+            "id_revenue": np.zeros(len(position)), "id_cost": np.zeros(len(position))}
     for k, tr in enumerate(trades):
-        id_revenue += float(np.sum(tr * price_id) * dt)
-        id_cost += float(np.sum(trade_cost(tr, cfg, k, len(trades))) * dt)
+        legs["id_revenue"] = legs["id_revenue"] + tr * price_id * dt
+        legs["id_cost"] = legs["id_cost"] + trade_cost(tr, cfg, k, len(trades)) * dt
 
     deviation = truth - position
     price_imb = rebap if rebap_long is None else np.where(deviation > 0, rebap_long, rebap)
-    imbalance = float(np.sum(deviation * price_imb) * dt)
+    legs["imbalance_settlement"] = deviation * price_imb * dt
+    legs["net_revenue"] = (legs["da_revenue"] + legs["id_revenue"] - legs["id_cost"]
+                           + legs["imbalance_settlement"])
+    return legs
 
-    net = da_revenue + id_revenue - id_cost + imbalance
-    produced = float(np.sum(truth) * dt)
-    return {
-        "da_revenue": da_revenue,
-        "id_revenue": id_revenue,
-        "id_cost": id_cost,
-        "imbalance_settlement": imbalance,
-        "net_revenue": net,
+
+def settle(position: np.ndarray, trades: list[np.ndarray], truth: np.ndarray,
+           price_da: np.ndarray, rebap: np.ndarray, price_id: np.ndarray,
+           run: RunConfig, rebap_long: np.ndarray | None = None) -> dict[str, float]:
+    """Totals of `settle_steps` over the period, plus volumes."""
+    legs = settle_steps(position, trades, truth, price_da, rebap, price_id, run, rebap_long)
+    out = {k: float(np.sum(v)) for k, v in legs.items()}
+    produced = float(np.sum(truth) * run.dt)
+    out.update({
         "produced_mwh": produced,
-        "eur_per_mwh": net / max(produced, 1e-9),
-        "imbalance_mwh": float(np.sum(np.abs(deviation)) * dt),
-        "traded_mwh": float(sum(np.sum(np.abs(t)) for t in trades) * dt),
-    }
+        "eur_per_mwh": out["net_revenue"] / max(produced, 1e-9),
+        "imbalance_mwh": float(np.sum(np.abs(truth - position)) * run.dt),
+        "traded_mwh": float(sum(np.sum(np.abs(t)) for t in trades) * run.dt),
+    })
+    return out
 
 
 # --------------------------------------------------------------------- policies

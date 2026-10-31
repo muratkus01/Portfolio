@@ -1,135 +1,103 @@
-"""Generate recruiter-grade benchmark figure for Project 03 (Probabilistic Forecast-to-Bid)."""
+"""Project 03 benchmark figure, drawn only from the committed CSVs in reports/<phase>/.
+
+    python scripts/make_f2b_figure.py [--phase test]
+
+Panels: pinball loss of every forecast rung at every decision stage; reliability of the
+day-ahead quantiles; and, once the market value exists, each rung's EUR gain over the
+climatology forecast for policy B1, with its 90 % block-bootstrap interval. The three
+LightGBM seeds are drawn as their median, with the spread across seeds in the CSVs.
+"""
 import argparse
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
-from f2b.cli import _setup
-from f2b.forecast import score_store
-from f2b.policies import (
-    imbalance_cost_asymmetry, b0_day_ahead_only, b1_point_intraday,
-    nv_policy, b3_stochastic_mpc, b2_zero_imbalance, settle
-)
+P03 = Path(__file__).resolve().parents[1] / "projects" / "03-probabilistic-forecast-to-bid"
+STAGES = ["DA", "ID-12h", "ID-6h", "ID-2h", "ID-0.5h"]
+RUNGS = {"F0 climatology": "#9e9e9e", "F1 persistence": "#8d6e63",
+         "F2 linear quantile": "#1f77b4", "F3 gradient boosting": "#2ca02c",
+         "F4 TSO forecast": "#d62728"}
+POLICY = "B1 intraday to median"
 
-plt.rcParams['font.family'] = 'sans-serif'
-plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
-plt.rcParams['axes.edgecolor'] = '#CCCCCC'
-plt.rcParams['axes.linewidth'] = 0.8
 
-fig, axes = plt.subplots(1, 3, figsize=(18, 5.5), dpi=300)
+def merge_seeds(frame: pd.DataFrame, value_cols: list[str]) -> pd.DataFrame:
+    """One 'F3 gradient boosting' row per key: the median over the 'F3 seed N' rungs."""
+    f3 = frame["rung"].str.startswith("F3 seed")
+    keys = [c for c in frame.columns if c not in value_cols and c != "rung"]
+    med = frame[f3].groupby(keys, as_index=False)[value_cols].median()
+    med.insert(0, "rung", "F3 gradient boosting")
+    return pd.concat([frame[~f3], med], ignore_index=True)
 
-# Setup 30 days of 2025 data
-args = argparse.Namespace(year=2025, days=30, spread=3.0)
-run, truth, price, rebap, store, n = _setup(args)
-cs, cl = imbalance_cost_asymmetry(rebap, price)
 
-# -------------------------------------------------------------
-# Panel 1: Probabilistic Forecast Fan Chart (Sample 48-Hour Horizon)
-# -------------------------------------------------------------
-ax1 = axes[0]
-t0 = 96  # Day 2 start
-horizon = 96  # 24 hours (96 steps)
-time_h = np.arange(1, horizon + 1) * 0.25
+def plot_pinball(ax, scores: pd.DataFrame) -> None:
+    s = merge_seeds(scores[["rung", "stage", "pinball"]], ["pinball"])
+    for rung, color in RUNGS.items():
+        row = s[s.rung == rung].set_index("stage").reindex(STAGES)
+        ax.plot(STAGES, row["pinball"], marker="o", color=color, lw=2, label=rung)
+    ax.set_title("Pinball loss by decision stage (MW, lower is better)", fontsize=10)
+    ax.set_xlabel("decision stage, earliest to latest")
+    ax.grid(True, ls="--", alpha=0.4)
+    ax.legend(fontsize=8)
 
-# Quantiles: 0.1 to 0.9 (9 quantiles)
-q = store.quantiles[t0, 1:horizon + 1, :]  # shape: (96, 9)
-q10, q20, q30, q40, q50, q60, q70, q80, q90 = [q[:, i] for i in range(9)]
-realized = truth[t0 + 1:t0 + horizon + 1]
 
-# Shaded quantile bands
-ax1.fill_between(time_h, q10, q90, color="#1f77b4", alpha=0.15, label="10-90% Quantile Band")
-ax1.fill_between(time_h, q20, q80, color="#1f77b4", alpha=0.25, label="20-80% Quantile Band")
-ax1.fill_between(time_h, q30, q70, color="#1f77b4", alpha=0.35, label="30-70% Quantile Band")
-ax1.plot(time_h, q50, color="#1f77b4", lw=2, label="Median Forecast (q50)")
-ax1.plot(time_h, realized, color="#d62728", lw=2.2, ls="-", label="Realised Generation")
+def plot_reliability(ax, scores: pd.DataFrame) -> None:
+    cov_cols = [c for c in scores.columns if c.startswith("coverage_q")]
+    levels = np.array([int(c[-2:]) / 100 for c in cov_cols])
+    s = merge_seeds(scores[scores.stage == "DA"][["rung", "stage", *cov_cols]], cov_cols)
+    ax.plot([0, 1], [0, 1], color="black", lw=0.8, ls=":")
+    for rung, color in RUNGS.items():
+        row = s[s.rung == rung]
+        ax.plot(levels, row[cov_cols].to_numpy()[0], marker="o", color=color, lw=1.5,
+                label=rung)
+    ax.set_title("Day-ahead quantiles: share of outcomes below each one", fontsize=10)
+    ax.set_xlabel("nominal level")
+    ax.set_ylabel("observed share")
+    ax.grid(True, ls="--", alpha=0.4)
 
-ax1.set_title("Probabilistic Generation Forecast Fan Chart\n24-Hour Horizon (15-Min MTU) · 300 MW Portfolio", fontsize=11, weight="bold", pad=10)
-ax1.set_xlabel("Lead Time (Hours ahead)", fontsize=10)
-ax1.set_ylabel("Power Generation (MW)", fontsize=10)
-ax1.set_ylim(0, max(q90.max(), realized.max()) * 1.15)
-ax1.grid(True, linestyle="--", alpha=0.5)
-ax1.legend(loc="upper right", fontsize=8.5, framealpha=0.9)
 
-# -------------------------------------------------------------
-# Panel 2: Trading Policies Comparison (30 Days 2025)
-# -------------------------------------------------------------
-ax2 = axes[1]
-policies = {
-    "B0 DA only": b0_day_ahead_only(store, n, run),
-    "B1 Point ID": b1_point_intraday(store, n, run),
-    "NV Newsvendor": nv_policy(store, n, run, cs, cl),
-    "B3 Stoch MPC": b3_stochastic_mpc(store, n, run, cs, cl),
-    "REF Zero Imb": b2_zero_imbalance(truth, run),
-}
+def plot_value(ax, value: pd.DataFrame) -> None:
+    v = value[value.policy == POLICY].drop(columns="policy")
+    v = merge_seeds(v, ["gain_vs_F0_eur", "ci90_low", "ci90_high", "capture_of_F0_to_REF"])
+    v = v.set_index("rung").reindex([r for r in RUNGS if r != "F0 climatology"])
+    x = np.arange(len(v))
+    ax.bar(x, v["gain_vs_F0_eur"] / 1e3, color=[RUNGS[r] for r in v.index], alpha=0.85)
+    ax.errorbar(x, v["gain_vs_F0_eur"] / 1e3,
+                yerr=[(v["gain_vs_F0_eur"] - v["ci90_low"]) / 1e3,
+                      (v["ci90_high"] - v["gain_vs_F0_eur"]) / 1e3],
+                fmt="none", ecolor="black", capsize=4)
+    ax.axhline(0, color="black", lw=0.8)
+    ax.set_xticks(x)
+    ax.set_xticklabels([r.split(" ", 1)[0] for r in v.index])
+    ax.set_title(f"EUR gain over F0 climatology, policy {POLICY.split()[0]} (k EUR, 90 % CI)",
+                 fontsize=10)
+    ax.grid(True, axis="y", ls="--", alpha=0.4)
 
-policy_names = []
-net_rev_eur = []
-traded_vol_mwh = []
 
-for name, (pos, trades) in policies.items():
-    r = settle(pos, trades, truth, price, rebap, price, run)
-    policy_names.append(name)
-    net_rev_eur.append(r["net_revenue"] / 1e6)  # Millions EUR
-    traded_vol_mwh.append(r["traded_mwh"] / 1e3)  # Thousands MWh
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--phase", default="test", choices=("validation", "test"))
+    args = ap.parse_args()
+    folder = P03 / "reports" / args.phase
+    scores = pd.read_csv(folder / "forecast_by_stage.csv")
+    value_path = folder / "value_of_forecast.csv"
+    panels = 3 if value_path.exists() else 2
+    fig, axes = plt.subplots(1, panels, figsize=(6.2 * panels, 4.6), dpi=200)
+    plot_pinball(axes[0], scores)
+    plot_reliability(axes[1], scores)
+    if panels == 3:
+        plot_value(axes[2], pd.read_csv(value_path))
+    fig.suptitle(f"Project 03, {args.phase} window, from reports/{args.phase}/", fontsize=11)
+    fig.tight_layout()
+    out = P03 / "docs" / "figures" / "f2b_trading_benchmark.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, bbox_inches="tight")
+    print("saved", out.relative_to(P03.parents[1]))
 
-x = np.arange(len(policy_names))
-width = 0.38
 
-color_rev = "#1f77b4"
-color_vol = "#ff7f0e"
-
-rects1 = ax2.bar(x - width/2, net_rev_eur, width, label="Net Revenue (M EUR)", color=color_rev, alpha=0.85)
-ax2_twin = ax2.twinx()
-rects2 = ax2_twin.bar(x + width/2, traded_vol_mwh, width, label="Traded Volume (k MWh)", color=color_vol, alpha=0.85)
-
-ax2.set_xticks(x)
-ax2.set_xticklabels(policy_names, rotation=20, ha="right", fontsize=9)
-ax2.set_ylabel("Net Revenue (Million EUR)", color=color_rev, fontsize=10, weight="bold")
-ax2_twin.set_ylabel("Intraday Traded Volume (k MWh)", color=color_vol, fontsize=10, weight="bold")
-ax2.tick_params(axis='y', labelcolor=color_rev)
-ax2_twin.tick_params(axis='y', labelcolor=color_vol)
-
-# Annotate B3 gain & volume reduction
-ax2.text(3, net_rev_eur[3] + 0.15, "+288k EUR vs B1\n(-44% trades)", ha="center", fontsize=8.5, weight="bold", color="#2ca02c")
-
-ax2.set_title("Trading Policy Performance (30 Days 2025)\nDeadband filter cuts spread churn", fontsize=11, weight="bold", pad=10)
-ax2.grid(True, linestyle="--", alpha=0.5)
-
-# Combined legend
-lines1, labels1 = ax2.get_legend_handles_labels()
-lines2, labels2 = ax2_twin.get_legend_handles_labels()
-ax2.legend(lines1 + lines2, labels1 + labels2, loc="upper left", fontsize=8.5, framealpha=0.9)
-
-# -------------------------------------------------------------
-# Panel 3: Forecast Quality by Lead Time (CRPS and RMSE)
-# -------------------------------------------------------------
-ax3 = axes[2]
-leads = [1, 2, 4, 8, 16, 24, 48, 72, 96]  # in steps (15m to 24h)
-lead_hours = [k * 0.25 for k in leads]
-
-crps_vals = []
-rmse_vals = []
-mae_vals = []
-
-for k in leads:
-    sc = score_store(store, truth, k)
-    crps_vals.append(sc["CRPS"])
-    rmse_vals.append(sc["RMSE"])
-    mae_vals.append(sc["MAE"])
-
-ax3.plot(lead_hours, rmse_vals, marker="s", color="#d62728", lw=2, label="RMSE (MW)")
-ax3.plot(lead_hours, mae_vals, marker="o", color="#ff7f0e", lw=2, label="MAE (MW)")
-ax3.plot(lead_hours, crps_vals, marker="^", color="#1f77b4", lw=2.5, label="CRPS (MW)")
-
-ax3.set_title("Forecast Skill by Lead Time\nProbabilistic CRPS vs Deterministic Error", fontsize=11, weight="bold", pad=10)
-ax3.set_xlabel("Lead Time (Hours)", fontsize=10)
-ax3.set_ylabel("Error Metric (MW)", fontsize=10)
-ax3.grid(True, linestyle="--", alpha=0.5)
-ax3.legend(loc="upper left", fontsize=8.5, framealpha=0.9)
-
-plt.tight_layout()
-out_path = Path("projects/03-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png")
-out_path.parent.mkdir(parents=True, exist_ok=True)
-plt.savefig(out_path, dpi=300, bbox_inches="tight")
-print("Saved figure to:", out_path)
+if __name__ == "__main__":
+    main()
