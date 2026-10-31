@@ -98,10 +98,11 @@ def cmd_sizing(args) -> None:
 
 
 # Two vintages, and the market value each one is paid against. The applicable value
-# (anzulegender Wert) is set at commissioning, so an older or offshore plant carries a higher
-# one than a recent onshore plant at ~73.5 EUR/MWh. The commissioning date also fixes the
-# reference: a plant commissioned or awarded from 2023 on is paid against its technology's
-# ANNUAL market value, an older one against the MONTHLY value (EEG 2023 Anlage 1 Nr. 2).
+# (anzulegender Wert) is set by the plant's tender award, or by law at commissioning, so an
+# older or offshore plant carries a higher one than a recent onshore plant at ~73.5 EUR/MWh.
+# The dates also fix the reference: a plant commissioned before 2023, or awarded before 2023,
+# is paid against its technology's MONTHLY market value, any other plant against the ANNUAL
+# value (EEG 2023 Anlage 1 Nr. 2).
 # Where a plant gets no premium the negative-price rule is economically irrelevant, because
 # there is no premium to suspend. That contrast is the point of the table; the note under it
 # says which vintage got none in the evaluated window.
@@ -151,9 +152,9 @@ def cmd_negprice(args) -> None:
     # One window for every scenario; only the market settings differ between them.
     base, wind, pv, price, rebap, _ = _setup(args)
     premiums = _negprice_premiums(args, base.dt, wind, pv)
-    # The rule is fixed by the commissioning date, and one vintage's threshold also moves with
-    # the evaluated year (market.vintage_rules). Columns run from the oldest vintage's rule to
-    # the newest, which is from the loosest to the tightest.
+    # The rule is fixed by the vintage (commissioning or tender date), and one vintage's
+    # threshold also moves with the evaluated year (market.vintage_rules). Columns run from the
+    # oldest vintage's rule to the newest, which is from the loosest to the tightest.
     by_vintage = vintage_rules(args.year)
     rules = list(dict.fromkeys(by_vintage.values()))
     rows = []
@@ -172,7 +173,8 @@ def _print_negprice(year: int, by_vintage: dict, rules: list, premiums: dict,
                     df: pd.DataFrame) -> None:
     """Print negprice's tables, and a note computed from the evaluated window."""
     print("\nNegative-price rule (EEG s51 / Solarspitzengesetz) by plant vintage")
-    print(f"rule of each commissioning vintage in {year}:")
+    print(f"rule of each vintage in {year}, dated by commissioning or, for a tendered plant,\n"
+          "  by the bid date of its tender where EEG s100 says so:")
     for vintage, rule in by_vintage.items():
         print(f"  {vintage:<22}{rule}")
     # Anlage 1 weights by the TSOs' online extrapolation (Nr. 5.1); the data layer reads

@@ -75,8 +75,8 @@ def test_a_step_length_that_does_not_divide_an_hour_is_refused():
         premium_eligible(np.zeros(4), MarketConfig(negative_price_rule="six_hour"), dt=0.4)
 
 
-def test_vintages_carry_the_rule_of_their_commissioning_date():
-    """§ 100 EEG 2023 keeps each plant on the § 51 version of its commissioning date."""
+def test_vintages_carry_the_rule_of_their_date():
+    """§ 100 keeps each plant on the § 51 version of its commissioning or tender date."""
     assert market.vintage_rules(2024) == {
         "before 2016": "none",
         "2016-2020": "six_hour",
@@ -300,6 +300,21 @@ def test_negprice_calls_its_market_values_a_proxy(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "market value: a proxy" in out
     assert "published values" in out, "what the premium is settled on"
+
+
+def test_negprice_dates_a_tendered_vintage_by_its_bid_date(monkeypatch, capsys):
+    """Regression test: the output named its vintages by commissioning date alone.
+
+    From the 2021 cut-off on, § 100 EEG 2021 and EEG 2023 keep a plant whose applicable value
+    was set in a tender with an earlier bid date (Gebotstermin) on the older rule, even when
+    it is commissioned later; a 50 MW wind farm and a 30 MW PV park are both tendered.
+    """
+    monkeypatch.setattr(cli, "load_year", two_months)
+    monkeypatch.setattr(cli, "run_ladder", recording_ladder([]))
+    assert cli.main(["negprice", "--year", "2025", "--days", "2"]) == 0
+    out = capsys.readouterr().out
+    assert "rule of each commissioning vintage" not in out
+    assert "bid date" in out
 
 
 # ------------------------------------------------------------------ EEG switch

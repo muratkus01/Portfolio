@@ -5,15 +5,16 @@ module implements explicitly, are:
 
   1. **The market premium's reference value.** The premium is `anzulegender Wert` minus the
      technology's national market value over a calendar month, or over the calendar year for
-     plants commissioned or awarded from 2023 on (EEG 2023 Anlage 1 Nr. 2). The value is only
-     known once the period is over, so a controller that plans inside it must estimate it.
+     plants commissioned from 2023 on whose tender award, if any, also dates from 2023 on
+     (EEG 2023 Anlage 1 Nr. 2). The value is only known once the period is over, so a
+     controller that plans inside it must estimate it.
 
   2. **The negative-price rule.** Under the 2025 tightening, a new plant earns NO premium in
      any quarter-hour with a negative day-ahead price. Older vintages lose it for a whole run
      of negative prices once the run lasts long enough: six hours down to one, by vintage. The
-     revenue function is therefore discontinuous in price and depends on the plant's
-     commissioning vintage - which turns curtailment from something merely tolerated into
-     something rational.
+     revenue function is therefore discontinuous in price and depends on the plant's vintage,
+     dated by commissioning or by its tender - which turns curtailment from something merely
+     tolerated into something rational.
 """
 from __future__ import annotations
 
@@ -23,9 +24,12 @@ import pandas as pd
 from .config import MarketConfig, PlantConfig
 
 # Hours of uninterrupted negative prices after which § 51 EEG removes the premium for the
-# WHOLE run, by rule. A plant keeps the version of § 51 in force when it was commissioned or
-# awarded (§ 100 EEG 2023). Texts from gesetze-im-internet.de, older versions from its
-# archived pages:
+# WHOLE run, by rule. § 100 keeps a plant on the version of § 51 that applied when it was
+# commissioned or, from the 2021 cut-off on, when the tender that set its applicable value
+# had its bid date (Gebotstermin): a plant tendered in 2020 and commissioned in 2022 keeps
+# six hours, one tendered in 2024 and commissioned in 2026 keeps the rule of the 2023 to
+# 24 Feb 2025 vintage (§ 100 (1) EEG 2021; § 100 (1) and (46) EEG 2023). Texts from
+# gesetze-im-internet.de, older versions from its archived pages:
 #   six_hour   2016-2020: "in mindestens sechs aufeinanderfolgenden Stunden", § 24 (1)
 #              EEG 2014 and § 51 (1) EEG 2017, kept by § 100 (2) Nr. 13 EEG 2021.
 #   four_hour  2021-2022: "für die Dauer von mindestens vier aufeinanderfolgenden Stunden",
@@ -92,11 +96,12 @@ def _in_long_negative_run(price: np.ndarray, hours: int, dt: float) -> np.ndarra
 
 
 def vintage_rules(year: int) -> dict[str, str]:
-    """Negative-price rule of each commissioning vintage in calendar year `year`.
+    """Negative-price rule of each vintage in calendar year `year`.
 
-    A plant keeps the rule of its commissioning date (see `_RUN_HOURS`). Only the 2023 to
-    24 Feb 2025 vintage's threshold moves, with the calendar year of the prices; years before
-    2023 get its 2023 threshold, as a counterfactual.
+    A vintage is dated by the plant's commissioning or, for a tendered plant, by the bid date
+    of its tender where § 100 says so (see `_RUN_HOURS`). Only the 2023 to 24 Feb 2025
+    vintage's threshold moves, with the calendar year of the prices; years before 2023 get
+    its 2023 threshold, as a counterfactual.
 
     Parameters
     ----------
