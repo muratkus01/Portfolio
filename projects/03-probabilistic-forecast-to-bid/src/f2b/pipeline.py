@@ -23,8 +23,10 @@ from .evaluate import (
     common_mask,
     daily_net,
     fit_ladder,
+    load_ladder,
     market_prices,
     newsvendor_tau,
+    save_ladder,
     score_ladder,
     tune_deadband,
     value_of_forecast,
@@ -106,7 +108,7 @@ def cmd_backtest(args) -> None:
     frozen = (json.loads((REPORTS / "frozen_config.json").read_text())
               if args.phase == "test" else None)
 
-    ladder = fit_ladder(df, weather_q, run, args.phase, tuple(args.seeds))
+    ladder, made_by = _forecasts(args, df, weather_q, run)
     truth = df["truth_mw"].to_numpy(float)
     mask = common_mask(ladder, truth)
     priced = df["rebap"].notna().to_numpy() & df["price_da"].notna().to_numpy()
@@ -121,11 +123,31 @@ def cmd_backtest(args) -> None:
 
     market = _market_value(ladder, df, mask, run, args.phase, frozen, out)
     meta = _run_meta(args, int(mask.sum()), market)
-    meta["f3_iterations"] = ladder.f3_iterations
+    meta.update(forecasts_made_by=made_by["git_commit"], f3_iterations=made_by["f3_iterations"])
     (out / "run_meta.json").write_text(json.dumps(meta, indent=2, default=str))
     if args.phase == "validation" and market is not None:
         frozen = {"deadband_k": market["deadband_k"], "made_by": meta["git_commit"]}
         (REPORTS / "frozen_config.json").write_text(json.dumps(frozen, indent=2))
+
+
+def _forecasts(args, df: pd.DataFrame, weather_q: pd.DataFrame, run: RunConfig):
+    """Fit the ladder and cache its forecasts, or with --reuse-forecasts read the cache.
+
+    Reuse lets the market part rerun in a minute after a fix there; run_meta.json then
+    names the commit that made the forecasts as well as the one that valued them.
+    """
+    cache = DATA / "processed" / f"ladder_{args.phase}.npz"
+    made_path = cache.with_suffix(".json")
+    if args.reuse_forecasts:
+        return load_ladder(cache, len(df)), json.loads(made_path.read_text())
+    ladder = fit_ladder(df, weather_q, run, args.phase, tuple(args.seeds))
+    save_ladder(ladder, cache)
+    made_by = {"git_commit": _git("rev-parse", "--short", "HEAD"),
+               "source_changes_uncommitted": bool(_git("status", "--porcelain", "--", "src")),
+               "f3_iterations": ladder.f3_iterations,
+               "created_utc": datetime.now(timezone.utc).isoformat()}
+    made_path.write_text(json.dumps(made_by, indent=2))
+    return ladder, made_by
 
 
 def _market_value(ladder, df: pd.DataFrame, mask: np.ndarray, run: RunConfig, phase: str,
@@ -151,18 +173,19 @@ def _market_value(ladder, df: pd.DataFrame, mask: np.ndarray, run: RunConfig, ph
             "id_aep_fallback_steps": int(fallback.sum())}
 
 
-def _run_meta(args, steps: int, market: dict | None) -> dict:
-    def git(*cmd: str) -> str:
-        # check=False: outside a git checkout the fields stay empty instead of failing the run
-        res = subprocess.run(["git", *cmd], cwd=PROJECT, capture_output=True, text=True,
-                             check=False)
-        return res.stdout.strip()
+def _git(*cmd: str) -> str:
+    # check=False: outside a git checkout the fields stay empty instead of failing the run
+    res = subprocess.run(["git", *cmd], cwd=PROJECT, capture_output=True, text=True,
+                         check=False)
+    return res.stdout.strip()
 
+
+def _run_meta(args, steps: int, market: dict | None) -> dict:
     import lightgbm
 
     return {"phase": args.phase, "splits": SPLITS, "seeds": list(args.seeds),
             "id_spread_eur_mwh": args.spread, "evaluated_steps": steps, "market": market,
-            "git_commit": git("rev-parse", "--short", "HEAD"),
-            "source_changes_uncommitted": bool(git("status", "--porcelain", "--", "src")),
+            "git_commit": _git("rev-parse", "--short", "HEAD"),
+            "source_changes_uncommitted": bool(_git("status", "--porcelain", "--", "src")),
             "python": platform.python_version(), "lightgbm": lightgbm.__version__,
             "pandas": pd.__version__, "created_utc": datetime.now(timezone.utc).isoformat()}

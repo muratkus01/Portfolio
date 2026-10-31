@@ -18,3 +18,21 @@ def test_value_of_forecast_interval_contains_the_point_estimate():
     assert row["ci90_low"] < row["gain_vs_F0_eur"] < row["ci90_high"]
     assert row["gain_vs_F0_eur"] == pytest.approx(3000, rel=0.15)
     assert 0.2 < row["capture_of_F0_to_REF"] < 0.6
+
+
+def test_a_cached_ladder_round_trips_exactly(tmp_path):
+    from f2b.evaluate import Ladder, _stage, load_ladder, save_ladder
+    from f2b.models import LEVELS
+
+    rng = np.random.default_rng(0)
+    n = 50
+    decision = np.arange(n) - 4
+    rows = np.arange(10, 40)
+    q = np.sort(rng.random((len(rows), len(LEVELS))), axis=1) * 300
+    ladder = Ladder({"F0 climatology": [_stage("DA", decision, rows, q, n)]}, {})
+    save_ladder(ladder, tmp_path / "ladder.npz")
+    back = load_ladder(tmp_path / "ladder.npz", n)
+    a, b = ladder.stages["F0 climatology"][0], back.stages["F0 climatology"][0]
+    np.testing.assert_array_equal(a.quantiles, b.quantiles)
+    np.testing.assert_array_equal(a.issue, b.issue)
+    np.testing.assert_array_equal(a.decision, b.decision)

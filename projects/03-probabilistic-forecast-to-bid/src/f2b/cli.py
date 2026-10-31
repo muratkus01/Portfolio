@@ -28,6 +28,8 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     sp.add_argument("--spread", type=float, default=3.0)
     sp.add_argument("--force", action="store_true")
+    sp.add_argument("--reuse-forecasts", action="store_true",
+                    help="value the forecasts cached by the last fit instead of refitting")
     sp.set_defaults(func=pipeline.cmd_backtest)
     for name, fn in ablation.COMMANDS.items():
         sp = sub.add_parser(name)

@@ -119,6 +119,28 @@ def _stage(name: str, decision: np.ndarray, rows: np.ndarray, q_mw: np.ndarray,
                  quantiles=quantiles, levels=LEVELS)
 
 
+def save_ladder(ladder: Ladder, path) -> None:
+    """The predicted rows of every stage forecast, so the market part can rerun without refits."""
+    arrays, entries = {}, []
+    for rung, stages in ladder.stages.items():
+        for st in stages:
+            rows = np.flatnonzero(np.isfinite(st.quantiles).all(axis=1))
+            k = len(entries)
+            arrays.update({f"rows{k}": rows, f"q{k}": st.quantiles[rows],
+                           f"decision{k}": st.decision})
+            entries.append([rung, st.name])
+    np.savez_compressed(path, entries=np.array(entries), **arrays)
+
+
+def load_ladder(path, n: int) -> Ladder:
+    with np.load(path) as z:
+        stages = defaultdict(list)
+        for k, (rung, name) in enumerate(z["entries"]):
+            stages[str(rung)].append(_stage(str(name), z[f"decision{k}"], z[f"rows{k}"],
+                                            z[f"q{k}"], n))
+    return Ladder(dict(stages), {})
+
+
 def common_mask(ladder: Ladder, truth: np.ndarray) -> np.ndarray:
     """Steps every rung forecast at every stage, with a measured outcome."""
     ok = np.isfinite(truth)
