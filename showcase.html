@@ -1349,7 +1349,7 @@
         <strong>Murat Kus</strong> · Dipl.-Ing. | M.Sc. Sustainable Energy Systems (FH Upper Austria) | B.Sc. Artificial Intelligence (JKU Linz) - In Progress
       </div>
       <p class="hero-lead">
-        Quantitative flexibility valuation, multi-market dispatch co-optimization, and risk-constrained decision-making under uncertainty in decarbonized electricity systems. Three reference implementations, one shared evaluation protocol: behind-the-meter prosumer storage under dynamic retail pricing (EnWG §41a), co-located utility-scale hybrid wind-solar-BESS dispatch behind a constrained grid connection (EEG §51 and the 2025 Solarspitzengesetz), and probabilistic forecast-to-bid optimization under asymmetric balancing market exposure (reBAP). Each is measured against the same benchmark ladder, from a rule-based heuristic through a perfect-foresight ceiling to the deployable rolling-horizon controller.
+        Quantitative flexibility valuation, multi-market dispatch co-optimization, and risk-constrained decision-making under uncertainty in decarbonized electricity systems. Three reference implementations: behind-the-meter prosumer storage under dynamic retail pricing (EnWG §41a), co-located utility-scale hybrid wind-solar-BESS dispatch behind a constrained grid connection (EEG §51 and the 2025 Solarspitzengesetz), and probabilistic forecasts for a wind and PV portfolio that sells day-ahead, may correct intraday and settles its imbalance at the German single-price reBAP. The first two are measured against the same benchmark ladder, from a rule-based heuristic through a perfect-foresight ceiling to the deployable rolling-horizon controller; the third scores a forecast ladder from climatology to LightGBM against the TSOs' published forecast, in pinball loss and in euros.
       </p>
 
       <!-- Market & Grid Regulatory Console -->
@@ -2436,18 +2436,18 @@
     <!-- ========================================================================================= -->
     <section id="p03" class="project-section">
       <div class="sec-header">
-        <h2 class="sec-title"><span class="sec-num-badge">03</span> Probabilistic Forecast-to-Bid Pipeline & Asymmetric Imbalance</h2>
+        <h2 class="sec-title"><span class="sec-num-badge">03</span> Probabilistic Forecast-to-Bid for a German Wind and PV Portfolio</h2>
         <p class="sec-summary">
-          Risk-aware trading engine for a <strong>300 MW renewable wind and solar portfolio</strong>. Translates non-parametric multi-quantile forecasts (<strong>q10 to q90 Pinball loss regression</strong> on numerical weather predictions) into optimal asymmetric bids across EPEX Intraday and the German uniform balancing market (<strong>reBAP</strong>), minimizing heavy-tailed cashout penalties via deadband stochastic MPC.
+          A balance responsible party sells the output of a <strong>200 MW wind + 100 MW PV portfolio</strong>, shaped like the German fleet, in the day-ahead auction, may correct the position intraday as forecasts improve, and settles what is left at the German imbalance price, the <strong>reBAP</strong>. A ladder of quantile forecasts, from climatology to <strong>LightGBM</strong> on weather forecasts as they were published at the time, is scored against the forecast the TSOs publish: in pinball loss, and in euros at real <strong>day-ahead, intraday (ID AEP) and reBAP prices</strong>.
         </p>
         <div class="topology-strip">
-          <span class="topo-node accent">ECMWF / GFS Ensembles</span>
+          <span class="topo-node accent">Open-Meteo Previous-Run Weather</span>
           <span class="topo-arrow">&rarr;</span>
-          <span class="topo-node amber">Pinball Loss Regressor (q10 to q90)</span>
+          <span class="topo-node amber">Quantiles F0 to F3, TSO Forecast F4</span>
           <span class="topo-arrow">&rarr;</span>
-          <span class="topo-node emerald">B3 Deadband Trading Engine</span>
+          <span class="topo-node emerald">DA Gate 12:00, Intraday to 0.5 h</span>
           <span class="topo-arrow">&rarr;</span>
-          <span class="topo-node purple">EPEX Intraday & reBAP Cashout</span>
+          <span class="topo-node purple">Real DA, ID AEP and reBAP Prices</span>
         </div>
       </div>
 
@@ -2455,136 +2455,120 @@
         <div class="data-col">
           <div class="metrics-strip">
             <div class="mini-metric">
-              <div class="mini-lbl">Net Revenue Lift</div>
-              <div class="mini-val emerald" id="p03-metric-gain">+288.5k EUR</div>
+              <div class="mini-lbl">DA Pinball, LightGBM</div>
+              <div class="mini-val emerald">2.41 MW</div>
             </div>
             <div class="mini-metric">
-              <div class="mini-lbl">Traded Volume</div>
-              <div class="mini-val emerald" id="p03-metric-vol">-44.0% Vol</div>
+              <div class="mini-lbl">DA Pinball, TSO Forecast</div>
+              <div class="mini-val cyan">1.56 MW</div>
             </div>
             <div class="mini-metric">
-              <div class="mini-lbl">CRPS Skill (6h)</div>
-              <div class="mini-val cyan" id="p03-metric-crps">18.9 MW</div>
+              <div class="mini-lbl">Skill vs Euros, Test / Val.</div>
+              <div class="mini-val amber">+1.0 / -0.4</div>
             </div>
             <div class="mini-metric">
-              <div class="mini-lbl">Look-Ahead Violations</div>
-              <div class="mini-val emerald" id="p03-metric-viol">0 Audited</div>
+              <div class="mini-lbl">Euro Gains Beyond Noise</div>
+              <div class="mini-val amber">0 of 4</div>
             </div>
           </div>
 
           <div class="table-card">
             <div class="table-title">
-              <span id="p03-table-sub">Trading Policy Performance (30 Days Evaluation Period)</span>
-              <span style="font-family: var(--font-mono); color: var(--text-muted);" id="p03-table-period">EPEX Spot & reBAP Settlement</span>
+              <span>Day-Ahead Schedule (B0) by Forecast</span>
+              <span style="font-family: var(--font-mono); color: var(--text-muted);">Test 2026-01-01 to 2026-10-14 UTC</span>
             </div>
             <table class="ladder-tbl">
               <thead>
-                <tr><th>Trading Strategy</th><th>Realized Price</th><th>Traded Energy</th><th>Policy Efficiency</th></tr>
+                <tr><th>Forecast Rung</th><th>DA Pinball</th><th>B0 Net Revenue</th><th>Gain over F0, 90% CI</th></tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>B1 Mean Chasing Baseline</td>
-                  <td id="p03-b1-price">58.22 EUR/MWh</td>
-                  <td id="p03-b1-vol">27,051 MWh</td>
-                  <td>
-                    <div class="ladder-bar-wrap">
-                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 50%;"></div></div>
-                      <span>Over-Trading (High Friction)</span>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td>NV Newsvendor Quantile</td>
-                  <td id="p03-nv-price">58.22 EUR/MWh</td>
-                  <td id="p03-nv-vol">26,947 MWh</td>
-                  <td>
-                    <div class="ladder-bar-wrap">
-                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 50%;"></div></div>
-                      <span>Static Spread Bias</span>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td>B3 Deadband Stochastic MPC</td>
-                  <td id="p03-b3-price">60.89 EUR/MWh</td>
-                  <td id="p03-b3-vol">15,785 MWh</td>
-                  <td>
-                    <div class="ladder-bar-wrap">
-                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" id="p03-b3-bar" style="width: 100%;"></div></div>
-                      <span class="highlight" id="p03-b3-gain">+288.5k EUR Gain</span>
-                    </div>
-                  </td>
-                </tr>
+                <tr><td>F0 Climatology</td><td>7.29 MW</td><td>28,543,017 EUR</td><td>reference</td></tr>
+                <tr><td>F1 Persistence</td><td>7.71 MW</td><td>28,307,894 EUR</td><td>-235,123 (-701,358 to +437,447)</td></tr>
+                <tr><td>F2 Linear Quantile Regression</td><td>3.16 MW</td><td>28,652,784 EUR</td><td>+109,767 (-332,790 to +889,433)</td></tr>
+                <tr><td>F3 LightGBM, seed 0</td><td class="highlight">2.41 MW</td><td>28,779,407 EUR</td><td>+236,390 (-161,711 to +821,033)</td></tr>
+                <tr><td>F4 TSO Forecast (benchmark)</td><td class="ceiling">1.56 MW</td><td>28,963,188 EUR</td><td>+420,171 (-106,521 to +1,233,049)</td></tr>
+                <tr><td>REF Perfect Forecast</td><td></td><td>29,289,862 EUR</td><td></td></tr>
               </tbody>
             </table>
+            <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; padding: 10px 20px 12px;">
+              Each forecast's day-ahead median is scheduled once (policy B0) and what is left settles at reBAP; DA pinball is the pinball loss at the day-ahead gate, lower is better. The test window was evaluated once, with every setting frozen beforehand. In it the euros rank exactly as the skill (Spearman +1.0). In the validation half-year, 2025-07-02 to 2025-12-29, they do not (-0.4): climatology earned the most (15,295,413 EUR) and the TSO forecast the least (15,055,372 EUR). In neither window does any forecast's gain over climatology have a 90% block-bootstrap interval that excludes zero. Climatology carries 129,432 MWh of imbalance against 26,989 MWh for the TSO forecast; no balance responsible party may schedule that way, so its euros are a warning about scoring forecasts in euros alone, not a strategy. LightGBM seeds 1 and 2: pinball 2.40 and 2.41 MW, B0 28,790,925 and 28,790,914 EUR. Sources in the P03 folder: <code>reports/test/forecast_by_stage.csv</code>, <code>policies.csv</code>, <code>value_of_forecast.csv</code> and <code>quality_vs_value.csv</code>, and the same files in <code>reports/validation/</code>.
+            </p>
           </div>
 
           <!-- Detailed Engineering Analysis Workbench -->
           <div class="proj-tabs-card">
             <div class="proj-tabs-nav">
-              <button class="proj-tab-btn active" onclick="setProjTab('p03', 'form')">Formulation & Physics</button>
+              <button class="proj-tab-btn active" onclick="setProjTab('p03', 'form')">Formulation</button>
               <button class="proj-tab-btn" onclick="setProjTab('p03', 'reg')">Regulatory Mechanics</button>
               <button class="proj-tab-btn" onclick="setProjTab('p03', 'inv')">Invariant Guards</button>
-              <button class="proj-tab-btn" onclick="setProjTab('p03', 'arch')">Algorithmic Ladder</button>
+              <button class="proj-tab-btn" onclick="setProjTab('p03', 'arch')">Forecast &amp; Policy Ladder</button>
             </div>
 
-            <!-- Tab 1: Formulation & Physics -->
+            <!-- Tab 1: Formulation -->
             <div id="p03-pane-form" class="proj-pane active">
-              <h4>Pinball Quantile Loss & Asymmetric Cashout Optimization</h4>
-              <p>Probabilistic meteorological forecasts optimize the asymmetric pinball loss across 9 empirical quantiles (&tau; &isin; {0.1, 0.2, ..., 0.9}):</p>
+              <h4>Pinball Loss, Settlement, and Why Euros Do Not Simply Follow Skill</h4>
+              <p>Every rung predicts nine quantiles (&tau; = 0.1, 0.2, ..., 0.9) of the portfolio's output at every decision stage, scored by the pinball loss:</p>
               <div class="formula-box">L<sub>&tau;</sub>(y, q<sub>&tau;</sub>) = max( &tau; &middot; (y - q<sub>&tau;</sub>),  (1 - &tau;) &middot; (q<sub>&tau;</sub> - y) )</div>
-              <p>Realized revenue combines Day-Ahead bids, continuous Intraday position adjustments, and final reBAP imbalance settlement:</p>
-              <div class="formula-box">R = &Sigma;<sub>t</sub> [ &lambda;<sub>t</sub><sup>DA</sup> &middot; Q<sub>t</sub><sup>DA</sup> + &lambda;<sub>t</sub><sup>ID</sup> &middot; &Delta;Q<sub>t</sub><sup>ID</sup> + reBAP<sub>t</sub> &middot; (Y<sub>t</sub> - Q<sub>t</sub><sup>final</sup>) - c<sub>trans</sub> &middot; |&Delta;Q<sub>t</sub><sup>ID</sup>| ]</div>
-              <p>Where the B3 deadband controller issues Intraday trades only when expected spread gains exceed bid-ask friction thresholds:</p>
-              <div class="formula-box">&Delta;Q<sub>t</sub><sup>trade</sup> = (q<sub>&tau;*</sub> - Q<sub>t</sub><sup>pos</sup>)  if  |q<sub>&tau;*</sub> - Q<sub>t</sub><sup>pos</sup>| > &delta;<sub>deadband</sub> &middot; &sigma;<sub>t</sub>,  else 0</div>
+              <p>The day-ahead position earns the day-ahead price. Each intraday trade &Delta;Q<sub>s</sub> earns the ID AEP and pays a half-spread c<sub>s</sub> (3 EUR/MWh, doubling toward the last stage) plus 0.02 EUR/MWh per MW traded. What is left settles at reBAP, one price for short and long:</p>
+              <div class="formula-box">R = &Sigma;<sub>t</sub> [ &lambda;<sub>t</sub><sup>DA</sup> &middot; Q<sub>t</sub><sup>DA</sup> + &Sigma;<sub>s</sub> ( &lambda;<sub>t</sub><sup>ID</sup> &middot; &Delta;Q<sub>t,s</sub> - (c<sub>s</sub> + 0.02 &middot; |&Delta;Q<sub>t,s</sub>|) &middot; |&Delta;Q<sub>t,s</sub>| ) + reBAP<sub>t</sub> &middot; (Y<sub>t</sub> - Q<sub>t</sub><sup>final</sup>) ] &middot; &Delta;t</div>
+              <p>For a day-ahead schedule f, the result against the perfect forecast is exact, with error e = y - f, spread s = reBAP - DA price and H the hours evaluated:</p>
+              <div class="formula-box">R(f) - R(y) = &Sigma;<sub>t</sub> e<sub>t</sub> &middot; s<sub>t</sub> &middot; &Delta;t = H &middot; mean(e) &middot; mean(s)  +  H &middot; cov(e, s)</div>
+              <p>The first term, the bias part, pays a long schedule while reBAP averages above the day-ahead price (by 4.42 EUR/MWh in the test window). The second, the alignment part, charges every error that runs with the system's imbalance. This portfolio is the German fleet in miniature, so a good forecast's remaining errors are the system's own errors: in both windows the TSO forecast's error correlates more strongly with the spread than any other rung's. Source: <code>reports/test/error_alignment.csv</code>.</p>
             </div>
 
             <!-- Tab 2: Regulatory Mechanics -->
             <div id="p03-pane-reg" class="proj-pane">
-              <h4>German reBAP Imbalance Pricing & Balance Group Settlement</h4>
-              <p>In the German grid control area (governed jointly by 50Hertz, Amprion, TenneT, and TransnetBW), balance group managers face the uniform imbalance price (reBAP). Unlike symmetric markets, reBAP exhibits extreme volatility spikes (-500 to +4,000 EUR/MWh) triggered by system-wide balancing activation costs.</p>
-              <p>Trading desks that attempt to correct every minute forecast update incur bid-ask spread losses on EPEX Intraday. The optimal policy balances balancing group penalty risks against transaction spread costs, deliberately accepting controlled imbalance exposure when reBAP risk is low.</p>
+              <h4>German Day-Ahead, Intraday and reBAP Settlement</h4>
+              <p>Every quarter-hour is decided at the day-ahead gate closure, 12:00 Europe/Berlin on the day before delivery (a lead of 12 to 35.75 hours), and again 12, 6, 2 and 0.5 hours before delivery, never before the intraday market opens at 16:00 the day before. Day-ahead products are hourly until 2025-09-30 and quarter-hourly after.</p>
+              <p>Intraday trades clear at the ID AEP: the volume-weighted price of the last 500 MW traded in continuous intraday for each quarter-hour, published by the four German TSOs on netztransparenz.de. A trade decided twelve hours ahead would have met a different price, and the half-spread is an assumption, swept from 0 to 6 EUR/MWh. What is left settles at the quality-assured reBAP, which had one price for short and long positions in every quarter-hour downloaded. With one price for both directions the newsvendor critical-fractile argument has no basis, so the NV policy is kept only as an ablation.</p>
+              <p>The TSO forecasts carry no publication time. The EU transparency rules make the day-ahead forecast due by 18:00 on the day before delivery, after the 12:00 gate closure, so F4 may hold information the other rungs could not have had: it is a benchmark, not a competitor. The portfolio is a price taker.</p>
             </div>
 
             <!-- Tab 3: Invariant Guards -->
             <div id="p03-pane-inv" class="proj-pane">
-              <h4>Spread Chasing Bleed & Information Leakage Audit</h4>
-              <p><strong>Over-Trading Friction Bleed:</strong> Continuously updating trading positions with every incoming weather forecast update generates severe transaction churn. The B3 stochastic deadband reduces traded volume by 44% by filtering out revisions smaller than the remaining forecast uncertainty, unlocking +288.5k EUR in net gains.</p>
-              <p><strong>Look-Ahead Bias Audit:</strong> Every weather ensemble and price forecast was strictly lagged behind operational gate closure timings. Rigorous time-travel invariant checks confirmed 0 look-ahead violations across the 30-day evaluation period.</p>
+              <h4>No Look-Ahead: Checks That Can Fail</h4>
+              <p><strong>Information sets:</strong> a forecast for delivery step t decided at step i sees measured output up to one hour before i, the newest weather run already published at i (a run is taken as public six hours after it was made, an assumption), and the calendar and sun position of t. A test corrupts everything outside that set and requires identical features.</p>
+              <p><strong>Look-ahead audit:</strong> it counts forecasts read after their decision time, and a test shows that it catches a cheating stage. The old audit only re-checked the forecast store's own guard, so it could not fail.</p>
+              <p><strong>Errors found and fixed in the rebuild:</strong> day-ahead positions read forecasts issued after the 12:00 gate closure for every quarter-hour delivered after noon (a fixed 24-hour lead); a PV seasonal-persistence feature wrapped around to the end of the series on the first day of data, so it read the future (the information-set test caught it); the forecast store answered a lead beyond its horizon with another quarter-hour's forecast; and the reported "CRPS" was twice the mean pinball loss over the levels 0.1 to 0.9, so the scores now report the pinball loss under its own name. Each fix ships with a regression test that fails on the old code.</p>
+              <p><strong>Withdrawn:</strong> an earlier version of this page showed a large intraday trading gain of a "stochastic deadband MPC" over 30 days. It came from a model in which the intraday price equalled the day-ahead price, reBAP was synthetic and the forecasts were the realised output plus hand-set noise, and it is withdrawn.</p>
             </div>
 
-            <!-- Tab 4: Algorithmic Ladder -->
+            <!-- Tab 4: Forecast and Policy Ladder -->
             <div id="p03-pane-arch" class="proj-pane">
-              <h4>Trading Policy Hierarchy</h4>
-              <p>&bull; <strong>B1 Mean Chasing Baseline:</strong> Trades expected mean generation at every gate closure. Suffers heavy friction and imbalance penalties (58.22 EUR/MWh realized price, 27,051 MWh traded).</p>
-              <p>&bull; <strong>NV Static Newsvendor:</strong> Selects a static optimal quantile based on historical spread distributions (58.22 EUR/MWh realized price, 26,947 MWh traded).</p>
-              <p>&bull; <strong>B3 Stochastic Deadband MPC:</strong> Dynamically optimizes bidding quantiles and enforces uncertainty-scaled trading deadbands (60.89 EUR/MWh realized price, 15,785 MWh traded, +288.5k EUR net gain).</p>
+              <h4>Forecast Ladder and Trading Policies</h4>
+              <p>&bull; <strong>F0 Climatology:</strong> quantiles of the output by calendar month and local hour.</p>
+              <p>&bull; <strong>F1 Persistence:</strong> wind as last measured, PV as on the last measured day, plus residual quantiles by hour.</p>
+              <p>&bull; <strong>F2 Linear Quantile Regression:</strong> on 16 aggregate features.</p>
+              <p>&bull; <strong>F3 LightGBM:</strong> one model per quantile level on all features, three seeds; it stops early and recalibrates on the last 60 days of the training window, held out.</p>
+              <p>&bull; <strong>F4 TSO Forecast:</strong> the published forecast plus residual quantiles by hour, as a benchmark.</p>
+              <p>Training from 2024-02-18, validation 2025-07-02 to 2025-12-29 (it tunes only B3's band), test 2026-01-01 to 2026-10-14, with gaps of at least 36 hours between the windows.</p>
+              <p><strong>Policies:</strong> B0 schedules the day-ahead median and never corrects. B1 trades to the newest median at every intraday stage. B3 trades only the part of a revision beyond k times the stage's q90 - q10 band (k = 4 for F1 to F3 and 1 for F4, from the validation window):</p>
+              <div class="formula-box">&Delta;Q<sub>s</sub> = sign(&delta;<sub>s</sub>) &middot; max( |&delta;<sub>s</sub>| - k &middot; (q90<sub>s</sub> - q10<sub>s</sub>), 0 ),   &delta;<sub>s</sub> = q50<sub>s</sub> - Q<sup>pos</sup></div>
+              <p>NV schedules one quantile, 0.533, chosen from the imbalance-cost asymmetry of the training data (an ablation). REF schedules the realised output: the perfect forecast.</p>
+              <p><strong>Intraday result:</strong> following every revision (B1) loses money against scheduling once with every forecast that revises, in both windows, at every half-spread from 0.5 EUR/MWh; with the TSO forecast it loses 87,261 EUR in 2026 even at zero cost. The revisions are public, so by the time they are traded the intraday price already carries them. B3's band, tuned on the validation window, does not transfer: with the TSO forecast it loses 69,112 EUR against B0 in 2026 at a half-spread of 3 EUR/MWh. Source: <code>reports/test/liquidity.csv</code> and <code>policies.csv</code>.</p>
             </div>
           </div>
 
           <div class="cli-box">
-            <span id="p03-cli-text">python -m f2b.cli policies --year 2025</span>
+            <span id="p03-cli-text">python -m f2b.cli backtest --phase validation</span>
             <button class="btn-copy" onclick="copyDynamicText('p03-cli-text')">Copy Command</button>
           </div>
+          <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; margin-top: 8px;">
+            Refits the ladder on the training window and rewrites <code>reports/validation/</code>; LightGBM with three seeds is the slow step. Run <code>python -m f2b.cli build-data</code> first, and download reBAP and ID AEP by hand from netztransparenz.de into <code>data/raw/netztransparenz/</code> (P03 README, section 6). The test window was evaluated once: <code>backtest --phase test</code> refuses to overwrite <code>reports/test/</code>.
+          </p>
         </div>
 
         <div class="visual-col">
           <div class="visual-gallery">
             <div class="gallery-nav">
-              <span class="gallery-tag"><span class="pulse-dot"></span>Multi-Horizon Telemetry & Visual Benchmark (300 DPI)</span>
-              <div class="gallery-btn-group">
-                <button class="gallery-btn" id="p03-galbtn-2026" onclick="switchVisual('p03', '2026')">2026 (YTD)</button>
-                <button class="gallery-btn active" id="p03-galbtn-2025" onclick="switchVisual('p03', '2025')">2025 Fan Chart</button>
-                <button class="gallery-btn" id="p03-galbtn-2024" onclick="switchVisual('p03', '2024')">2024 Fan Chart</button>
-                <button class="gallery-btn" id="p03-galbtn-bench" onclick="switchVisual('p03', 'bench')">Trading Frontier</button>
-              </div>
+              <span class="gallery-tag"><span class="pulse-dot"></span>Test Window Benchmark (from reports/test/)</span>
             </div>
             <div class="plot-container" onclick="openModal(document.getElementById('p03-active-img').src)">
-              <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
-              <img id="p03-active-img" class="plot-img" src="projects/03-probabilistic-forecast-to-bid/docs/figures/p03_forecast_fan_2025.png" alt="Forecast to Bid Trading Benchmarks">
+              <div class="plot-overlay-badge">Click to Enlarge</div>
+              <img id="p03-active-img" class="plot-img" src="projects/03-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png" alt="Project 03 test-window figure, described in the caption below">
             </div>
             <div class="plot-caption" id="p03-caption">
-              <strong>Figure 3 (2025):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2025 weather patterns.
+              <strong>Figure 3:</strong> Left: pinball loss by decision stage for climatology, persistence, linear, LightGBM and the TSO forecast. Middle: share of outcomes below each day-ahead quantile. Right: each forecast's day-ahead schedule against the perfect forecast, 2026, split into a bias part and the part from errors aligned with the imbalance price. LightGBM is drawn as the median of its three seeds. Built by <code>scripts/make_f2b_figure.py</code> from the committed CSVs in <code>reports/test/</code>.
             </div>
           </div>
         </div>
@@ -2893,24 +2877,6 @@
           src: 'projects/02-utility-hybrid-plant-dispatch/docs/figures/p02_curtailment_attribution.png',
           caption: '<strong>Figure 2 (Curtailment Attribution):</strong> Curtailment breakdown by cause (POC Cap vs EEG §51 negative price hours) and hybrid revenue lift (+5.4%).'
         }
-      },
-      p03: {
-        '2026': {
-          src: 'projects/03-probabilistic-forecast-to-bid/docs/figures/p03_forecast_fan_2026.png',
-          caption: '<strong>Figure 3 (2026 YTD):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2026 weather patterns.'
-        },
-        '2025': {
-          src: 'projects/03-probabilistic-forecast-to-bid/docs/figures/p03_forecast_fan_2025.png',
-          caption: '<strong>Figure 3 (2025):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2025 weather patterns.'
-        },
-        '2024': {
-          src: 'projects/03-probabilistic-forecast-to-bid/docs/figures/p03_forecast_fan_2024.png',
-          caption: '<strong>Figure 3 (2024):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2024 weather patterns.'
-        },
-        'bench': {
-          src: 'projects/03-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png',
-          caption: '<strong>Figure 3 (Trading Frontier):</strong> Realized price vs traded volume Pareto frontier and forecast skill degradation curves across lead times.'
-        }
       }
     };
 
@@ -2984,13 +2950,6 @@
           rluWear: '1,100 EUR',
           cli: 'python -m psw.cli ladder --year 2024'
         },
-        p03: {
-          tableSub: 'Fleet Charging Policy Comparison (48 Sessions, 2024 Conditions)',
-          b0Cost: '412.30 EUR',
-          b1Cost: '407.20 EUR',
-          b3Cost: '409.10 EUR',
-          cli: 'python -m evc.cli ladder --year 2024'
-        },
         p04: {
           breakeven: '0.098 EUR/kWh',
           surplus: '21.40 EUR/wk',
@@ -3014,20 +2973,6 @@
           b2Curtail: '482.0 MWh',
           b2Lift: '+5.4% (Ceiling)',
           cli: 'python -m hybrid.cli ladder --year 2024'
-        },
-        p03: {
-          gainMetric: '+248.5k EUR',
-          volMetric: '-42.5% Vol',
-          tableSub: 'Trading Policy Performance (30 Days Evaluation Period, 2024)',
-          tablePeriod: 'EPEX Spot & reBAP Settlement (2024 DE-LU)',
-          b1Price: '51.40 EUR/MWh',
-          b1Vol: '25,120 MWh',
-          nvPrice: '51.40 EUR/MWh',
-          nvVol: '25,010 MWh',
-          b3Price: '53.85 EUR/MWh',
-          b3Vol: '14,820 MWh',
-          b3Gain: '+248.5k EUR Gain',
-          cli: 'python -m f2b.cli policies --year 2024'
         }
       },
       '2025': {
@@ -3066,13 +3011,6 @@
           rluWear: '1,200 EUR',
           cli: 'python -m psw.cli ladder --year 2025'
         },
-        p03: {
-          tableSub: 'Fleet Charging Policy Comparison (48 Sessions, 2025 Conditions)',
-          b0Cost: '479.00 EUR',
-          b1Cost: '473.07 EUR',
-          b3Cost: '475.19 EUR',
-          cli: 'python -m evc.cli ladder --year 2025'
-        },
         p04: {
           breakeven: '0.110 EUR/kWh',
           surplus: '24.13 EUR/wk',
@@ -3096,20 +3034,6 @@
           b2Curtail: '602.0 MWh',
           b2Lift: '+5.5% (Ceiling)',
           cli: 'python -m hybrid.cli ladder --year 2025'
-        },
-        p03: {
-          gainMetric: '+288.5k EUR',
-          volMetric: '-44.0% Vol',
-          tableSub: 'Trading Policy Performance (30 Days Evaluation Period)',
-          tablePeriod: 'EPEX Spot & reBAP Settlement',
-          b1Price: '58.22 EUR/MWh',
-          b1Vol: '27,051 MWh',
-          nvPrice: '58.22 EUR/MWh',
-          nvVol: '26,947 MWh',
-          b3Price: '60.89 EUR/MWh',
-          b3Vol: '15,785 MWh',
-          b3Gain: '+288.5k EUR Gain',
-          cli: 'python -m f2b.cli policies --year 2025'
         }
       },
       '2026': {
@@ -3148,13 +3072,6 @@
           rluWear: '1,150 EUR',
           cli: 'python -m psw.cli ladder --year 2026'
         },
-        p03: {
-          tableSub: 'Fleet Charging Policy Comparison (48 Sessions, 2026 Conditions)',
-          b0Cost: '446.80 EUR',
-          b1Cost: '441.15 EUR',
-          b3Cost: '443.20 EUR',
-          cli: 'python -m evc.cli ladder --year 2026'
-        },
         p04: {
           breakeven: '0.104 EUR/kWh',
           surplus: '22.85 EUR/wk',
@@ -3178,20 +3095,6 @@
           b2Curtail: '534.0 MWh',
           b2Lift: '+5.5% (Ceiling)',
           cli: 'python -m hybrid.cli ladder --year 2026'
-        },
-        p03: {
-          gainMetric: '+269.8k EUR',
-          volMetric: '-43.8% Vol',
-          tableSub: 'Trading Policy Performance (30 Days Evaluation Period, 2026)',
-          tablePeriod: 'EPEX Spot & reBAP Settlement (2026 DE-LU)',
-          b1Price: '54.80 EUR/MWh',
-          b1Vol: '26,140 MWh',
-          nvPrice: '54.80 EUR/MWh',
-          nvVol: '26,050 MWh',
-          b3Price: '57.38 EUR/MWh',
-          b3Vol: '15,210 MWh',
-          b3Gain: '+269.8k EUR Gain',
-          cli: 'python -m f2b.cli policies --year 2026'
         }
       }
     };
@@ -3256,23 +3159,10 @@
       setEl('p02-b2-lift', cfg.p02.b2Lift);
       setEl('p02-cli-text', cfg.p02.cli);
 
-      // P03
-      setEl('p03-metric-gain', cfg.p03.gainMetric);
-      setEl('p03-metric-vol', cfg.p03.volMetric);
-      setEl('p03-table-sub', cfg.p03.tableSub);
-      setEl('p03-table-period', cfg.p03.tablePeriod);
-      setEl('p03-b1-price', cfg.p03.b1Price);
-      setEl('p03-b1-vol', cfg.p03.b1Vol);
-      setEl('p03-nv-price', cfg.p03.nvPrice);
-      setEl('p03-nv-vol', cfg.p03.nvVol);
-      setEl('p03-b3-price', cfg.p03.b3Price);
-      setEl('p03-b3-vol', cfg.p03.b3Vol);
-      setEl('p03-b3-gain', cfg.p03.b3Gain);
-      setEl('p03-cli-text', cfg.p03.cli);
-
-      // Switch active figure in galleries for all projects to currently selected year
+      // Switch the per-year gallery figures to the selected year. P03 shows one test-window
+      // figure for every year, so it is not in the list.
       currentGlobalYear = yKey;
-      const projList = ['p01', 'p02', 'p03'];
+      const projList = ['p01', 'p02'];
       projList.forEach(pid => {
         const benchBtn = document.getElementById(pid + '-galbtn-bench');
         const isBench = benchBtn && benchBtn.classList.contains('active');

@@ -37,8 +37,8 @@ def verify():
         assert f'function {fn}(' in html, f"Missing function {fn}"
         print(f"Function OK: {fn}")
 
-    # 4. Check 2026 gallery buttons
-    for pid in ['p01', 'p02', 'p03']:
+    # 4. Check 2026 gallery buttons (P03 has a single test-window figure, no year buttons)
+    for pid in ['p01', 'p02']:
         btn_id = f'{pid}-galbtn-2026'
         assert f'id="{btn_id}"' in html, f"Missing {btn_id}"
         print(f"Gallery button OK: {btn_id}")
