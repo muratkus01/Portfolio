@@ -1,421 +1,337 @@
-# Project 03 · Probabilistic Forecast-to-Bid for Intraday Trading and Imbalance Management
+# Project 03 · Probabilistic Forecast-to-Bid for a German Wind and PV Portfolio
 
-**Distributional forecasting of renewable generation and prices, coupled to a trading policy
-through decision-focused learning - for a balance responsible party managing a German
-renewable portfolio across the day-ahead, intraday and imbalance stages at 15-minute
-resolution.**
+A balance responsible party sells the output of a wind and PV portfolio in the day-ahead
+auction, may correct the position intraday as forecasts improve, and settles whatever is
+left at the German imbalance price, the reBAP. This project forecasts that output from weather
+forecasts as they were known at the time, compares the forecasts with the transmission
+system operators' published one, and measures what each is worth in that chain at real
+2024 to 2026 prices.
 
-## 0. Implementation status
+Every number below comes from a committed CSV: `reports/test/` for the test window
+(1 January to 14 October 2026 UTC, evaluated once, with every setting frozen beforehand) and
+`reports/validation/` for the validation window (2 July to 29 December 2025 UTC). Section 6
+has the commands.
 
-Forecast store, probabilistic scoring and the trading-policy layer implemented and running on
-**real German 15-minute wind + PV generation and DE-LU day-ahead prices**. 18 tests pass.
-Installs from `numpy` + `pandas` alone (the normal quantile function is vendored), so the
-benchmark is trivially reproducible.
+## 0. Results
 
-```bash
-pip install -e ".[dev]" && python -m pytest tests/ -q
-python -m f2b.cli policies  --year 2025 --days 30
-python -m f2b.cli forecast  --year 2025 --days 30
-python -m f2b.cli liquidity --year 2025 --days 30
-```
+**Forecast skill is real, stable across windows and seeds, and short of the published
+forecast.** At the day-ahead gate closure, LightGBM (F3) has a pinball loss of 2.41 MW against
+7.29 MW for climatology and 7.71 MW for persistence, and its three seeds agree to within
+0.013 MW. The forecast the TSOs publish (F4) is better at every decision stage: 1.56 MW at
+day-ahead, 0.82 MW half an hour before delivery, against 1.33 MW for F3. The day-ahead
+ranking F4 < F3 < F2 < F0, F1 is the same in both windows; half an hour before delivery the
+linear model catches up with LightGBM, and in the validation window passes it.
+[forecast_by_stage](reports/test/forecast_by_stage.csv)
 
-**Forecast quality by lead time** (300 MW portfolio, 30 days of 2025):
+**Whether that skill pays in euros changes with the window, and the difference stays within
+the noise.** Scheduling each forecast day-ahead and settling the rest at reBAP, the 2026 test
+window ranks the euros exactly as the skill: TSO forecast 28.96 M EUR, LightGBM 28.78 to
+28.79 M, linear 28.65 M, climatology 28.54 M, persistence 28.31 M (Spearman +1.0). The second
+half of 2025 does not (-0.4): climatology earned most and the TSO forecast least. In neither
+window does any forecast's day-ahead gain over climatology have a 90 % block-bootstrap
+interval that excludes zero; for the TSO forecast in 2026 it is +420,171 EUR (-106,521 to
++1,233,049).
+[policies](reports/test/policies.csv), [value_of_forecast](reports/test/value_of_forecast.csv),
+[quality_vs_value](reports/test/quality_vs_value.csv)
 
-| Lead h | MAE MW | RMSE MW | CRPS | Calibration err |
-|---:|---:|---:|---:|---:|
-| 0.25 | 12.3 | 15.5 | 9.3 | 0.022 |
-| 1 | 13.7 | 17.4 | 10.4 | 0.021 |
-| 6 | 25.3 | 31.9 | 18.5 | 0.032 |
-| 24 | 49.6 | 65.3 | 35.7 | 0.062 |
+**Why.** For a day-ahead schedule `f`, the result against a perfect forecast is exactly
+`sum((y - f) * (reBAP - DA)) * dt`. It splits into a bias part, which pays a long schedule
+while reBAP averages above the day-ahead price (it did, by 4.31 and 4.42 EUR/MWh in the two
+windows), and an alignment part, which charges every error that runs with the system's
+imbalance. This portfolio is the German fleet in miniature, so the errors of a good forecast
+are the system's own errors: the TSO forecast's error correlates more strongly with the spread
+between reBAP and the day-ahead price than any other rung's (-0.1611 and -0.0650). In 2026 the
+size of the errors decided; in late 2025 climatology's large errors happened to run almost
+independently of that spread (-0.0165) while its long bias earned 96,233 EUR. Climatology
+carries 129,432 MWh of imbalance in the test window, about 40 % of what the portfolio
+produced and nearly five times the TSO forecast's;
+no balance responsible party may schedule that way, so its euros are a warning about scoring
+forecasts in euros alone, not a strategy. [error_alignment](reports/test/error_alignment.csv)
 
-**Trading policies** (30 days of 2025, 41,395 MWh produced, 3 EUR/MWh half-spread; generated with `python -m f2b.cli policies --year 2025 --days 30`, commit `dadb2f1`):
+**Trading every forecast revision intraday does not pay.** Policy B1, which follows each
+revision at the intraday index, loses money against scheduling once with every forecast that
+revises (climatology never does) in both windows at any half-spread from 0.5 EUR/MWh. With the TSO forecast and LightGBM it loses
+in 2026 even at zero cost: -87,261 EUR and -24,494 EUR (median of three seeds, -18,586 to
+-30,053). The deadband rule B3, which trades only large revisions, gains at most 18,258 EUR
+(persistence, 2026, at zero cost) and loses 58,322 to 79,902 EUR with the TSO forecast in
+2026. [liquidity](reports/test/liquidity.csv)
 
-| Policy | Net EUR | EUR/MWh | Imbalance MWh | Traded MWh | ID cost EUR |
-|---|---:|---:|---:|---:|---:|
-| B0 day-ahead only | 3,752,047 | 90.64 | 34,772 | 0 | 0 |
-| B1 point intraday | 3,127,412 | 75.55 | 10,435 | 111,684 | 630,240 |
-| NV newsvendor quantile | 3,133,150 | 75.69 | 10,396 | 110,757 | 624,230 |
-| **B3 stochastic MPC** | **3,413,522** | **82.46** | **7,791** | **62,728** | **338,696** |
-| REF zero imbalance | 3,705,854 | 89.52 | 0 | 0 | 0 |
-| CEIL perfect speculation | 9,042,671 | 218.45 | 108,854 | 0 | 0 |
-
-B3's deadband beats always-chasing-the-mean by **+286,110 EUR** while trading 44 % less volume:
-the mechanism is refusing to pay a spread for forecast revisions that are small relative to
-the remaining uncertainty.
-
-![Probabilistic Forecast-to-Bid Trading Policy Benchmarks](docs/figures/f2b_trading_benchmark.png)
-
-**Three errors found and fixed during implementation**, all of the kind that quietly
-invalidates a result:
-
-1. **"Perfect foresight" was not an upper bound.** Committing the realised generation gives
-   zero imbalance, but imbalance settlement is *signed* - deviating in the system-helping
-   direction is paid. B0 beats the zero-imbalance reference by luck alone.
-   The rung is now labelled `REF zero imbalance`, and a genuine `CEIL perfect speculation`
-   ceiling was added, with the caveat that no BRP may legally pursue it.
-2. **The calibration metric was structurally biased.** Binning the PIT against a uniform
-   histogram cannot work when the quantile set spans only 0.1-0.9: ~20 % of realisations
-   necessarily land outside and pile up at the endpoints. It reported ≈0.06 for a *perfectly*
-   calibrated forecast at every lead time - the constancy is what gave it away. Replaced with
-   reliability, `mean |empirical coverage − nominal level|`.
-3. **A test fixture used a stateful module-level RNG**, so the forecast store was built from
-   one realisation of "the truth" and scored against a different one. This is indistinguishable
-   from a badly miscalibrated model from the outside.
-
-**Known simplification:** forecasts are generated by perturbing the realised series with
-lead-dependent autocorrelated noise rather than by a real NWP-driven model. The store's
-*architecture* (issue-time keying, shared by all policies, with a CI look-ahead audit that
-returns 0 violations) is the transferable part; swapping in DWD ICON-D2-EPS changes only
-`build_store`.
+![Pinball loss by decision stage, reliability of the day-ahead quantiles, and each forecast's day-ahead result against the perfect forecast split into bias and alignment](docs/figures/f2b_trading_benchmark.png)
 
 ---
+
+## 1. Setup
+
+### Portfolio and data
+
+| | Source | Use |
+|---|---|---|
+| Output | German wind (onshore + offshore) and solar public feed-in, Energy-Charts, 15 min, divided by the month's installed capacity (wind, PV AC) and scaled to 200 MW wind + 100 MW PV | the quantity forecast and settled |
+| TSO forecasts | day-ahead, intraday and current forecasts of the same fleet, Energy-Charts (transparency platform), scaled the same way | F4, a benchmark |
+| Weather | Open-Meteo previous-runs archive at the 16 state capitals and two offshore clusters: wind at 100 m, irradiance, cloud cover, temperature, as forecast one and two days ahead | features of F2 and F3 |
+| Day-ahead price | DE-LU, Energy-Charts; hourly products until 2025-09-30, quarter-hourly after | day-ahead revenue |
+| Intraday price | ID AEP, netztransparenz.de: the volume-weighted price of the last 500 MW traded in continuous intraday for each quarter-hour | every intraday trade |
+| Imbalance price | reBAP, netztransparenz.de, quality-assured; short and long are equal in every quarter-hour downloaded ([SOURCE](data/raw/netztransparenz/SOURCE.md)) | imbalance settlement |
+
+[data_coverage](reports/data_coverage.csv) lists the first and last value of every series and
+its missing share per window. The two timestamp conventions agree: forecast irradiance and
+measured PV correlate best at lag 0 (0.9833), forecast wind and measured wind too (0.8175)
+([data_alignment](reports/data_alignment.csv)).
+
+### Decision stages
+
+Every quarter-hour is decided at the day-ahead gate closure, 12:00 Europe/Berlin on the day
+before delivery (a lead of 12 to 35.75 hours, 36.75 on the 25-hour day when the clocks go
+back; 23.9 on average), and again at four intraday
+stages 12, 6, 2 and 0.5 hours before delivery, never before the intraday market opens at
+16:00 the day before. `stages.py` turns timestamps into these decision times; the policies
+receive the forecasts and never choose an issue time themselves.
+
+### Settlement and policies
+
+The day-ahead position earns the day-ahead price, each intraday trade the ID AEP minus a
+half-spread of 3 EUR/MWh that doubles toward the last stage plus 0.02 EUR/MWh per MW traded,
+and what is left settles at reBAP. One price applies to short and long imbalance.
+
+| Policy | Rule |
+|---|---|
+| B0 day-ahead only | schedule the day-ahead median, never correct |
+| B1 intraday to median | trade to the newest median at every intraday stage |
+| B3 deadband intraday | trade only the part of a revision beyond `k` times the stage's q90 - q10 band; `k` from the validation window ([frozen_config](reports/frozen_config.json): 4 for F1 to F3, 1 for F4) |
+| NV newsvendor fractile | an ablation: schedule a quantile chosen from imbalance-cost asymmetry (0.533, from training data). With one imbalance price for both directions the critical-fractile argument has no basis |
+| REF zero imbalance | schedule the realised output: the perfect forecast, not an upper bound |
+| CEIL perfect speculation | perfect knowledge of output and prices, 75,581,957 EUR in 2026; no balance responsible party may trade this way |
+
+### The forecast ladder
+
+| Rung | Model |
+|---|---|
+| F0 climatology | quantiles of the output by calendar month and local hour |
+| F1 persistence | wind as last measured, PV as on the last measured day, plus residual quantiles by hour |
+| F2 linear quantile | linear quantile regression on 16 aggregate features |
+| F3 gradient boosting | LightGBM, one model per quantile level, all features, three seeds |
+| F4 TSO forecast | the published forecast plus residual quantiles by hour |
+
+Each rung predicts nine quantiles, 0.1 to 0.9, of the portfolio's capacity factor for each
+decision stage. A row for delivery step `t` decided at step `i` sees measured output up to one
+hour before `i`, the newest weather run already published at `i` (a run is taken as public six
+hours after it was made, so leads to 18 h use the one-day-old run and leads to 42 h the
+two-day-old one), and the calendar and sun position of `t`. A test corrupts everything outside
+that set and requires identical features.
+
+The split is by delivery time: training from 2024-02-18 (the archive's wind at 100 m starts in
+mid-February 2024, irradiance, cloud and temperature in January), validation from 2025-07-02,
+test from 2026-01-01, with gaps of at least 36 hours between the windows. The last
+60 days of each training window are held out: F3 stops early there, and F2 and F3 shift each
+quantile level so that those days are covered as nominal. The validation window tunes only
+B3's band. The test window was evaluated once; `backtest --phase test` refuses to overwrite
+it.
+
+---
+
+## 2. Results in detail
+
+### 2.1 Forecast quality
+
+Pinball loss in MW by decision stage, test window (27,544 quarter-hours), F3 the median of its
+three seeds:
+
+| Rung | DA | ID-12h | ID-6h | ID-2h | ID-0.5h | MAE DA | share below q10 / q50 / q90 (DA) | bias DA |
+|---|---:|---:|---:|---:|---:|---:|---|---:|
+| F0 climatology | 7.29 | 7.29 | 7.29 | 7.29 | 7.29 | 18.80 | 0.10 / 0.50 / 0.89 | -4.38 |
+| F1 persistence | 7.71 | 6.53 | 4.86 | 2.98 | 2.02 | 19.61 | 0.07 / 0.47 / 0.92 | -1.30 |
+| F2 linear quantile | 3.16 | 2.92 | 2.79 | 2.09 | 1.38 | 8.37 | 0.14 / 0.69 / 0.95 | +4.11 |
+| F3 gradient boosting | 2.41 | 1.97 | 1.96 | 1.75 | 1.33 | 6.02 | 0.11 / 0.56 / 0.94 | +0.65 |
+| F4 TSO forecast | 1.56 | 1.13 | 1.13 | 0.82 | 0.82 | 3.92 | 0.08 / 0.40 / 0.88 | -0.71 |
+
+F3 cuts the day-ahead error of the naive rungs to a third. Its day-ahead median sits slightly
+high (56 % of outcomes fall below it, calibration error 0.048); half an hour before delivery
+its calibration error is 0.008 to 0.010. The recalibration slice works for
+F3 but not for the linear model: fitted on November and December, F2's day-ahead shift
+overshoots in 2026 (bias +4.11 MW), and fitted on May and June it undershot in late 2025
+(-4.46 MW): a linear model's bias moves with the season. F4 has only three forecast vintages,
+so ID-12h equals ID-6h and ID-2h equals ID-0.5h; its residual quantiles, fitted on 2024 and
+2025, sit low in 2026, when the published forecast ran 0.71 MW under the output.
+Validation window: [forecast_by_stage](reports/validation/forecast_by_stage.csv).
+
+### 2.2 Value in the market
+
+Net EUR, test window:
+
+| Rung | B0 day-ahead only | B1 intraday to median | B3 deadband | imbalance MWh (B0) | B0 gain over F0, 90 % CI |
+|---|---:|---:|---:|---:|---|
+| F0 climatology | 28,543,017 | 28,543,017 | 28,543,017 | 129,432 | |
+| F1 persistence | 28,307,894 | 27,316,645 | 28,303,220 | 135,041 | -235,123 (-701,358 to +437,447) |
+| F2 linear quantile | 28,652,784 | 28,048,815 | 28,651,998 | 57,628 | +109,767 (-332,790 to +889,433) |
+| F3 seed 0 | 28,779,407 | 28,482,071 | 28,779,388 | 41,552 | +236,390 (-161,711 to +821,033) |
+| F3 seed 1 | 28,790,925 | 28,481,131 | 28,790,780 | 41,460 | +247,908 (-148,184 to +834,640) |
+| F3 seed 2 | 28,790,914 | 28,486,907 | 28,790,610 | 41,392 | +247,897 (-150,597 to +833,981) |
+| F4 TSO forecast | 28,963,188 | 28,783,168 | 28,894,076 | 26,989 | +420,171 (-106,521 to +1,233,049) |
+| REF zero imbalance | 29,289,862 | | | 0 | |
+
+The same table for the validation window has the TSO forecast at 15,055,372 EUR and
+climatology at 15,295,413, every B0 gain over climatology negative, and every B0 interval
+again containing zero. [policies](reports/validation/policies.csv),
+[value_of_forecast](reports/validation/value_of_forecast.csv). The intervals resample whole
+weeks of delivery days ([daily_net](reports/test/daily_net.csv)), so weather spells stay
+together.
+
+### 2.3 Why euros do not simply follow skill
+
+Day-ahead schedule against the perfect forecast, split exactly into bias and alignment
+(LightGBM shown for its first seed, so that the row adds up;
+[validation](reports/validation/error_alignment.csv), [test](reports/test/error_alignment.csv)):
+
+| Rung | corr. of error and reBAP - DA, val. / test | bias part, val. / test | alignment part, val. / test | total, val. / test |
+|---|---|---|---|---|
+| F0 climatology | -0.0165 / -0.0382 | +96,233 / +133,473 | -185,311 / -880,318 | -89,078 / -746,845 |
+| F1 persistence | -0.0281 / -0.0403 | +5,857 / +39,539 | -319,523 / -1,021,507 | -313,666 / -981,968 |
+| F2 linear quantile | -0.0725 / -0.0513 | +83,547 / -125,095 | -289,112 / -511,983 | -205,565 / -637,078 |
+| F3 seed 0 | -0.0886 / -0.0607 | -1,144 / -19,927 | -310,780 / -490,528 | -311,925 / -510,455 |
+| F4 TSO forecast | -0.1611 / -0.0650 | -2,935 / +21,685 | -326,184 / -348,359 | -329,119 / -326,674 |
+
+A long schedule earns where reBAP averages above the day-ahead price, which it did in both
+windows. Every error is charged where it runs with the system: being long while the system is
+long settles at a low reBAP. A better forecast has smaller errors, but its remaining errors
+are the market's errors, because everyone forecasts the same weather; for this fleet-shaped
+portfolio they correlate with the spread more strongly than any other rung's, in both
+windows. In 2026 the TSO forecast's errors were nevertheless small enough to give it the
+smallest alignment part. What a forecast is worth in euros is therefore the product of error
+size, alignment and the spread's volatility, and over half a year that product is noisy.
+
+### 2.4 Intraday correction and liquidity
+
+B1 against B0, EUR, by intraday half-spread ([test](reports/test/liquidity.csv),
+[validation](reports/validation/liquidity.csv)):
+
+| | 0 | 0.5 | 1 | 3 | 6 EUR/MWh |
+|---|---:|---:|---:|---:|---:|
+| F4 TSO forecast, test | -87,261 | -102,721 | -118,181 | -180,019 | -272,777 |
+| F3 seed 0, test | -18,586 | -65,045 | -111,503 | -297,336 | -576,085 |
+| F4 TSO forecast, validation | +8,600 | -704 | -10,008 | -47,224 | -103,047 |
+| F3 seed 0, validation | -15,580 | -46,103 | -76,627 | -198,720 | -381,861 |
+
+The forecast revisions are public, so by the time they are traded the intraday price already
+carries them. Persistence is the exception at zero cost (+57,592 EUR in validation, +20,602 in
+2026): its day-ahead forecast is so poor that correcting it is worth something, though not at
+0.5 EUR/MWh. The band of B3, tuned to the validation window, does not transfer: with the TSO
+forecast it loses 69,112 EUR against B0 in 2026 at 3 EUR/MWh, and for F1 to F3 the widest band
+on offer won, so B3 hardly trades at all.
+
+### 2.5 What did not survive the change of window
+
+The validation window alone suggested that climatology beats every forecast in euros and that
+following the TSO forecast's revisions intraday pays at a half-spread close to zero. Neither
+holds in 2026. What holds in both: the day-ahead forecast ranking, the exact bias and
+alignment split, the TSO forecast's errors correlating most strongly with the spread, B0 gains
+whose intervals contain zero, and B1 losing money from a half-spread of 0.5 EUR/MWh with every
+forecast that revises.
+
+---
+
+## 3. Errors found and fixed in this rebuild
+
+The earlier version of this README (before commit ac498d6) reported that B3 beat B1 by
+286,110 EUR in 30 days of 2025. That number came from a model in which intraday trading could
+not earn anything, and it is withdrawn.
+
+1. **The intraday price was the day-ahead price and the imbalance price was synthetic** (spot
+   plus noise, independent of the portfolio's errors). Both are now the published series.
+2. **The forecasts were the realised output plus noise of a hand-set size**, with an
+   independent error per lead time, so every revision was fresh noise. The ladder in section 1 replaced them; the noise model remains only as a
+   labelled ablation (`synthetic-*` commands), now with nested errors and a spread that uses
+   only past data.
+3. **Day-ahead positions used forecasts issued after the 12:00 gate closure** for every
+   quarter-hour delivered after noon (a fixed 24-hour lead). Decision times now come from
+   timestamps.
+4. **The look-ahead audit could not fail**: it only re-checked the store's own guard. It now
+   counts forecasts read after their decision time, and a test shows it catches a cheating
+   stage.
+5. **The forecast store answered a lead beyond its horizon with another quarter-hour's
+   forecast.** It raises now.
+6. **The newsvendor fractile was fitted on the window it was scored on**, and the synthetic
+   imbalance price shared a random generator with the forecast store.
+7. **"CRPS" was twice the mean pinball over the levels 0.1 to 0.9**, biased against the real
+   CRPS; the scores now report the pinball loss under its own name.
+8. **"B3 stochastic MPC" was a deadband rule** with one hand-set parameter. It is named as one.
+9. Found while building: **the PV seasonal-persistence feature wrapped around to the end of the
+   series** for the first day of data, i.e. read the future. The information-set test caught
+   it.
+10. **LightGBM first stopped early on the validation window itself**, which left it biased and
+    overconfident on the window it was scored on. It now stops early and recalibrates on
+    held-out training days.
+
+Each fix ships with a regression test that fails on the old code.
+
+## 4. Limits of the evidence
+
+- **The portfolio is the German fleet in miniature.** Its output is far smoother than a real
+  300 MW portfolio's, and its forecast errors are the system's errors, which makes the
+  alignment part as large as it can be. A real portfolio's own errors would partly run
+  against the system and earn.
+- **PV is public feed-in**, without self-consumption, because the TSO forecasts forecast
+  feed-in; its capacity factor is therefore low.
+- **The TSO forecasts carry no publication time.** The EU transparency rules make the
+  day-ahead forecast due by 18:00 on the day before delivery, after the 12:00 gate closure,
+  so F4 may hold information the other rungs could not have had. It is a benchmark, not a
+  competitor.
+- **Every intraday trade clears at the ID AEP**, an index of the last trades before delivery.
+  A trade decided twelve hours ahead would have met a different price, and the half-spread
+  is an assumption, swept from 0 to 6 EUR/MWh.
+- **The weather is Open-Meteo's best-match model**, whose composition can change over time,
+  and the six-hour publication delay is an assumption.
+- **The history is short**: training from February 2024, one validation half-year, one test
+  window of 287 days. The validation window contains the switch to quarter-hourly
+  day-ahead products on 2025-10-01.
+- **reBAP for 15, 16 and 18 October 2026 was still missing** when the test ran (the
+  quality-assured series was published up to the 19th with those gaps), which set the end of
+  the test window.
+- The portfolio is a price taker.
+
+## 5. Not built
+
+Price and reBAP forecasting, decision-focused learning, a reinforcement-learning trading policy,
+scenario-based stochastic optimisation and ensemble weather forecasts are not part of this
+project. `../../docs/09-learned-forecast-layer.md` records the plan they belonged to and how
+the built part departs from it. ICON-D2-EPS has no public archive to test against, and
+Open-Meteo's historical-forecast product would leak, because it stitches together the shortest
+lead of every run.
+
+## 6. Reproduce
+
+```bash
+pip install -e ".[forecast,dev]"
+python -m pytest tests -q
+python -m f2b.cli build-data                   # Energy-Charts and Open-Meteo, cached
+python -m f2b.cli backtest --phase validation  # the slow step: LightGBM with three seeds
+python -m f2b.cli backtest --phase test        # once; refuses to overwrite reports/test/
+python ../../scripts/make_f2b_figure.py        # the figure, from the committed CSVs
+```
+
+reBAP and ID AEP have to be downloaded by hand from netztransparenz.de (pages
+"Ausgleichsenergiepreis > reBAP" and "> Index Ausgleichsenergiepreis", time zone UTC, any
+number of overlapping files) into `data/raw/netztransparenz/`; the site exports at most about
+seven months of reBAP per file. `backtest --reuse-forecasts` revalues the cached forecasts
+without refitting. Each `run_meta.json` names the commit that made the forecasts and the one
+that valued them.
+
+The parametric-noise ablation keeps its four commands: `synthetic-policies`,
+`synthetic-forecast`, `synthetic-score-vs-value` and `synthetic-liquidity`.
+
+## 7. Data and licences
+
+Energy-Charts (Fraunhofer ISE) and Open-Meteo data are CC BY 4.0. reBAP and ID AEP are
+published by the four German TSOs on netztransparenz.de; the raw files are not redistributed,
+only results derived from them.
+
+## 8. Files
 
 | | |
 |---|---|
-| **Status** | **Forecast store + policy layer implemented** on real 2025 data · RL policy not yet trained |
-| **Method** | Probabilistic forecasting (quantile/distributional NN) + decision-focused learning + RL trading policy |
-| **Actor** | Balance responsible party / virtual power plant with a wind + PV portfolio |
-| **Markets** | SDAC day-ahead (15-min MTU) · SIDC continuous intraday + IDA auctions · imbalance (reBAP) |
-| **Role in portfolio** | The **shared uncertainty engine** - supplies scenarios and quantiles to Projects 01, 02, 05 |
-
----
-
-## 1. Background and motivation
-
-Forecasting in energy is almost always evaluated with the wrong loss function. A model is
-trained to minimise RMSE, reported with a MAE, and then handed to a trading desk whose actual
-cost function is wildly asymmetric: being short in a scarcity quarter-hour can cost several
-hundred €/MWh, while being long in the same quarter-hour may cost little - or, when the
-imbalance price is negative and the deviation helps the system, actually **earn** money. A
-forecast improvement that does not change a decision is worth exactly zero, and a forecast
-that is worse by RMSE can be better by profit.
-
-This project takes the decision as the object of study:
-
-**Distributional, not point.** The trading decision depends on the full predictive
-distribution - specifically on its tails - not on the conditional mean. Ensemble NWP
-(DWD ICON-D2-EPS) provides a physically-grounded uncertainty source that statistical
-post-processing can calibrate.
-
-**Decision-focused learning.** Rather than training a forecaster and then optimising against
-it, the forecast model is trained through the downstream optimisation, so its loss is the
-realised trading cost. This is where the theoretical gain is, and it is directly testable
-against the conventional two-stage pipeline.
-
-**Sequential, not one-shot.** The BRP decides repeatedly: commit day-ahead, then correct
-continuously in intraday as forecasts improve and liquidity changes, then accept residual
-imbalance. Each correction has a cost (spread, market impact) and a benefit (reduced
-imbalance risk). That is a sequential decision problem under a moving information set - an RL
-problem in the proper sense, not an RL problem by fashion.
-
-**The German context sharpens it.** Fifteen-minute MTU across all stages, a single signed
-reBAP that can reward system-helping imbalance, and a portfolio whose error is dominated by
-weather. This is one of the cleanest real instances of "predict, then decide" in the energy
-sector, and it runs entirely on open data.
-
----
-
-## 2. Market context
-
-| Element | How it enters the model |
-|---------|-------------------------|
-| **SDAC day-ahead**, 15-min MTU | The initial commitment, closing D-1 12:00 CET |
-| **IDA1/IDA2/IDA3** intraday auctions | Discrete correction opportunities with auction-clearing (not order-book) execution |
-| **SIDC continuous intraday** | Continuous correction until gate closure (~5 min before delivery, cross-border earlier). Modelled with a parametric liquidity/spread model, since order-book data is commercial |
-| **Imbalance settlement / reBAP** | A single signed price per quarter-hour, published ex post, heavy-tailed and occasionally rewarding deviation in the system-helping direction. **This asymmetry is the entire decision problem** |
-| **Balancing group obligations** | The BRP must submit schedules and is liable for deviations; schedule change deadlines constrain when corrections are possible |
-| **`§13a EnWG` redispatch** | Ordered curtailment changes the portfolio position exogenously and must be reflected in the schedule |
-
----
-
-## 3. Scope and objectives
-
-### In scope
-
-- Probabilistic generation forecasting for a German wind + PV portfolio at 15-minute
-  resolution, horizons from 15 minutes to 48 hours, with **true issue times** (NWP run
-  availability and latency respected exactly).
-- Probabilistic price forecasting: day-ahead, intraday index, and **reBAP** - the last being
-  the hardest and the most valuable.
-- Three trading policy families, compared on the same forecasts:
-  1. **Newsvendor / analytical** - the classical quantile-based solution under an asymmetric cost.
-  2. **Stochastic MPC** - scenario-based rolling optimisation over the correction stages.
-  3. **RL policy** - learned directly on realised settlement outcomes.
-- **Decision-focused learning**: train the forecaster through the decision, compare against
-  the conventional two-stage pipeline.
-- A parametric intraday liquidity and market-impact model, with explicit sensitivity.
-
-### Out of scope
-
-- Order-book-level microstructure and execution algorithms (requires commercial data).
-- Cross-border implicit trading beyond what the price series reflect.
-- Strategic bidding / market power.
-- Physical asset control - that is Projects 01, 02, 05, which consume this project's outputs.
-
-### Objectives
-
-1. Build a calibrated probabilistic forecasting stack for German wind, PV and prices on fully
-   open data - reusable by the rest of the portfolio.
-2. Quantify the gap between **statistical** forecast quality (CRPS) and **decision** value (€),
-   demonstrating explicitly that they are not the same ranking.
-3. Test whether decision-focused learning beats the standard two-stage pipeline, and by how
-   much.
-4. Determine whether an RL trading policy beats stochastic MPC, and where the difference lies.
-5. Publish an open, reproducible forecast-to-bid benchmark for the German market - a piece of
-   public infrastructure the field currently lacks.
-
----
-
-## 4. Research questions and hypotheses
-
-| # | Research question | Hypothesis |
-|---|-------------------|-----------|
-| RQ1 | How well does statistical forecast quality predict decision value? | H1: Weakly. Models ranked identically by CRPS differ materially in € because the decision depends on specific tail regions, not on average calibration |
-| RQ2 | Does decision-focused learning beat the two-stage pipeline? | H2: Yes, with the gain concentrated in the tails; the mechanism is implicit reweighting of training emphasis toward high-cost quarter-hours |
-| RQ3 | Does an RL trading policy beat stochastic MPC? | H3: Modestly, mainly through learned liquidity/timing structure in the intraday correction sequence that a scenario MPC does not represent |
-| RQ4 | How predictable is reBAP, and does predicting it help? | H4: Poorly predictable in level, but its *sign and tail probability* are predictable enough to change decisions and add value |
-| RQ5 | How much of the result depends on the liquidity assumption? | H5: Substantially - which is why the parametric liquidity model is swept rather than fixed, and reported as a bound |
-
----
-
-## 5. System architecture
-
-```mermaid
-flowchart TB
-    subgraph SRC["Open data sources"]
-        NWP["DWD ICON-D2 / ICON-D2-EPS<br/>deterministic + 20-member ensemble"]
-        MET["DWD observations (CDC)"]
-        GEN["SMARD / ENTSO-E<br/>realised wind & PV generation"]
-        PRC["DA · ID index prices"]
-        RBP["reBAP + balancing volumes<br/>netztransparenz"]
-    end
-
-    subgraph FCST["Probabilistic forecast layer"]
-        PP["NWP post-processing<br/>bias correction · calibration"]
-        FG["Generation forecast<br/>quantiles + scenarios"]
-        FPD["Price forecast<br/>DA · ID · reBAP distributions"]
-        CAL["Calibration checks<br/>PIT · reliability · CRPS"]
-    end
-
-    STORE["Immutable issue-time forecast store<br/>(what was knowable, when)"]
-
-    subgraph POL["Trading policies"]
-        NV["Newsvendor / analytical quantile"]
-        SM["Stochastic MPC<br/>scenario tree, rolling"]
-        RLP["RL policy<br/>trained on realised settlement"]
-    end
-
-    LIQ["Intraday liquidity model<br/>spread · depth · market impact"]
-
-    SETT["Settlement engine<br/>DA + ID trades + imbalance at reBAP"]
-
-    DFL["Decision-focused learning loop<br/>gradient of € back into the forecaster"]
-
-    SRC --> FCST --> STORE --> POL
-    LIQ --> POL
-    POL --> SETT
-    SETT -->|realised cost| DFL
-    DFL -.->|updates| FCST
-    CAL --- FCST
-```
-
-The **immutable issue-time forecast store** is the architectural centrepiece. Every forecast
-is materialised once, tagged with its true issue time, and every policy reads from it. This
-makes look-ahead bias structurally impossible rather than a matter of care - and it is the
-component the other projects in this portfolio import.
-
----
-
-## 6. Problem formulation
-
-### 6.1 The decision
-
-For each delivery quarter-hour `t`, the BRP holds a position `s(t)` built up across stages
-`k = 0 (day-ahead), 1..K (intraday corrections)`. Realised generation `g(t)` is revealed at
-delivery. The realised cost is
-
-```
-C(t) = − π_DA(t)·s_0(t)·Δt                                    day-ahead revenue
-       − Σ_k [ π_ID,k(t)·Δs_k(t) − impact(Δs_k(t)) ]·Δt        intraday corrections, with cost of trading
-       − π_reBAP(t)·( g(t) − s_K(t) )·Δt                       imbalance settlement, signed
-```
-
-The controller chooses each `Δs_k(t)` knowing only the information available at stage `k`.
-
-### 6.2 Analytical benchmark (newsvendor)
-
-Under a simplified two-price imbalance structure the optimal position is a **quantile** of the
-predictive generation distribution, with the quantile level set by the ratio of shortage cost
-to surplus cost. This provides an interpretable, theoretically grounded reference - and a
-sharp test: if a learned policy cannot beat the correct quantile of a well-calibrated forecast,
-the added complexity is not earning its keep.
-
-### 6.3 Stochastic MPC
-
-At each correction stage, solve over a scenario tree of generation, intraday prices and reBAP,
-minimising expected cost (or CVaR), applying only the current-stage trade and re-solving as
-new information arrives. Scenario generation, reduction and tree size are reported in full.
-
-### 6.4 MDP formulation (RL)
-
-| Element | Definition |
-|---------|-----------|
-| **State** | Current position by delivery quarter-hour; time to gate closure; generation forecast quantiles and their recent revision history (revision magnitude is a strong uncertainty signal); price forecasts and realised price path; ensemble spread; liquidity state; calendar and regime features |
-| **Action** | Trade volume per delivery quarter-hour at the current stage (continuous, signed) |
-| **Reward** | Realised settlement result for closed positions, with imbalance realised at delivery |
-| **Risk** | Distributional critic; CVaR objective option - a BRP cares about the tail, not only the mean |
-| **Episode** | One delivery day, with all correction stages |
-| **Algorithm** | SAC, with a distributional critic; PPO as a cross-check |
-
-### 6.5 Decision-focused learning
-
-The forecast model's parameters are trained with the **realised trading cost** as the loss,
-differentiating through the decision. For the analytical quantile policy the decision is
-differentiable in closed form; for the optimisation-based policy, differentiable-optimisation
-techniques (implicit differentiation through the KKT conditions of a smoothed problem) are
-used. The two-stage pipeline - train on CRPS, then optimise - is the baseline this must beat.
-
----
-
-## 7. Data requirements
-
-**This project runs entirely on open data.** That is a deliberate design constraint, so the
-benchmark it produces can be reproduced by anyone.
-
-| Data | Purpose | Source | Resolution | Status |
-|------|---------|--------|-----------|--------|
-| ICON-D2 / ICON-EU deterministic NWP | Generation forecast features | **DWD Open Data** | 15 min - 1 h, hourly runs | Open |
-| **ICON-D2-EPS ensemble** | The physical uncertainty source | DWD Open Data | 20 members | Open |
-| DWD observations (CDC) | Post-processing and verification | DWD | 10 min - 1 h | Open |
-| Realised wind & PV generation | Forecast target | SMARD / ENTSO-E | 15 min | Open |
-| Installed capacity by technology & region | Normalisation, fleet weighting | MaStR / SMARD | - | Open |
-| Day-ahead prices | Stage-0 revenue | SMARD / ENTSO-E / Energy-Charts | 15 min | Open |
-| Intraday index prices & volumes | Correction stage pricing and liquidity calibration | SMARD / ENTSO-E | 15 min | Open (index level) |
-| **reBAP** | Imbalance settlement - the core signal | netztransparenz.de | 15 min | Open |
-| Balancing activation volumes | reBAP driver features | netztransparenz / regelleistung.net | 15 min | Open |
-| Cross-border flows, load, residual load | Price and imbalance features | ENTSO-E / SMARD | 15 min | Open |
-| Order-book intraday data | Would improve the liquidity model | EPEX SPOT | Tick | **Commercial - deliberately not a dependency**; liquidity is parameterised and swept instead |
-
-**The one real gap** is intraday order-book depth. Rather than assume frictionless trading -
-which would flatter every policy and invalidate the comparison - the project uses a parametric
-spread-and-impact model calibrated to public volume and index-price data, and reports all
-results across a range of liquidity assumptions as an explicit bound.
-
----
-
-## 8. Baselines and evaluation
-
-### Forecast layer
-
-Baselines: climatology, persistence, raw NWP without post-processing, and a standard
-quantile-regression model. Metrics: **CRPS**, pinball loss per quantile, PIT histogram and
-reliability diagram (calibration), Winkler score, and skill scores against both climatology
-and persistence. Sharpness reported only jointly with calibration.
-
-### Decision layer
-
-| Rung | Instantiation |
-|------|--------------|
-| **B0** | Day-ahead only: commit the point forecast, take whatever imbalance results |
-| **B1** | Point-forecast intraday correction: trade to the updated mean forecast. **The standard industry practice, and the validation gate** |
-| **B2** | Perfect-foresight trading - the ceiling |
-| **B3** | Stochastic MPC on calibrated scenarios, tuned |
-| **Analytical** | Newsvendor quantile position from the calibrated predictive distribution |
-| **RL** | Distributional SAC on realised settlement |
-| **DFL** | Decision-focused forecaster + each of the above policies |
-
-**Primary KPI:** realised portfolio cost (€/MWh produced), with mean, 5 %-quantile and CVaR₅
-of the daily distribution. **Headline:** B3-gap closure, plus the **CRPS-vs-€ rank
-correlation** - the direct test of RQ1, and the project's most transferable finding.
-**Secondary:** imbalance volume and cost, trading volume and cost, position revision count,
-decision latency against gate closure.
-
-Ablations: forecast model family; ensemble vs. purely statistical uncertainty; decision-focused
-vs. two-stage; policy family; liquidity assumption sweep; risk term on/off; reBAP forecast
-on/off (the H4 test); horizon and correction-stage frequency.
-
----
-
-## 9. Deliverables
-
-1. **An open, reproducible German forecast-to-bid benchmark** - data pipeline, issue-time
-   forecast store, settlement engine and baselines - usable by other researchers. This is the
-   deliverable with the widest reach beyond this portfolio.
-2. A calibrated probabilistic wind/PV/price forecasting stack, consumed by Projects 01, 02
-   and 05.
-3. A quantified answer to "does CRPS predict €?" - with the rank correlation and the
-   conditions under which the two rankings diverge.
-4. A decision-focused learning implementation and its measured gain over the two-stage
-   pipeline.
-5. A distributional RL trading policy and its comparison against stochastic MPC and the
-   analytical quantile solution.
-
----
-
-## 10. Work packages and roadmap
-
-| WP | Content | Depends on | Output |
-|----|---------|-----------|--------|
-| WP1 | Data pipeline: NWP archive ingestion, generation, prices, reBAP; DST and resolution-regime handling | - | `data/processed` |
-| WP2 | **Issue-time forecast store** - the anti-look-ahead architecture | WP1 | `src/forecast/store` |
-| WP3 | Generation forecast models: post-processed ensemble, quantile NN, distributional NN; calibration diagnostics | WP2 | Calibrated forecasts |
-| WP4 | Price and reBAP distributional forecasts | WP2 | Price scenarios |
-| WP5 | Settlement engine + parametric liquidity/impact model | WP1 | `src/market` |
-| WP6 | B0/B1 policies + **validation gate** against realised aggregate imbalance behaviour | WP3, WP5 | Validation report - **gate** |
-| WP7 | Analytical newsvendor policy; B2 perfect foresight; B3 stochastic MPC | WP3-WP5 | Baselines |
-| WP8 | Gymnasium trading environment | WP5 | `src/envs` |
-| WP9 | Distributional RL training | WP8 | Trained policies |
-| WP10 | Decision-focused learning loop | WP3, WP7 | DFL forecaster |
-| WP11 | Evaluation, CRPS-vs-€ study, liquidity sweep, benchmark release | WP7, WP9, WP10 | `reports/`, public benchmark |
-
----
-
-## 11. Assumptions and limitations
-
-| Dimension | Core Assumption | Engineering Justification and Reference | Modeling Limitation and Impact |
-|---|---|---|---|
-| **Physical** | 300 MW wind portfolio; aggregate generation output mapped from national wind capacity factor series; ramp limits and loss factors applied linearly. | Standard portfolio scale for a medium German balance responsible party (BRP) or renewable virtual power plant (VPP). | Omits transmission congestion within the bidding zone and turbine-level mechanical tripping events. |
-| **Market** | Price-taker in day-ahead SDAC and continuous intraday (SIDC); linear half-spread liquidity cost (3 EUR/MWh base); signed German reBAP imbalance settlement. | Standard wholesale trading assumptions for small-to-midsize renewable BRPs; conforms to German TSO settlement mechanics. | Assumes sufficient market depth at the prevailing price; large sudden order executions could incur non-linear slippage. |
-| **Data** | 15-minute German wind generation and DE-LU spot prices (2024-2025); synthetic autocorrelated noise for multi-horizon forecast error generation. | Transparent, fully reproducible open testbed without requiring terabyte-scale numerical weather prediction (NWP) archives. | Synthetic errors lack meteorological spatial correlations (e.g. frontal passages) present in operational ensemble NWP models. |
-| **Regulatory** | Statutory Balance Responsible Party obligation under StromNZV Section 4; 15-minute imbalance settlement period; anti-arbitrage compliance (no deliberate speculative shorting). | Enforces German regulatory framework for electricity grid access (StromNZV) and BNetzA market rules. | Assumes BRP operates strictly within legal trading mandates without regulatory penalties for systematic imbalance skew. |
-
-### Operational Risks and Mitigations
-
-| Risk | Mitigation |
-|------|-----------|
-| No order-book data → liquidity is assumed | Parametric model, swept; all results reported as a function of the liquidity assumption rather than at a single point |
-| NWP archive retrieval is large and operationally fiddly | Start with a limited region and one year; scale after the pipeline is proven |
-| reBAP may be close to unpredictable | RQ4 is posed so that a negative answer is informative; the sign/tail formulation is a weaker and more plausible claim than level prediction |
-| Decision-focused learning can be unstable | Smoothed/regularised decision layer; the two-stage pipeline retained as a fallback and as the honest comparison |
-| Market impact of a small portfolio is negligible in reality | Portfolio size swept; the impact term matters only above a stated size, which is reported |
-| Regime change (2021-2023 price shocks) | Regime-diverse test blocks; results reported per regime rather than pooled into a misleading average |
-
----
-
-## 12. Repository structure
-
-Follows [`../../templates/project-template/`](../../templates/project-template/); conventions
-in [`../../docs/05-tech-stack.md`](../../docs/05-tech-stack.md). `src/forecast/` is published
-as an importable package, since Projects 01, 02 and 05 depend on it.
-
----
-
-## 13. References
-
-- DWD ICON model and ICON-D2-EPS documentation; DWD Open Data access terms (GeoNutzV).
-- ENTSO-E balancing and imbalance settlement harmonisation; German reBAP methodology as
-  published by the TSOs on netztransparenz.de.
-- The probabilistic energy forecasting literature (CRPS, quantile regression, ensemble
-  post-processing) and the decision-focused / "smart predict-then-optimise" learning
-  literature - the two strands this project connects in a German market setting.
-- See [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md)
-  for the market mechanics.
-
----
-
-## 14. Collaboration
-
-Most valuable contributions: historical intraday order-book or execution data (even
-aggregated) to replace the parametric liquidity model; realised BRP schedule and imbalance
-data for a true B1 validation; and independent verification of the calibration diagnostics.
-Enquiries via the issue tracker.
+| `src/f2b/data.py`, `weather.py` | the dataset and the issue-time weather |
+| `src/f2b/stages.py` | decision times and the look-ahead audit |
+| `src/f2b/features.py`, `models.py` | the information sets, the split and the ladder F0 to F4 |
+| `src/f2b/policies.py` | the policies and the settlement |
+| `src/f2b/evaluate.py`, `analysis.py`, `pipeline.py` | the backtest and its tables |
+| `src/f2b/forecast.py`, `ablation.py` | the forecast store, scoring, and the parametric-noise ablation |
+| `reports/` | every CSV this README cites |

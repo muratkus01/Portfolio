@@ -1,0 +1,35 @@
+pair,lag_steps,correlation
+ghi vs pv_cf,-8,0.8388
+ghi vs pv_cf,-7,0.872
+ghi vs pv_cf,-6,0.9014
+ghi vs pv_cf,-5,0.9267
+ghi vs pv_cf,-4,0.9477
+ghi vs pv_cf,-3,0.964
+ghi vs pv_cf,-2,0.9754
+ghi vs pv_cf,-1,0.9819
+ghi vs pv_cf,0,0.9833
+ghi vs pv_cf,1,0.9797
+ghi vs pv_cf,2,0.971
+ghi vs pv_cf,3,0.9574
+ghi vs pv_cf,4,0.939
+ghi vs pv_cf,5,0.9162
+ghi vs pv_cf,6,0.889
+ghi vs pv_cf,7,0.858
+ghi vs pv_cf,8,0.8233
+wind speed cubed vs wind_cf,-8,0.8053
+wind speed cubed vs wind_cf,-7,0.808
+wind speed cubed vs wind_cf,-6,0.8104
+wind speed cubed vs wind_cf,-5,0.8125
+wind speed cubed vs wind_cf,-4,0.8143
+wind speed cubed vs wind_cf,-3,0.8157
+wind speed cubed vs wind_cf,-2,0.8167
+wind speed cubed vs wind_cf,-1,0.8173
+wind speed cubed vs wind_cf,0,0.8175
+wind speed cubed vs wind_cf,1,0.8171
+wind speed cubed vs wind_cf,2,0.8163
+wind speed cubed vs wind_cf,3,0.8151
+wind speed cubed vs wind_cf,4,0.8133
+wind speed cubed vs wind_cf,5,0.8112
+wind speed cubed vs wind_cf,6,0.8086
+wind speed cubed vs wind_cf,7,0.8056
+wind speed cubed vs wind_cf,8,0.8023

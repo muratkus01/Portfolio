@@ -3,9 +3,10 @@
     python scripts/make_f2b_figure.py [--phase test]
 
 Panels: pinball loss of every forecast rung at every decision stage; reliability of the
-day-ahead quantiles; and, once the market value exists, each rung's EUR gain over the
-climatology forecast for policy B1, with its 90 % block-bootstrap interval. The three
-LightGBM seeds are drawn as their median, with the spread across seeds in the CSVs.
+day-ahead quantiles; and, once the market value exists, each forecast scheduled day-ahead
+against the perfect forecast, split into its bias part and its alignment part
+(error_alignment.csv). The three LightGBM seeds are drawn as their median, with the spread
+across seeds in the CSVs.
 """
 import argparse
 from pathlib import Path
@@ -22,14 +23,14 @@ STAGES = ["DA", "ID-12h", "ID-6h", "ID-2h", "ID-0.5h"]
 RUNGS = {"F0 climatology": "#9e9e9e", "F1 persistence": "#8d6e63",
          "F2 linear quantile": "#1f77b4", "F3 gradient boosting": "#2ca02c",
          "F4 TSO forecast": "#d62728"}
-POLICY = "B1 intraday to median"
 
 
 def merge_seeds(frame: pd.DataFrame, value_cols: list[str]) -> pd.DataFrame:
     """One 'F3 gradient boosting' row per key: the median over the 'F3 seed N' rungs."""
     f3 = frame["rung"].str.startswith("F3 seed")
     keys = [c for c in frame.columns if c not in value_cols and c != "rung"]
-    med = frame[f3].groupby(keys, as_index=False)[value_cols].median()
+    med = (frame[f3].groupby(keys, as_index=False)[value_cols].median() if keys
+           else frame[f3][value_cols].median().to_frame().T)
     med.insert(0, "rung", "F3 gradient boosting")
     return pd.concat([frame[~f3], med], ignore_index=True)
 
@@ -60,21 +61,22 @@ def plot_reliability(ax, scores: pd.DataFrame) -> None:
     ax.grid(True, ls="--", alpha=0.4)
 
 
-def plot_value(ax, value: pd.DataFrame) -> None:
-    v = value[value.policy == POLICY].drop(columns="policy")
-    v = merge_seeds(v, ["gain_vs_F0_eur", "ci90_low", "ci90_high", "capture_of_F0_to_REF"])
-    v = v.set_index("rung").reindex([r for r in RUNGS if r != "F0 climatology"])
-    x = np.arange(len(v))
-    ax.bar(x, v["gain_vs_F0_eur"] / 1e3, color=[RUNGS[r] for r in v.index], alpha=0.85)
-    ax.errorbar(x, v["gain_vs_F0_eur"] / 1e3,
-                yerr=[(v["gain_vs_F0_eur"] - v["ci90_low"]) / 1e3,
-                      (v["ci90_high"] - v["gain_vs_F0_eur"]) / 1e3],
-                fmt="none", ecolor="black", capsize=4)
+def plot_alignment(ax, alignment: pd.DataFrame) -> None:
+    """Scheduling each forecast day-ahead, against the perfect forecast: why euros do not
+    follow skill. Bias part plus alignment part equals the total exactly."""
+    parts = ["bias_part_eur", "alignment_part_eur", "b0_minus_ref_eur"]
+    a = merge_seeds(alignment[["rung", *parts]], parts).set_index("rung").reindex(list(RUNGS))
+    x = np.arange(len(a))
+    bias, align = a["bias_part_eur"] / 1e3, a["alignment_part_eur"] / 1e3
+    ax.bar(x, align, color="#7f7f7f", label="errors aligned with the imbalance price")
+    ax.bar(x, bias, bottom=np.where(bias * align > 0, align, 0), color="#ff7f0e",
+           label="bias (long earns when reBAP > day-ahead)")
+    ax.scatter(x, a["b0_minus_ref_eur"] / 1e3, color="black", zorder=3, label="total")
     ax.axhline(0, color="black", lw=0.8)
     ax.set_xticks(x)
-    ax.set_xticklabels([r.split(" ", 1)[0] for r in v.index])
-    ax.set_title(f"EUR gain over F0 climatology, policy {POLICY.split()[0]} (k EUR, 90 % CI)",
-                 fontsize=10)
+    ax.set_xticklabels([r.split(" ", 1)[0] for r in a.index])
+    ax.set_title("Day-ahead schedule against the perfect forecast (k EUR)", fontsize=10)
+    ax.legend(fontsize=7.5, loc="lower right")
     ax.grid(True, axis="y", ls="--", alpha=0.4)
 
 
@@ -84,13 +86,13 @@ def main() -> None:
     args = ap.parse_args()
     folder = P03 / "reports" / args.phase
     scores = pd.read_csv(folder / "forecast_by_stage.csv")
-    value_path = folder / "value_of_forecast.csv"
-    panels = 3 if value_path.exists() else 2
+    alignment_path = folder / "error_alignment.csv"
+    panels = 3 if alignment_path.exists() else 2
     fig, axes = plt.subplots(1, panels, figsize=(6.2 * panels, 4.6), dpi=200)
     plot_pinball(axes[0], scores)
     plot_reliability(axes[1], scores)
     if panels == 3:
-        plot_value(axes[2], pd.read_csv(value_path))
+        plot_alignment(axes[2], pd.read_csv(alignment_path))
     fig.suptitle(f"Project 03, {args.phase} window, from reports/{args.phase}/", fontsize=11)
     fig.tight_layout()
     out = P03 / "docs" / "figures" / "f2b_trading_benchmark.png"

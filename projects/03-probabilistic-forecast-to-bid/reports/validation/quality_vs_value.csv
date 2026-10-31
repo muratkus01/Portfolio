@@ -1,0 +1,5 @@
+policy,rungs,spearman_skill_vs_eur
+B0 day-ahead only,5,-0.4
+B1 intraday to median,5,0.4
+B3 deadband intraday,5,-0.4
+NV newsvendor fractile,5,0.4

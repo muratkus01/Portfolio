@@ -1,0 +1,127 @@
+half_spread_eur_mwh,rung,policy,net_revenue,traded_mwh
+0.0,F0 climatology,B0 day-ahead only,15295412.94,0.0
+0.0,F0 climatology,B1 intraday to median,15295412.94,0.0
+0.0,F0 climatology,B3 deadband intraday,15295412.94,0.0
+0.0,F1 persistence,B0 day-ahead only,15070824.36,0.0
+0.0,F1 persistence,B1 intraday to median,15128416.05,150460.04
+0.0,F1 persistence,B3 deadband intraday,15077206.81,1598.82
+0.0,F4 TSO forecast,B0 day-ahead only,15055371.82,0.0
+0.0,F4 TSO forecast,B1 intraday to median,15063971.36,15101.36
+0.0,F4 TSO forecast,B3 deadband intraday,15063228.62,1077.33
+0.0,F2 linear quantile,B0 day-ahead only,15178925.92,0.0
+0.0,F2 linear quantile,B1 intraday to median,15145096.75,61464.85
+0.0,F2 linear quantile,B3 deadband intraday,15178928.74,0.09
+0.0,F3 seed 0,B0 day-ahead only,15072565.99,0.0
+0.0,F3 seed 0,B1 intraday to median,15056986.26,43278.9
+0.0,F3 seed 0,B3 deadband intraday,15072565.99,0.0
+0.0,F3 seed 1,B0 day-ahead only,15061412.5,0.0
+0.0,F3 seed 1,B1 intraday to median,15048723.74,42426.93
+0.0,F3 seed 1,B3 deadband intraday,15061412.5,0.0
+0.0,F3 seed 2,B0 day-ahead only,15065164.18,0.0
+0.0,F3 seed 2,B1 intraday to median,15055833.17,43122.37
+0.0,F3 seed 2,B3 deadband intraday,15065164.18,0.0
+0.5,F0 climatology,B0 day-ahead only,15295412.94,0.0
+0.5,F0 climatology,B1 intraday to median,15295412.94,0.0
+0.5,F0 climatology,B3 deadband intraday,15295412.94,0.0
+0.5,F1 persistence,B0 day-ahead only,15070824.36,0.0
+0.5,F1 persistence,B1 intraday to median,15028119.41,150460.04
+0.5,F1 persistence,B3 deadband intraday,15075610.6,1598.82
+0.5,F4 TSO forecast,B0 day-ahead only,15055371.82,0.0
+0.5,F4 TSO forecast,B1 intraday to median,15054667.45,15101.36
+0.5,F4 TSO forecast,B3 deadband intraday,15062562.27,1077.33
+0.5,F2 linear quantile,B0 day-ahead only,15178925.92,0.0
+0.5,F2 linear quantile,B1 intraday to median,15098539.75,61464.85
+0.5,F2 linear quantile,B3 deadband intraday,15178928.66,0.09
+0.5,F3 seed 0,B0 day-ahead only,15072565.99,0.0
+0.5,F3 seed 0,B1 intraday to median,15026462.85,43278.9
+0.5,F3 seed 0,B3 deadband intraday,15072565.99,0.0
+0.5,F3 seed 1,B0 day-ahead only,15061412.5,0.0
+0.5,F3 seed 1,B1 intraday to median,15018899.54,42426.93
+0.5,F3 seed 1,B3 deadband intraday,15061412.5,0.0
+0.5,F3 seed 2,B0 day-ahead only,15065164.18,0.0
+0.5,F3 seed 2,B1 intraday to median,15025506.41,43122.37
+0.5,F3 seed 2,B3 deadband intraday,15065164.18,0.0
+1.0,F0 climatology,B0 day-ahead only,15295412.94,0.0
+1.0,F0 climatology,B1 intraday to median,15295412.94,0.0
+1.0,F0 climatology,B3 deadband intraday,15295412.94,0.0
+1.0,F1 persistence,B0 day-ahead only,15070824.36,0.0
+1.0,F1 persistence,B1 intraday to median,14927822.78,150460.04
+1.0,F1 persistence,B3 deadband intraday,15074014.39,1598.82
+1.0,F4 TSO forecast,B0 day-ahead only,15055371.82,0.0
+1.0,F4 TSO forecast,B1 intraday to median,15045363.54,15101.36
+1.0,F4 TSO forecast,B3 deadband intraday,15061895.92,1077.33
+1.0,F2 linear quantile,B0 day-ahead only,15178925.92,0.0
+1.0,F2 linear quantile,B1 intraday to median,15051982.76,61464.85
+1.0,F2 linear quantile,B3 deadband intraday,15178928.57,0.09
+1.0,F3 seed 0,B0 day-ahead only,15072565.99,0.0
+1.0,F3 seed 0,B1 intraday to median,14995939.45,43278.9
+1.0,F3 seed 0,B3 deadband intraday,15072565.99,0.0
+1.0,F3 seed 1,B0 day-ahead only,15061412.5,0.0
+1.0,F3 seed 1,B1 intraday to median,14989075.34,42426.93
+1.0,F3 seed 1,B3 deadband intraday,15061412.5,0.0
+1.0,F3 seed 2,B0 day-ahead only,15065164.18,0.0
+1.0,F3 seed 2,B1 intraday to median,14995179.66,43122.37
+1.0,F3 seed 2,B3 deadband intraday,15065164.18,0.0
+2.0,F0 climatology,B0 day-ahead only,15295412.94,0.0
+2.0,F0 climatology,B1 intraday to median,15295412.94,0.0
+2.0,F0 climatology,B3 deadband intraday,15295412.94,0.0
+2.0,F1 persistence,B0 day-ahead only,15070824.36,0.0
+2.0,F1 persistence,B1 intraday to median,14727229.51,150460.04
+2.0,F1 persistence,B3 deadband intraday,15070821.96,1598.82
+2.0,F4 TSO forecast,B0 day-ahead only,15055371.82,0.0
+2.0,F4 TSO forecast,B1 intraday to median,15026755.72,15101.36
+2.0,F4 TSO forecast,B3 deadband intraday,15060563.22,1077.33
+2.0,F2 linear quantile,B0 day-ahead only,15178925.92,0.0
+2.0,F2 linear quantile,B1 intraday to median,14958868.77,61464.85
+2.0,F2 linear quantile,B3 deadband intraday,15178928.4,0.09
+2.0,F3 seed 0,B0 day-ahead only,15072565.99,0.0
+2.0,F3 seed 0,B1 intraday to median,14934892.64,43278.9
+2.0,F3 seed 0,B3 deadband intraday,15072565.99,0.0
+2.0,F3 seed 1,B0 day-ahead only,15061412.5,0.0
+2.0,F3 seed 1,B1 intraday to median,14929426.93,42426.93
+2.0,F3 seed 1,B3 deadband intraday,15061412.5,0.0
+2.0,F3 seed 2,B0 day-ahead only,15065164.18,0.0
+2.0,F3 seed 2,B1 intraday to median,14934526.15,43122.37
+2.0,F3 seed 2,B3 deadband intraday,15065164.18,0.0
+3.0,F0 climatology,B0 day-ahead only,15295412.94,0.0
+3.0,F0 climatology,B1 intraday to median,15295412.94,0.0
+3.0,F0 climatology,B3 deadband intraday,15295412.94,0.0
+3.0,F1 persistence,B0 day-ahead only,15070824.36,0.0
+3.0,F1 persistence,B1 intraday to median,14526636.23,150460.04
+3.0,F1 persistence,B3 deadband intraday,15067629.54,1598.82
+3.0,F4 TSO forecast,B0 day-ahead only,15055371.82,0.0
+3.0,F4 TSO forecast,B1 intraday to median,15008147.9,15101.36
+3.0,F4 TSO forecast,B3 deadband intraday,15059230.52,1077.33
+3.0,F2 linear quantile,B0 day-ahead only,15178925.92,0.0
+3.0,F2 linear quantile,B1 intraday to median,14865754.79,61464.85
+3.0,F2 linear quantile,B3 deadband intraday,15178928.23,0.09
+3.0,F3 seed 0,B0 day-ahead only,15072565.99,0.0
+3.0,F3 seed 0,B1 intraday to median,14873845.83,43278.9
+3.0,F3 seed 0,B3 deadband intraday,15072565.99,0.0
+3.0,F3 seed 1,B0 day-ahead only,15061412.5,0.0
+3.0,F3 seed 1,B1 intraday to median,14869778.53,42426.93
+3.0,F3 seed 1,B3 deadband intraday,15061412.5,0.0
+3.0,F3 seed 2,B0 day-ahead only,15065164.18,0.0
+3.0,F3 seed 2,B1 intraday to median,14873872.65,43122.37
+3.0,F3 seed 2,B3 deadband intraday,15065164.18,0.0
+6.0,F0 climatology,B0 day-ahead only,15295412.94,0.0
+6.0,F0 climatology,B1 intraday to median,15295412.94,0.0
+6.0,F0 climatology,B3 deadband intraday,15295412.94,0.0
+6.0,F1 persistence,B0 day-ahead only,15070824.36,0.0
+6.0,F1 persistence,B1 intraday to median,13924856.42,150460.04
+6.0,F1 persistence,B3 deadband intraday,15058052.27,1598.82
+6.0,F4 TSO forecast,B0 day-ahead only,15055371.82,0.0
+6.0,F4 TSO forecast,B1 intraday to median,14952324.45,15101.36
+6.0,F4 TSO forecast,B3 deadband intraday,15055232.41,1077.33
+6.0,F2 linear quantile,B0 day-ahead only,15178925.92,0.0
+6.0,F2 linear quantile,B1 intraday to median,14586412.83,61464.85
+6.0,F2 linear quantile,B3 deadband intraday,15178927.71,0.09
+6.0,F3 seed 0,B0 day-ahead only,15072565.99,0.0
+6.0,F3 seed 0,B1 intraday to median,14690705.4,43278.9
+6.0,F3 seed 0,B3 deadband intraday,15072565.99,0.0
+6.0,F3 seed 1,B0 day-ahead only,15061412.5,0.0
+6.0,F3 seed 1,B1 intraday to median,14690833.32,42426.93
+6.0,F3 seed 1,B3 deadband intraday,15061412.5,0.0
+6.0,F3 seed 2,B0 day-ahead only,15065164.18,0.0
+6.0,F3 seed 2,B1 intraday to median,14691912.12,43122.37
+6.0,F3 seed 2,B3 deadband intraday,15065164.18,0.0

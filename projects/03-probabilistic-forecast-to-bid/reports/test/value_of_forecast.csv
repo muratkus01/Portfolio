@@ -1,0 +1,25 @@
+rung,policy,gain_vs_F0_eur,ci90_low,ci90_high,capture_of_F0_to_REF
+F1 persistence,B0 day-ahead only,-235123.2359,-701357.501,437447.192,-0.3148
+F1 persistence,B1 intraday to median,-1226371.6683,-1613400.4063,-658019.171,-1.6421
+F1 persistence,B3 deadband intraday,-239796.66,-703817.3797,428963.2597,-0.3211
+F1 persistence,NV newsvendor fractile,-1211281.9856,-1611744.0586,-644376.164,-1.4653
+F4 TSO forecast,B0 day-ahead only,420170.7587,-106521.2221,1233048.8875,0.5626
+F4 TSO forecast,B1 intraday to median,240151.4059,-228963.4039,970063.177,0.3216
+F4 TSO forecast,B3 deadband intraday,351058.6513,-127123.4518,1103860.9451,0.4701
+F4 TSO forecast,NV newsvendor fractile,309197.7715,-179728.7232,1057987.5656,0.3741
+F2 linear quantile,B0 day-ahead only,109766.6466,-332790.3972,889433.0921,0.147
+F2 linear quantile,B1 intraday to median,-494201.6826,-880335.0142,151526.844,-0.6617
+F2 linear quantile,B3 deadband intraday,108980.51,-332826.2699,886745.6967,0.1459
+F2 linear quantile,NV newsvendor fractile,-445880.5882,-849859.9176,206226.7283,-0.5394
+F3 seed 0,B0 day-ahead only,236389.8197,-161711.0042,821032.5611,0.3165
+F3 seed 0,B1 intraday to median,-60945.8105,-468952.7786,527866.9955,-0.0816
+F3 seed 0,B3 deadband intraday,236370.5579,-161726.4362,820990.3228,0.3165
+F3 seed 0,NV newsvendor fractile,3586.9838,-431372.1081,611356.2223,0.0043
+F3 seed 1,B0 day-ahead only,247908.1382,-148183.6372,834639.7773,0.3319
+F3 seed 1,B1 intraday to median,-61885.6655,-468443.8589,524920.4577,-0.0829
+F3 seed 1,B3 deadband intraday,247763.3877,-148140.7942,834791.0586,0.3317
+F3 seed 1,NV newsvendor fractile,6512.5043,-428693.3731,614206.4617,0.0079
+F3 seed 2,B0 day-ahead only,247897.2701,-150597.1147,833980.6862,0.3319
+F3 seed 2,B1 intraday to median,-56110.4597,-470483.6089,534621.2099,-0.0751
+F3 seed 2,B3 deadband intraday,247592.9692,-151430.9309,833943.6732,0.3315
+F3 seed 2,NV newsvendor fractile,15232.0846,-428280.7216,627291.0074,0.0184

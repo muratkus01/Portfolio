@@ -1,5 +1,33 @@
 # 09 · Learned Forecast Layer, and a Review of Three Proposed Projects
 
+> **Status, 2026-10-31.** Backbone A is built for the forecast-to-bid project, which is now
+> `projects/03-probabilistic-forecast-to-bid` (it was "Project 06" when this was written; the
+> text below keeps the numbers of its date: 05 is now 02, 06 is now 03, and 02, 03 and 04
+> are archived). What was built, and where it departs from the plan below:
+>
+> - **Generation first, not price first.** Project 03's store forecasts the portfolio's
+>   output, and its prices are realised, so a generation model plugs in without touching a
+>   policy. The price model was not built.
+> - **Weather from the Open-Meteo previous-runs archive**, not the historical-forecast API
+>   named in section 3: that one stitches the shortest lead of every run and would leak.
+>   ICON-D2-EPS has no public archive to backtest on, so no ensemble is used.
+> - **The ladder F0 to F4** as specified: climatology, persistence, linear quantile
+>   regression, LightGBM (an optional dependency), and the published TSO forecast as the
+>   benchmark. F2 and F3 are recalibrated on the last 60 days of their training window.
+> - **The code stays in `f2b`** (`features.py`, `models.py`, `evaluate.py`); moving the store
+>   to `datakit/forecast/` waits until a second project uses it.
+> - **Leakage is tested where it happens.** `audit_no_lookahead` could not fail and is gone;
+>   `stages.audit_stages` checks decision times, and a test corrupts everything outside
+>   each feature row's information set and requires identical features.
+> - **The capture ratio uses the zero-imbalance reference**, which is not a bound under
+>   signed imbalance settlement. The value table therefore leads with each rung's EUR gain
+>   over climatology and its bootstrap interval, and gives the ratio only as a share of the
+>   gap from climatology to that reference.
+> - **Split by target time**: train 2024-02-18 to 2025-06-30, validation to 2025-12-30, test
+>   2026-01-01 to 2026-10-30, evaluated once.
+>
+> Results and the commands that produce them: `projects/03-probabilistic-forecast-to-bid/README.md`.
+
 Written 2026-09-25. Evaluates an external suggestion to merge Project 03 into Project 02,
 and specifies the backbone of the work that should happen instead.
 
