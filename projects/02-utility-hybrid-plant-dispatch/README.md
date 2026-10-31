@@ -40,98 +40,290 @@ programs solved with PuLP and CBC, on Energy-Charts data for the calendar years 
 > Here, RQ3/H3 and the RL work packages (WP8, WP9) are future work. They become worth doing
 > once every rung commits a day-ahead schedule that is settled at reBAP.
 
-## 0. Implementation status
+## 0. Results
 
-Ladder B0/B1/B2/B3 implemented and running on **real German 2025 wind, PV and price data**
-(national capacity factors from Energy-Charts via `datakit`). 161 tests pass.
+Every result in this section comes from a committed CSV in [`reports/`](reports/).
+[`reports/SOURCE.md`](reports/SOURCE.md) says how the set was run, on which data and under
+which licence.
+
+### Key results
+
+B2 knows prices and generation in advance, so its figures are upper bounds.
+
+- **The battery's own value** (B2 minus B2 without a battery) rises with every step of
+  connection size in both years: from 1,094,990 EUR at 20 MW to 1,240,768 EUR at 60 MW in
+  2024, and from 1,298,361 to 1,462,929 EUR in 2025. Curtailing at low prices, which needs no
+  battery, adds 124,552 to 139,331 EUR in 2024 and 138,351 to 150,355 EUR in 2025.
+- **The 60 MW connection never binds** on national profiles, in either year. There, B1 earns
+  exactly what B0 earns, and the connection limit changes the battery's value by 0. A 30 MW
+  connection changes it by -32,376 EUR in 2024 and -37,755 EUR in 2025 (-2.7 % and -2.6 %).
+  On these data the battery's value is arbitrage.
+- **B3**, the deployable rolling MPC, recovers 94.1 % (January 2025) and 95.4 % (July 2025)
+  of the gain from B1 to B2, which here is the gain from B0 to B2. It plans on the previous
+  month's realised premium, 0.00 and 27.34 EUR/MWh, and is settled on 1.48 and 8.74 EUR/MWh.
+- **Every tightening of the negative-price rule** lowers B0's revenue and raises the energy
+  B2 chooses to curtail, for both vintages in both years. Under the rule of the newest
+  plants, B2 curtails 6,715 MWh in 2024 and 8,155 MWh in 2025 at the default plant.
+- **No row of any table** breaks a plant limit, settles any imbalance or buys grid energy:
+  each is 0 in every row.
+
+### Reproduce
 
 ```bash
-pip install -e ".[dev]" && python -m pytest tests/ -q
-python -m hybrid.cli ladder    --year 2025 --days 30
-python -m hybrid.cli sizing    --year 2025 --days 20   # RQ2 connection-ratio sweep
-python -m hybrid.cli negprice  --year 2025 --days 20   # RQ4 negative-price rule by vintage
-python -m hybrid.cli decompose --year 2025 --days 20   # RQ1 battery value decomposition
-python -m hybrid.cli b3-ablation --synthetic-demo      # B3: forecast error x terminal value
-python -m hybrid.cli report                            # the publish set, to reports/*.csv
+pip install -e ".[dev]" && python -m pytest tests/ -q   # 161 tests, offline
+python -m hybrid.cli report                     # every table below, in series: about an hour
+python -m hybrid.cli report --only sizing_2024  # one table, by the name of its CSV
 ```
 
-`--start MM-DD` (Berlin time) and `--full-year` choose a command's window. `--out PATH` also
-writes the result as a CSV, one row per scenario and rung, with:
+`report` runs each command below and adds `--out reports/<table>.csv` to it. Beside the
+tables it writes [`window_stats.csv`](reports/window_stats.csv) (per window: prices,
+generation and whether the connection binds) and [`run_meta.csv`](reports/run_meta.csv) (per
+table: commit, versions, input hashes, sources and wall time). The data come from
+Energy-Charts through the repository's `datakit`, which caches every response; no key is
+needed.
 
-- every settlement term, the window and the settings used, B3's as `b3_*`;
-- the plant each rung ran on, so B0 and "B2 no battery" show no battery;
-- the values a setting left to the run: the battery's start in MWh and, on B3's row, the
-  scale of its price error and the mean terminal price of its plans;
-- `ladder_tolerance_eur`, how far two rungs may differ by the solver's rounding alone, B3
-  above B2 included.
+How each table is made (the commands `report` ran, as `run_meta.csv` records them):
 
-`negprice` also writes `<name>_premium.csv`: each vintage's market values, premiums and
-plant rate by period. `decompose` splits the battery's value into arbitrage and the
-connection limit's effect at the connection `--conn MW` sets (60 MW by default). It leaves
-out what curtailing at low prices earns, which needs no battery. `report` runs the pinned
-publish set in `src/hybrid/report.py` into `reports/`, with `window_stats.csv` and
-`run_meta.csv` (commit, versions, input hashes and sources) beside the tables. `--only` runs
-a part of it, so parts can run side by side, and `--commands FILE` runs the command lines in
-a file instead. The figures below predate `report` and do not come from those CSVs yet.
+| Table | Window, Berlin time | Command |
+|---|---|---|
+| [`sizing_2024.csv`](reports/sizing_2024.csv) | calendar year 2024 | `python -m hybrid.cli sizing --year 2024 --full-year` |
+| [`sizing_2025.csv`](reports/sizing_2025.csv) | calendar year 2025 | `python -m hybrid.cli sizing --year 2025 --full-year` |
+| [`decompose_2024.csv`](reports/decompose_2024.csv) | calendar year 2024 | `python -m hybrid.cli decompose --year 2024 --full-year` |
+| [`decompose_2024_conn-30.csv`](reports/decompose_2024_conn-30.csv) | calendar year 2024 | `python -m hybrid.cli decompose --year 2024 --full-year --conn 30` |
+| [`decompose_2025.csv`](reports/decompose_2025.csv) | calendar year 2025 | `python -m hybrid.cli decompose --year 2025 --full-year` |
+| [`decompose_2025_conn-30.csv`](reports/decompose_2025_conn-30.csv) | calendar year 2025 | `python -m hybrid.cli decompose --year 2025 --full-year --conn 30` |
+| [`negprice_2024.csv`](reports/negprice_2024.csv), [`negprice_2024_premium.csv`](reports/negprice_2024_premium.csv) | calendar year 2024 | `python -m hybrid.cli negprice --year 2024 --full-year` |
+| [`negprice_2025.csv`](reports/negprice_2025.csv), [`negprice_2025_premium.csv`](reports/negprice_2025_premium.csv) | calendar year 2025 | `python -m hybrid.cli negprice --year 2025 --full-year` |
+| [`ladder_2025-01-01_30d.csv`](reports/ladder_2025-01-01_30d.csv) | 1 to 30 January 2025 | `python -m hybrid.cli ladder --year 2025 --start 01-01 --days 30` |
+| [`ladder_2025-07-01_30d.csv`](reports/ladder_2025-07-01_30d.csv) | 1 to 30 July 2025 | `python -m hybrid.cli ladder --year 2025 --start 07-01 --days 30` |
+| [`b3_ablation_synthetic_demo.csv`](reports/b3_ablation_synthetic_demo.csv) | 3 synthetic days | `python -m hybrid.cli b3-ablation --synthetic-demo` |
 
-**Connection-capacity sweep** (80 MW installed, 20 days of 2024, perfect foresight):
+A calendar year runs from midnight on 1 January to midnight on the next 1 January, Berlin
+time. The ladder tables also read 2024: B3's price-forecast error is sized on the 2024
+day-ahead price, and in the January window B3 plans on December 2024's premium.
 
-| Connection MW | Overbuild | B0 no battery € | B2 € | Battery value € | Forced curtailment MWh |
-|---:|---:|---:|---:|---:|---:|
-| 20 | 4.00× | 501,190 | 524,344 | 23,154 | 578 |
-| 25 | 3.20× | 523,584 | 548,727 | 25,143 | 127 |
-| 30 | 2.67× | 527,322 | 555,750 | 28,428 | 28 |
-| 40 | 2.00× | 528,640 | 558,169 | 29,529 | 0 |
-| 60 | 1.33× | 528,640 | 558,221 | 29,581 | 0 |
+### Windows
 
-![Hybrid Plant Dispatch Benchmarks under B3 Rolling MPC](docs/figures/hybrid_dispatch_benchmark.png)
+The plant has 80 MW installed (50 MW wind + 30 MWp PV) behind 60 MW; the synthetic days run
+it behind 40 MW. The largest combined capacity factor is the peak generation over the 80 MW.
+Quarter-hours are counted as such: from 1 October 2025 the day-ahead price is set per
+quarter-hour, so the 2025 count is not four times a count of hours.
 
-The battery is worth **more** at a wider connection, not less - the opposite of hypothesis
-H1's expected direction. The mechanism is visible in the table: at a tight connection the
-battery can absorb spill but then has no headroom to discharge into, so curtailment avoidance
-and arbitrage compete for the same MW. Worth pursuing, with the caveat below.
+Windows of the tables ([`window_stats.csv`](reports/window_stats.csv)):
 
-**Negative-price rule by vintage** (20 days of 2024): for a recent onshore plant
-(applicable value 73.5 €/MWh) the 2024 market value *exceeded* it, so no premium was payable
-and the rule was economically irrelevant. For an older vintage (95 €/MWh, premium 10.58
-€/MWh) the mechanism appears exactly as expected - self-chosen curtailment rises
-**0 → 2.4 → 206.6 MWh** across `none` → `six_hour` → `new_2025`.
+| Window, Berlin time | Quarter-hours | Mean day-ahead price EUR/MWh | Quarter-hours with a negative price | Peak generation MW | Largest combined capacity factor | Connection MW | Quarter-hours above the connection |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| calendar year 2024 | 35,136 | 78.51 | 1,828 | 42.5 | 0.531 | 60 | 0 |
+| calendar year 2025 | 35,040 | 89.32 | 2,299 | 38.3 | 0.479 | 60 | 0 |
+| 1 to 30 January 2025 | 2,880 | 113.24 | 56 | 35.3 | 0.442 | 60 | 0 |
+| 1 to 30 July 2025 | 2,880 | 87.87 | 48 | 25.4 | 0.318 | 60 | 0 |
+| 3 synthetic days | 288 | 70.14 | 2 | 79.9 | 0.999 | 40 | 183 |
 
-**A real bug the ladder invariant caught.** The EEG monthly market value was initially derived
-from the plant's *own* export. A controller that correctly curtails during negative prices
-concentrates output into high-price hours, raising its own apparent market value and cutting
-its own premium - so perfect foresight scored *below* a do-nothing baseline. The market value
-is a technology-wide national figure that one plant cannot move; it is now exogenous, and the
-invariant check was widened from "B3 ≤ B2" to "every rung ≤ B2", which is what would have
-caught it immediately.
+### 0.1 Connection size: the battery and curtailing at low prices (RQ2)
 
-**Two B3 defects, found when the showcase started printing live numbers** (2026-09-19). The
-rolling MPC lost to the curtailment-avoidance rule, which a deployable classical optimum must
-never do. Neither cause was a solver problem:
+`sizing` sweeps the connection from 20 to 60 MW with the battery fixed. B0 has no battery and
+curtails only what the connection forces. "B2 no battery" is B2 with the battery taken out:
+perfect foresight that can only curtail. So B2 minus B0 splits into two parts that add up:
+**the battery's own value** (B2 minus B2 no battery) and **curtailing at low prices** (B2 no
+battery minus B0), which needs no battery. Every row runs the rule of the newest plants
+(`new_2025`) and the default plant's annual premium (0.3).
 
-1. **Plan execution.** B3 applied the curtailment *fraction* its plan computed on *forecast*
-   generation to the *true* generation, discarding energy the connection could have taken. It
-   now executes planned curtailment only when the effective price is negative; otherwise the
-   point-of-interconnection limit handles the cap.
-2. **Terminal value.** A linear value on end-of-horizon storage made B3 hoard 34 to 38 MWh.
-   With it removed and B3 re-solving every quarter-hour, B3 reaches the perfect-foresight
-   ceiling **exactly** under perfect forecasts, and recovers **88%** of the B1-to-B2 headroom
-   at 15% forecast error (it was **-179%**). A linear terminal value pushes storage to a bound
-   because its slope is right at one state of charge only; if one is ever needed it should be
-   concave and SoC-dependent. Project 01 shows the same effect.
+Connection sweep, calendar year 2024 ([`sizing_2024.csv`](reports/sizing_2024.csv)):
 
-Curtailment is also now classified by cause: whatever the connection would have forced anyway
-is *forced*, and only the remainder is *chosen*. Previously a perfect-foresight plan reported
-622 MWh of "chosen" curtailment over a period with two negative-price quarter-hours. The
-negative-price table above is unaffected, because on national data the connection never binds.
-`test_rolling_mpc_beats_the_rule_based_baseline` now asserts the ordering.
+| Connection MW | Overbuild | B0 EUR | B1 EUR | B2 EUR | The battery's own value EUR | Curtailing at low prices EUR | B0 forced curtailment MWh |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 20 | 4.00 | 7,343,890 | 7,520,155 | 8,563,432 | 1,094,990 | 124,552 | 9,525 |
+| 25 | 3.20 | 7,602,732 | 7,673,426 | 8,909,720 | 1,171,509 | 135,479 | 3,701 |
+| 30 | 2.67 | 7,713,324 | 7,739,659 | 9,060,224 | 1,208,392 | 138,508 | 1,079 |
+| 40 | 2.00 | 7,761,498 | 7,761,820 | 9,137,629 | 1,236,800 | 139,331 | 6 |
+| 60 | 1.33 | 7,761,582 | 7,761,582 | 9,141,681 | 1,240,768 | 139,331 | 0 |
 
-> **Principal caveat on this dataset.** Wind and PV profiles are *national* capacity factors,
-> which are far smoother than any single site: the combined factor rarely exceeds ~0.45, so a
-> connection at 75 % of nameplate never binds and the curtailment problem disappears. That is
-> why the sweep above runs down to 25 % of nameplate. On site-level data the whole curve sits
-> much further right, and curtailment - the effect this project is about - is substantially
-> larger. Site-level generation data is the top acquisition priority.
+Connection sweep, calendar year 2025 ([`sizing_2025.csv`](reports/sizing_2025.csv)):
+
+| Connection MW | Overbuild | B0 EUR | B1 EUR | B2 EUR | The battery's own value EUR | Curtailing at low prices EUR | B0 forced curtailment MWh |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 20 | 4.00 | 7,334,501 | 7,485,124 | 8,771,213 | 1,298,361 | 138,351 | 5,458 |
+| 25 | 3.20 | 7,475,060 | 7,523,341 | 9,004,543 | 1,383,379 | 146,104 | 1,675 |
+| 30 | 2.67 | 7,515,130 | 7,524,704 | 9,090,011 | 1,425,174 | 149,708 | 292 |
+| 40 | 2.00 | 7,521,764 | 7,521,764 | 9,129,478 | 1,457,359 | 150,355 | 0 |
+| 60 | 1.33 | 7,521,764 | 7,521,764 | 9,135,049 | 1,462,929 | 150,355 | 0 |
+
+The battery's own value rises with every step of connection size in both years: a tight
+connection holds back the battery's discharge along with the plant's export, and that costs
+more than the spill it lets the battery store is worth (0.2). Where no generation exceeds the
+connection, B1 earns exactly what B0 earns, because B1 only stores spill. The tables show
+revenue, not an optimum: the project models no cost for the connection or the battery.
+
+### 0.2 Where the battery's value comes from (RQ1)
+
+`decompose` runs the plant at its connection as built and at 200 MW, which nothing reaches.
+With no spill to store, the battery's value at 200 MW is arbitrage: the plant's own energy
+sold at better prices. The difference is the connection limit's effect: the spill the battery
+stores, net of the discharge the limit holds back.
+
+The battery's value by connection ([`decompose_2024.csv`](reports/decompose_2024.csv), [`decompose_2024_conn-30.csv`](reports/decompose_2024_conn-30.csv), [`decompose_2025.csv`](reports/decompose_2025.csv), [`decompose_2025_conn-30.csv`](reports/decompose_2025_conn-30.csv)):
+
+| Year | Connection as built MW | The battery's value as built EUR | The battery's value at 200 MW EUR | Connection limit's effect EUR | Share of the value as built |
+|---|---:|---:|---:|---:|---:|
+| 2024 | 60 | 1,240,768 | 1,240,768 | 0 | 0.0 % |
+| 2024 | 30 | 1,208,392 | 1,240,768 | -32,376 | -2.7 % |
+| 2025 | 60 | 1,462,929 | 1,462,929 | 0 | 0.0 % |
+| 2025 | 30 | 1,425,174 | 1,462,929 | -37,755 | -2.6 % |
+
+At 60 MW the effect is 0 by construction, because the connection never binds. 30 MW is the
+widest connection of the sweep that the plant's generation exceeds in both years, and there
+the effect is negative. On national profiles the battery earns from arbitrage, not from
+storing spill. Forecast-error management, the third source in H1, needs a schedule settled at
+reBAP, which no rung commits.
+
+### 0.3 The negative-price rule by vintage (RQ4)
+
+**The premium.** The law pays each technology max(0, applicable value - market value) on its
+own export, wherever the premium is payable. Plants commissioned or awarded before 2023 are
+paid against the technology's monthly market value; plants commissioned and, if tendered,
+awarded from 2023 on, against its annual value (EEG 2023 Anlage 1 Nr. 2). The model pays the
+plant one blended rate per period, the two premiums weighted by its own available generation
+in the window (`market.premium_table`). The market values are computed proxies: the
+day-ahead price weighted by national generation (Anlage 1 Nr. 3.3, 4.3). The premium is
+legally settled on the values the TSOs publish, which this project does not load.
+`market.market_values` expects the proxy to run high, so the premiums run low; no committed
+data measures by how much.
+
+There are two vintages. The **recent** one is the default plant of every other table: its
+applicable values are 73.5 EUR/MWh for wind and 68.0 for PV, the 2024/2025 tender ceilings
+that `MarketConfig` cites, not an award, and it is paid against the annual market value. The
+**older** one, at 95.0 and 90.0 EUR/MWh against the monthly value, is a sensitivity.
+
+Premium by vintage, the mean over the year's quarter-hours ([`negprice_2024.csv`](reports/negprice_2024.csv), [`negprice_2025.csv`](reports/negprice_2025.csv); by month in [`negprice_2024_premium.csv`](reports/negprice_2024_premium.csv), [`negprice_2025_premium.csv`](reports/negprice_2025_premium.csv)):
+
+| Year | Vintage | Market value | Wind market value EUR/MWh | PV market value EUR/MWh | Wind premium EUR/MWh | PV premium EUR/MWh | Plant rate EUR/MWh | No premium for |
+|---|---|---|---:|---:|---:|---:|---:|---|
+| 2024 | AW 73.5 (recent onshore) | annual | 64.44 | 46.29 | 9.06 | 21.71 | 11.77 | none |
+| 2024 | AW 95.0 (older vintage) | monthly | by month | by month | 31.09 | 34.09 | 33.55 | PV in 2024-11, PV in 2024-12 |
+| 2025 | AW 73.5 (recent onshore) | annual | 77.37 | 45.87 | 0.00 | 22.13 | 5.23 | wind in 2025 |
+| 2025 | AW 95.0 (older vintage) | monthly | by month | by month | 18.93 | 32.03 | 24.55 | PV in 2025-01, wind in 2025-02, PV in 2025-02, PV in 2025-11, PV in 2025-12 |
+
+**The rules, as implemented** (`market.vintage_rules`; `market.py` cites the statute texts).
+A plant's vintage is its commissioning date or, for a tendered plant, the bid date of its
+tender where EEG § 100 says so. `none` always pays the premium. The rules from `six_hour` to
+`three_hour` remove it for the whole run of negative prices once the run lasts that many
+hours. Runs are counted in calendar hours, and an hour counts as negative when the mean of its
+quarter-hour prices is negative (§ 100 (45) EEG 2023). `new_2025` removes the premium in every
+negative period. The threshold of the vintage from 2023 to 24 February 2025 falls by calendar
+year: four hours in 2023, three in 2024 and 2025, two in 2026 and one from 2027. Not
+modelled: the § 51a extension of the support period and the small-plant exemptions of
+§ 51 (2).
+
+Negative-price rule, calendar year 2024 ([`negprice_2024.csv`](reports/negprice_2024.csv)):
+
+| Rule | Plants that carry it in 2024 | Recent: B0 EUR | Recent: B2 EUR | Recent: B2 chosen curtailment MWh | Older: B0 EUR | Older: B2 EUR | Older: B2 chosen curtailment MWh |
+|---|---|---:|---:|---:|---:|---:|---:|
+| `none` | before 2016 | 7,878,022 | 9,176,077 | 1,982 | 10,318,068 | 11,543,553 | 377 |
+| `six_hour` | 2016-2020 | 7,808,365 | 9,157,002 | 4,762 | 10,090,622 | 11,429,260 | 4,632 |
+| `four_hour` | 2021-2022 | 7,777,455 | 9,144,622 | 6,387 | 9,992,663 | 11,372,768 | 6,387 |
+| `three_hour` | 2023 to 24 Feb 2025 | 7,768,887 | 9,142,287 | 6,660 | 9,964,021 | 11,362,787 | 6,660 |
+| `new_2025` | from 25 Feb 2025 | 7,761,582 | 9,141,681 | 6,715 | 9,940,599 | 11,360,790 | 6,715 |
+
+Negative-price rule, calendar year 2025 ([`negprice_2025.csv`](reports/negprice_2025.csv)):
+
+| Rule | Plants that carry it in 2025 | Recent: B0 EUR | Recent: B2 EUR | Recent: B2 chosen curtailment MWh | Older: B0 EUR | Older: B2 EUR | Older: B2 chosen curtailment MWh |
+|---|---|---:|---:|---:|---:|---:|---:|
+| `none` | before 2016 | 7,584,010 | 9,143,413 | 3,208 | 9,655,042 | 11,140,539 | 223 |
+| `six_hour` | 2016-2020 | 7,539,912 | 9,137,448 | 6,829 | 9,336,133 | 10,956,994 | 6,506 |
+| `four_hour` | 2021-2022 | 7,527,595 | 9,135,679 | 7,856 | 9,242,621 | 10,911,640 | 7,792 |
+| `three_hour` | 2023 to 24 Feb 2025 | 7,523,655 | 9,135,125 | 8,113 | 9,216,531 | 10,903,216 | 8,053 |
+| `new_2025` | from 25 Feb 2025 | 7,521,764 | 9,135,049 | 8,155 | 9,205,646 | 10,902,358 | 8,074 |
+
+B1 equals B0 in every row, because the 60 MW connection never binds, so the tables leave it
+out. Each row runs one rule on both vintages, as a sensitivity. Under the statute the older
+vintage (monthly value, so dated before 2023) carries `none`, `six_hour` or `four_hour`, and
+the recent vintage carries `three_hour` or `new_2025`. No plant carried `new_2025` before
+25 February 2025, so on the prices before that day its row is a counterfactual.
+
+B0 cannot react, so its loss from `none` to a rule is the premium the rule removes. B2
+curtails more with every tightening and loses less than B0 to every rule. Part of that is
+curtailing, which needs no battery; `negprice` runs no "B2 no battery", so the tables do not
+split the two. Two approximations of the settlement favour storage (section 11): the rule
+applies at the step of export, so energy charged during a suspension earns the premium when
+it is sold later, and one blended premium rate per period misprices the steps the rule acts
+on. Read B0's loss minus B2's loss as an upper bound on what storage and curtailing recover.
+
+### 0.4 B3 on real data: two 30-day windows of 2025
+
+B3 re-solves the LP every quarter-hour over the next 24 hours on synthetic forecasts
+(section 11) and applies the first step; it knows the current quarter-hour exactly. It plans
+each month on the previous month's realised premium rate: December 2024's in the January
+window and June 2025's in the July window. Every rung is settled on the realised annual
+market value of 2025, at the plant's rate for the window's own wind/PV mix.
+
+B3 on 30 days of real data ([`ladder_2025-01-01_30d.csv`](reports/ladder_2025-01-01_30d.csv), [`ladder_2025-07-01_30d.csv`](reports/ladder_2025-07-01_30d.csv)):
+
+| Window, Berlin time | B0 EUR | B1 EUR | B2 EUR | B3 EUR | B3's share of the B1-to-B2 gain | Premium settled on EUR/MWh | Premium B3 planned on EUR/MWh |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 to 30 January 2025 | 909,598 | 909,598 | 1,001,522 | 996,142 | 94.1 % | 1.48 | 0.00 |
+| 1 to 30 July 2025 | 554,183 | 554,183 | 656,969 | 652,211 | 95.4 % | 8.74 | 27.34 |
+
+The connection never binds in either window, so B1, which only stores spill, earns exactly
+what B0 earns, and the gain from B1 to B2 is really the gain from B0 to B2. B3 recovers most
+of it, although in July it plans on a premium far above the one it is settled on. B3's solve
+times are in the CSVs (`b3_solve_time_*`); four runs shared a 4-core laptop, so they give an
+order of magnitude only.
+
+### 0.5 B3 against a terminal value, on synthetic inputs
+
+Every input of this table is synthetic, from `hybrid.synthetic`: the portfolio showcase's
+three days of wind, PV and price shapes, the default plant behind a 40 MW connection, B3 on a
+12-hour horizon, and one fixed premium of 8 EUR/MWh for every rung. It crosses B3's forecast
+error with a linear terminal value on the energy stored at the end of each plan.
+
+B3 ablation on synthetic inputs ([`b3_ablation_synthetic_demo.csv`](reports/b3_ablation_synthetic_demo.csv)):
+
+| Forecast error | Terminal value | B0 EUR | B1 EUR | B2 EUR | B3 EUR | B3's share of the B1-to-B2 gain | Energy B3 holds at the end MWh |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 0 % | off | 190,105 | 197,153 | 198,625 | 198,625 | 100.0 % | 2.0 |
+| 0 % | on | 190,105 | 197,153 | 198,625 | 195,058 | -142.4 % | 34.3 |
+| 15 % | off | 190,105 | 197,153 | 198,625 | 198,435 | 87.1 % | 2.0 |
+| 15 % | on | 190,105 | 197,153 | 198,625 | 194,517 | -179.1 % | 38.0 |
+
+Under perfect forecasts and without a terminal value, B3 matches B2. With the linear terminal
+value B3 falls below B1, and it ends the window holding energy it never sells. That is why
+the terminal value is off by default (`baselines.default_terminal_price`).
+
+### 0.6 Defects the ladder invariant caught
+
+No rung may beat B2, perfect foresight, on revenue before imbalance, beyond the solver's
+rounding (`ladder_tolerance_eur` in every table). `baselines.run_ladder` raises otherwise.
+
+**The market value was once derived from the plant's own export.** A controller that
+correctly curtails during negative prices concentrates its output in high-price hours. That
+raised its own apparent market value and cut its own premium, so perfect foresight scored
+below a do-nothing baseline. The market value is a national figure that one plant cannot
+move; it is now exogenous. The invariant then covered B3 only; it now covers every rung,
+which would have caught this at once.
+
+**Two B3 defects** surfaced when the portfolio showcase first printed live numbers, on
+19 September 2026:
+
+1. **Plan execution.** B3 applied the curtailment fraction it planned on forecast generation
+   to the true generation, and so discarded energy the connection could have taken. It now
+   executes planned curtailment only where the effective price is negative; elsewhere the
+   connection limit alone caps the export.
+2. **Terminal value.** A linear value on end-of-horizon storage made B3 hoard energy and lose
+   to B1 (0.5). A linear terminal value pushes storage to a bound, because its slope is right
+   at one state of charge only. If one is ever needed, it should be concave and depend on the
+   state of charge. Project 01 shows the same effect.
+
+`test_rolling_mpc_beats_the_rule_based_baseline` asserts that B3 beats B1 on a synthetic
+window. Curtailment is also classified by cause: what the connection would force anyway is
+*forced*, and only the rest is *chosen*. Before, every curtailment a plan asked for counted
+as chosen, including what the connection forced.
+
+> **Principal caveat on this dataset.** Wind and PV are national capacity factors, far
+> smoother than any single site. Their largest combined factor stays well below 1 (Windows),
+> so a connection at 75 % of the installed 80 MW never binds and the curtailment problem this
+> project is about hardly arises. That is why the sweep runs down to 20 MW, a quarter of the
+> installed capacity. On site-level data the curve would sit further right and curtailment
+> would be larger. Site-level generation data is the top acquisition priority.
 
 ---
 
