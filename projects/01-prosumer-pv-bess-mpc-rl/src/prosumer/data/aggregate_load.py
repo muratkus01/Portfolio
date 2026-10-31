@@ -1,7 +1,7 @@
 """Aggregate household load per federal state: a population-mean model fitted to 73 HTW homes.
 
-Why this module exists. The national analysis multiplies one household's load by the number of
-home-storage households in a state. Neither obvious input survives that multiplication:
+Why this module exists. Scaling household load up to a federal state multiplies it by the
+number of home-storage households there. Neither obvious input survives that multiplication:
 
   * BDEW H0 is weather-blind and, apart from the holiday calendar, identical in every state.
     Its nine day shapes and smooth
@@ -13,7 +13,9 @@ home-storage households in a state. Neither obvious input survives that multipli
 
 The model here is the population expectation instead: the expected load of an average
 household like the 73 measured in 2010, given the day of week, the state's public holidays,
-the season and the day's temperature anomaly. Fleet = N times that.
+the season and the day's temperature anomaly. Fleet = N times that. No national figure uses
+it yet: `experiments/national_impact.py` reads only the MaStR fleet counts, and the per-state
+output reaches only `reports/aggregate_load/` (via `experiments/aggregate_load_states.py`).
 
 Model, fitted once on the 73-household mean of 2010 (`experiments.aggregate_load_fit`):
   E(d)   = alpha[class(d)] + harmonics_3(d) . g + [weekend(d)] harmonics_1(d) . h[class(d)]

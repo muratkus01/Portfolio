@@ -1,10 +1,11 @@
 """Per-state 1 kWp PV generation from Open-Meteo, calibrated against a reference year.
 
-Why this module exists. The national analysis multiplies a single household's PV generation by
-the number of home-storage households in each federal state, so it needs one PV series per
-state, and the states differ: the reference year spans 1030 to 1195 kWh/kWp, a 16 % spread
-between North Rhine-Westphalia and Bavaria. A single Munich series applied to all 16 would
-overstate northern Germany by about a sixth.
+Why this module exists. Scaling household PV up to the federal states needs one PV series per
+state, because the states differ in annual yield: a single Munich series applied to all 16
+would overstate northern Germany. The per-state targets stay out of the repository (see
+below). Nothing uses the PV series yet: `generate()` has no caller, and the national analysis
+(`experiments/national_impact.py`) reads only the MaStR fleet counts. Only `STATE_SITES` is
+used elsewhere, as the temperature sites of `aggregate_load`.
 
 The method is deliberately split in two, because only one half can live in a public repository:
 
@@ -21,14 +22,17 @@ Reference-file repair. The 15 state exports carry a defect: their timestamp colu
 monotonic. Exactly one row, always the last, is labelled one year and one hour before the
 first, so the underlying array was rolled by one position. Unrepaired, `pd.read_csv` followed
 by a sort silently moves one hour of generation from the end of December to the start of
-January, and a naive `reindex` against a clean index drops it. `load_reference_1kwp` repairs
-it explicitly and asserts the result is a complete hourly year.
+January, and a naive `reindex` against a clean index drops it. `load_reference_1kwp`
+relabels the values as a clean hourly range from 1 January and rejects a file with more than
+one discontinuity. It does not check the length, the start year or the row order.
 
 Timezone. The state exports label their index UTC and mean it (`+00:00` is explicit in the
-file). The Bavarian export is a different vintage: local time, no offset, and monotonic. The
-thesis read the UTC stamps as if they were CET, which is the one-hour shift recorded in the
-Project 01 README. The thesis itself cannot be changed, so this module reads each file by the
-convention that file actually uses and keeps everything on a UTC index afterwards.
+file). The Bavarian export is a different vintage: no offset, no daylight-saving transition,
+and monotonic. It is read as CET without daylight saving (fixed UTC+1). That is an
+assumption: nothing here tells CET from UTC for that file (see `load_reference_1kwp`). The
+thesis read UTC stamps as if they were CET, which is the one-hour shift recorded in the
+Project 01 README. The thesis itself cannot be changed; everything here is kept on a UTC
+index.
 """
 from __future__ import annotations
 
@@ -46,10 +50,11 @@ from .weather import fetch_weather_actual
 
 PROJECT = Path(__file__).resolve().parents[3]
 
-# A representative site per state. Capitals, except where the capital is a poor stand-in for
-# where the housing stock actually is: Bavaria uses Munich because the thesis did, and the
-# city states are their own site. Altitudes are approximate and matter only through the Faiman
-# cell-temperature model, where 100 m is worth well under a percent of annual yield.
+# One point per state: the city coordinates of the state capital, the same points as
+# `experiments.national_impact._GEO`. Munich is also the thesis household's site. Altitudes
+# are approximate and enter only the solar position (pvlib derives the air pressure from them;
+# the Faiman cell-temperature model takes no altitude): 520 m against 0 m changes the
+# modelled 2024 Bavarian yield by about 0.001 %.
 @dataclass(frozen=True)
 class StateSite:
     code: str
@@ -111,9 +116,10 @@ def _repair_rolled_index(ts: pd.Series, values: pd.Series, year: int) -> pd.Seri
     """Return an hourly UTC series for `year`, fixing the single rolled row.
 
     The export is correct in content and wrong in labelling: one row, the last, carries a
-    timestamp a year and an hour before the first. Rather than guess, this rebuilds the index
-    as a clean hourly range and asserts the length matches, so a file with a different defect
-    fails loudly instead of being silently reinterpreted.
+    timestamp a year and an hour before the first. This rebuilds the index as a clean hourly
+    range from 1 January of `year` and rejects a file with more than one discontinuity. It
+    does not check the length, the start year or the order of the rows, so a file with
+    another defect can still be relabelled without an error.
     """
     n = len(values)
     expected = pd.date_range(f"{year}-01-01", periods=n, freq="h", tz="UTC")
@@ -129,8 +135,8 @@ def load_reference_1kwp(path: str | Path, year: int = 2024) -> pd.Series:
     """One state's reference 1 kWp hourly generation, kWh per kWp, on a UTC index.
 
     Handles both export shapes: `MODELLING_ERA5_KWH` with a UTC `START_DATETIME`, and the
-    Bavarian `P_PV_1` with a local-time `DateTime`. The local-time file is converted to UTC
-    using Europe/Berlin, which is what its own clock means.
+    Bavarian `P_PV_1` with an offset-free `DateTime`. That file is read as CET without
+    daylight saving (fixed UTC+1) and converted to UTC.
     """
     path = Path(path)
     df = pd.read_csv(path, sep=";")
@@ -141,10 +147,10 @@ def load_reference_1kwp(path: str | Path, year: int = 2024) -> pd.Series:
     if pv_col is None:
         raise ValueError(f"{path.name}: no MODELLING_ERA5_KWH and no P_PV* column")
     ts = pd.to_datetime(df["DateTime"], format="%d.%m.%Y %H:%M")
-    # CET year-round, no daylight saving, which is what the file's own clock does: it has no
-    # repeated hour in March and none missing in October. Localising to Europe/Berlin instead
-    # raises on 2024-10-27 02:00, and that failure is the evidence for this reading. The same
-    # convention is recorded in data/raw/thesis/SOURCE.md and used by the HTW load profiles.
+    # The labels show no daylight-saving transition, so they are not legal local time. That
+    # cannot tell CET from UTC, and nothing here tests which one they mean. The thesis PV was
+    # one hour early because UTC values sat under CET labels (Project 01 README, Gate 0);
+    # whether this file has the same offset is untested.
     local = ts.dt.tz_localize(dt.timezone(dt.timedelta(hours=1)))
     out = pd.Series(df[pv_col].to_numpy(dtype=float),
                     index=pd.DatetimeIndex(local).tz_convert("UTC"), name="pv_kwh_per_kwp")
