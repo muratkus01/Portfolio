@@ -31,8 +31,8 @@ NDA. Proprietary data, where obtained, improves fidelity but is never a precondi
 | 03 | Imbalance price (reBAP) and intraday price index (ID AEP) | netztransparenz.de, CSV export | 15 min | downloaded by hand, not committed ([SOURCE](../projects/03-probabilistic-forecast-to-bid/data/raw/netztransparenz/SOURCE.md)) |
 
 Project 02 lists its inputs in its own README. The data folders are gitignored apart from
-their `SOURCE.md` files; the results derived from the data are committed as CSVs under each
-project's `reports/`.
+their `SOURCE.md` files. Projects 01 and 03 commit the CSVs behind their main results under
+their `reports/` folders.
 
 ---
 

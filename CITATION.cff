@@ -23,7 +23,7 @@ abstract: >-
   against 7.29 MW for climatology and 1.56 MW for the published forecast, and in
   neither of its two windows does any forecast's day-ahead gain in euros over
   climatology have a 90 % interval that excludes zero. Each project models the
-  German market rules it depends on, and its README ties the main results to
+  German market rules it depends on; Projects 01 and 03 tie their main results to
   committed CSV files.
 keywords:
   - reinforcement learning
