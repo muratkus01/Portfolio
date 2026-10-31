@@ -55,7 +55,7 @@ everything new uses correctly timed PV.
 
 | Input | Source | Check |
 |---|---|---|
-| Prices | EPEX DE-LU day-ahead, Energy-Charts | 2024 equals the thesis prices in all 8,784 hours when the thesis labels are read as CET (UTC+1) ([test](tests/test_data_2024_2026.py)); hourly products until 2025-09-30, quarter-hour after |
+| Prices | EPEX DE-LU day-ahead, Energy-Charts | the 2024 prices equal the thesis prices in all 8,784 hours when the thesis labels are read as CET (UTC+1) ([test](tests/test_data_2024_2026.py)); hourly products until 2025-09-30, quarter-hour after |
 | PV | pvlib on Open-Meteo 15-min weather, loss calibrated to the thesis 2024 yield | daily correlation with the thesis PV in 2024: 0.95 (one-off check) |
 | PV forecast | the same model on the hourly weather forecast issued a day earlier (Open-Meteo previous runs) | nRMSE (RMSE over mean PV, quarter-hours with PV above 0.05 kW) 0.30 to 0.38 per year 2024 to 2026, bias within 1.5 % (one-off check) |
 | Load | 74 measured households, HTW Berlin (Tjaden et al. 2015), scaled to 3221 kWh/a and replayed on the 2024 to 2026 calendar on the households' own clock (legal local time) | one household shows PV behind the meter and is excluded ([screen](reports/htw_pv_screen.csv)) |
