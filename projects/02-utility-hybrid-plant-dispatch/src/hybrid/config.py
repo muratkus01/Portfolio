@@ -47,6 +47,15 @@ class PlantConfig:
 
     ramp_mw_per_step: float | None = None   # None = unlimited (inverter-coupled plant)
 
+    def __post_init__(self) -> None:
+        # A start outside the limits is a state the plant cannot be in, and the safety layer
+        # forces the battery back: from below it charged, from the grid even where grid
+        # charging is forbidden; from above it sold energy nobody paid for.
+        if self.soc_init_frac is not None and not (
+                self.soc_min_frac <= self.soc_init_frac <= self.soc_max_frac):
+            raise ValueError(f"soc_init_frac {self.soc_init_frac} lies outside [soc_min_frac "
+                             f"{self.soc_min_frac}, soc_max_frac {self.soc_max_frac}]")
+
     @property
     def installed_mw(self) -> float:
         return self.wind_mw + self.pv_mw

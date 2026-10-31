@@ -219,3 +219,15 @@ def test_the_battery_starts_at_its_minimum_whatever_the_minimum():
     """Starting empty must follow the minimum, or a higher minimum starts below it."""
     assert PlantConfig().soc_init == pytest.approx(PlantConfig().soc_min)
     assert PlantConfig(soc_min_frac=0.10).soc_init == pytest.approx(4.0)
+
+
+@pytest.mark.parametrize("frac", [0.0, 0.99], ids=["below the minimum", "above the maximum"])
+def test_a_start_outside_the_battery_limits_is_rejected(frac):
+    """Regression: a start below the minimum made the battery charge from the grid.
+
+    The safety layer pulled the battery up to its minimum, and because that bound beat the
+    grid-charging bound, it drew the energy from the grid even with grid charging forbidden.
+    A start outside the limits is a state the plant cannot be in, so it must be refused.
+    """
+    with pytest.raises(ValueError, match="soc_init_frac"):
+        PlantConfig(soc_init_frac=frac)
