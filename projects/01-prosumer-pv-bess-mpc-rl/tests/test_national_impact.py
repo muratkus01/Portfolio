@@ -1,9 +1,12 @@
 """Tests for Germany-wide system-level impact analysis and merit-order displacement.
 
 The fleet tests read the gitignored MaStR download and skip without it. The merit-order
-tests use no data and always run.
+tests use no data and always run. The stress-day price test reads the gitignored Energy-Charts
+price cache that `prosumer build-data` writes, and skips without it.
 """
 from __future__ import annotations
+
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -21,6 +24,8 @@ from prosumer.experiments.national_impact import (
 needs_mastr = pytest.mark.skipif(
     not mastr.available(), reason="MaStR download absent; see data/raw/mastr/SOURCE.md"
 )
+PRICE_CACHE = (Path(__file__).parents[1] / "data" / "raw" / "prices"
+               / "energycharts_price_DE-LU_2024-01-01_2026-09-18.json")
 
 
 @needs_mastr
@@ -108,7 +113,7 @@ def test_fossil_gas_displacement_and_benchmark_days():
     )
     assert res["displacement_pct"] == pytest.approx(winter["gas_reduction_pct"], abs=0.1)
 
-    # Transition season: 15.03.2024 at 08:00: -2493.10 MWh shift, 7,005 MWh gas -> ~19.6% reduction
+    # Transition season: 15.03.2024 at 08:00: -2493.10 MWh shift, 12,719 MWh gas -> ~19.6% reduction
     trans = REPRESENTATIVE_DAYS["transition"]
     res_trans = evaluate_fossil_gas_displacement(
         trans["peak_shift_mwh"],
@@ -131,3 +136,24 @@ def test_fossil_gas_displacement_and_benchmark_days():
         scarcity["fossil_gas_mwh"],
     )
     assert res_scarcity["displacement_pct"] == pytest.approx(scarcity["gas_reduction_pct"], abs=0.2)
+
+
+@pytest.mark.skipif(not PRICE_CACHE.exists(), reason="price cache absent; run prosumer build-data")
+@pytest.mark.parametrize("day, extreme, quoted", [
+    ("negative_price", "min", "-135 EUR/MWh"),
+    ("scarcity_peak", "max", "936 EUR/MWh"),
+])
+def test_stress_day_descriptions_quote_the_day_ahead_extreme(day, extreme, quoted):
+    """The two price-stress days quote the day's extreme DE-LU day-ahead price.
+
+    Regression: the negative-price day said -50 EUR/MWh; the cached Energy-Charts series has
+    -135.45 EUR/MWh on 2024-05-12, at 12:00 on the thesis clock (CET, UTC+1).
+    """
+    from prosumer.data.loaders import fetch_spot_prices
+
+    spot = fetch_spot_prices("2024-01-01", "2026-09-18", cache_dir=PRICE_CACHE.parent)
+    d = REPRESENTATIVE_DAYS[day]
+    eur_mwh = spot["spot_eur_per_kwh"].tz_convert("Etc/GMT-1").loc[d["date"]] * 1000.0
+    value = eur_mwh.min() if extreme == "min" else eur_mwh.max()
+    assert f"{value:.0f} EUR/MWh" == quoted
+    assert quoted in d["description"]

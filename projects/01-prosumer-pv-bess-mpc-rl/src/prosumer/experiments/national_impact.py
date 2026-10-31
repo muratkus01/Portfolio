@@ -1,11 +1,14 @@
 """Germany-Wide System-Level Impact Analysis of BESS Optimization.
 
-Directly implements the national scaling and merit-order displacement methodology from
+Implements the national fleet scaling and the merit-order displacement accounting from
 Murat Kuş's M.Sc. thesis:
 "Techno-Economic Assessment of Residential BESS with PV and Dynamic Tariffs" (Section 3.6 & 4.3).
+No dispatch runs here: the representative-day shifts are thesis values (item 5).
 
 Features:
-1. Meta-Household Framework across all 16 German federal states (Bundesländer).
+1. Fleet table of all 16 German federal states (Bundesländer): the MaStR home-storage count
+   per state and the Germany-wide mean size. The thesis's meta-household dispatch is not in
+   this repository.
 2. Fleet statistics read from the MaStR register at three 1 January snapshots, not
    extrapolated. Source and caveats: `data/raw/mastr/SOURCE.md`.
    - 2024-01-01: 1,119,240 home storages, 10.03 GWh, 6.19 GW
@@ -17,10 +20,13 @@ Features:
    These are lithium-ion only, which is 96.8 % of all home storages in 2024 and 97.2 % in
    2026; the register counts the remainder under other chemistries.
    The download ends 2026-01-13, so "2026" is a January snapshot and not a full year.
-3. Calculation of Grid Exchange Shift:
+3. Calculation of Grid Exchange Shift (the formula only; nothing here computes the two
+   dispatch series):
    Grid Exchange Shift_t = Net Grid Exchange_t^Optimized - Net Grid Exchange_t^RuleBased
-4. Merit-order overlay displacing marginal fossil gas generation at €48.95/MWh.
-5. Analysis of the five representative seasonal and market stress days:
+4. Merit-order accounting on the thesis Table 10-13 shifts: added battery export (discharge
+   cost €48.95/MWh) replaces fossil gas (€85/MWh) one to one, up to the gas generation given.
+5. The five representative seasonal and market stress days, with the thesis's national
+   shifts and gas volumes copied in as fixed values (`REPRESENTATIVE_DAYS`):
    - 16.01.2024 (Winter Day)
    - 15.03.2024 (Transition Season)
    - 01.07.2024 (Summer Day)
@@ -259,7 +265,8 @@ REPRESENTATIVE_DAYS = {
     },
     "negative_price": {
         "date": "2024-05-12",
-        "description": "Extreme renewable oversupply with midday spot prices reaching -50 EUR/MWh",
+        # Day-ahead minimum -135.45 EUR/MWh at 12:00 CET (Energy-Charts); the test checks it.
+        "description": "Extreme renewable oversupply with midday spot prices reaching -135 EUR/MWh",
         "peak_hour": 12,
         "peak_shift_mwh": 5448.09,  # positive shift indicates absorption / export withholding
         "fossil_gas_mwh": 2335.0,
