@@ -21,7 +21,7 @@ Explore the three projects' results, sensitivity sweeps and 15-minute dispatch p
 👉 **[muratkus01.github.io/Portfolio/showcase.html](https://muratkus01.github.io/Portfolio/showcase.html)**
 
 ### 💻 Local Execution
-Run the terminal showcase: it runs the Project 01 and 02 benchmark ladders and prints Project 03's committed test-window results:
+Run the terminal showcase. It reruns the Project 01 and 02 benchmark ladders on synthetic inputs and does not recompute Project 03, whose results are the committed CSVs in its `reports/` folder:
 
 ```bash
 # Clone and install the three packages in editable mode
