@@ -14,8 +14,8 @@ abstract: >-
   over 20.5 months out of sample, the MPC recovers 89.4 % of the cost headroom
   between a rule-based controller and perfect foresight, and the agent 32.4 %
   (median of three seeds). Project 02 dispatches a wind, PV and battery hybrid
-  plant with a benchmark ladder that ends at rolling MPC, with no reinforcement
-  learning by design. Project 03 forecasts a fleet-shaped wind and PV portfolio
+  plant with a benchmark ladder that ends at rolling MPC; no learned controller
+  is built. Project 03 forecasts a fleet-shaped wind and PV portfolio
   with a quantile forecast ladder from climatology to LightGBM, benchmarks it
   against the forecast the transmission system operators publish, and settles
   the positions at real day-ahead, intraday (ID AEP) and imbalance (reBAP)
