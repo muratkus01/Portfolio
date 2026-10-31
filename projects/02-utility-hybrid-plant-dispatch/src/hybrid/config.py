@@ -83,9 +83,9 @@ class MarketConfig:
     """
 
     # --- EEG market premium ---
-    # Revenue = market price + premium, where premium = anzulegender Wert - monthly market
-    # value. The MONTHLY reference is what makes the objective non-separable across the month;
-    # the rolling-horizon controller carries a month-to-date accumulator for this reason.
+    # Revenue = market price + premium, where premium = anzulegender Wert - the technology's
+    # national market value of the calendar month, or of the calendar year for plants
+    # commissioned or awarded from 2023 on (market.market_values, market.premium_table).
     eeg_enabled: bool = True
     # EEG 2023 § 36 onshore wind statutory reference ceiling (source: BNetzA Festlegung 2024/2025)
     anzulegender_wert_wind: float = 73.5     # EUR/MWh

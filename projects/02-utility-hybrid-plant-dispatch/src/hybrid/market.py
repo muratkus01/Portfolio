@@ -3,10 +3,10 @@
 The two mechanics that most published hybrid-plant studies simplify away, and that this
 module implements explicitly, are:
 
-  1. **The market premium's MONTHLY reference.** The premium is `anzulegender Wert` minus the
-     monthly market value of the technology. Because the reference is monthly, the objective
-     is not separable across the month, and a rolling-horizon controller that ignores this
-     optimises the wrong thing near month boundaries.
+  1. **The market premium's reference value.** The premium is `anzulegender Wert` minus the
+     technology's national market value over a calendar month, or over the calendar year for
+     plants commissioned or awarded from 2023 on (EEG 2023 Anlage 1 Nr. 2). The value is only
+     known once the period is over, so a controller that plans inside it must estimate it.
 
   2. **The negative-price rule.** Under the 2025 tightening, a new plant earns NO premium in
      any quarter-hour with a negative day-ahead price. Older vintages lose it for a whole run
@@ -18,6 +18,7 @@ module implements explicitly, are:
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 
 from .config import MarketConfig, PlantConfig
 
@@ -118,12 +119,20 @@ def vintage_rules(year: int) -> dict[str, str]:
             "2023 to 24 Feb 2025": eeg_2023, "from 25 Feb 2025": "new_2025"}
 
 
-def monthly_market_value(price: np.ndarray, generation: np.ndarray,
-                         month_id: np.ndarray | None = None) -> float:
-    """Generation-weighted average price - the technology's market value.
+def monthly_market_value(price: np.ndarray, generation: np.ndarray) -> float:
+    """Generation-weighted average price over one period: a technology's market value.
 
-    With a single evaluation window this is one number; a full-year study computes it per
-    calendar month, which is what `month_id` enables.
+    `market_values` applies it per calendar month or year. (A `month_id` argument used to
+    promise that and was ignored.)
+
+    Parameters
+    ----------
+    price : day-ahead price per step, EUR/MWh, e.g. np.array([10.0, 100.0]).
+    generation : the technology's feed-in on the same steps, any unit, e.g. [1.0, 0.0].
+
+    Returns
+    -------
+    float, EUR/MWh; the plain mean price when there is no generation at all.
     """
     gen = np.asarray(generation, dtype=float)
     if gen.sum() <= 0:
@@ -131,17 +140,130 @@ def monthly_market_value(price: np.ndarray, generation: np.ndarray,
     return float(np.sum(np.asarray(price) * gen) / gen.sum())
 
 
+# Calendar periods a market value is computed over, as pandas period codes.
+_PERIODS = {"month": "M", "year": "Y"}
+
+
+def _period_labels(index: pd.DatetimeIndex, period: str) -> np.ndarray:
+    """Europe/Berlin calendar month ("2024-01") or year ("2024") of each tz-aware timestamp."""
+    if period not in _PERIODS:
+        raise ValueError(f"market value period must be 'month' or 'year', not {period!r}")
+    local = index.tz_convert("Europe/Berlin").tz_localize(None)
+    return np.asarray(local.to_period(_PERIODS[period]).astype(str))
+
+
+def market_values(price: pd.Series, feed_in: pd.DataFrame,
+                  period: str = "month") -> pd.DataFrame:
+    """Technology market values ("Marktwert") per Berlin calendar month or year.
+
+    EEG 2023 Anlage 1 Nr. 3.3 (monthly value MW) and Nr. 4.3 (annual value JW): the day-ahead
+    price of each quarter-hour weighted by the technology's national feed-in. The statute
+    weights by the TSOs' online extrapolation (Nr. 5.1), which ignores curtailment; public
+    generation data drops in curtailed, cheap hours, so this proxy runs high. On Energy-Charts
+    data for 2025 it gives 77.27 EUR/MWh for onshore wind and 45.95 for solar, against the
+    published JW of 74.41 and 45.08.
+
+    Parameters
+    ----------
+    price : day-ahead price, EUR/MWh, on a tz-aware DatetimeIndex, e.g. a year of
+        quarter-hours.
+    feed_in : national feed-in per technology on the same index, one column each, e.g.
+        columns "wind" and "pv". Only its shape within a period matters, so a capacity
+        factor with one capacity over the period weights the price as the feed-in does.
+    period : "month" or "year".
+
+    Returns
+    -------
+    pd.DataFrame indexed by period label ("2024-01" or "2024"): one column per technology in
+    EUR/MWh, and "days", the Berlin calendar days the data covers in the period.
+    """
+    labels = _period_labels(price.index, period)
+    days = pd.Series(price.index.tz_convert("Europe/Berlin").tz_localize(None).normalize())
+    rows = {}
+    for key in pd.unique(labels):
+        m = labels == key
+        rows[key] = {tech: monthly_market_value(price.to_numpy()[m],
+                                                feed_in[tech].to_numpy()[m])
+                     for tech in feed_in.columns}
+        rows[key]["days"] = days[m].nunique()
+    return pd.DataFrame.from_dict(rows, orient="index")
+
+
+def premium_table(index: pd.DatetimeIndex, generation: dict[str, np.ndarray],
+                  values: pd.DataFrame, applicable: dict[str, float],
+                  period: str = "month") -> pd.DataFrame:
+    """Market premium per technology, and the plant's rate, for each period `index` touches.
+
+    Per technology the premium is max(0, AW - MW) (Anlage 1 Nr. 3.1.2; Nr. 4.1.2 with JW). The
+    plant exports through one meter behind its battery, so its rate is the premiums weighted
+    by the plant's own available generation of each technology in the period. Stored energy
+    keeps the claim it would have had without the storage (§ 19 (3) EEG 2023): the premium
+    follows the generating technology, not the hour of discharge. A per-step share would let
+    the optimiser move PV energy into wind-premium hours through the battery and earn a
+    premium the law does not pay. Available rather than exported generation keeps the rate
+    exogenous to the dispatch, as `settle` requires.
+
+    Parameters
+    ----------
+    index : tz-aware timestamps of the evaluated steps, e.g. 1,920 quarter-hours of January.
+    generation : the plant's available generation per technology on `index`, MW, e.g.
+        {"wind": np.array([31.2, ...]), "pv": np.array([0.0, ...])}.
+    values : `market_values(..., period)` over data that covers every period of `index`.
+    applicable : anzulegender Wert per technology, EUR/MWh, e.g. {"wind": 73.5, "pv": 68.5}.
+    period : "month" or "year", as `values` was computed.
+
+    Returns
+    -------
+    pd.DataFrame indexed by period label, with "days" of market data, per technology the
+    market value ("mw_wind") and premium ("premium_wind"), and the plant's "rate" (EUR/MWh).
+    """
+    labels = _period_labels(index, period)
+    rows = {}
+    for key in pd.unique(labels):
+        m = labels == key
+        row = {"days": values.loc[key, "days"]}
+        energy = {}
+        for tech, aw in applicable.items():
+            row[f"mw_{tech}"] = values.loc[key, tech]
+            row[f"premium_{tech}"] = max(0.0, aw - values.loc[key, tech])
+            energy[tech] = float(np.sum(generation[tech][m]))
+        total = sum(energy.values())
+        # a period without any generation (never seen on national data) splits evenly
+        share = {tech: e / total if total > 0 else 1 / len(energy) for tech, e in energy.items()}
+        row["rate"] = sum(row[f"premium_{tech}"] * share[tech] for tech in energy)
+        rows[key] = row
+    return pd.DataFrame.from_dict(rows, orient="index")
+
+
+def premium_rates(index: pd.DatetimeIndex, table: pd.DataFrame,
+                  period: str = "month") -> np.ndarray:
+    """The plant's premium rate per step: each step gets its period's rate from the table.
+
+    Parameters
+    ----------
+    index : tz-aware timestamps of the steps, as given to `premium_table`.
+    table : output of `premium_table` for these steps.
+    period : "month" or "year", as the table was built.
+
+    Returns
+    -------
+    np.ndarray, EUR/MWh per step, for `run_ladder`, `effective_price` and `settle`.
+    """
+    return table["rate"].reindex(_period_labels(index, period)).to_numpy()
+
+
 def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
            plant: PlantConfig, market: MarketConfig,
            rebap: np.ndarray | None = None,
            schedule: np.ndarray | None = None,
-           wind_share: float = 0.6,
-           premium_rate: float | None = None) -> dict[str, float]:
+           premium_rate: float | np.ndarray | None = None) -> dict[str, float]:
     """Decompose the plant's revenue. All values EUR over the evaluated period.
 
-    `premium_rate` (EUR/MWh) is EXOGENOUS and must be supplied by the caller. This matters:
-    the market premium is `anzulegender Wert` minus the *technology-wide* monthly market
-    value, which is a national figure published by the TSOs. A single plant cannot move it.
+    `premium_rate` (EUR/MWh) is EXOGENOUS and must be supplied by the caller: one rate, or
+    one per step (`premium_rates`) when the window spans periods with different market
+    values. This matters: the market premium is `anzulegender Wert` minus the
+    *technology-wide* market value, which is a national figure published by the TSOs. A
+    single plant cannot move it.
 
     Deriving it from the plant's own export instead - which an earlier version of this module
     did - creates a spurious feedback: a controller that correctly curtails during negative
@@ -149,12 +271,8 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
     value, which cuts its own premium. The result was a perfect-foresight optimum scoring
     BELOW a do-nothing baseline, which is impossible and was caught by the ladder invariant.
     Passing the rate in keeps the objective the optimiser maximises and the settlement that
-    scores it consistent.
-
-    `wind_share` splits exported energy between the two technologies for premium purposes.
-    A production-grade model tracks per-technology energy through the battery; the
-    approximation is documented rather than hidden, and its effect is small because the two
-    applicable values are close.
+    scores it consistent. How the plant's export splits between its two technologies for the
+    premium is settled in `premium_table`.
     """
     price = np.asarray(price, dtype=float)
     export = res["export"]
@@ -164,11 +282,13 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
     premium_revenue = 0.0
     if market.eeg_enabled:
         if premium_rate is None:
-            aw = (wind_share * market.anzulegender_wert_wind
-                  + (1 - wind_share) * market.anzulegender_wert_pv)
-            premium_rate = max(0.0, aw - float(np.mean(price)))
+            # No fallback: the window's mean price, which this used to take, is not a market
+            # value (see `market_values`).
+            raise ValueError("premium_rate is required while EEG is enabled; "
+                             "see market.premium_rates")
+        rate = np.broadcast_to(np.asarray(premium_rate, dtype=float), export.shape)
         eligible = premium_eligible(price, market, dt)
-        premium_revenue = float(np.sum(export[eligible]) * dt * premium_rate)
+        premium_revenue = float(np.sum(export[eligible] * rate[eligible]) * dt)
 
     marketing_fee = float(np.sum(export) * dt * market.direct_marketing_fee)
     degradation = float(np.sum(res["throughput"]) * plant.c_deg_eur_mwh)
@@ -193,13 +313,14 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
 
 
 def effective_price(price: np.ndarray, market: MarketConfig,
-                    premium_rate: float, dt: float = 0.25) -> np.ndarray:
+                    premium_rate: float | np.ndarray, dt: float = 0.25) -> np.ndarray:
     """Marginal value of an exported MWh, including the premium where it is payable.
 
     This is what the optimiser should maximise against, and it is discontinuous at zero
     whenever the negative-price rule bites - which is precisely why the optimal action flips
-    qualitatively across that boundary. `dt` is the step length in hours, which the
-    negative-price rule needs to count hours.
+    qualitatively across that boundary. `premium_rate` is one rate or one per step, as in
+    `settle`; `dt` is the step length in hours, which the negative-price rule needs to count
+    hours.
     """
     eligible = premium_eligible(price, market, dt)
     return np.asarray(price, dtype=float) + np.where(eligible, premium_rate, 0.0) \
