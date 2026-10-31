@@ -5,9 +5,10 @@ Verify showcase.html integrity:
 3. Check the per-year gallery buttons and every image the page can show.
 4. Check all onclick handlers call functions the page defines.
 5. Check every GRID_PARAMS.p01 combination resolves to a SCENARIO_CUBES.p01 key, built the
-   way simP01 builds it, for both sweep years.
-6. Check the syntax of the inline scripts with `node --check` (skipped, with a note, when node
-   is not on PATH).
+   way simP01 builds it, for both sweep years. The page must declare simP01 exactly once.
+6. Check that every inline script parses the way a browser parses it: a classic script with
+   node's vm.Script, a module with `node --check` (skipped, with a note, when node is not on
+   PATH).
 
 Usage: python scripts/verify_html_integrity.py [page.html]
 The page defaults to showcase.html in the repository root. Image paths are resolved against
@@ -32,6 +33,16 @@ P01_KEY_LINES = (
     "const cubeKey = `${pv.toFixed(1)}|${bessStr}|${invStr}|${yr}`;",
 )
 P01_YEAR_LINE = re.compile(r"const yr = \(currentGlobalYear === '(\d{4})'\) \? '(\d{4})' : '(\d{4})';")
+
+# Check 6 parses a classic script as a browser does (the Script goal). `node --check` is laxer
+# for a .js file: it wraps the file as a CommonJS module, so a top-level `return` passes, and
+# recent node retries a failed parse as an ES module, so a top-level `await` passes too. A
+# browser rejects both in a classic <script>.
+CLASSIC_SCRIPT_PARSER = (
+    "const vm = require('vm'), fs = require('fs'), file = process.argv[1];"
+    "try { new vm.Script(fs.readFileSync(file, 'utf8'), { filename: file }); }"
+    "catch (e) { console.error(String(e.stack).split('\\n    at ')[0]); process.exit(1); }"
+)
 
 
 def check_canvases_and_functions(html):
@@ -84,7 +95,13 @@ def check_onclick(html, funcs):
 
 
 def js_function_body(html, name):
-    """Source of `function name() { ... }` up to the closing brace at its own indentation."""
+    """Source of `function name() { ... }` up to the closing brace at its own indentation.
+
+    Refuses a page that declares the function more than once: the browser runs the last
+    declaration, while the search below would read the first.
+    """
+    count = len(re.findall(rf'\bfunction\s+{name}\s*\(', html))
+    assert count == 1, f"function {name} is declared {count} times; check 5 needs exactly one"
     m = re.search(rf'^( *)function {name}\(\) \{{\n(.*?)^\1\}}', html, flags=re.S | re.M)
     assert m, f"function {name} not found"
     return m.group(2)
@@ -135,29 +152,35 @@ def check_p01_cube_keys(html):
           f"{len(years)} years) resolve to SCENARIO_CUBES.p01 keys")
 
 
-def is_javascript(attrs):
-    """True for a classic or module script; False for JSON, templates and other data blocks."""
+def script_kind(attrs):
+    """'classic' or 'module' for a JavaScript <script>; None for JSON, templates and other data."""
     m = re.search(r'type\s*=\s*["\']([^"\']+)', attrs, flags=re.I)
-    return m is None or m.group(1).lower() in ('text/javascript', 'application/javascript', 'module')
+    if m is None or m.group(1).lower() in ('text/javascript', 'application/javascript'):
+        return 'classic'
+    return 'module' if m.group(1).lower() == 'module' else None
 
 
 def check_js_syntax(html):
-    """Check 6: every inline script parses under `node --check`; a skip note when node is absent."""
+    """Check 6: every inline script parses as the browser parses it; a skip note when node is absent."""
     node = shutil.which('node')
     if node is None:
         print("JS syntax check SKIPPED: node is not on PATH, so the inline scripts were not parsed.")
         return
-    scripts = [m for m in re.finditer(r'<script\b([^>]*)>(.*?)</script>', html, flags=re.S | re.I)
-               if 'src=' not in m.group(1) and is_javascript(m.group(1)) and m.group(2).strip()]
+    scripts = [(script_kind(m.group(1)), m)
+               for m in re.finditer(r'<script\b([^>]*)>(.*?)</script>', html, flags=re.S | re.I)
+               if 'src=' not in m.group(1) and m.group(2).strip()]
+    scripts = [(kind, m) for kind, m in scripts if kind]
     with tempfile.TemporaryDirectory() as tmp:
-        for n, m in enumerate(scripts):
-            path = Path(tmp) / f"inline_{n}{'.mjs' if 'module' in m.group(1) else '.js'}"
+        for n, (kind, m) in enumerate(scripts):
+            path = Path(tmp) / f"inline_{n}{'.mjs' if kind == 'module' else '.js'}"
             # Pad with the page's earlier lines, so node reports page line numbers.
             path.write_text('\n' * html.count('\n', 0, m.start(2)) + m.group(2), encoding='utf-8')
-            run = subprocess.run([node, '--check', str(path)], capture_output=True,
-                                 encoding='utf-8', errors='replace')
+            # node --check parses an .mjs file as a module, which is right for a module script
+            cmd = ([node, '--check', str(path)] if kind == 'module'
+                   else [node, '-e', CLASSIC_SCRIPT_PARSER, str(path)])
+            run = subprocess.run(cmd, capture_output=True, encoding='utf-8', errors='replace')
             assert run.returncode == 0, f"JS syntax error in inline script {n + 1}:\n{run.stderr.strip()}"
-    print(f"JS syntax OK: {len(scripts)} inline script(s) pass node --check")
+    print(f"JS syntax OK: {len(scripts)} inline script(s) parse as the browser parses them")
 
 
 def verify(page=ROOT / 'showcase.html'):
