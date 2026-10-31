@@ -54,6 +54,15 @@ def _without_battery(plant: PlantConfig) -> PlantConfig:
     return replace(plant, bess_mw=0.0, bess_mwh=1e-6, soc_init_frac=None)
 
 
+def rung_plant(name: str, plant: PlantConfig) -> PlantConfig:
+    """The plant a rung runs on: without its battery for "B0 no battery" and "B2 no battery"
+    (`_without_battery`), as built for every other rung.
+
+    name: the rung, e.g. "B2 no battery". plant: the plant as built.
+    """
+    return _without_battery(plant) if "no battery" in name else plant
+
+
 def b0_no_battery(wind: np.ndarray, pv: np.ndarray, run: RunConfig,
                   export_cap: np.ndarray | None = None) -> dict[str, np.ndarray]:
     """The counterfactual: same generation, no storage, curtail only when forced.
@@ -395,8 +404,7 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         _refuse_premium_on_grid_energy(name, r, premium_rate, run.market, run.dt)
         r["cost"] = settle(r, price, run.dt, run.plant, run.market,
                            rebap=spread, schedule=schedule, premium_rate=premium_rate)
-        r["violations"] = check_feasible(
-            r, run.plant if "no battery" not in name else _without_battery(run.plant))
+        r["violations"] = check_feasible(r, rung_plant(name, run.plant))
 
     # Perfect foresight cannot lose to ANY other rung. Checking only B3 would have missed the
     # premium-feedback bug, which showed up as B2 scoring below the do-nothing baseline.

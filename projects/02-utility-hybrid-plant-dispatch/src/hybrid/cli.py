@@ -627,8 +627,8 @@ def cmd_b3_ablation(args) -> None:
                      "recovery": recovery,
                      "B3 end SoC MWh": float(res["B3 rolling MPC"]["soc"][-1])})
         if args.out:
-            out += tables.rung_rows(res, case, window, premium, forecast_sigma=sigma,
-                                    terminal_value=terminal, recovery=recovery)
+            # the case is in B3's settings, b3_forecast_sigma and b3_terminal_value
+            out += tables.rung_rows(res, case, window, premium, recovery=recovery)
     title = f"B3 ablation, forecast error x terminal value, {_window_text(args)}"
     print(f"\n{title}\n{'=' * len(title)}")
     print(pd.DataFrame(rows).to_string(index=False, formatters={

@@ -100,10 +100,14 @@ def test_the_ladder_table_records_b3s_solve_times_and_settings(monkeypatch, tmp_
     b3 = rows.loc[B3]
     assert (b3["b3_solve_time_mean_s"], b3["b3_solve_time_max_s"]) == (0.5, 0.75)
     assert rows.loc[[B0, B1, B2], "b3_solve_time_mean_s"].isna().all()
-    for column, value in (("horizon_steps", 8), ("forecast_sigma", 0.15), ("forecast_rho", 0.8),
-                          ("seed", 0), ("terminal_value", False)):
+    # B3's settings carry its name, as the other rungs' rows of the run hold them too
+    for column, value in (("b3_horizon_steps", 8), ("b3_forecast_sigma", 0.15),
+                          ("b3_forecast_rho", 0.8), ("b3_seed", 0), ("b3_terminal_value", False)):
         assert (rows[column] == value).all(), column
-    assert b3["forecast_price_scale"] == pytest.approx(np.std(calendar_year(2024)["price_eur_mwh"]))
+    assert not {"horizon_steps", "forecast_sigma", "forecast_rho", "forecast_price_scale", "seed",
+                "terminal_value", "terminal_price"} & set(df.columns)
+    assert b3["b3_forecast_price_scale"] == pytest.approx(
+        np.std(calendar_year(2024)["price_eur_mwh"]))
     assert b3["b3_premium_rate_mean_eur_mwh"] < b3["premium_rate_mean_eur_mwh"] - 1.0, \
         "B3 plans on December's lower rate and is settled on the annual one"
     assert (b3["window_start_berlin"], b3["window_end_berlin"]) == (
@@ -141,6 +145,18 @@ def test_sizing_splits_the_battery_from_curtailing_at_low_prices(monkeypatch, tm
     assert (b2["chosen_curtailment_value_eur"] > 0).all()
     assert b2.loc[60.0, "battery_value_eur"] > 0, "the default connection leaves headroom"
     assert (df.loc[df["rung"] == B2NB, "final_soc_mwh"] < 1e-6).all(), "it has no battery"
+
+
+def test_a_row_without_a_battery_records_the_plant_it_ran_on(monkeypatch, tmp_path):
+    """Regression test: the B0 and B2 no battery rows read plant_bess_mw 20 and plant_bess_mwh
+    40, a battery they ran without; they ran on a 0 MW, 1e-6 MWh stand-in."""
+    df = result_table(monkeypatch, tmp_path, ["sizing", "--year", "2025", "--days", "1"])
+
+    none = df[df["rung"].isin([B0, B2NB])]
+    assert (none["plant_bess_mw"] == 0.0).all()
+    assert none["plant_bess_mwh"].to_numpy() == pytest.approx(np.full(len(none), 1e-6))
+    built = df[df["rung"].isin([B1, B2])]
+    assert ((built["plant_bess_mw"] == 20.0) & (built["plant_bess_mwh"] == 40.0)).all()
 
 
 def test_the_negprice_table_names_the_year_its_note_is_about(monkeypatch, tmp_path):
@@ -248,11 +264,11 @@ def test_the_b3_ablation_reports_recovery_and_b3s_end_state(monkeypatch, tmp_pat
     monkeypatch.setattr(cli, "run_ladder", b3_end_recorded)
     df = result_table(monkeypatch, tmp_path, ["b3-ablation", "--synthetic-demo"])
 
-    assert set(COMMON + ["forecast_sigma", "terminal_value", "recovery",
+    assert set(COMMON + ["b3_forecast_sigma", "b3_terminal_value", "recovery",
                          "b3_solve_time_mean_s"]) <= set(df.columns)
     assert_terms_add_up(df)
     assert len(df) == 4 * 4, "four cases, four rungs"
-    cases = df.groupby(["forecast_sigma", "terminal_value"])
+    cases = df.groupby(["b3_forecast_sigma", "b3_terminal_value"])
     assert sorted(cases.groups) == [(0.0, False), (0.0, True), (0.15, False), (0.15, True)]
     for case, g in cases:
         net = g.set_index("rung")["net_revenue_eur"]
@@ -285,7 +301,7 @@ def test_the_b3_ablation_runs_on_a_window_of_data_as_the_ladder_does(monkeypatch
     assert len(df) == 4 * 4
     assert (df["window_start_berlin"] == "2025-01-01T00:00:00+01:00").all()
     assert (df["premium_period"] == "year").all()
-    assert df["forecast_price_scale"].to_numpy() == pytest.approx(
+    assert df["b3_forecast_price_scale"].to_numpy() == pytest.approx(
         np.full(16, np.std(calendar_year(2024)["price_eur_mwh"])))
 
 

@@ -17,7 +17,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .config import RunConfig
+from .baselines import rung_plant
+from .config import PlantConfig, RunConfig
 
 B3 = "B3 rolling MPC"
 
@@ -28,7 +29,8 @@ PLANT_SETTINGS = ("wind_mw", "pv_mw", "bess_mw", "bess_mwh", "conn_mw", "soc_min
                   "grid_charging_allowed")
 MARKET_SETTINGS = ("eeg_enabled", "anzulegender_wert_wind", "anzulegender_wert_pv",
                    "direct_marketing_fee", "negative_price_rule")
-# B3's settings are recorded only where B3 ran; they change nothing for B0 to B2.
+# B3's settings are recorded only where B3 ran, as b3_<name>: they change nothing for the
+# other rungs, whose rows in that run carry them as well.
 B3_SETTINGS = ("horizon_steps", "terminal_value", "terminal_price", "forecast_sigma",
                "forecast_rho", "forecast_price_scale", "seed")
 # Declared, but no command reads them, so a row that listed them would suggest they were
@@ -63,12 +65,17 @@ def window_columns(inputs: str, year: int | None, steps: int, dt: float,
     return cols
 
 
-def settings(run: RunConfig, with_b3: bool) -> dict:
-    """The settings a result ran with, as columns: plant_*, market_*, and B3's where B3 ran."""
-    cols = {f"plant_{name}": getattr(run.plant, name) for name in PLANT_SETTINGS}
+def settings(run: RunConfig, with_b3: bool, plant: PlantConfig | None = None) -> dict:
+    """The settings a result ran with, as columns: plant_*, market_*, and b3_* where B3 ran.
+
+    run: the run's settings. with_b3: whether B3 ran in it.
+    plant: the plant the row's rung ran on (`baselines.rung_plant`), run.plant by default.
+    """
+    plant = run.plant if plant is None else plant
+    cols = {f"plant_{name}": getattr(plant, name) for name in PLANT_SETTINGS}
     cols.update({f"market_{name}": getattr(run.market, name) for name in MARKET_SETTINGS})
     if with_b3:
-        cols.update({name: getattr(run, name) for name in B3_SETTINGS})
+        cols.update({f"b3_{name}": getattr(run, name) for name in B3_SETTINGS})
     return cols
 
 
@@ -85,7 +92,7 @@ def rung_rows(res: dict, run: RunConfig, window: dict, premium: dict,
     settlement term of `market.settle` (EUR terms end in _eur), the number of constraint
     violations, the energy stored after the last step (MWh), B3's mean and maximum solve time
     where B3 ran (on its own row; empty on the others), the premium, the window and the
-    settings.
+    settings, with the plant the rung ran on: B0 and B2 no battery ran without the battery.
     """
     with_b3 = B3 in res
     rows = []
@@ -98,7 +105,8 @@ def rung_rows(res: dict, run: RunConfig, window: dict, premium: dict,
             times = r.get("solve_time_s") if rung == B3 else None
             row["b3_solve_time_mean_s"] = None if times is None else float(np.mean(times))
             row["b3_solve_time_max_s"] = None if times is None else float(np.max(times))
-        rows.append({**row, **premium, **window, **settings(run, with_b3)})
+        rows.append({**row, **premium, **window,
+                     **settings(run, with_b3, rung_plant(rung, run.plant))})
     return rows
 
 
