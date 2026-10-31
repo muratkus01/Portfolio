@@ -19,7 +19,7 @@ own market model, safety checks and evaluation code.
 | RL algorithm | **Stable-Baselines3** SAC on **PyTorch** | Project 01's RL agent (`experiments/rl_eval.py`, `train_rl.py`); the archived pumped-storage plant used PPO |
 | Forecasting | **LightGBM** quantile regression (F3) and linear quantile regression fitted with SciPy's L-BFGS (F2), both in the optional `[forecast]` extra; CI does not install LightGBM, so the F3 test skips there | Project 03 (`models.py`) |
 | Data access | `datakit`: Energy-Charts over standard-library HTTP, no API key; Open-Meteo through the weather modules of Projects 01 and 03; xlrd for the BDEW H0 `.xls` table | Projects 02 and 03 import `datakit`; Project 01 has its own loaders and reads the H0 table with xlrd (`data/slp.py`) |
-| Figures | Matplotlib | Project 01's figures; `scripts/make_f2b_figure.py` for Project 03 and `scripts/generate_all_figures.py` for Project 02 |
+| Figures | Matplotlib | Project 01's figures; `scripts/make_f2b_figure.py` for Project 03 and `scripts/generate_all_figures.py` for Project 02's dispatch and curtailment figures |
 | Dashboard | Shiny for Python, declared in no `pyproject.toml` | `dashboards/app.py`, a local dashboard outside the project packages |
 | Testing | pytest | Every project; the root `pyproject.toml` collects all six suites |
 | CI | GitHub Actions | The full test suite on Python 3.11 and 3.12; a second workflow publishes `index.html` and `showcase.html` on GitHub Pages |
