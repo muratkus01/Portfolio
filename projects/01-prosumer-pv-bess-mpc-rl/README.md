@@ -7,7 +7,7 @@
 | **Status** | **Implemented and evaluated** on 2025/2026 out-of-sample data, 73 measured households |
 | **Type** | Extension of the author's M.Sc. thesis ([`muratkus01/optimization`](https://github.com/muratkus01/optimization), tag `thesis-v1.0`) |
 | **Method** | Rolling-horizon LP-MPC on a realistic information set · Soft Actor-Critic with a safety layer |
-| **Asset** | 8 kWp PV, 9.37 kWh battery (5 to 95 % usable), 5.63 kW inverter: the thesis household (`thesis.THESIS_SITE`). Gate 0 runs it in the thesis configuration; every dispatch result of the thesis extension runs it through `scenarios.EXTENSION_RUN`. Only section 0 (earlier results on four measured weeks) ran on the `SiteConfig()` defaults instead: 8.9 kWh, 5.51 kW, 0.95 efficiency each way, close to the MaStR mean German home storage of January 2024 (8.96 kWh / 5.53 kW). |
+| **Asset** | 8 kWp PV, 9.37 kWh battery (5 to 95 % usable), 5.63 kW inverter: the thesis household (`thesis.THESIS_SITE`). Gate 0 runs it in the thesis configuration; every dispatch result of the thesis extension runs it through `scenarios.EXTENSION_RUN` (the sizing grid changes only the battery and inverter size). Only section 0 (earlier results on four measured weeks) ran on the `SiteConfig()` defaults instead: 8.9 kWh, 5.51 kW, 0.95 efficiency each way, close to the MaStR mean German home storage of January 2024 (8.96 kWh / 5.53 kW). |
 | **Resolution** | **15 min**, including the quarter-hour day-ahead market since 2025-10-01 |
 | **Horizon** | Until the last published price: 11 to 35 h (re-solved every 15 min) |
 
@@ -44,8 +44,8 @@ from the published data exactly: `EP_buy = 1.19 * EPEX + 0.1937`,
 `tests/test_thesis_reproduction.py` checks. Its source, a company ERA5 model export with
 UTC timestamps, is centred on solar noon; during data preparation the timestamps were
 written into the CET column one to one (8778 of 8784 hours identical under that reading).
-Both statements rest on a one-off comparison with that export, which cannot be
-redistributed, so no test repeats it. Correcting the timing
+These two statements about the export rest on a one-off comparison with it, which cannot
+be redistributed, so no test repeats them. Correcting the timing
 (`load_thesis_year(correct_pv_timing=True)`) lowers the optimised scenario's annual profit
 by about 2 % (1039.0 to 1018.2 EUR, a one-off rerun that no test covers yet); the thesis
 conclusions hold. The thesis data is kept as published so Gate 0 still reproduces it;
@@ -255,7 +255,7 @@ A national analysis needs the load of a whole state's home-storage fleet, not of
 - the 15-minute shape depends on the day type (working day, Saturday, Sunday or holiday) and a smooth season, not on temperature;
 - household load is that times a stated normal-weather annual energy (required, no default), and fleet load is that times N.
 
-The model is not connected yet: `national_impact.py` does not use it, so no published national figure depends on it.
+The model is not connected yet: `national_impact.py` does not use it, so no national figure on the portfolio showcase depends on it.
 
 ```python
 from prosumer.data import aggregate_load as al
@@ -265,7 +265,7 @@ p = al.household_load(m, "BY", "2025-01-01", "2026-01-01", annual_kwh=m.a_ref, a
 fleet_mw = al.fleet_load(p, 342_733)                  # MaStR home storages in Bavaria, 1 Jan 2025
 ```
 
-`prosumer aggregate-load` refits it and writes every table to [`reports/aggregate_load/`](reports/aggregate_load/SOURCE.md); all 34 pass/fail rows pass ([summary](reports/aggregate_load/validation_summary.csv)). The pass rules are coded in `experiments/aggregate_load_*.py`; 28 thresholds are fixed numbers, and 6 are values from the same run (the cross-validated errors of rival models, the BDEW table's error and the measured peak-to-mean). What the checks show, pass/fail and descriptive:
+`prosumer aggregate-load` refits it and writes every table to [`reports/aggregate_load/`](reports/aggregate_load/SOURCE.md); all 34 pass/fail rows pass ([summary](reports/aggregate_load/validation_summary.csv)). The pass rules are coded in `src/prosumer/experiments/aggregate_load_*.py`; 28 thresholds are constants in the code, and 6 are values from the same run (the cross-validated errors of rival models, the BDEW table's error and the measured peak-to-mean). What the checks show, pass/fail and descriptive:
 
 | Question | Result | File |
 |---|---|---|
@@ -520,7 +520,7 @@ flowchart TB
 
 ### 6.1 Rolling-horizon LP (B2 / B3)
 
-Sets and indices: `t in T` quarter-hours over horizon `H`; `dt = 0.25 h`. B2 and every B3 window solve this LP with HiGHS (`baselines/lp_fast.py`), without binaries.
+Sets and indices: `t in T` quarter-hours over horizon `H`; `dt = 0.25 h`. B2 and every B3 window solve this LP with HiGHS (`src/prosumer/baselines/lp_fast.py`), without binaries.
 
 **Decision variables:** battery charge/discharge power `p_ch(t), p_dis(t) >= 0`; state of charge `E(t)`; grid import and export `p_imp(t), p_exp(t) >= 0`.
 
@@ -530,7 +530,7 @@ Sets and indices: `t in T` quarter-hours over horizon `H`; `dt = 0.25 h`. B2 and
 min  sum_t [ c_imp(t)*p_imp(t)*dt  -  c_exp(t)*p_exp(t)*dt  +  c_deg*p_dis(t)*dt ]  -  v_T*E(T)
 ```
 
-where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export revenue, `c_deg` prices battery wear at 0.0544 EUR per kWh discharged (the thesis C_MBCC; charging carries no wear), and `v_T` is the price of energy left in the battery: for the deployable B3 a monthly price learned on 2024 from the perfect-foresight LP's shadow prices, 0 for B2.
+where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export revenue, `c_deg` prices battery wear at 0.0544 EUR per kWh discharged (the thesis's marginal battery cycling cost, C_MBCC; charging carries no wear), and `v_T` is the price of energy left in the battery: for the deployable B3 a monthly price learned on 2024 from the perfect-foresight LP's shadow prices, 0 for B2.
 
 **Constraints:**
 - Battery energy balance: `E(t+1) = E(t) + (eta_ch * p_ch(t) - p_dis(t) / eta_dis) * dt`
@@ -580,8 +580,8 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 
 | Dimension | Core Assumption | Engineering Justification and Reference | Modeling Limitation and Impact |
 |---|---|---|---|
-| **Physical** | Constant one-way efficiency of 0.945 (0.894 round trip) and a linear wear cost of 0.0544 EUR per discharged kWh (the thesis C_MBCC), ambient temperature invariant. | Aligns with standard residential LFP battery datasheets; maintains strict linearity for deterministic convex LP/MILP solvability. | Omits thermal derating, calendar aging acceleration at high state-of-charge, and non-linear degradation knee effects. |
+| **Physical** | Constant one-way efficiency of 0.945 (0.894 round trip) and a linear wear cost of 0.0544 EUR per discharged kWh (the thesis C_MBCC), ambient temperature invariant. | Aligns with standard residential LFP battery datasheets; keeps the dispatch problem a linear program (a MILP runs only in Gates 0 and 1). | Omits thermal derating, calendar aging acceleration at high state-of-charge, and non-linear degradation knee effects. |
 | **Market** | Price-taker status; dynamic retail import tariff reflects EPEX Spot hourly/15-min price plus static statutory adders and taxes. | Residential household consumption (~3,221 kWh/a) exerts zero market power on the DE-LU wholesale market. | Omits retailer-specific risk hedging collars, monthly fixed base fees, and dynamic grid fee variations. |
 | **Data** | 73 HTW Berlin empirical residential load profiles; Munich PV generation synthesized via pvlib using Open-Meteo NWP forecasts. | High-fidelity open benchmark dataset (15-minute smart-meter data, published refined to 1 s; the 1-minute files are averaged back to 15 min); transparent reproducibility without NDA data. | NWP irradiance forecast errors exhibit different auto-correlation structures than real-time on-site sky-camera or pyranometer telemetry. |
-| **Regulatory** | EnWG Section 41a dynamic tariff pass-through; export remunerated at max(0, 1.19 x day-ahead spot - 0.01) EUR/kWh (the thesis EP_sell), so zero when the spot is negative; the fixed EEG rate (7.86 ct/kWh) is used only by the superseded section 0. | Enforces current German legislative framework (EnWG Section 41a, EEG 2023/2024 direct marketing rules). | Assumes fully operational intelligent metering system (iMSys smart meter gateway) without communication loss or latency. |
+| **Regulatory** | EnWG Section 41a dynamic tariff pass-through; export remunerated at max(0, 1.19 x day-ahead spot - 0.01) EUR/kWh (the thesis EP_sell), so zero when the spot is negative; among the results on this page, only the superseded section 0 uses the fixed EEG rate (7.86 ct/kWh). | Enforces current German legislative framework (EnWG Section 41a, EEG 2023/2024 direct marketing rules). | Assumes fully operational intelligent metering system (iMSys smart meter gateway) without communication loss or latency. |
 
