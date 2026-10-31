@@ -16,6 +16,13 @@ from .config import RunConfig
 from .market import effective_price, premium_eligible, settle
 from .plant import battery_interval, simulate
 
+# Tolerance of the ladder invariant. PuLP reads CBC's solution with about eight significant
+# digits, so a rung that re-solves every step (B3) can beat the single plan of B2 by rounding
+# alone: 0.0013 EUR on a 210,894 EUR week under perfect forecasts. Such gaps are a few 1e-9 of
+# the objective, so the tolerance scales with it; the floor covers objectives near zero.
+_INVARIANT_REL_TOL = 1e-6
+_INVARIANT_ABS_TOL = 1e-3          # EUR
+
 
 # ------------------------------------------------------------------ B0 / B1
 def b0_no_battery(wind: np.ndarray, pv: np.ndarray, run: RunConfig,
@@ -238,8 +245,9 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     # Perfect foresight cannot lose to ANY other rung. Checking only B3 would have missed the
     # premium-feedback bug, which showed up as B2 scoring below the do-nothing baseline.
     b2 = out["B2 perfect foresight"]["cost"]["net_revenue"]
+    tol = max(_INVARIANT_ABS_TOL, _INVARIANT_REL_TOL * abs(b2))
     for name, r in out.items():
-        if name != "B2 perfect foresight" and r["cost"]["net_revenue"] > b2 + 1e-3:
+        if name != "B2 perfect foresight" and r["cost"]["net_revenue"] > b2 + tol:
             raise AssertionError(
                 f"ladder invariant violated: {name} ({r['cost']['net_revenue']:,.0f}) beats "
                 f"perfect foresight B2 ({b2:,.0f}) - impossible, so something is wrong")
