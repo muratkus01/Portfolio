@@ -32,7 +32,7 @@ one discontinuity. It does not check the length, the start year or the row order
 Timezone. The state exports label their index UTC and mean it (`+00:00` is explicit in the
 file). The Bavarian export is a different vintage: no offset, no daylight-saving transition,
 and monotonic. It is read as CET without daylight saving (fixed UTC+1). That is an
-assumption: nothing here tells CET from UTC for that file (see `load_reference_1kwp`). The
+assumption: no test tells CET from UTC for that file (see `load_reference_1kwp`). The
 thesis read UTC stamps as if they were CET, which is the one-hour shift recorded in the
 Project 01 README. The thesis itself cannot be changed; everything here is kept on a UTC
 index.
@@ -151,9 +151,10 @@ def load_reference_1kwp(path: str | Path, year: int = 2024) -> pd.Series:
         raise ValueError(f"{path.name}: no MODELLING_ERA5_KWH and no P_PV* column")
     ts = pd.to_datetime(df["DateTime"], format="%d.%m.%Y %H:%M")
     # The labels show no daylight-saving transition, so they are not legal local time. That
-    # cannot tell CET from UTC, and nothing here tests which one they mean. The thesis PV was
-    # one hour early because UTC values sat under CET labels (Project 01 README, Gate 0);
-    # whether this file has the same offset is untested.
+    # cannot tell CET from UTC. The thesis PV was one hour early because UTC values sat under
+    # CET labels (Project 01 README, Gate 0). If this file has the same error, it shows in the
+    # generation-centroid offset that validate() reports; reading these labels as UTC has not
+    # been tried.
     local = ts.dt.tz_localize(dt.timezone(dt.timedelta(hours=1)))
     out = pd.Series(df[pv_col].to_numpy(dtype=float),
                     index=pd.DatetimeIndex(local).tz_convert("UTC"), name="pv_kwh_per_kwp")
