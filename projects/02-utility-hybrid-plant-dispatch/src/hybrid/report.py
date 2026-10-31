@@ -6,7 +6,8 @@ was computed from.
                                                        parts can work side by side
 
 Each experiment is a command of `hybrid.cli` from the pinned PUBLISH_SET, run with --out
-reports/<command>_<window>.csv. Two files beside the tables gather what they rest on:
+reports/<name>.csv, where the name is the command, the window and every option that is off
+its default (`experiments`). Two files beside the tables gather what they rest on:
 
     window_stats.csv  per window: prices, generation and whether the connection binds
     run_meta.csv      per experiment: command, commit, environment, input data, wall time
@@ -50,17 +51,48 @@ PUBLISH_SET = (
 
 
 def experiments(commands: tuple[str, ...] | None = None) -> dict[str, str]:
-    """Name each command line after its command and window, e.g. "ladder_2025-07-01_30d".
+    """Name each command line after its command, its window and every other option that is
+    not at its default, e.g. "ladder_2025-07-01_30d" or "ladder_2025-01-01_30d_horizon-48".
 
     commands: hybrid.cli command lines, PUBLISH_SET by default.
     Returns {experiment name: command line}, in the given order.
+    Raises ValueError where two command lines are one experiment, as both would write its
+    table, and for a line that runs no experiment.
     """
     parser = cli.build_parser()
     named = {}
     for command in PUBLISH_SET if commands is None else commands:
         args = parser.parse_args(shlex.split(command))
-        named[f"{args.cmd.replace('-', '_')}_{cli.window_label(args)}"] = command
+        if args.cmd == "report":
+            raise ValueError(f"{command!r} is not an experiment")
+        name = _name(args, vars(parser.parse_args([args.cmd])))
+        if name in named:
+            raise ValueError(f"{named[name]!r} and {command!r} are one experiment, {name}")
+        named[name] = command
     return named
+
+
+# Options that do not set an experiment apart: the window is in its name already, and the
+# others change only what is printed or where the result is written.
+_UNNAMED = {"cmd", "func", "year", "days", "start", "synthetic_demo", "progress", "out"}
+
+
+def _name(args, defaults: dict) -> str:
+    """An experiment's name: command and window, then each option that is off its default.
+
+    args: a parsed command line. defaults: the same command's parsed defaults, as a dict.
+    Returns e.g. "ladder_2025-01-01_30d_neg-rule-six_hour_fast".
+    """
+    name = f"{args.cmd.replace('-', '_')}_{cli.window_label(args)}"
+    for key, value in vars(args).items():
+        if key in _UNNAMED or value == defaults[key]:
+            continue
+        option = key.replace("_", "-")
+        if value is True:
+            name += f"_{option}"
+        else:
+            name += f"_{option}-{value:g}" if isinstance(value, float) else f"_{option}-{value}"
+    return name
 
 
 def cmd_report(args) -> None:

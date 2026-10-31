@@ -24,7 +24,7 @@ TINY = ("sizing --year 2025 --days 1", "negprice --year 2025 --days 1",
         "decompose --year 2025 --days 1", "ladder --year 2025 --days 1 --horizon 4",
         "b3-ablation --synthetic-demo")
 NAMES = ["sizing_2025-01-01_1d", "negprice_2025-01-01_1d", "decompose_2025-01-01_1d",
-         "ladder_2025-01-01_1d", "b3_ablation_synthetic_demo"]
+         "ladder_2025-01-01_1d_horizon-4", "b3_ablation_synthetic_demo"]
 WINDOW_COLUMNS = ["window", "inputs", "year", "window_start_utc", "window_end_utc",
                   "window_start_berlin", "window_end_berlin", "days", "steps", "dt_h",
                   "mean_price_eur_mwh", "negative_price_quarter_hours",
@@ -146,7 +146,7 @@ def test_run_meta_hashes_the_frames_each_experiment_loaded(written):
     loaded = {name: set(g["item"]) for name, g in hashes.groupby("experiment")}
     window, year = "load_year(2025, days=1, dt=0.25)", "load_year(2025, days=None, dt=0.25)"
     assert loaded["sizing_2025-01-01_1d"] == {window, year}
-    assert loaded["ladder_2025-01-01_1d"] == {window, year,
+    assert loaded["ladder_2025-01-01_1d_horizon-4"] == {window, year,
                                               "load_year(2024, days=None, dt=0.25)"}
     assert loaded["b3_ablation_synthetic_demo"] == {"synthetic.demo_inputs()"}
     for item, value in zip(hashes["item"], hashes["value"]):
@@ -165,7 +165,7 @@ def test_run_meta_records_the_code_environment_and_sources(written):
     import pulp
 
     rows = meta(written)
-    value = rows[rows["experiment"] == "ladder_2025-01-01_1d"].set_index(
+    value = rows[rows["experiment"] == "ladder_2025-01-01_1d_horizon-4"].set_index(
         ["section", "item"])["value"]
     assert re.fullmatch(r"[0-9a-f]{40}|unknown", value["code", "git_commit"])
     assert value["code", "git_dirty"] in {"True", "False", "unknown"}
@@ -193,12 +193,12 @@ def test_parts_run_apart_add_up_to_one_run_meta(stand_ins, tmp_path):
     to one run_meta.csv and one window_stats.csv, and a rerun must replace its own rows."""
     only = ["report", "--reports-dir", str(tmp_path), "--only"]
     assert cli.main([*only, "decompose_2025-01-01_1d"]) == 0
-    assert cli.main([*only, "ladder_2025-01-01_1d"]) == 0
+    assert cli.main([*only, "ladder_2025-01-01_1d_horizon-4"]) == 0
     both = meta(tmp_path)
     assert cli.main([*only, "decompose_2025-01-01_1d"]) == 0
     rerun = meta(tmp_path)
     assert sorted(rerun["experiment"].unique()) == ["decompose_2025-01-01_1d",
-                                                    "ladder_2025-01-01_1d"]
+                                                    "ladder_2025-01-01_1d_horizon-4"]
     assert len(rerun) == len(both), "the rerun replaced its own rows"
     assert list(pd.read_csv(tmp_path / "window_stats.csv")["window"]) == ["2025-01-01_1d"]
 
@@ -206,6 +206,27 @@ def test_parts_run_apart_add_up_to_one_run_meta(stand_ins, tmp_path):
 def test_an_unknown_experiment_is_refused(stand_ins, tmp_path):
     with pytest.raises(ValueError, match="sizing_2023"):
         cli.main(["report", "--reports-dir", str(tmp_path), "--only", "sizing_2023"])
+
+
+def test_experiments_that_differ_in_an_option_have_names_of_their_own():
+    """Regression test: experiments() named a command line by its command and window only, so
+    lines that differed in --horizon or --neg-rule became one experiment, the last one."""
+    from hybrid import report
+
+    named = report.experiments(("ladder --year 2025 --days 30",
+                                "ladder --year 2025 --days 30 --horizon 48",
+                                "ladder --year 2025 --days 30 --neg-rule six_hour --fast"))
+    assert list(named) == ["ladder_2025-01-01_30d", "ladder_2025-01-01_30d_horizon-48",
+                           "ladder_2025-01-01_30d_neg-rule-six_hour_fast"]
+
+
+def test_one_experiment_given_twice_is_refused():
+    """Regression test: written two ways, one experiment was kept once without a word."""
+    from hybrid import report
+
+    with pytest.raises(ValueError, match="ladder_2025-01-01_30d"):
+        report.experiments(("ladder --year 2025 --days 30 --horizon 48",
+                            "ladder --year 2025 --start 01-01 --days 30 --horizon 48"))
 
 
 def test_the_publish_set_is_the_one_the_readme_needs():
