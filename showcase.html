@@ -2460,11 +2460,11 @@
               <div class="mini-val cyan">1.56 MW</div>
             </div>
             <div class="mini-metric">
-              <div class="mini-lbl">Skill vs Euros, Test / Val.</div>
+              <div class="mini-lbl">Skill vs B0 Euros, Test / Val.</div>
               <div class="mini-val amber">+1.0 / -0.4</div>
             </div>
             <div class="mini-metric">
-              <div class="mini-lbl">Euro Gains Beyond Noise</div>
+              <div class="mini-lbl">B0 Gains Beyond Noise</div>
               <div class="mini-val amber">0 of 4</div>
             </div>
           </div>
@@ -2488,7 +2488,7 @@
               </tbody>
             </table>
             <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; padding: 10px 20px 12px;">
-              Each forecast's day-ahead median is scheduled once (policy B0) and what is left settles at reBAP; DA pinball is the pinball loss at the day-ahead gate, lower is better. The test window was evaluated once, with every setting frozen beforehand. In it the euros rank exactly as the skill (Spearman +1.0). In the validation half-year, 2025-07-02 to 2025-12-29, they do not (-0.4): climatology earned the most (15,295,413 EUR) and the TSO forecast the least (15,055,372 EUR). In neither window does any forecast's gain over climatology have a 90% block-bootstrap interval that excludes zero. Climatology carries 129,432 MWh of imbalance against 26,989 MWh for the TSO forecast; no balance responsible party may schedule that way, so its euros are a warning about scoring forecasts in euros alone, not a strategy. LightGBM seeds 1 and 2: pinball 2.40 and 2.41 MW, B0 28,790,925 and 28,790,914 EUR. Sources in the P03 folder: <code>reports/test/forecast_by_stage.csv</code>, <code>policies.csv</code>, <code>value_of_forecast.csv</code> and <code>quality_vs_value.csv</code>, and the same files in <code>reports/validation/</code>.
+              Each forecast's day-ahead median is scheduled once (policy B0) and what is left settles at reBAP; DA pinball is the pinball loss at the day-ahead gate, lower is better. The test window was evaluated once, with every setting frozen beforehand. In it the B0 euros rank exactly as the skill (Spearman +1.0 across the five rungs, with LightGBM seed 0). In the validation half-year, 2025-07-02 to 2025-12-29, they do not (-0.4, and more negative with seed 1 or 2, which earned less than persistence there): climatology earned the most (15,295,413 EUR) and the TSO forecast the least (15,055,372 EUR). In neither window does any forecast's day-ahead (B0) gain over climatology have a 90% block-bootstrap interval that excludes zero. Climatology carries 129,432 MWh of imbalance against 26,989 MWh for the TSO forecast; no balance responsible party may schedule that way, so its euros are a warning about scoring forecasts in euros alone, not a strategy. LightGBM seeds 1 and 2: pinball 2.40 and 2.41 MW, B0 28,790,925 and 28,790,914 EUR. Sources in the P03 folder: <code>reports/test/forecast_by_stage.csv</code>, <code>policies.csv</code>, <code>value_of_forecast.csv</code> and <code>quality_vs_value.csv</code>, and the same files in <code>reports/validation/</code>.
             </p>
           </div>
 
@@ -2510,7 +2510,7 @@
               <div class="formula-box">R = &Sigma;<sub>t</sub> [ &lambda;<sub>t</sub><sup>DA</sup> &middot; Q<sub>t</sub><sup>DA</sup> + &Sigma;<sub>s</sub> ( &lambda;<sub>t</sub><sup>ID</sup> &middot; &Delta;Q<sub>t,s</sub> - (c<sub>s</sub> + 0.02 &middot; |&Delta;Q<sub>t,s</sub>|) &middot; |&Delta;Q<sub>t,s</sub>| ) + reBAP<sub>t</sub> &middot; (Y<sub>t</sub> - Q<sub>t</sub><sup>final</sup>) ] &middot; &Delta;t</div>
               <p>For a day-ahead schedule f, the result against the perfect forecast is exact, with error e = y - f, spread s = reBAP - DA price and H the hours evaluated:</p>
               <div class="formula-box">R(f) - R(y) = &Sigma;<sub>t</sub> e<sub>t</sub> &middot; s<sub>t</sub> &middot; &Delta;t = H &middot; mean(e) &middot; mean(s)  +  H &middot; cov(e, s)</div>
-              <p>The first term, the bias part, pays a long schedule while reBAP averages above the day-ahead price (by 4.42 EUR/MWh in the test window). The second, the alignment part, charges every error that runs with the system's imbalance. This portfolio is the German fleet in miniature, so a good forecast's remaining errors are the system's own errors: in both windows the TSO forecast's error correlates more strongly with the spread than any other rung's. Source: <code>reports/test/error_alignment.csv</code>.</p>
+              <p>The first term, the bias part, pays a long schedule while reBAP averages above the day-ahead price (by 4.42 EUR/MWh in the test window). The second, the alignment part, charges every error that runs with the system's imbalance. This portfolio is the German fleet in miniature, so a good forecast's remaining errors are the system's own errors: in both windows the TSO forecast's error correlates more strongly with the spread than any other rung's. Sources: <code>reports/test/error_alignment.csv</code> and <code>reports/validation/error_alignment.csv</code>.</p>
             </div>
 
             <!-- Tab 2: Regulatory Mechanics -->
@@ -2542,7 +2542,7 @@
               <p><strong>Policies:</strong> B0 schedules the day-ahead median and never corrects. B1 trades to the newest median at every intraday stage. B3 trades only the part of a revision beyond k times the stage's q90 - q10 band (k = 4 for F1 to F3 and 1 for F4, from the validation window):</p>
               <div class="formula-box">&Delta;Q<sub>s</sub> = sign(&delta;<sub>s</sub>) &middot; max( |&delta;<sub>s</sub>| - k &middot; (q90<sub>s</sub> - q10<sub>s</sub>), 0 ),   &delta;<sub>s</sub> = q50<sub>s</sub> - Q<sup>pos</sup></div>
               <p>NV schedules one quantile, 0.533, chosen from the imbalance-cost asymmetry of the training data (an ablation). REF schedules the realised output: the perfect forecast.</p>
-              <p><strong>Intraday result:</strong> following every revision (B1) loses money against scheduling once with every forecast that revises, in both windows, at every half-spread from 0.5 EUR/MWh; with the TSO forecast it loses 87,261 EUR in 2026 even at zero cost. The revisions are public, so by the time they are traded the intraday price already carries them. B3's band, tuned on the validation window, does not transfer: with the TSO forecast it loses 69,112 EUR against B0 in 2026 at a half-spread of 3 EUR/MWh. Source: <code>reports/test/liquidity.csv</code> and <code>policies.csv</code>.</p>
+              <p><strong>Intraday result:</strong> following every revision (B1) loses money against scheduling once with every forecast that revises, in both windows, at every half-spread from 0.5 EUR/MWh; with the TSO forecast it loses 87,261 EUR in 2026 even at zero cost. The revisions are public, so by the time they are traded the intraday price already carries them. B3's band, tuned on the validation window, does not transfer: with the TSO forecast it loses 69,112 EUR against B0 in 2026 at a half-spread of 3 EUR/MWh. Sources: <code>reports/test/liquidity.csv</code> and <code>policies.csv</code>, and <code>reports/validation/liquidity.csv</code>.</p>
             </div>
           </div>
 
