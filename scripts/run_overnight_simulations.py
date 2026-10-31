@@ -307,26 +307,10 @@ def _p02_run(params: dict) -> dict:
 
 
 # ============================================================
-# P03: Probabilistic Forecast-to-Bid
-# ============================================================
-def _p03_grid(smoke: bool) -> list:
-    # Retired 2026-10-31. This grid swept the synthetic AR(1) forecast noise and a synthetic
-    # reBAP, so its "forecast" results measured the noise parameters, not a forecaster.
-    # Project 03 is being rebuilt on real data and will publish its own CSVs; no P03
-    # scenario is scheduled until the showcase reads those instead.
-    return []
-
-
-def _p03_run(params: dict) -> dict:
-    raise RuntimeError("the P03 scenario grid is retired while Project 03 is rebuilt on real "
-                       "data; see HANDOFF.md, 2026-10-31")
-
-
-# ============================================================
 # Worker
 # ============================================================
 PROJECT_RUNNERS = {
-    "p01": _p01_run, "p02": _p02_run, "p03": _p03_run,
+    "p01": _p01_run, "p02": _p02_run,
 }
 
 
@@ -362,7 +346,6 @@ def _run_scenario(task: tuple) -> dict:
 KEY_COLS = {
     "p01": ["pv_kwp", "bess_kwh", "inv_kw", "year"],
     "p02": ["poc_mw", "pv_mw", "bess_mwh", "year"],
-    "p03": ["tau", "sigma_base", "rebap_asymmetry", "year"],
 }
 METRIC_COLS = {
     "p01": ["out_net_cost_eur", "out_self_consumption_frac", "out_grid_independence_frac",
@@ -370,8 +353,6 @@ METRIC_COLS = {
     "p02": ["out_revenue_eur_per_year_extrapolated", "out_curtail_mwh_per_year_extrapolated", "out_overplanting_factor",
             "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated", "out_revenue_lift_pct",
             "out_neg_price_avoided_eur_per_year_extrapolated"],
-    "p03": ["out_capture_price_b3_eur_mwh", "out_net_gain_30d_eur",
-            "out_imbalance_volume_reduction_pct"],
 }
 
 
@@ -380,7 +361,7 @@ METRIC_COLS = {
 # ============================================================
 def build_tasks(smoke: bool, project_filter: str | None = None) -> list:
     grids = {
-        "p01": _p01_grid(smoke), "p02": _p02_grid(smoke), "p03": _p03_grid(smoke),
+        "p01": _p01_grid(smoke), "p02": _p02_grid(smoke),
     }
     if project_filter:
         grids = {project_filter: grids[project_filter]}
@@ -393,12 +374,12 @@ def build_tasks(smoke: bool, project_filter: str | None = None) -> list:
 
 
 def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None,
-              reset_p02: bool = False, reset_p03: bool = False) -> None:
+              reset_p02: bool = False) -> None:
     tasks     = build_tasks(smoke, project_filter=project_filter)
     completed = _load_checkpoint()
     commit    = _get_git_commit()
 
-    rows_by_proj = {p: [] for p in ["p01","p02","p03"]}
+    rows_by_proj = {p: [] for p in PROJECT_RUNNERS}
     for proj in rows_by_proj:
         pq = RESULTS / f"{proj}_scenarios.parquet"
         if pq.exists():
@@ -414,12 +395,6 @@ def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None,
         p02_sids = {_scenario_id("p02", p) for p in _p02_grid(smoke)}
         completed.difference_update(p02_sids)
         rows_by_proj["p02"] = []
-
-    if reset_p03 or project_filter == "p03":
-        log.info("Resetting P03 scenario cache and completed IDs for re-run.")
-        p03_sids = {_scenario_id("p03", p) for p in _p03_grid(smoke)}
-        completed.difference_update(p03_sids)
-        rows_by_proj["p03"] = []
 
     pending       = [t for t in tasks if t[2] not in completed]
     total         = len(tasks)
@@ -485,8 +460,8 @@ def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None,
                        "violations": len(violations_all),
                        "violation_details": violations_all}, f, indent=2)
 
-    # Validation check across active projects (p01, p02, p03): fail loudly if any metric column is constant 0.0
-    for p in ["p01", "p02", "p03"]:
+    # Validation check across the projects in the grid: fail loudly if any metric column is constant 0.0
+    for p in PROJECT_RUNNERS:
         rows = rows_by_proj.get(p, [])
         if rows:
             df_p = pd.DataFrame(rows)
@@ -509,7 +484,7 @@ def _build_lookup_cubes() -> None:
     key_cols = KEY_COLS
     metric_cols = METRIC_COLS
 
-    for proj in ["p01","p02","p03"]:
+    for proj in PROJECT_RUNNERS:
         pq = RESULTS / f"{proj}_scenarios.parquet"
         if not pq.exists():
             cubes[proj] = {}; continue
@@ -545,10 +520,9 @@ if __name__ == "__main__":
     grp.add_argument("--smoke-test", action="store_true")
     grp.add_argument("--full", action="store_true")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 4) - 1))
-    ap.add_argument("--project", type=str, choices=["p01", "p02", "p03", "p04", "p02", "p03"], default=None,
+    ap.add_argument("--project", type=str, choices=list(PROJECT_RUNNERS), default=None,
                     help="Run scenarios only for a specific project")
     ap.add_argument("--reset-p02", action="store_true", help="Force re-run of P02 scenarios")
-    ap.add_argument("--reset-p03", action="store_true", help="Force re-run of P03 scenarios")
     args = ap.parse_args()
 
     log.info("=" * 72)
@@ -561,4 +535,4 @@ if __name__ == "__main__":
 
     run_batch(smoke=args.smoke_test, n_workers=args.workers,
               project_filter=args.project,
-              reset_p02=args.reset_p02, reset_p03=args.reset_p03)
+              reset_p02=args.reset_p02)
