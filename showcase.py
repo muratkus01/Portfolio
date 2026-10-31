@@ -150,10 +150,14 @@ def demo_06(real: bool) -> dict:
              ("climatology", "F0 climatology")]
     rows = [(label, f"day-ahead pinball {pinball[rung]:.2f} MW | B0 {b0[rung]:,.0f} EUR")
             for label, rung in rungs]
+    # Project 03's finding is that no day-ahead gain is beyond noise, so the headline says
+    # whether this interval spans zero instead of leaving the gain to read as a sure one.
+    spans_zero = lgbm["ci90_low"] <= 0 <= lgbm["ci90_high"]
     return {
         "rows": rows,
         "headline": f"LightGBM's B0 gain over climatology {lgbm['gain_vs_F0_eur']:+,.0f} EUR, 90% "
-                    f"interval {lgbm['ci90_low']:+,.0f} to {lgbm['ci90_high']:+,.0f}; read from "
+                    f"interval {lgbm['ci90_low']:+,.0f} to {lgbm['ci90_high']:+,.0f} "
+                    f"({'includes' if spans_zero else 'excludes'} zero); read from "
                     "reports/test/ (2026 test window), not recomputed",
     }
 
