@@ -116,7 +116,7 @@ Every method is measured against simpler rungs on the same data and against a pe
 | **B3** | Rolling-Horizon MPC | **The deployable classical benchmark** operating under imperfect lookahead. |
 | **RL** | Learned Policy (SAC, Project 01 only) | **Must beat B3 on out-of-sample data** to justify algorithmic deployment. |
 
-Project 03 climbs a forecast ladder instead: climatology, persistence, linear quantile regression and LightGBM, with the forecast the transmission system operators publish as a benchmark. Every forecast is traded by the same fixed policies (day-ahead only, intraday to the median, a deadband rule) and compared with the perfect forecast.
+Project 03 climbs a forecast ladder instead: climatology, persistence, linear quantile regression and LightGBM, with the forecast the transmission system operators publish as a benchmark. Every forecast is traded by the same policy rules (day-ahead only, intraday to the median, and a deadband rule whose band is tuned per forecast on the validation window) and compared with the perfect forecast.
 
 ---
 
