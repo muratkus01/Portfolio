@@ -265,7 +265,8 @@ REPRESENTATIVE_DAYS = {
     },
     "negative_price": {
         "date": "2024-05-12",
-        # Day-ahead minimum -135.45 EUR/MWh at 12:00 CET (Energy-Charts); the test checks it.
+        # Day-ahead minimum -135.45 EUR/MWh at 12:00 CET (Energy-Charts); the test checks the
+        # value and the hour.
         "description": "Extreme renewable oversupply with midday spot prices reaching -135 EUR/MWh",
         "peak_hour": 12,
         "peak_shift_mwh": 5448.09,  # positive shift indicates absorption / export withholding

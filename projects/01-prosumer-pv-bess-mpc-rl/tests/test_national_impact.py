@@ -144,7 +144,7 @@ def test_fossil_gas_displacement_and_benchmark_days():
     ("scarcity_peak", "max", "936 EUR/MWh"),
 ])
 def test_stress_day_descriptions_quote_the_day_ahead_extreme(day, extreme, quoted):
-    """The two price-stress days quote the day's extreme DE-LU day-ahead price.
+    """The two price-stress days quote the day's extreme DE-LU day-ahead price, at peak_hour.
 
     Regression: the negative-price day said -50 EUR/MWh; the cached Energy-Charts series has
     -135.45 EUR/MWh on 2024-05-12, at 12:00 on the thesis clock (CET, UTC+1).
@@ -155,5 +155,7 @@ def test_stress_day_descriptions_quote_the_day_ahead_extreme(day, extreme, quote
     d = REPRESENTATIVE_DAYS[day]
     eur_mwh = spot["spot_eur_per_kwh"].tz_convert("Etc/GMT-1").loc[d["date"]] * 1000.0
     value = eur_mwh.min() if extreme == "min" else eur_mwh.max()
+    when = eur_mwh.idxmin() if extreme == "min" else eur_mwh.idxmax()
     assert f"{value:.0f} EUR/MWh" == quoted
     assert quoted in d["description"]
+    assert when.hour == d["peak_hour"]
