@@ -262,7 +262,7 @@ def premium_table(index: pd.DatetimeIndex, generation: dict[str, np.ndarray],
 
 
 def premium_rates(index: pd.DatetimeIndex, table: pd.DataFrame,
-                  period: str = "month") -> np.ndarray:
+                  period: str = "month", column: str = "rate") -> np.ndarray:
     """The plant's premium rate per step: each step gets its period's rate from the table.
 
     Parameters
@@ -270,12 +270,14 @@ def premium_rates(index: pd.DatetimeIndex, table: pd.DataFrame,
     index : tz-aware timestamps of the steps, as given to `premium_table`.
     table : output of `premium_table` for these steps.
     period : "month" or "year", as the table was built.
+    column : the table's column to spread over the steps: the plant's "rate", or e.g. one
+        technology's "premium_wind".
 
     Returns
     -------
     np.ndarray, EUR/MWh per step, for `run_ladder`, `effective_price` and `settle`.
     """
-    return table["rate"].reindex(_period_labels(index, period)).to_numpy()
+    return table[column].reindex(_period_labels(index, period)).to_numpy()
 
 
 def planning_rates(index: pd.DatetimeIndex, monthly: pd.DataFrame) -> np.ndarray:

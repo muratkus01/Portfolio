@@ -6,7 +6,8 @@
     python -m hybrid.cli decompose --year 2025 --days 30   where the battery's value comes from
 
 A window runs --days days of 24 h from --start (MM-DD, Berlin time, 01-01 by default), or
-the whole Berlin calendar year with --full-year.
+the whole Berlin calendar year with --full-year. --out PATH also writes the result as a CSV,
+one row per scenario and rung (`hybrid.tables`).
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+from . import tables
 from .baselines import run_ladder
 from .config import NEGATIVE_PRICE_RULES, MarketConfig, PlantConfig, RunConfig
 from .data import describe, load_year, to_plant
@@ -208,6 +210,36 @@ def _print_premium(table: pd.DataFrame, period: str) -> None:
               f"PV {t['premium_pv']:.2f}, plant on this window's wind/PV mix {t['rate']:.2f}")
 
 
+def _premium_columns(index: pd.DatetimeIndex, table: pd.DataFrame, period: str,
+                     b3_rate: np.ndarray | None = None) -> dict:
+    """The premium a scenario is settled on, as table columns.
+
+    index: the window's timestamps. table: its `market.premium_table`, by `period`.
+    b3_rate: the rate B3 planned on per step, where B3 ran.
+    Returns the market-value period and the mean over the window's steps of each
+    technology's premium and of the plant's rate (EUR/MWh); a window inside one period gets
+    that period's values. Where B3 ran, also the mean rate it planned on.
+    """
+    cols = {"premium_period": period}
+    for name, column in (("wind", "premium_wind"), ("pv", "premium_pv"), ("rate", "rate")):
+        cols[f"premium_{name}_mean_eur_mwh"] = float(
+            np.mean(premium_rates(index, table, period, column)))
+    if b3_rate is not None:
+        cols["b3_premium_rate_mean_eur_mwh"] = float(np.mean(b3_rate))
+    return cols
+
+
+def _window_columns(args, index: pd.DatetimeIndex, dt: float) -> dict:
+    """`tables.window_columns` of a window of Energy-Charts data."""
+    return tables.window_columns("Energy-Charts", args.year, len(index), dt, index)
+
+
+def _write(args, rows: list[dict]) -> None:
+    """Write a command's result rows to --out and say where."""
+    path = tables.write_csv(rows, args.out)
+    print(f"\nwrote {len(rows)} rows to {path}")
+
+
 def _report(res: dict, title: str) -> None:
     """Print each rung's settlement: net revenue, export, curtailment chosen and forced by the
     connection, and constraint violations, then each rung's gain over B0."""
@@ -256,11 +288,14 @@ def cmd_ladder(args) -> None:
     if "B3 rolling MPC" in res and "solve_time_s" in res["B3 rolling MPC"]:
         st = res["B3 rolling MPC"]["solve_time_s"]
         print(f"\nB3 solve time: mean {st.mean() * 1000:.0f} ms, max {st.max() * 1000:.0f} ms")
+    if args.out:
+        _write(args, tables.rung_rows(res, run, _window_columns(args, index, run.dt),
+                                      _premium_columns(index, table, _DEFAULT_PERIOD, plan)))
 
 
 def cmd_sizing(args) -> None:
     """RQ2: what is the optimal degree of connection undersizing?"""
-    rows = []
+    rows, out = [], []
     # The sweep spans connections BELOW the observed generation peak, because national
     # capacity factors are far smoother than any single site: aggregated across Germany, wind
     # and PV come nowhere near their combined nameplate at once, so a connection near
@@ -273,13 +308,17 @@ def cmd_sizing(args) -> None:
     for conn in (20.0, 25.0, 30.0, 40.0, 60.0):
         plant = PlantConfig(conn_mw=conn)
         run, index, wind, pv, price, rebap = _setup(args, plant=plant)
-        _, prem = _premium(args, run, index, wind, pv)
+        table, prem = _premium(args, run, index, wind, pv)
         res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False)
         for name in ("B0 no battery", "B2 perfect foresight"):
             c = res[name]["cost"]
             rows.append({"conn_MW": conn, "overbuild": plant.overbuild_ratio,
                          "controller": name, "net_EUR": c["net_revenue"],
                          "forced_curt_MWh": c["forced_curtail_mwh"]})
+        if args.out:
+            out += tables.rung_rows(res, run, _window_columns(args, index, run.dt),
+                                    _premium_columns(index, table, _DEFAULT_PERIOD),
+                                    conn_mw=conn, overbuild=plant.overbuild_ratio)
     df = pd.DataFrame(rows)
     # generation and installed ratings are the same at every connection size
     installed = run.plant.installed_mw
@@ -293,6 +332,8 @@ def cmd_sizing(args) -> None:
     piv["battery_value_EUR"] = piv["B2 perfect foresight"] - piv["B0 no battery"]
     print("\nValue of the battery by connection size:")
     print(piv.to_string(float_format=lambda x: f"{x:,.0f}"))
+    if args.out:
+        _write(args, out)
 
 
 # Two vintages, and the market value each one is paid against. The applicable value
@@ -346,8 +387,8 @@ def cmd_negprice(args) -> None:
     # oldest vintage's rule to the newest, which is from the loosest to the tightest.
     by_vintage = vintage_rules(args.year)
     rules = list(dict.fromkeys(by_vintage.values()))
-    rows = []
-    for aw_wind, aw_pv, label, _ in _NEGPRICE_VINTAGES:
+    rows, out = [], []
+    for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES:
         for rule in rules:
             run = base.with_(market=_vintage_market(aw_wind, aw_pv, rule))
             res = run_ladder(wind, pv, price, run, premiums[label][1], rebap, include_b3=False)
@@ -355,7 +396,23 @@ def cmd_negprice(args) -> None:
                 rows.append({"vintage": label, "rule": rule, "controller": name,
                              "net_EUR": r["cost"]["net_revenue"],
                              "chosen_curt_MWh": r["cost"]["chosen_curtail_mwh"]})
+            if args.out:
+                table = premiums[label][0]
+                out += tables.rung_rows(res, run, _window_columns(args, index, run.dt),
+                                        _premium_columns(index, table, period), vintage=label,
+                                        rule=rule, no_premium=_no_premium(table))
     _print_negprice(args.year, by_vintage, rules, premiums, pd.DataFrame(rows))
+    if args.out:
+        _write(args, out)
+
+
+def _no_premium(table: pd.DataFrame) -> str:
+    """Each technology and period of a premium table that pays no premium, e.g. "PV in 2025",
+    or "none"."""
+    zero = [f"{name} in {key}" for key, t in table.iterrows()
+            for tech, name in (("wind", "wind"), ("pv", "PV"))
+            if t[f"premium_{tech}"] <= 0]
+    return ", ".join(zero) or "none"
 
 
 def _print_negprice(year: int, by_vintage: dict, rules: list, premiums: dict,
@@ -387,10 +444,7 @@ def _print_negprice(year: int, by_vintage: dict, rules: list, premiums: dict,
         print("  self-chosen curtailment (MWh), should RISE as the rule tightens:")
         print(g.pivot(index="controller", columns="rule", values="chosen_curt_MWh")[rules]
               .to_string(float_format=lambda x: f"{x:,.1f}"))
-        zero = [f"{name} in {key}" for key, t in table.iterrows()
-                for tech, name in (("wind", "wind"), ("pv", "PV"))
-                if t[f"premium_{tech}"] <= 0]
-        no_premium.append(f"{label} {', '.join(zero) or 'none'}")
+        no_premium.append(f"{label} {_no_premium(table)}")
     print(f"\nNote: a technology whose market value reaches its applicable value gets no "
           f"premium, and there the rule cannot bite - there is no premium to suspend. "
           f"No premium in this window ({year}): {'; '.join(no_premium)}.")
@@ -399,7 +453,7 @@ def _print_negprice(year: int, by_vintage: dict, rules: list, premiums: dict,
 def cmd_decompose(args) -> None:
     """RQ1: is the battery's value curtailment avoidance, or arbitrage?"""
     run, index, wind, pv, price, rebap = _setup(args)
-    _, prem = _premium(args, run, index, wind, pv)
+    table, prem = _premium(args, run, index, wind, pv)
     base = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False)
     v_full = (base["B2 perfect foresight"]["cost"]["net_revenue"]
               - base["B0 no battery"]["cost"]["net_revenue"])
@@ -416,8 +470,21 @@ def cmd_decompose(args) -> None:
     print(f"  total value (as built)          {v_full:>12,.0f} EUR")
     print(f"  value with an unconstrained POI {v_arbitrage:>12,.0f} EUR   <- pure arbitrage")
     print(f"  attributable to curtailment     {v_full - v_arbitrage:>12,.0f} EUR")
-    if abs(v_full) > 1e-9:
-        print(f"  curtailment share: {(v_full - v_arbitrage) / v_full * 100:5.1f}%")
+    share = (v_full - v_arbitrage) / v_full if abs(v_full) > 1e-9 else None
+    if share is not None:
+        print(f"  curtailment share: {share * 100:5.1f}%")
+    if args.out:
+        # the split is a result of both connections, so it repeats on every row
+        split = {"value_as_built_eur": v_full, "value_unconstrained_eur": v_arbitrage,
+                 "attributable_to_curtailment_eur": v_full - v_arbitrage,
+                 "curtailment_share": share}
+        window = _window_columns(args, index, run.dt)
+        # both connections see the same generation, so they are settled on the same premium
+        premium = _premium_columns(index, table, _DEFAULT_PERIOD)
+        _write(args, [row for scenario, r, res in (("as built", run, base),
+                                                   ("unconstrained connection", run2, nocurt))
+                      for row in tables.rung_rows(res, r, window, premium, scenario=scenario,
+                                                  **split)])
 
 
 def _month_day(text: str) -> str:
@@ -448,6 +515,8 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--neg-rule", default="new_2025", choices=NEGATIVE_PRICE_RULES)
         sp.add_argument("--fast", action="store_true")
         sp.add_argument("--progress", action="store_true")
+        sp.add_argument("--out", metavar="PATH",
+                        help="also write the result as a CSV, one row per scenario and rung")
         sp.set_defaults(func=fn)
     return p
 
