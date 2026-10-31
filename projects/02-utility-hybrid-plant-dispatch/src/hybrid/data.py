@@ -11,6 +11,10 @@ single site, because it aggregates across the whole country. A single plant sees
 and sharper ramps. So this dataset understates both curtailment frequency and forecast
 difficulty, and therefore understates the value of storage. Site-level generation data is the
 top acquisition priority for this project, exactly as its README says.
+
+The level runs low as well. The PV feed-in leaves out the self-consumption that the installed
+capacity still counts, and the national fleet mixes older turbines and rooftop PV with new
+plant, so a new, fully exporting plant would produce more than these factors say.
 """
 from __future__ import annotations
 
@@ -44,6 +48,9 @@ def _capacity_by_month(index: pd.DatetimeIndex) -> pd.DataFrame:
     import datakit
 
     cap = datakit.installed_power(country="de", time_step="monthly")
+    # Energy-Charts' December value equals its yearly one, so each monthly value reads as the
+    # fleet at the end of the month. A month's factors therefore run low by about half of the
+    # fleet's relative growth in that month.
     # Months are counted in Berlin time, the same local calendar that cuts the year's window:
     # 23:00 UTC on 31 December is already January.
     months = index.tz_convert("Europe/Berlin").strftime("%m.%Y")
@@ -73,6 +80,8 @@ def load_year(year: int, days: int | None = None,
         Frame on a UTC index that covers `year` in Berlin time (its first `days` when given),
         with `wind_cf` (onshore feed-in over that month's onshore capacity), `pv_cf` (solar
         feed-in over that month's DC capacity), both clipped to [0, 1], and `price_eur_mwh`.
+        `pv_cf` counts feed-in to the public grid only, so it understates a fully exporting
+        PV plant, most of all in winter.
 
     Raises:
         ValueError: when the capacity series lacks a month the feed-in covers.
@@ -102,8 +111,11 @@ def load_year(year: int, days: int | None = None,
 
     # Each quarter-hour is divided by its own month's fleet. One annual figure near the
     # year-end fleet made January 2024 PV factors 14 % too low (99.0 GW where 84.9 GW stood).
-    # PV stays on its DC rating, the standard capacity-factor definition, so `pv_mw` is a DC
-    # (MWp) rating.
+    # PV is divided by its DC rating, the usual capacity-factor denominator, so `pv_mw` is a DC
+    # (MWp) rating. The numerator is not the usual one: public_power's 'Solar' is feed-in to
+    # the public grid and leaves out the PV self-consumption that the DC fleet still counts,
+    # so `pv_cf` understates a fully exporting plant, most of all in winter. Energy-Charts'
+    # total_power endpoint includes self-consumption; datakit does not wrap it yet.
     cap = _capacity_by_month(power.index)
     df = pd.DataFrame({
         "wind_cf": (wind / cap["wind_mw"]).clip(0, 1),
