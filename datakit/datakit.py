@@ -1,7 +1,7 @@
 """Shared open-data access for the portfolio.
 
 One module, no credentials required, covering the German market and system data that
-Projects 02, 05 and 06 depend on. Every function returns a tz-aware UTC-indexed DataFrame and
+Projects 01, 02 and 03 depend on. Every function returns a tz-aware UTC-indexed DataFrame and
 caches its raw response under `cache_dir`, alongside a `SOURCE.md` recording the endpoint,
 retrieval time and licence - so a result can always be traced back to the bytes it came from.
 
@@ -67,7 +67,10 @@ def _frame(payload: dict, value_key: str, column: str, scale: float = 1.0) -> pd
 # ------------------------------------------------------------------ datasets
 def day_ahead_price(start: str, end: str, bzn: str = "DE-LU",
                     cache_dir: Path = DEFAULT_CACHE) -> pd.DataFrame:
-    """Day-ahead price, EUR/MWh. Used by Projects 01, 02, 05, 06."""
+    """Day-ahead price, EUR/MWh. Used by Projects 01, 02 and 03.
+
+    Hourly products until 2025-09-30, quarter-hourly from 2025-10-01: the index changes step.
+    """
     url = f"{EC}/price?bzn={bzn}&start={start}&end={end}"
     p = _get_json(url, cache_dir, f"price_{bzn}_{start}_{end}", "CC BY 4.0 (Energy-Charts)")
     return _frame(p, "price", "price_eur_per_mwh")
@@ -75,7 +78,7 @@ def day_ahead_price(start: str, end: str, bzn: str = "DE-LU",
 
 def public_power(start: str, end: str, country: str = "de",
                  cache_dir: Path = DEFAULT_CACHE) -> pd.DataFrame:
-    """Generation by production type plus load, MW. Projects 05, 06.
+    """Generation by production type plus load, MW. Projects 02 and 03.
 
     Returns one column per production type as served by Energy-Charts, including
     'Wind offshore', 'Wind onshore', 'Solar', 'Load' and 'Residual load'.
@@ -91,12 +94,81 @@ def public_power(start: str, end: str, country: str = "de",
 
 def installed_power(country: str = "de", time_step: str = "yearly",
                     cache_dir: Path = DEFAULT_CACHE) -> pd.DataFrame:
-    """Installed capacity by technology, MW. Normalisation for Projects 05, 06."""
+    """Installed capacity by technology, in GW as served, indexed by Energy-Charts' time labels.
+
+    Monthly labels read 'MM.YYYY'. `installed_power_monthly` converts to MW on a time index.
+    """
     url = f"{EC}/installed_power?country={country}&time_step={time_step}"
     p = _get_json(url, cache_dir, f"installed_{country}_{time_step}",
                   "CC BY 4.0 (Energy-Charts)")
     return pd.DataFrame({s["name"] if isinstance(s["name"], str) else s["name"][0]: s["data"]
                          for s in p["production_types"]}, index=p["time"])
+
+
+def installed_power_monthly(country: str = "de",
+                            cache_dir: Path = DEFAULT_CACHE) -> pd.DataFrame:
+    """Wind and PV capacity per month, MW, indexed by month start.
+
+    Columns: `wind` (onshore + offshore) and `pv` (the AC rating) for fleet-wide capacity
+    factors, plus `wind_onshore`, `wind_offshore`, `pv_ac` and `pv_dc` for a plant that is
+    one of them. AC is the right base for AC feed-in; the DC rating is about 10 % higher and
+    would understate every PV capacity factor.
+    """
+    raw = installed_power(country, "monthly", cache_dir)
+    out = pd.DataFrame({"wind": raw["Wind onshore"] + raw["Wind offshore"],
+                        "pv": raw["Solar AC"],
+                        "wind_onshore": raw["Wind onshore"],
+                        "wind_offshore": raw["Wind offshore"],
+                        "pv_ac": raw["Solar AC"],
+                        "pv_dc": raw["Solar DC"]}).astype(float) * 1000.0
+    out.index = pd.DatetimeIndex(pd.to_datetime(out.index, format="%m.%Y", utc=True),
+                                 name="month")
+    return out.dropna()
+
+
+def installed_capacity_at(index: pd.DatetimeIndex, country: str = "de",
+                          cache_dir: Path = DEFAULT_CACHE) -> pd.DataFrame:
+    """Every column of `installed_power_monthly`, in MW, at each timestamp of `index`.
+
+    Energy-Charts does not say whether a monthly value holds at the start, middle or end of
+    the month, so each is placed mid-month. The timing error is then at most half a month of
+    additions, under 1 % of PV capacity in 2024 to 2026. Raises if `index` leaves the range.
+    """
+    monthly = installed_power_monthly(country, cache_dir)
+    anchors = _epoch_seconds(monthly.index + pd.Timedelta(days=15))
+    t = _epoch_seconds(index)
+    if t.min() < anchors[0] or t.max() > anchors[-1] + 31 * 86400:
+        raise ValueError(f"index {index[0]} .. {index[-1]} outside the published capacity "
+                         f"months {monthly.index[0]:%Y-%m} .. {monthly.index[-1]:%Y-%m}")
+    return pd.DataFrame({c: np.interp(t, anchors, monthly[c].to_numpy())
+                         for c in monthly.columns}, index=index)
+
+
+def _epoch_seconds(index: pd.DatetimeIndex) -> np.ndarray:
+    """Seconds since 1970 as floats, independent of the index's storage unit (s, ms, us, ns)."""
+    epoch = pd.Timestamp("1970-01-01", tz="UTC")
+    return np.asarray((index.tz_convert("UTC") - epoch) / pd.Timedelta(seconds=1), dtype=float)
+
+
+def public_power_forecast(start: str, end: str, production_type: str, forecast_type: str,
+                          country: str = "de",
+                          cache_dir: Path = DEFAULT_CACHE) -> pd.DataFrame:
+    """Published TSO forecast of one production type, MW, 15-minute.
+
+    `production_type`: 'solar', 'wind_onshore' or 'wind_offshore'.
+    `forecast_type`: 'day-ahead', 'intraday' or 'current'.
+
+    Energy-Charts serves the transparency-platform forecasts without a publication time. The
+    EU transparency rules (Regulation 543/2013, Art. 14) make the day-ahead forecast due by
+    18:00 on D-1, AFTER the 12:00 day-ahead gate closure, and the intraday forecast during
+    the delivery day. Use them as a benchmark, not as an input known at a gate.
+    """
+    url = (f"{EC}/public_power_forecast?country={country}&production_type={production_type}"
+           f"&forecast_type={forecast_type}&start={start}&end={end}")
+    p = _get_json(url, cache_dir,
+                  f"power_forecast_{country}_{production_type}_{forecast_type}_{start}_{end}",
+                  "CC BY 4.0 (Energy-Charts)")
+    return _frame(p, "forecast_values", f"{production_type}_{forecast_type}")
 
 
 # Installed capacity in Germany (MW) used to normalize generation to per-unit capacity factor.
@@ -129,7 +201,7 @@ def get_installed_capacity(year: int) -> dict[str, float]:
 
 def cross_border_flows(start: str, end: str, country: str = "de",
                        cache_dir: Path = DEFAULT_CACHE) -> pd.DataFrame:
-    """Net cross-border physical flows, MW. Price-formation features for Project 06."""
+    """Net cross-border physical flows, MW. Candidate price-formation features."""
     url = f"{EC}/cbpf?country={country}&start={start}&end={end}"
     p = _get_json(url, cache_dir, f"cbpf_{country}_{start}_{end}",
                   "CC BY 4.0 (Energy-Charts)")
@@ -163,9 +235,8 @@ def entsoe(document_type: str, start: str, end: str, token: str,
 def imbalance_proxy(power: pd.DataFrame) -> pd.DataFrame:
     """Residual-load ramp and renewable share - the drivers of imbalance price tails.
 
-    A real reBAP series comes from netztransparenz.de; this derived frame is the feature set
-    Project 06 uses to model reBAP's sign and tail probability, and it is available from a
-    single open endpoint, which makes the pipeline reproducible without registration.
+    The real reBAP comes from netztransparenz.de. This derived frame only drives the synthetic
+    imbalance price of Project 03's parametric ablation.
     """
     out = pd.DataFrame(index=power.index)
     load_col = next((c for c in power.columns if c.lower() == "load"), None)
