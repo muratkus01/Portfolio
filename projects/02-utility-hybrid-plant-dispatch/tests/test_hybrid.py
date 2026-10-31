@@ -123,7 +123,7 @@ def test_settlement_decomposition_sums_to_net():
     res = b1_curtailment_avoidance(wind, pv, run)
     c = settle(res, price, run.dt, run.plant, run.market, premium_rate=8.0)
     total = (c["spot_revenue"] + c["premium_revenue"] - c["marketing_fee"]
-             - c["degradation_cost"] - c["imbalance_cost"])
+             - c["degradation_cost"] - c["imbalance_cost"] - c["import_cost"])
     assert c["net_revenue"] == pytest.approx(total)
 
 

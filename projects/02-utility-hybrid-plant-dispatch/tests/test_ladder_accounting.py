@@ -7,6 +7,7 @@ import pytest
 import hybrid.baselines as baselines
 from hybrid.baselines import run_ladder
 from hybrid.config import MarketConfig, PlantConfig, RunConfig
+from hybrid.market import settle
 from hybrid.plant import simulate
 
 
@@ -179,6 +180,23 @@ def test_grid_imports_are_paid_at_the_day_ahead_price(monkeypatch):
     assert bought_mwh > 0
     assert trader["cost"]["import_cost"] == pytest.approx(bought_mwh * 60.0)
     assert trader["cost"]["net_revenue"] < 0
+
+
+def test_settle_charges_grid_imports_at_the_day_ahead_price():
+    """Regression test: settle priced grid imports at 0, so its direct callers got them free.
+
+    The ladder charged them in a wrapper of its own; settle now charges them, in one place.
+    8 MW bought for an hour at 60 EUR/MWh cost 480 EUR, with nothing sold.
+    """
+    run = RunConfig(market=MarketConfig(direct_marketing_fee=0.0))
+    n = 4
+    res = {"export": np.zeros(n), "import": np.full(n, 8.0), "throughput": np.zeros(n),
+           "chosen_curtail": np.zeros(n), "forced_curtail": np.zeros(n)}
+
+    cost = settle(res, np.full(n, 60.0), 0.25, run.plant, run.market, premium_rate=0.0)
+
+    assert cost["net_revenue"] == pytest.approx(-480.0)
+    assert cost["import_cost"] == pytest.approx(480.0)
 
 
 def test_the_market_premium_is_not_paid_on_grid_energy(monkeypatch):

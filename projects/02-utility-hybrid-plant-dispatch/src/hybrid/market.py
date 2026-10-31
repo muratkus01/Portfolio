@@ -291,6 +291,27 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
     stored in an eligible step earns none here when it is discharged during a suspension. For
     the usual pattern, charging during a suspension and selling later, this overstates what
     a battery recovers from the rule.
+
+    Grid imports (`res["import"]`, MW per step; only with `grid_charging_allowed`) are bought
+    on the day-ahead market the export is sold on, so they pay the day-ahead price. Grid fees
+    and levies are not modelled. Sold again, that energy must not earn the premium, but this
+    settlement cannot tell it from renewable energy in the battery; `baselines.run_ladder`
+    refuses such a run.
+
+    Parameters
+    ----------
+    res : dispatch per step, MW: "export", "import", "throughput" (MWh), "chosen_curtail" and
+        "forced_curtail", e.g. the output of `plant.simulate`.
+    price : day-ahead price per step, EUR/MWh. dt : step length in hours.
+    plant, market : the plant's and the market's settings.
+    rebap, schedule : imbalance price per step (EUR/MWh) and the committed export (MW); the
+        deviation is settled only when both are given.
+    premium_rate : market premium, EUR/MWh, one rate or one per step.
+
+    Returns
+    -------
+    dict of EUR terms ("spot_revenue", "premium_revenue", "marketing_fee", "degradation_cost",
+    "imbalance_cost", "import_cost", "net_revenue") and MWh totals.
     """
     price = np.asarray(price, dtype=float)
     export = res["export"]
@@ -316,13 +337,17 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
         dev = export - schedule
         imbalance_cost = float(-np.sum(dev * rebap) * dt)
 
-    net = spot_revenue + premium_revenue - marketing_fee - degradation - imbalance_cost
+    import_cost = float(np.sum(res["import"] * price) * dt)
+
+    net = (spot_revenue + premium_revenue - marketing_fee - degradation - imbalance_cost
+           - import_cost)
     return {
         "spot_revenue": spot_revenue,
         "premium_revenue": premium_revenue,
         "marketing_fee": marketing_fee,
         "degradation_cost": degradation,
         "imbalance_cost": imbalance_cost,
+        "import_cost": import_cost,
         "net_revenue": net,
         "chosen_curtail_mwh": float(np.sum(res["chosen_curtail"]) * dt),
         "forced_curtail_mwh": float(np.sum(res["forced_curtail"]) * dt),

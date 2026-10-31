@@ -165,8 +165,9 @@ def test_premium_is_the_applicable_value_above_the_market_value_per_technology()
 def test_settle_takes_one_premium_rate_per_step():
     """A window that spans two months carries two premium rates."""
     run = RunConfig()
-    res = {"export": np.array([10.0, 10.0, 20.0, 20.0]), "throughput": np.zeros(4),
-           "chosen_curtail": np.zeros(4), "forced_curtail": np.zeros(4)}
+    res = {"export": np.array([10.0, 10.0, 20.0, 20.0]), "import": np.zeros(4),
+           "throughput": np.zeros(4), "chosen_curtail": np.zeros(4),
+           "forced_curtail": np.zeros(4)}
     c = settle(res, np.full(4, 50.0), 0.25, run.plant, run.market,
                premium_rate=np.array([10.0, 10.0, 30.0, 30.0]))
     assert c["premium_revenue"] == pytest.approx((2 * 10 * 10 + 2 * 20 * 30) * 0.25)
@@ -175,7 +176,7 @@ def test_settle_takes_one_premium_rate_per_step():
 def test_settle_requires_the_premium_rate():
     """Regression test: without a rate, settle derived one from the window's mean price."""
     run = RunConfig()
-    res = {"export": np.full(4, 10.0), "throughput": np.zeros(4),
+    res = {"export": np.full(4, 10.0), "import": np.zeros(4), "throughput": np.zeros(4),
            "chosen_curtail": np.zeros(4), "forced_curtail": np.zeros(4)}
     with pytest.raises(ValueError, match="premium_rate"):
         settle(res, np.full(4, 50.0), 0.25, run.plant, run.market)
