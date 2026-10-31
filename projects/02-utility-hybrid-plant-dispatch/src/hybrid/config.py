@@ -31,7 +31,11 @@ class PlantConfig:
 
     soc_min_frac: float = 0.05
     soc_max_frac: float = 0.95
-    soc_init_frac: float = 0.50
+    # None starts the battery at soc_min_frac, i.e. empty, and that is what the ladder needs.
+    # No rung has an end-of-window state-of-charge condition, so energy found in the battery
+    # at the start is sold as revenue nobody paid for: half full, that was 18 MWh, counted as
+    # battery value (B2 minus B0). Starting empty needs no price for stored energy.
+    soc_init_frac: float | None = None
     eta_c: float = 0.95
     eta_d: float = 0.95
     c_deg_eur_mwh: float = 3.0       # EUR per MWh of throughput
@@ -62,7 +66,8 @@ class PlantConfig:
 
     @property
     def soc_init(self) -> float:
-        return self.bess_mwh * self.soc_init_frac
+        frac = self.soc_min_frac if self.soc_init_frac is None else self.soc_init_frac
+        return self.bess_mwh * frac
 
 
 @dataclass(frozen=True)

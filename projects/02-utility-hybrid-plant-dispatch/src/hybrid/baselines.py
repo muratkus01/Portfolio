@@ -35,8 +35,10 @@ def b0_no_battery(wind: np.ndarray, pv: np.ndarray, run: RunConfig,
     n = len(wind)
     cfg_nobess = run.plant.__class__(**{**run.plant.__dict__, "bess_mw": 0.0,
                                         "bess_mwh": 1e-6})
+    # Start the 1e-6 MWh stand-in at its own minimum: from 0, below that minimum, the safety
+    # layer forced it to charge, which drew a few 1e-8 MWh from the grid.
     return simulate(wind, pv, np.zeros(n), np.zeros(n), run.dt, cfg_nobess,
-                    soc0=0.0, export_cap=export_cap)
+                    soc0=cfg_nobess.soc_min, export_cap=export_cap)
 
 
 def b1_curtailment_avoidance(wind: np.ndarray, pv: np.ndarray, run: RunConfig,

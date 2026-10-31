@@ -136,3 +136,29 @@ def test_grid_imports_are_paid_at_the_day_ahead_price(monkeypatch):
     assert bought_mwh > 0
     assert trader["cost"]["import_cost"] == pytest.approx(bought_mwh * 60.0)
     assert trader["cost"]["net_revenue"] < 0
+
+
+# ------------------------------------------------------------------ initial stored energy
+def test_no_rung_earns_from_energy_it_never_bought():
+    """Regression: every battery rung started half full and sold that energy as revenue.
+
+    No rung has an end-of-window state-of-charge condition, so the 18 MWh above the minimum
+    that the battery held at the start were sold and counted as battery value (B2 minus B0).
+    With no generation and no grid charging there is nothing to store, so every rung, and
+    therefore the battery, must be worth 0.
+    """
+    run = RunConfig(dt=0.25)
+    n = 8
+    nothing = np.zeros(n)
+
+    res = run_ladder(nothing, nothing, np.full(n, 60.0), run, premium_rate=0.0,
+                     include_b3=True)
+
+    for name, r in res.items():
+        assert r["cost"]["net_revenue"] == pytest.approx(0.0, abs=1e-6), name
+
+
+def test_the_battery_starts_at_its_minimum_whatever_the_minimum():
+    """Starting empty must follow the minimum, or a higher minimum starts below it."""
+    assert PlantConfig().soc_init == pytest.approx(PlantConfig().soc_min)
+    assert PlantConfig(soc_min_frac=0.10).soc_init == pytest.approx(4.0)
