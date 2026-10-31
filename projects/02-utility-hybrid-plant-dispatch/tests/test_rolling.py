@@ -46,6 +46,10 @@ def test_rolling_mpc_beats_the_rule_based_baseline(ladder):
     fraction planned on forecast generation to the true generation, and a linear terminal
     value made it hoard energy. A deployable classical optimum that loses to a heuristic is
     not a baseline worth beating, so this is asserted rather than hoped for.
+
+    Here B3 plans on the one premium it is settled on. The CLI's B3 plans on an estimate, the
+    previous month's rate; one far enough off can put B3 below B1, as B1 reads no prices at
+    all, so that ordering is a property of each published window, not of the code.
     """
     _, res = ladder
     assert (res["B3 rolling MPC"]["cost"]["net_revenue"]

@@ -344,6 +344,11 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         # B3 plans on the premium it can know, not on the realised value it is settled on: a
         # month's market value is known only once the month is over.
         plan = premium_rate if b3_premium_rate is None else b3_premium_rate
+        # A known limit, optimistic for B3: its effective price and premium mask come from the
+        # true prices, so B3 knows exactly in which steps the premium is lost, also where the
+        # day-ahead auction has not cleared yet when it decides; and under a whole-run rule
+        # the mask at a step depends on how long the run lasts, possibly past the horizon. A
+        # forecaster would see those steps only through its own price forecast.
         eff_b3 = effective_price(price, run.market, plan, run.dt)
         wind_fc, pv_fc, price_fc = make_forecasts(wind, pv, eff_b3, run, rng)
         eligible = (premium_eligible(price, run.market, run.dt) if run.market.eeg_enabled
