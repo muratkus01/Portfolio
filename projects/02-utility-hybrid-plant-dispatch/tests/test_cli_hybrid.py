@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 import hybrid.cli as cli
+from hybrid.config import NEGATIVE_PRICE_RULES
 
 
 def fake_year(year: int, days: int | None = None, dt: float = 0.25) -> pd.DataFrame:
@@ -29,3 +30,12 @@ def test_cli_command_runs(monkeypatch, capsys, argv, expect):
     monkeypatch.setattr(cli, "load_year", fake_year)
     assert cli.main(argv + ["--days", "2"]) == 0
     assert expect in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("rule", NEGATIVE_PRICE_RULES)
+def test_every_negative_price_rule_can_be_chosen(monkeypatch, capsys, rule):
+    """Regression test: --neg-rule offered only none, six_hour and new_2025, so the four-hour
+    rule of 2021-2022 and the 2023 vintage's yearly thresholds could not be run."""
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    assert cli.main(["ladder", "--fast", "--days", "2", "--neg-rule", rule]) == 0
+    assert f"negative-price rule: {rule}" in capsys.readouterr().out

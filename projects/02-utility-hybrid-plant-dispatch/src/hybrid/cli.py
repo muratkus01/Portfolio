@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from .baselines import run_ladder
-from .config import MarketConfig, PlantConfig, RunConfig
+from .config import NEGATIVE_PRICE_RULES, MarketConfig, PlantConfig, RunConfig
 from .data import describe, load_year, to_plant
 from .market import (market_values, premium_rates, premium_table, rebap_series,
                      vintage_rules)
@@ -239,8 +239,7 @@ def main(argv: list[str] | None = None) -> int:
         sp.add_argument("--year", type=int, default=2025)
         sp.add_argument("--days", type=int, default=30)
         sp.add_argument("--horizon", type=int, default=96)
-        sp.add_argument("--neg-rule", default="new_2025",
-                        choices=["none", "six_hour", "new_2025"])
+        sp.add_argument("--neg-rule", default="new_2025", choices=NEGATIVE_PRICE_RULES)
         sp.add_argument("--fast", action="store_true")
         sp.add_argument("--progress", action="store_true")
         sp.set_defaults(func=fn)
