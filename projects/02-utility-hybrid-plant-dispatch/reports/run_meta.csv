@@ -1,0 +1,784 @@
+experiment,section,item,value
+b3_ablation_synthetic_demo,run,command,b3-ablation --synthetic-demo
+b3_ablation_synthetic_demo,run,argv,report --only sizing_2025 negprice_2025 decompose_2025 decompose_2025_conn-30 b3_ablation_synthetic_demo
+b3_ablation_synthetic_demo,run,started_utc,2026-10-31T22:37:59+00:00
+b3_ablation_synthetic_demo,run,wall_time_s,116.0
+b3_ablation_synthetic_demo,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+b3_ablation_synthetic_demo,code,git_dirty,False
+b3_ablation_synthetic_demo,environment,python,3.12.10
+b3_ablation_synthetic_demo,environment,numpy,2.5.4
+b3_ablation_synthetic_demo,environment,pandas,3.1.0
+b3_ablation_synthetic_demo,environment,pulp,3.3.0
+b3_ablation_synthetic_demo,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+b3_ablation_synthetic_demo,input_sha256,synthetic.demo_inputs(),0be50b83f557a0a3b06036f91870606568d91a7e5e9271e02602cb173102abd1
+decompose_2024,run,command,decompose --year 2024 --full-year
+decompose_2024,run,argv,report --only sizing_2024 negprice_2024 decompose_2024 decompose_2024_conn-30
+decompose_2024,run,started_utc,2026-10-31T22:33:45+00:00
+decompose_2024,run,wall_time_s,127.5
+decompose_2024,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+decompose_2024,code,git_dirty,False
+decompose_2024,environment,python,3.12.10
+decompose_2024,environment,numpy,2.5.4
+decompose_2024,environment,pandas,3.1.0
+decompose_2024,environment,pulp,3.3.0
+decompose_2024,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+decompose_2024,input_sha256,"load_year(2024, days=None, dt=0.25)",bbc259ba2a556f878e212c35de4e8205d270c184a3d535ac7008852e45dd3414
+decompose_2024,source_url,2024 public_power,https://api.energy-charts.info/public_power?country=de&start=2024-01-01&end=2025-01-01
+decompose_2024,source_url,2024 total_power,https://api.energy-charts.info/total_power?country=de&start=2024-01-01&end=2025-01-01
+decompose_2024,source_url,2024 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2024-01-01&end=2025-01-01
+decompose_2024,source_url,2024 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+decompose_2024,capacity_mw,2024-01 wind_onshore,61131.0
+decompose_2024,capacity_mw,2024-01 solar_dc,84938.0
+decompose_2024,capacity_mw,2024-02 wind_onshore,61349.0
+decompose_2024,capacity_mw,2024-02 solar_dc,86202.0
+decompose_2024,capacity_mw,2024-03 wind_onshore,61546.0
+decompose_2024,capacity_mw,2024-03 solar_dc,87628.0
+decompose_2024,capacity_mw,2024-04 wind_onshore,61691.0
+decompose_2024,capacity_mw,2024-04 solar_dc,89000.0
+decompose_2024,capacity_mw,2024-05 wind_onshore,61743.0
+decompose_2024,capacity_mw,2024-05 solar_dc,90232.0
+decompose_2024,capacity_mw,2024-06 wind_onshore,61917.0
+decompose_2024,capacity_mw,2024-06 solar_dc,91763.0
+decompose_2024,capacity_mw,2024-07 wind_onshore,62124.0
+decompose_2024,capacity_mw,2024-07 solar_dc,93445.0
+decompose_2024,capacity_mw,2024-08 wind_onshore,62303.0
+decompose_2024,capacity_mw,2024-08 solar_dc,94521.0
+decompose_2024,capacity_mw,2024-09 wind_onshore,62513.0
+decompose_2024,capacity_mw,2024-09 solar_dc,95821.0
+decompose_2024,capacity_mw,2024-10 wind_onshore,62720.0
+decompose_2024,capacity_mw,2024-10 solar_dc,97539.0
+decompose_2024,capacity_mw,2024-11 wind_onshore,63184.0
+decompose_2024,capacity_mw,2024-11 solar_dc,98779.0
+decompose_2024,capacity_mw,2024-12 wind_onshore,63589.0
+decompose_2024,capacity_mw,2024-12 solar_dc,100800.0
+decompose_2024,market_value_proxy_eur_mwh,2024-01 wind,65.66519270829559
+decompose_2024,market_value_proxy_eur_mwh,2024-01 pv,75.23211637529555
+decompose_2024,market_value_proxy_eur_mwh,2024-02 wind,54.0777986595607
+decompose_2024,market_value_proxy_eur_mwh,2024-02 pv,58.77280783938083
+decompose_2024,market_value_proxy_eur_mwh,2024-03 wind,56.11220744687759
+decompose_2024,market_value_proxy_eur_mwh,2024-03 pv,49.48674273196408
+decompose_2024,market_value_proxy_eur_mwh,2024-04 wind,50.566487153371824
+decompose_2024,market_value_proxy_eur_mwh,2024-04 pv,38.7323264979937
+decompose_2024,market_value_proxy_eur_mwh,2024-05 wind,60.024700203673895
+decompose_2024,market_value_proxy_eur_mwh,2024-05 pv,32.76806992540969
+decompose_2024,market_value_proxy_eur_mwh,2024-06 wind,59.835991123883176
+decompose_2024,market_value_proxy_eur_mwh,2024-06 pv,44.47317832897605
+decompose_2024,market_value_proxy_eur_mwh,2024-07 wind,53.87037985358445
+decompose_2024,market_value_proxy_eur_mwh,2024-07 pv,35.820079834791
+decompose_2024,market_value_proxy_eur_mwh,2024-08 wind,66.90058535820731
+decompose_2024,market_value_proxy_eur_mwh,2024-08 pv,43.125114766465714
+decompose_2024,market_value_proxy_eur_mwh,2024-09 wind,65.23197678410075
+decompose_2024,market_value_proxy_eur_mwh,2024-09 pv,45.171631458224404
+decompose_2024,market_value_proxy_eur_mwh,2024-10 wind,69.78788240410458
+decompose_2024,market_value_proxy_eur_mwh,2024-10 pv,67.35691164584962
+decompose_2024,market_value_proxy_eur_mwh,2024-11 wind,91.06102704672243
+decompose_2024,market_value_proxy_eur_mwh,2024-11 pv,100.63882472467998
+decompose_2024,market_value_proxy_eur_mwh,2024-12 wind,73.53593613881048
+decompose_2024,market_value_proxy_eur_mwh,2024-12 pv,111.57436346256699
+decompose_2024,market_value_proxy_eur_mwh,2024 wind,64.43775687545524
+decompose_2024,market_value_proxy_eur_mwh,2024 pv,46.28565466340612
+decompose_2024_conn-30,run,command,decompose --year 2024 --full-year --conn 30
+decompose_2024_conn-30,run,argv,report --only sizing_2024 negprice_2024 decompose_2024 decompose_2024_conn-30
+decompose_2024_conn-30,run,started_utc,2026-10-31T22:35:55+00:00
+decompose_2024_conn-30,run,wall_time_s,132.1
+decompose_2024_conn-30,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+decompose_2024_conn-30,code,git_dirty,False
+decompose_2024_conn-30,environment,python,3.12.10
+decompose_2024_conn-30,environment,numpy,2.5.4
+decompose_2024_conn-30,environment,pandas,3.1.0
+decompose_2024_conn-30,environment,pulp,3.3.0
+decompose_2024_conn-30,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+decompose_2024_conn-30,input_sha256,"load_year(2024, days=None, dt=0.25)",bbc259ba2a556f878e212c35de4e8205d270c184a3d535ac7008852e45dd3414
+decompose_2024_conn-30,source_url,2024 public_power,https://api.energy-charts.info/public_power?country=de&start=2024-01-01&end=2025-01-01
+decompose_2024_conn-30,source_url,2024 total_power,https://api.energy-charts.info/total_power?country=de&start=2024-01-01&end=2025-01-01
+decompose_2024_conn-30,source_url,2024 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2024-01-01&end=2025-01-01
+decompose_2024_conn-30,source_url,2024 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+decompose_2024_conn-30,capacity_mw,2024-01 wind_onshore,61131.0
+decompose_2024_conn-30,capacity_mw,2024-01 solar_dc,84938.0
+decompose_2024_conn-30,capacity_mw,2024-02 wind_onshore,61349.0
+decompose_2024_conn-30,capacity_mw,2024-02 solar_dc,86202.0
+decompose_2024_conn-30,capacity_mw,2024-03 wind_onshore,61546.0
+decompose_2024_conn-30,capacity_mw,2024-03 solar_dc,87628.0
+decompose_2024_conn-30,capacity_mw,2024-04 wind_onshore,61691.0
+decompose_2024_conn-30,capacity_mw,2024-04 solar_dc,89000.0
+decompose_2024_conn-30,capacity_mw,2024-05 wind_onshore,61743.0
+decompose_2024_conn-30,capacity_mw,2024-05 solar_dc,90232.0
+decompose_2024_conn-30,capacity_mw,2024-06 wind_onshore,61917.0
+decompose_2024_conn-30,capacity_mw,2024-06 solar_dc,91763.0
+decompose_2024_conn-30,capacity_mw,2024-07 wind_onshore,62124.0
+decompose_2024_conn-30,capacity_mw,2024-07 solar_dc,93445.0
+decompose_2024_conn-30,capacity_mw,2024-08 wind_onshore,62303.0
+decompose_2024_conn-30,capacity_mw,2024-08 solar_dc,94521.0
+decompose_2024_conn-30,capacity_mw,2024-09 wind_onshore,62513.0
+decompose_2024_conn-30,capacity_mw,2024-09 solar_dc,95821.0
+decompose_2024_conn-30,capacity_mw,2024-10 wind_onshore,62720.0
+decompose_2024_conn-30,capacity_mw,2024-10 solar_dc,97539.0
+decompose_2024_conn-30,capacity_mw,2024-11 wind_onshore,63184.0
+decompose_2024_conn-30,capacity_mw,2024-11 solar_dc,98779.0
+decompose_2024_conn-30,capacity_mw,2024-12 wind_onshore,63589.0
+decompose_2024_conn-30,capacity_mw,2024-12 solar_dc,100800.0
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-01 wind,65.66519270829559
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-01 pv,75.23211637529555
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-02 wind,54.0777986595607
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-02 pv,58.77280783938083
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-03 wind,56.11220744687759
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-03 pv,49.48674273196408
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-04 wind,50.566487153371824
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-04 pv,38.7323264979937
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-05 wind,60.024700203673895
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-05 pv,32.76806992540969
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-06 wind,59.835991123883176
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-06 pv,44.47317832897605
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-07 wind,53.87037985358445
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-07 pv,35.820079834791
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-08 wind,66.90058535820731
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-08 pv,43.125114766465714
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-09 wind,65.23197678410075
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-09 pv,45.171631458224404
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-10 wind,69.78788240410458
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-10 pv,67.35691164584962
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-11 wind,91.06102704672243
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-11 pv,100.63882472467998
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-12 wind,73.53593613881048
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024-12 pv,111.57436346256699
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024 wind,64.43775687545524
+decompose_2024_conn-30,market_value_proxy_eur_mwh,2024 pv,46.28565466340612
+decompose_2025,run,command,decompose --year 2025 --full-year
+decompose_2025,run,argv,report --only sizing_2025 negprice_2025 decompose_2025 decompose_2025_conn-30 b3_ablation_synthetic_demo
+decompose_2025,run,started_utc,2026-10-31T22:33:42+00:00
+decompose_2025,run,wall_time_s,124.3
+decompose_2025,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+decompose_2025,code,git_dirty,False
+decompose_2025,environment,python,3.12.10
+decompose_2025,environment,numpy,2.5.4
+decompose_2025,environment,pandas,3.1.0
+decompose_2025,environment,pulp,3.3.0
+decompose_2025,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+decompose_2025,input_sha256,"load_year(2025, days=None, dt=0.25)",3f7b934766980a9f6343095ee221b4d46ded479b1358f929dcefa4168ad409e5
+decompose_2025,source_url,2025 public_power,https://api.energy-charts.info/public_power?country=de&start=2025-01-01&end=2026-01-01
+decompose_2025,source_url,2025 total_power,https://api.energy-charts.info/total_power?country=de&start=2025-01-01&end=2026-01-01
+decompose_2025,source_url,2025 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2025-01-01&end=2026-01-01
+decompose_2025,source_url,2025 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+decompose_2025,capacity_mw,2025-01 wind_onshore,63781.0
+decompose_2025,capacity_mw,2025-01 solar_dc,102389.0
+decompose_2025,capacity_mw,2025-02 wind_onshore,64090.0
+decompose_2025,capacity_mw,2025-02 solar_dc,104225.0
+decompose_2025,capacity_mw,2025-03 wind_onshore,64447.99999999999
+decompose_2025,capacity_mw,2025-03 solar_dc,105119.0
+decompose_2025,capacity_mw,2025-04 wind_onshore,64709.0
+decompose_2025,capacity_mw,2025-04 solar_dc,106206.0
+decompose_2025,capacity_mw,2025-05 wind_onshore,65078.0
+decompose_2025,capacity_mw,2025-05 solar_dc,107490.0
+decompose_2025,capacity_mw,2025-06 wind_onshore,65444.0
+decompose_2025,capacity_mw,2025-06 solar_dc,108617.0
+decompose_2025,capacity_mw,2025-07 wind_onshore,65783.0
+decompose_2025,capacity_mw,2025-07 solar_dc,110217.0
+decompose_2025,capacity_mw,2025-08 wind_onshore,66117.0
+decompose_2025,capacity_mw,2025-08 solar_dc,112263.0
+decompose_2025,capacity_mw,2025-09 wind_onshore,66451.0
+decompose_2025,capacity_mw,2025-09 solar_dc,113306.0
+decompose_2025,capacity_mw,2025-10 wind_onshore,67054.0
+decompose_2025,capacity_mw,2025-10 solar_dc,114657.0
+decompose_2025,capacity_mw,2025-11 wind_onshore,67410.0
+decompose_2025,capacity_mw,2025-11 solar_dc,116612.0
+decompose_2025,capacity_mw,2025-12 wind_onshore,68179.0
+decompose_2025,capacity_mw,2025-12 solar_dc,118111.0
+decompose_2025,market_value_proxy_eur_mwh,2025-01 wind,87.0233614963586
+decompose_2025,market_value_proxy_eur_mwh,2025-01 pv,115.58956124892487
+decompose_2025,market_value_proxy_eur_mwh,2025-02 wind,116.18379472541318
+decompose_2025,market_value_proxy_eur_mwh,2025-02 pv,110.87350509196816
+decompose_2025,market_value_proxy_eur_mwh,2025-03 wind,80.09628424537968
+decompose_2025,market_value_proxy_eur_mwh,2025-03 pv,50.78689486036286
+decompose_2025,market_value_proxy_eur_mwh,2025-04 wind,77.56714992241491
+decompose_2025,market_value_proxy_eur_mwh,2025-04 pv,31.349489943259226
+decompose_2025,market_value_proxy_eur_mwh,2025-05 wind,65.46664256766108
+decompose_2025,market_value_proxy_eur_mwh,2025-05 pv,21.64983347284723
+decompose_2025,market_value_proxy_eur_mwh,2025-06 wind,56.897139536177875
+decompose_2025,market_value_proxy_eur_mwh,2025-06 pv,20.009364725201152
+decompose_2025,market_value_proxy_eur_mwh,2025-07 wind,82.98528647830062
+decompose_2025,market_value_proxy_eur_mwh,2025-07 pv,59.80028736470323
+decompose_2025,market_value_proxy_eur_mwh,2025-08 wind,70.63144311715988
+decompose_2025,market_value_proxy_eur_mwh,2025-08 pv,39.06544290248861
+decompose_2025,market_value_proxy_eur_mwh,2025-09 wind,66.2020397358293
+decompose_2025,market_value_proxy_eur_mwh,2025-09 pv,44.27998920903939
+decompose_2025,market_value_proxy_eur_mwh,2025-10 wind,58.880232886679366
+decompose_2025,market_value_proxy_eur_mwh,2025-10 pv,70.32776632269255
+decompose_2025,market_value_proxy_eur_mwh,2025-11 wind,89.56940759661637
+decompose_2025,market_value_proxy_eur_mwh,2025-11 pv,90.95755912762736
+decompose_2025,market_value_proxy_eur_mwh,2025-12 wind,83.87181041591475
+decompose_2025,market_value_proxy_eur_mwh,2025-12 pv,93.8370734981147
+decompose_2025,market_value_proxy_eur_mwh,2025 wind,77.36793959458824
+decompose_2025,market_value_proxy_eur_mwh,2025 pv,45.86568122434279
+decompose_2025_conn-30,run,command,decompose --year 2025 --full-year --conn 30
+decompose_2025_conn-30,run,argv,report --only sizing_2025 negprice_2025 decompose_2025 decompose_2025_conn-30 b3_ablation_synthetic_demo
+decompose_2025_conn-30,run,started_utc,2026-10-31T22:35:48+00:00
+decompose_2025_conn-30,run,wall_time_s,129.2
+decompose_2025_conn-30,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+decompose_2025_conn-30,code,git_dirty,False
+decompose_2025_conn-30,environment,python,3.12.10
+decompose_2025_conn-30,environment,numpy,2.5.4
+decompose_2025_conn-30,environment,pandas,3.1.0
+decompose_2025_conn-30,environment,pulp,3.3.0
+decompose_2025_conn-30,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+decompose_2025_conn-30,input_sha256,"load_year(2025, days=None, dt=0.25)",3f7b934766980a9f6343095ee221b4d46ded479b1358f929dcefa4168ad409e5
+decompose_2025_conn-30,source_url,2025 public_power,https://api.energy-charts.info/public_power?country=de&start=2025-01-01&end=2026-01-01
+decompose_2025_conn-30,source_url,2025 total_power,https://api.energy-charts.info/total_power?country=de&start=2025-01-01&end=2026-01-01
+decompose_2025_conn-30,source_url,2025 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2025-01-01&end=2026-01-01
+decompose_2025_conn-30,source_url,2025 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+decompose_2025_conn-30,capacity_mw,2025-01 wind_onshore,63781.0
+decompose_2025_conn-30,capacity_mw,2025-01 solar_dc,102389.0
+decompose_2025_conn-30,capacity_mw,2025-02 wind_onshore,64090.0
+decompose_2025_conn-30,capacity_mw,2025-02 solar_dc,104225.0
+decompose_2025_conn-30,capacity_mw,2025-03 wind_onshore,64447.99999999999
+decompose_2025_conn-30,capacity_mw,2025-03 solar_dc,105119.0
+decompose_2025_conn-30,capacity_mw,2025-04 wind_onshore,64709.0
+decompose_2025_conn-30,capacity_mw,2025-04 solar_dc,106206.0
+decompose_2025_conn-30,capacity_mw,2025-05 wind_onshore,65078.0
+decompose_2025_conn-30,capacity_mw,2025-05 solar_dc,107490.0
+decompose_2025_conn-30,capacity_mw,2025-06 wind_onshore,65444.0
+decompose_2025_conn-30,capacity_mw,2025-06 solar_dc,108617.0
+decompose_2025_conn-30,capacity_mw,2025-07 wind_onshore,65783.0
+decompose_2025_conn-30,capacity_mw,2025-07 solar_dc,110217.0
+decompose_2025_conn-30,capacity_mw,2025-08 wind_onshore,66117.0
+decompose_2025_conn-30,capacity_mw,2025-08 solar_dc,112263.0
+decompose_2025_conn-30,capacity_mw,2025-09 wind_onshore,66451.0
+decompose_2025_conn-30,capacity_mw,2025-09 solar_dc,113306.0
+decompose_2025_conn-30,capacity_mw,2025-10 wind_onshore,67054.0
+decompose_2025_conn-30,capacity_mw,2025-10 solar_dc,114657.0
+decompose_2025_conn-30,capacity_mw,2025-11 wind_onshore,67410.0
+decompose_2025_conn-30,capacity_mw,2025-11 solar_dc,116612.0
+decompose_2025_conn-30,capacity_mw,2025-12 wind_onshore,68179.0
+decompose_2025_conn-30,capacity_mw,2025-12 solar_dc,118111.0
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-01 wind,87.0233614963586
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-01 pv,115.58956124892487
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-02 wind,116.18379472541318
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-02 pv,110.87350509196816
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-03 wind,80.09628424537968
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-03 pv,50.78689486036286
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-04 wind,77.56714992241491
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-04 pv,31.349489943259226
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-05 wind,65.46664256766108
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-05 pv,21.64983347284723
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-06 wind,56.897139536177875
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-06 pv,20.009364725201152
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-07 wind,82.98528647830062
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-07 pv,59.80028736470323
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-08 wind,70.63144311715988
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-08 pv,39.06544290248861
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-09 wind,66.2020397358293
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-09 pv,44.27998920903939
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-10 wind,58.880232886679366
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-10 pv,70.32776632269255
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-11 wind,89.56940759661637
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-11 pv,90.95755912762736
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-12 wind,83.87181041591475
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025-12 pv,93.8370734981147
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025 wind,77.36793959458824
+decompose_2025_conn-30,market_value_proxy_eur_mwh,2025 pv,45.86568122434279
+ladder_2025-01-01_30d,run,command,ladder --year 2025 --start 01-01 --days 30
+ladder_2025-01-01_30d,run,argv,report --only ladder_2025-01-01_30d
+ladder_2025-01-01_30d,run,started_utc,2026-10-31T22:18:09+00:00
+ladder_2025-01-01_30d,run,wall_time_s,674.0
+ladder_2025-01-01_30d,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+ladder_2025-01-01_30d,code,git_dirty,False
+ladder_2025-01-01_30d,environment,python,3.12.10
+ladder_2025-01-01_30d,environment,numpy,2.5.4
+ladder_2025-01-01_30d,environment,pandas,3.1.0
+ladder_2025-01-01_30d,environment,pulp,3.3.0
+ladder_2025-01-01_30d,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+ladder_2025-01-01_30d,input_sha256,"load_year(2025, days=30, dt=0.25)",ada0f30df36de8ef384a35ad45afb7fbc09be1d68aae5a99b90b198e1e9f2a43
+ladder_2025-01-01_30d,input_sha256,"load_year(2025, days=None, dt=0.25)",3f7b934766980a9f6343095ee221b4d46ded479b1358f929dcefa4168ad409e5
+ladder_2025-01-01_30d,input_sha256,"load_year(2024, days=None, dt=0.25)",bbc259ba2a556f878e212c35de4e8205d270c184a3d535ac7008852e45dd3414
+ladder_2025-01-01_30d,source_url,2024 public_power,https://api.energy-charts.info/public_power?country=de&start=2024-01-01&end=2025-01-01
+ladder_2025-01-01_30d,source_url,2024 total_power,https://api.energy-charts.info/total_power?country=de&start=2024-01-01&end=2025-01-01
+ladder_2025-01-01_30d,source_url,2024 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2024-01-01&end=2025-01-01
+ladder_2025-01-01_30d,source_url,2024 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+ladder_2025-01-01_30d,source_url,2025 public_power,https://api.energy-charts.info/public_power?country=de&start=2025-01-01&end=2026-01-01
+ladder_2025-01-01_30d,source_url,2025 total_power,https://api.energy-charts.info/total_power?country=de&start=2025-01-01&end=2026-01-01
+ladder_2025-01-01_30d,source_url,2025 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2025-01-01&end=2026-01-01
+ladder_2025-01-01_30d,source_url,2025 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+ladder_2025-01-01_30d,capacity_mw,2024-01 wind_onshore,61131.0
+ladder_2025-01-01_30d,capacity_mw,2024-01 solar_dc,84938.0
+ladder_2025-01-01_30d,capacity_mw,2024-02 wind_onshore,61349.0
+ladder_2025-01-01_30d,capacity_mw,2024-02 solar_dc,86202.0
+ladder_2025-01-01_30d,capacity_mw,2024-03 wind_onshore,61546.0
+ladder_2025-01-01_30d,capacity_mw,2024-03 solar_dc,87628.0
+ladder_2025-01-01_30d,capacity_mw,2024-04 wind_onshore,61691.0
+ladder_2025-01-01_30d,capacity_mw,2024-04 solar_dc,89000.0
+ladder_2025-01-01_30d,capacity_mw,2024-05 wind_onshore,61743.0
+ladder_2025-01-01_30d,capacity_mw,2024-05 solar_dc,90232.0
+ladder_2025-01-01_30d,capacity_mw,2024-06 wind_onshore,61917.0
+ladder_2025-01-01_30d,capacity_mw,2024-06 solar_dc,91763.0
+ladder_2025-01-01_30d,capacity_mw,2024-07 wind_onshore,62124.0
+ladder_2025-01-01_30d,capacity_mw,2024-07 solar_dc,93445.0
+ladder_2025-01-01_30d,capacity_mw,2024-08 wind_onshore,62303.0
+ladder_2025-01-01_30d,capacity_mw,2024-08 solar_dc,94521.0
+ladder_2025-01-01_30d,capacity_mw,2024-09 wind_onshore,62513.0
+ladder_2025-01-01_30d,capacity_mw,2024-09 solar_dc,95821.0
+ladder_2025-01-01_30d,capacity_mw,2024-10 wind_onshore,62720.0
+ladder_2025-01-01_30d,capacity_mw,2024-10 solar_dc,97539.0
+ladder_2025-01-01_30d,capacity_mw,2024-11 wind_onshore,63184.0
+ladder_2025-01-01_30d,capacity_mw,2024-11 solar_dc,98779.0
+ladder_2025-01-01_30d,capacity_mw,2024-12 wind_onshore,63589.0
+ladder_2025-01-01_30d,capacity_mw,2024-12 solar_dc,100800.0
+ladder_2025-01-01_30d,capacity_mw,2025-01 wind_onshore,63781.0
+ladder_2025-01-01_30d,capacity_mw,2025-01 solar_dc,102389.0
+ladder_2025-01-01_30d,capacity_mw,2025-02 wind_onshore,64090.0
+ladder_2025-01-01_30d,capacity_mw,2025-02 solar_dc,104225.0
+ladder_2025-01-01_30d,capacity_mw,2025-03 wind_onshore,64447.99999999999
+ladder_2025-01-01_30d,capacity_mw,2025-03 solar_dc,105119.0
+ladder_2025-01-01_30d,capacity_mw,2025-04 wind_onshore,64709.0
+ladder_2025-01-01_30d,capacity_mw,2025-04 solar_dc,106206.0
+ladder_2025-01-01_30d,capacity_mw,2025-05 wind_onshore,65078.0
+ladder_2025-01-01_30d,capacity_mw,2025-05 solar_dc,107490.0
+ladder_2025-01-01_30d,capacity_mw,2025-06 wind_onshore,65444.0
+ladder_2025-01-01_30d,capacity_mw,2025-06 solar_dc,108617.0
+ladder_2025-01-01_30d,capacity_mw,2025-07 wind_onshore,65783.0
+ladder_2025-01-01_30d,capacity_mw,2025-07 solar_dc,110217.0
+ladder_2025-01-01_30d,capacity_mw,2025-08 wind_onshore,66117.0
+ladder_2025-01-01_30d,capacity_mw,2025-08 solar_dc,112263.0
+ladder_2025-01-01_30d,capacity_mw,2025-09 wind_onshore,66451.0
+ladder_2025-01-01_30d,capacity_mw,2025-09 solar_dc,113306.0
+ladder_2025-01-01_30d,capacity_mw,2025-10 wind_onshore,67054.0
+ladder_2025-01-01_30d,capacity_mw,2025-10 solar_dc,114657.0
+ladder_2025-01-01_30d,capacity_mw,2025-11 wind_onshore,67410.0
+ladder_2025-01-01_30d,capacity_mw,2025-11 solar_dc,116612.0
+ladder_2025-01-01_30d,capacity_mw,2025-12 wind_onshore,68179.0
+ladder_2025-01-01_30d,capacity_mw,2025-12 solar_dc,118111.0
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-01 wind,87.0233614963586
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-01 pv,115.58956124892487
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-02 wind,116.18379472541318
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-02 pv,110.87350509196816
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-03 wind,80.09628424537968
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-03 pv,50.78689486036286
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-04 wind,77.56714992241491
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-04 pv,31.349489943259226
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-05 wind,65.46664256766108
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-05 pv,21.64983347284723
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-06 wind,56.897139536177875
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-06 pv,20.009364725201152
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-07 wind,82.98528647830062
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-07 pv,59.80028736470323
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-08 wind,70.63144311715988
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-08 pv,39.06544290248861
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-09 wind,66.2020397358293
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-09 pv,44.27998920903939
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-10 wind,58.880232886679366
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-10 pv,70.32776632269255
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-11 wind,89.56940759661637
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-11 pv,90.95755912762736
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-12 wind,83.87181041591475
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025-12 pv,93.8370734981147
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025 wind,77.36793959458824
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2025 pv,45.86568122434279
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-01 wind,65.66519270829559
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-01 pv,75.23211637529555
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-02 wind,54.0777986595607
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-02 pv,58.77280783938083
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-03 wind,56.11220744687759
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-03 pv,49.48674273196408
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-04 wind,50.566487153371824
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-04 pv,38.7323264979937
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-05 wind,60.024700203673895
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-05 pv,32.76806992540969
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-06 wind,59.835991123883176
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-06 pv,44.47317832897605
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-07 wind,53.87037985358445
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-07 pv,35.820079834791
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-08 wind,66.90058535820731
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-08 pv,43.125114766465714
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-09 wind,65.23197678410075
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-09 pv,45.171631458224404
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-10 wind,69.78788240410458
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-10 pv,67.35691164584962
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-11 wind,91.06102704672243
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-11 pv,100.63882472467998
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-12 wind,73.53593613881048
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024-12 pv,111.57436346256699
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024 wind,64.43775687545524
+ladder_2025-01-01_30d,market_value_proxy_eur_mwh,2024 pv,46.28565466340612
+ladder_2025-07-01_30d,run,command,ladder --year 2025 --start 07-01 --days 30
+ladder_2025-07-01_30d,run,argv,report --only ladder_2025-07-01_30d
+ladder_2025-07-01_30d,run,started_utc,2026-10-31T22:18:09+00:00
+ladder_2025-07-01_30d,run,wall_time_s,674.5
+ladder_2025-07-01_30d,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+ladder_2025-07-01_30d,code,git_dirty,False
+ladder_2025-07-01_30d,environment,python,3.12.10
+ladder_2025-07-01_30d,environment,numpy,2.5.4
+ladder_2025-07-01_30d,environment,pandas,3.1.0
+ladder_2025-07-01_30d,environment,pulp,3.3.0
+ladder_2025-07-01_30d,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+ladder_2025-07-01_30d,input_sha256,"load_year(2025, days=None, dt=0.25)",3f7b934766980a9f6343095ee221b4d46ded479b1358f929dcefa4168ad409e5
+ladder_2025-07-01_30d,input_sha256,"load_year(2024, days=None, dt=0.25)",bbc259ba2a556f878e212c35de4e8205d270c184a3d535ac7008852e45dd3414
+ladder_2025-07-01_30d,source_url,2024 public_power,https://api.energy-charts.info/public_power?country=de&start=2024-01-01&end=2025-01-01
+ladder_2025-07-01_30d,source_url,2024 total_power,https://api.energy-charts.info/total_power?country=de&start=2024-01-01&end=2025-01-01
+ladder_2025-07-01_30d,source_url,2024 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2024-01-01&end=2025-01-01
+ladder_2025-07-01_30d,source_url,2024 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+ladder_2025-07-01_30d,source_url,2025 public_power,https://api.energy-charts.info/public_power?country=de&start=2025-01-01&end=2026-01-01
+ladder_2025-07-01_30d,source_url,2025 total_power,https://api.energy-charts.info/total_power?country=de&start=2025-01-01&end=2026-01-01
+ladder_2025-07-01_30d,source_url,2025 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2025-01-01&end=2026-01-01
+ladder_2025-07-01_30d,source_url,2025 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+ladder_2025-07-01_30d,capacity_mw,2024-01 wind_onshore,61131.0
+ladder_2025-07-01_30d,capacity_mw,2024-01 solar_dc,84938.0
+ladder_2025-07-01_30d,capacity_mw,2024-02 wind_onshore,61349.0
+ladder_2025-07-01_30d,capacity_mw,2024-02 solar_dc,86202.0
+ladder_2025-07-01_30d,capacity_mw,2024-03 wind_onshore,61546.0
+ladder_2025-07-01_30d,capacity_mw,2024-03 solar_dc,87628.0
+ladder_2025-07-01_30d,capacity_mw,2024-04 wind_onshore,61691.0
+ladder_2025-07-01_30d,capacity_mw,2024-04 solar_dc,89000.0
+ladder_2025-07-01_30d,capacity_mw,2024-05 wind_onshore,61743.0
+ladder_2025-07-01_30d,capacity_mw,2024-05 solar_dc,90232.0
+ladder_2025-07-01_30d,capacity_mw,2024-06 wind_onshore,61917.0
+ladder_2025-07-01_30d,capacity_mw,2024-06 solar_dc,91763.0
+ladder_2025-07-01_30d,capacity_mw,2024-07 wind_onshore,62124.0
+ladder_2025-07-01_30d,capacity_mw,2024-07 solar_dc,93445.0
+ladder_2025-07-01_30d,capacity_mw,2024-08 wind_onshore,62303.0
+ladder_2025-07-01_30d,capacity_mw,2024-08 solar_dc,94521.0
+ladder_2025-07-01_30d,capacity_mw,2024-09 wind_onshore,62513.0
+ladder_2025-07-01_30d,capacity_mw,2024-09 solar_dc,95821.0
+ladder_2025-07-01_30d,capacity_mw,2024-10 wind_onshore,62720.0
+ladder_2025-07-01_30d,capacity_mw,2024-10 solar_dc,97539.0
+ladder_2025-07-01_30d,capacity_mw,2024-11 wind_onshore,63184.0
+ladder_2025-07-01_30d,capacity_mw,2024-11 solar_dc,98779.0
+ladder_2025-07-01_30d,capacity_mw,2024-12 wind_onshore,63589.0
+ladder_2025-07-01_30d,capacity_mw,2024-12 solar_dc,100800.0
+ladder_2025-07-01_30d,capacity_mw,2025-01 wind_onshore,63781.0
+ladder_2025-07-01_30d,capacity_mw,2025-01 solar_dc,102389.0
+ladder_2025-07-01_30d,capacity_mw,2025-02 wind_onshore,64090.0
+ladder_2025-07-01_30d,capacity_mw,2025-02 solar_dc,104225.0
+ladder_2025-07-01_30d,capacity_mw,2025-03 wind_onshore,64447.99999999999
+ladder_2025-07-01_30d,capacity_mw,2025-03 solar_dc,105119.0
+ladder_2025-07-01_30d,capacity_mw,2025-04 wind_onshore,64709.0
+ladder_2025-07-01_30d,capacity_mw,2025-04 solar_dc,106206.0
+ladder_2025-07-01_30d,capacity_mw,2025-05 wind_onshore,65078.0
+ladder_2025-07-01_30d,capacity_mw,2025-05 solar_dc,107490.0
+ladder_2025-07-01_30d,capacity_mw,2025-06 wind_onshore,65444.0
+ladder_2025-07-01_30d,capacity_mw,2025-06 solar_dc,108617.0
+ladder_2025-07-01_30d,capacity_mw,2025-07 wind_onshore,65783.0
+ladder_2025-07-01_30d,capacity_mw,2025-07 solar_dc,110217.0
+ladder_2025-07-01_30d,capacity_mw,2025-08 wind_onshore,66117.0
+ladder_2025-07-01_30d,capacity_mw,2025-08 solar_dc,112263.0
+ladder_2025-07-01_30d,capacity_mw,2025-09 wind_onshore,66451.0
+ladder_2025-07-01_30d,capacity_mw,2025-09 solar_dc,113306.0
+ladder_2025-07-01_30d,capacity_mw,2025-10 wind_onshore,67054.0
+ladder_2025-07-01_30d,capacity_mw,2025-10 solar_dc,114657.0
+ladder_2025-07-01_30d,capacity_mw,2025-11 wind_onshore,67410.0
+ladder_2025-07-01_30d,capacity_mw,2025-11 solar_dc,116612.0
+ladder_2025-07-01_30d,capacity_mw,2025-12 wind_onshore,68179.0
+ladder_2025-07-01_30d,capacity_mw,2025-12 solar_dc,118111.0
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-01 wind,87.0233614963586
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-01 pv,115.58956124892487
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-02 wind,116.18379472541318
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-02 pv,110.87350509196816
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-03 wind,80.09628424537968
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-03 pv,50.78689486036286
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-04 wind,77.56714992241491
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-04 pv,31.349489943259226
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-05 wind,65.46664256766108
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-05 pv,21.64983347284723
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-06 wind,56.897139536177875
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-06 pv,20.009364725201152
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-07 wind,82.98528647830062
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-07 pv,59.80028736470323
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-08 wind,70.63144311715988
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-08 pv,39.06544290248861
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-09 wind,66.2020397358293
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-09 pv,44.27998920903939
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-10 wind,58.880232886679366
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-10 pv,70.32776632269255
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-11 wind,89.56940759661637
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-11 pv,90.95755912762736
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-12 wind,83.87181041591475
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025-12 pv,93.8370734981147
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025 wind,77.36793959458824
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2025 pv,45.86568122434279
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-01 wind,65.66519270829559
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-01 pv,75.23211637529555
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-02 wind,54.0777986595607
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-02 pv,58.77280783938083
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-03 wind,56.11220744687759
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-03 pv,49.48674273196408
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-04 wind,50.566487153371824
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-04 pv,38.7323264979937
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-05 wind,60.024700203673895
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-05 pv,32.76806992540969
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-06 wind,59.835991123883176
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-06 pv,44.47317832897605
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-07 wind,53.87037985358445
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-07 pv,35.820079834791
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-08 wind,66.90058535820731
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-08 pv,43.125114766465714
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-09 wind,65.23197678410075
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-09 pv,45.171631458224404
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-10 wind,69.78788240410458
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-10 pv,67.35691164584962
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-11 wind,91.06102704672243
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-11 pv,100.63882472467998
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-12 wind,73.53593613881048
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-12 pv,111.57436346256699
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024 wind,64.43775687545524
+ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024 pv,46.28565466340612
+negprice_2024,run,command,negprice --year 2024 --full-year
+negprice_2024,run,argv,report --only sizing_2024 negprice_2024 decompose_2024 decompose_2024_conn-30
+negprice_2024,run,started_utc,2026-10-31T22:26:59+00:00
+negprice_2024,run,wall_time_s,404.9
+negprice_2024,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+negprice_2024,code,git_dirty,False
+negprice_2024,environment,python,3.12.10
+negprice_2024,environment,numpy,2.5.4
+negprice_2024,environment,pandas,3.1.0
+negprice_2024,environment,pulp,3.3.0
+negprice_2024,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+negprice_2024,input_sha256,"load_year(2024, days=None, dt=0.25)",bbc259ba2a556f878e212c35de4e8205d270c184a3d535ac7008852e45dd3414
+negprice_2024,source_url,2024 public_power,https://api.energy-charts.info/public_power?country=de&start=2024-01-01&end=2025-01-01
+negprice_2024,source_url,2024 total_power,https://api.energy-charts.info/total_power?country=de&start=2024-01-01&end=2025-01-01
+negprice_2024,source_url,2024 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2024-01-01&end=2025-01-01
+negprice_2024,source_url,2024 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+negprice_2024,capacity_mw,2024-01 wind_onshore,61131.0
+negprice_2024,capacity_mw,2024-01 solar_dc,84938.0
+negprice_2024,capacity_mw,2024-02 wind_onshore,61349.0
+negprice_2024,capacity_mw,2024-02 solar_dc,86202.0
+negprice_2024,capacity_mw,2024-03 wind_onshore,61546.0
+negprice_2024,capacity_mw,2024-03 solar_dc,87628.0
+negprice_2024,capacity_mw,2024-04 wind_onshore,61691.0
+negprice_2024,capacity_mw,2024-04 solar_dc,89000.0
+negprice_2024,capacity_mw,2024-05 wind_onshore,61743.0
+negprice_2024,capacity_mw,2024-05 solar_dc,90232.0
+negprice_2024,capacity_mw,2024-06 wind_onshore,61917.0
+negprice_2024,capacity_mw,2024-06 solar_dc,91763.0
+negprice_2024,capacity_mw,2024-07 wind_onshore,62124.0
+negprice_2024,capacity_mw,2024-07 solar_dc,93445.0
+negprice_2024,capacity_mw,2024-08 wind_onshore,62303.0
+negprice_2024,capacity_mw,2024-08 solar_dc,94521.0
+negprice_2024,capacity_mw,2024-09 wind_onshore,62513.0
+negprice_2024,capacity_mw,2024-09 solar_dc,95821.0
+negprice_2024,capacity_mw,2024-10 wind_onshore,62720.0
+negprice_2024,capacity_mw,2024-10 solar_dc,97539.0
+negprice_2024,capacity_mw,2024-11 wind_onshore,63184.0
+negprice_2024,capacity_mw,2024-11 solar_dc,98779.0
+negprice_2024,capacity_mw,2024-12 wind_onshore,63589.0
+negprice_2024,capacity_mw,2024-12 solar_dc,100800.0
+negprice_2024,market_value_proxy_eur_mwh,2024-01 wind,65.66519270829559
+negprice_2024,market_value_proxy_eur_mwh,2024-01 pv,75.23211637529555
+negprice_2024,market_value_proxy_eur_mwh,2024-02 wind,54.0777986595607
+negprice_2024,market_value_proxy_eur_mwh,2024-02 pv,58.77280783938083
+negprice_2024,market_value_proxy_eur_mwh,2024-03 wind,56.11220744687759
+negprice_2024,market_value_proxy_eur_mwh,2024-03 pv,49.48674273196408
+negprice_2024,market_value_proxy_eur_mwh,2024-04 wind,50.566487153371824
+negprice_2024,market_value_proxy_eur_mwh,2024-04 pv,38.7323264979937
+negprice_2024,market_value_proxy_eur_mwh,2024-05 wind,60.024700203673895
+negprice_2024,market_value_proxy_eur_mwh,2024-05 pv,32.76806992540969
+negprice_2024,market_value_proxy_eur_mwh,2024-06 wind,59.835991123883176
+negprice_2024,market_value_proxy_eur_mwh,2024-06 pv,44.47317832897605
+negprice_2024,market_value_proxy_eur_mwh,2024-07 wind,53.87037985358445
+negprice_2024,market_value_proxy_eur_mwh,2024-07 pv,35.820079834791
+negprice_2024,market_value_proxy_eur_mwh,2024-08 wind,66.90058535820731
+negprice_2024,market_value_proxy_eur_mwh,2024-08 pv,43.125114766465714
+negprice_2024,market_value_proxy_eur_mwh,2024-09 wind,65.23197678410075
+negprice_2024,market_value_proxy_eur_mwh,2024-09 pv,45.171631458224404
+negprice_2024,market_value_proxy_eur_mwh,2024-10 wind,69.78788240410458
+negprice_2024,market_value_proxy_eur_mwh,2024-10 pv,67.35691164584962
+negprice_2024,market_value_proxy_eur_mwh,2024-11 wind,91.06102704672243
+negprice_2024,market_value_proxy_eur_mwh,2024-11 pv,100.63882472467998
+negprice_2024,market_value_proxy_eur_mwh,2024-12 wind,73.53593613881048
+negprice_2024,market_value_proxy_eur_mwh,2024-12 pv,111.57436346256699
+negprice_2024,market_value_proxy_eur_mwh,2024 wind,64.43775687545524
+negprice_2024,market_value_proxy_eur_mwh,2024 pv,46.28565466340612
+negprice_2025,run,command,negprice --year 2025 --full-year
+negprice_2025,run,argv,report --only sizing_2025 negprice_2025 decompose_2025 decompose_2025_conn-30 b3_ablation_synthetic_demo
+negprice_2025,run,started_utc,2026-10-31T22:26:53+00:00
+negprice_2025,run,wall_time_s,406.7
+negprice_2025,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+negprice_2025,code,git_dirty,False
+negprice_2025,environment,python,3.12.10
+negprice_2025,environment,numpy,2.5.4
+negprice_2025,environment,pandas,3.1.0
+negprice_2025,environment,pulp,3.3.0
+negprice_2025,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+negprice_2025,input_sha256,"load_year(2025, days=None, dt=0.25)",3f7b934766980a9f6343095ee221b4d46ded479b1358f929dcefa4168ad409e5
+negprice_2025,source_url,2025 public_power,https://api.energy-charts.info/public_power?country=de&start=2025-01-01&end=2026-01-01
+negprice_2025,source_url,2025 total_power,https://api.energy-charts.info/total_power?country=de&start=2025-01-01&end=2026-01-01
+negprice_2025,source_url,2025 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2025-01-01&end=2026-01-01
+negprice_2025,source_url,2025 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+negprice_2025,capacity_mw,2025-01 wind_onshore,63781.0
+negprice_2025,capacity_mw,2025-01 solar_dc,102389.0
+negprice_2025,capacity_mw,2025-02 wind_onshore,64090.0
+negprice_2025,capacity_mw,2025-02 solar_dc,104225.0
+negprice_2025,capacity_mw,2025-03 wind_onshore,64447.99999999999
+negprice_2025,capacity_mw,2025-03 solar_dc,105119.0
+negprice_2025,capacity_mw,2025-04 wind_onshore,64709.0
+negprice_2025,capacity_mw,2025-04 solar_dc,106206.0
+negprice_2025,capacity_mw,2025-05 wind_onshore,65078.0
+negprice_2025,capacity_mw,2025-05 solar_dc,107490.0
+negprice_2025,capacity_mw,2025-06 wind_onshore,65444.0
+negprice_2025,capacity_mw,2025-06 solar_dc,108617.0
+negprice_2025,capacity_mw,2025-07 wind_onshore,65783.0
+negprice_2025,capacity_mw,2025-07 solar_dc,110217.0
+negprice_2025,capacity_mw,2025-08 wind_onshore,66117.0
+negprice_2025,capacity_mw,2025-08 solar_dc,112263.0
+negprice_2025,capacity_mw,2025-09 wind_onshore,66451.0
+negprice_2025,capacity_mw,2025-09 solar_dc,113306.0
+negprice_2025,capacity_mw,2025-10 wind_onshore,67054.0
+negprice_2025,capacity_mw,2025-10 solar_dc,114657.0
+negprice_2025,capacity_mw,2025-11 wind_onshore,67410.0
+negprice_2025,capacity_mw,2025-11 solar_dc,116612.0
+negprice_2025,capacity_mw,2025-12 wind_onshore,68179.0
+negprice_2025,capacity_mw,2025-12 solar_dc,118111.0
+negprice_2025,market_value_proxy_eur_mwh,2025-01 wind,87.0233614963586
+negprice_2025,market_value_proxy_eur_mwh,2025-01 pv,115.58956124892487
+negprice_2025,market_value_proxy_eur_mwh,2025-02 wind,116.18379472541318
+negprice_2025,market_value_proxy_eur_mwh,2025-02 pv,110.87350509196816
+negprice_2025,market_value_proxy_eur_mwh,2025-03 wind,80.09628424537968
+negprice_2025,market_value_proxy_eur_mwh,2025-03 pv,50.78689486036286
+negprice_2025,market_value_proxy_eur_mwh,2025-04 wind,77.56714992241491
+negprice_2025,market_value_proxy_eur_mwh,2025-04 pv,31.349489943259226
+negprice_2025,market_value_proxy_eur_mwh,2025-05 wind,65.46664256766108
+negprice_2025,market_value_proxy_eur_mwh,2025-05 pv,21.64983347284723
+negprice_2025,market_value_proxy_eur_mwh,2025-06 wind,56.897139536177875
+negprice_2025,market_value_proxy_eur_mwh,2025-06 pv,20.009364725201152
+negprice_2025,market_value_proxy_eur_mwh,2025-07 wind,82.98528647830062
+negprice_2025,market_value_proxy_eur_mwh,2025-07 pv,59.80028736470323
+negprice_2025,market_value_proxy_eur_mwh,2025-08 wind,70.63144311715988
+negprice_2025,market_value_proxy_eur_mwh,2025-08 pv,39.06544290248861
+negprice_2025,market_value_proxy_eur_mwh,2025-09 wind,66.2020397358293
+negprice_2025,market_value_proxy_eur_mwh,2025-09 pv,44.27998920903939
+negprice_2025,market_value_proxy_eur_mwh,2025-10 wind,58.880232886679366
+negprice_2025,market_value_proxy_eur_mwh,2025-10 pv,70.32776632269255
+negprice_2025,market_value_proxy_eur_mwh,2025-11 wind,89.56940759661637
+negprice_2025,market_value_proxy_eur_mwh,2025-11 pv,90.95755912762736
+negprice_2025,market_value_proxy_eur_mwh,2025-12 wind,83.87181041591475
+negprice_2025,market_value_proxy_eur_mwh,2025-12 pv,93.8370734981147
+negprice_2025,market_value_proxy_eur_mwh,2025 wind,77.36793959458824
+negprice_2025,market_value_proxy_eur_mwh,2025 pv,45.86568122434279
+sizing_2024,run,command,sizing --year 2024 --full-year
+sizing_2024,run,argv,report --only sizing_2024 negprice_2024 decompose_2024 decompose_2024_conn-30
+sizing_2024,run,started_utc,2026-10-31T22:18:09+00:00
+sizing_2024,run,wall_time_s,526.3
+sizing_2024,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+sizing_2024,code,git_dirty,False
+sizing_2024,environment,python,3.12.10
+sizing_2024,environment,numpy,2.5.4
+sizing_2024,environment,pandas,3.1.0
+sizing_2024,environment,pulp,3.3.0
+sizing_2024,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+sizing_2024,input_sha256,"load_year(2024, days=None, dt=0.25)",bbc259ba2a556f878e212c35de4e8205d270c184a3d535ac7008852e45dd3414
+sizing_2024,source_url,2024 public_power,https://api.energy-charts.info/public_power?country=de&start=2024-01-01&end=2025-01-01
+sizing_2024,source_url,2024 total_power,https://api.energy-charts.info/total_power?country=de&start=2024-01-01&end=2025-01-01
+sizing_2024,source_url,2024 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2024-01-01&end=2025-01-01
+sizing_2024,source_url,2024 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+sizing_2024,capacity_mw,2024-01 wind_onshore,61131.0
+sizing_2024,capacity_mw,2024-01 solar_dc,84938.0
+sizing_2024,capacity_mw,2024-02 wind_onshore,61349.0
+sizing_2024,capacity_mw,2024-02 solar_dc,86202.0
+sizing_2024,capacity_mw,2024-03 wind_onshore,61546.0
+sizing_2024,capacity_mw,2024-03 solar_dc,87628.0
+sizing_2024,capacity_mw,2024-04 wind_onshore,61691.0
+sizing_2024,capacity_mw,2024-04 solar_dc,89000.0
+sizing_2024,capacity_mw,2024-05 wind_onshore,61743.0
+sizing_2024,capacity_mw,2024-05 solar_dc,90232.0
+sizing_2024,capacity_mw,2024-06 wind_onshore,61917.0
+sizing_2024,capacity_mw,2024-06 solar_dc,91763.0
+sizing_2024,capacity_mw,2024-07 wind_onshore,62124.0
+sizing_2024,capacity_mw,2024-07 solar_dc,93445.0
+sizing_2024,capacity_mw,2024-08 wind_onshore,62303.0
+sizing_2024,capacity_mw,2024-08 solar_dc,94521.0
+sizing_2024,capacity_mw,2024-09 wind_onshore,62513.0
+sizing_2024,capacity_mw,2024-09 solar_dc,95821.0
+sizing_2024,capacity_mw,2024-10 wind_onshore,62720.0
+sizing_2024,capacity_mw,2024-10 solar_dc,97539.0
+sizing_2024,capacity_mw,2024-11 wind_onshore,63184.0
+sizing_2024,capacity_mw,2024-11 solar_dc,98779.0
+sizing_2024,capacity_mw,2024-12 wind_onshore,63589.0
+sizing_2024,capacity_mw,2024-12 solar_dc,100800.0
+sizing_2024,market_value_proxy_eur_mwh,2024-01 wind,65.66519270829559
+sizing_2024,market_value_proxy_eur_mwh,2024-01 pv,75.23211637529555
+sizing_2024,market_value_proxy_eur_mwh,2024-02 wind,54.0777986595607
+sizing_2024,market_value_proxy_eur_mwh,2024-02 pv,58.77280783938083
+sizing_2024,market_value_proxy_eur_mwh,2024-03 wind,56.11220744687759
+sizing_2024,market_value_proxy_eur_mwh,2024-03 pv,49.48674273196408
+sizing_2024,market_value_proxy_eur_mwh,2024-04 wind,50.566487153371824
+sizing_2024,market_value_proxy_eur_mwh,2024-04 pv,38.7323264979937
+sizing_2024,market_value_proxy_eur_mwh,2024-05 wind,60.024700203673895
+sizing_2024,market_value_proxy_eur_mwh,2024-05 pv,32.76806992540969
+sizing_2024,market_value_proxy_eur_mwh,2024-06 wind,59.835991123883176
+sizing_2024,market_value_proxy_eur_mwh,2024-06 pv,44.47317832897605
+sizing_2024,market_value_proxy_eur_mwh,2024-07 wind,53.87037985358445
+sizing_2024,market_value_proxy_eur_mwh,2024-07 pv,35.820079834791
+sizing_2024,market_value_proxy_eur_mwh,2024-08 wind,66.90058535820731
+sizing_2024,market_value_proxy_eur_mwh,2024-08 pv,43.125114766465714
+sizing_2024,market_value_proxy_eur_mwh,2024-09 wind,65.23197678410075
+sizing_2024,market_value_proxy_eur_mwh,2024-09 pv,45.171631458224404
+sizing_2024,market_value_proxy_eur_mwh,2024-10 wind,69.78788240410458
+sizing_2024,market_value_proxy_eur_mwh,2024-10 pv,67.35691164584962
+sizing_2024,market_value_proxy_eur_mwh,2024-11 wind,91.06102704672243
+sizing_2024,market_value_proxy_eur_mwh,2024-11 pv,100.63882472467998
+sizing_2024,market_value_proxy_eur_mwh,2024-12 wind,73.53593613881048
+sizing_2024,market_value_proxy_eur_mwh,2024-12 pv,111.57436346256699
+sizing_2024,market_value_proxy_eur_mwh,2024 wind,64.43775687545524
+sizing_2024,market_value_proxy_eur_mwh,2024 pv,46.28565466340612
+sizing_2025,run,command,sizing --year 2025 --full-year
+sizing_2025,run,argv,report --only sizing_2025 negprice_2025 decompose_2025 decompose_2025_conn-30 b3_ablation_synthetic_demo
+sizing_2025,run,started_utc,2026-10-31T22:18:09+00:00
+sizing_2025,run,wall_time_s,521.2
+sizing_2025,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+sizing_2025,code,git_dirty,False
+sizing_2025,environment,python,3.12.10
+sizing_2025,environment,numpy,2.5.4
+sizing_2025,environment,pandas,3.1.0
+sizing_2025,environment,pulp,3.3.0
+sizing_2025,environment,cbc,pulp/solverdir/cbc/win/i64/cbc.exe
+sizing_2025,input_sha256,"load_year(2025, days=None, dt=0.25)",3f7b934766980a9f6343095ee221b4d46ded479b1358f929dcefa4168ad409e5
+sizing_2025,source_url,2025 public_power,https://api.energy-charts.info/public_power?country=de&start=2025-01-01&end=2026-01-01
+sizing_2025,source_url,2025 total_power,https://api.energy-charts.info/total_power?country=de&start=2025-01-01&end=2026-01-01
+sizing_2025,source_url,2025 price,https://api.energy-charts.info/price?bzn=DE-LU&start=2025-01-01&end=2026-01-01
+sizing_2025,source_url,2025 installed_power,https://api.energy-charts.info/installed_power?country=de&time_step=monthly
+sizing_2025,capacity_mw,2025-01 wind_onshore,63781.0
+sizing_2025,capacity_mw,2025-01 solar_dc,102389.0
+sizing_2025,capacity_mw,2025-02 wind_onshore,64090.0
+sizing_2025,capacity_mw,2025-02 solar_dc,104225.0
+sizing_2025,capacity_mw,2025-03 wind_onshore,64447.99999999999
+sizing_2025,capacity_mw,2025-03 solar_dc,105119.0
+sizing_2025,capacity_mw,2025-04 wind_onshore,64709.0
+sizing_2025,capacity_mw,2025-04 solar_dc,106206.0
+sizing_2025,capacity_mw,2025-05 wind_onshore,65078.0
+sizing_2025,capacity_mw,2025-05 solar_dc,107490.0
+sizing_2025,capacity_mw,2025-06 wind_onshore,65444.0
+sizing_2025,capacity_mw,2025-06 solar_dc,108617.0
+sizing_2025,capacity_mw,2025-07 wind_onshore,65783.0
+sizing_2025,capacity_mw,2025-07 solar_dc,110217.0
+sizing_2025,capacity_mw,2025-08 wind_onshore,66117.0
+sizing_2025,capacity_mw,2025-08 solar_dc,112263.0
+sizing_2025,capacity_mw,2025-09 wind_onshore,66451.0
+sizing_2025,capacity_mw,2025-09 solar_dc,113306.0
+sizing_2025,capacity_mw,2025-10 wind_onshore,67054.0
+sizing_2025,capacity_mw,2025-10 solar_dc,114657.0
+sizing_2025,capacity_mw,2025-11 wind_onshore,67410.0
+sizing_2025,capacity_mw,2025-11 solar_dc,116612.0
+sizing_2025,capacity_mw,2025-12 wind_onshore,68179.0
+sizing_2025,capacity_mw,2025-12 solar_dc,118111.0
+sizing_2025,market_value_proxy_eur_mwh,2025-01 wind,87.0233614963586
+sizing_2025,market_value_proxy_eur_mwh,2025-01 pv,115.58956124892487
+sizing_2025,market_value_proxy_eur_mwh,2025-02 wind,116.18379472541318
+sizing_2025,market_value_proxy_eur_mwh,2025-02 pv,110.87350509196816
+sizing_2025,market_value_proxy_eur_mwh,2025-03 wind,80.09628424537968
+sizing_2025,market_value_proxy_eur_mwh,2025-03 pv,50.78689486036286
+sizing_2025,market_value_proxy_eur_mwh,2025-04 wind,77.56714992241491
+sizing_2025,market_value_proxy_eur_mwh,2025-04 pv,31.349489943259226
+sizing_2025,market_value_proxy_eur_mwh,2025-05 wind,65.46664256766108
+sizing_2025,market_value_proxy_eur_mwh,2025-05 pv,21.64983347284723
+sizing_2025,market_value_proxy_eur_mwh,2025-06 wind,56.897139536177875
+sizing_2025,market_value_proxy_eur_mwh,2025-06 pv,20.009364725201152
+sizing_2025,market_value_proxy_eur_mwh,2025-07 wind,82.98528647830062
+sizing_2025,market_value_proxy_eur_mwh,2025-07 pv,59.80028736470323
+sizing_2025,market_value_proxy_eur_mwh,2025-08 wind,70.63144311715988
+sizing_2025,market_value_proxy_eur_mwh,2025-08 pv,39.06544290248861
+sizing_2025,market_value_proxy_eur_mwh,2025-09 wind,66.2020397358293
+sizing_2025,market_value_proxy_eur_mwh,2025-09 pv,44.27998920903939
+sizing_2025,market_value_proxy_eur_mwh,2025-10 wind,58.880232886679366
+sizing_2025,market_value_proxy_eur_mwh,2025-10 pv,70.32776632269255
+sizing_2025,market_value_proxy_eur_mwh,2025-11 wind,89.56940759661637
+sizing_2025,market_value_proxy_eur_mwh,2025-11 pv,90.95755912762736
+sizing_2025,market_value_proxy_eur_mwh,2025-12 wind,83.87181041591475
+sizing_2025,market_value_proxy_eur_mwh,2025-12 pv,93.8370734981147
+sizing_2025,market_value_proxy_eur_mwh,2025 wind,77.36793959458824
+sizing_2025,market_value_proxy_eur_mwh,2025 pv,45.86568122434279
