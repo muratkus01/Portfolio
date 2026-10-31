@@ -35,14 +35,16 @@ interval that excludes zero; for the TSO forecast in 2026 it is +420,171 EUR (-1
 [quality_vs_value](reports/test/quality_vs_value.csv)
 
 **Why.** For a day-ahead schedule `f`, the result against a perfect forecast is exactly
-`sum((y - f) * (reBAP - DA)) * dt`. It splits into a bias part, which pays a long schedule
-while reBAP averages above the day-ahead price (it did, by 4.31 and 4.42 EUR/MWh in the two
-windows), and an alignment part, which charges every error that runs with the system's
+`sum((y - f) * (reBAP - DA)) * dt`. It splits into a bias part, which pays a schedule below
+the output (the portfolio ends long and sells its surplus at reBAP) while reBAP averages above
+the day-ahead price (it did, by 4.31 and 4.42 EUR/MWh in the two windows), and an alignment
+part, which charges every error that runs with the system's
 imbalance. This portfolio is the German fleet in miniature, so the errors of a good forecast
 are the system's own errors: the TSO forecast's error correlates more strongly with the spread
 between reBAP and the day-ahead price than any other rung's (-0.1611 and -0.0650). In 2026 the
 size of the errors decided; in late 2025 climatology's large errors happened to run almost
-independently of that spread (-0.0165) while its long bias earned 96,233 EUR. Climatology
+independently of that spread (-0.0165) while scheduling below the output earned it 96,233 EUR.
+Climatology
 carries 129,432 MWh of imbalance in the test window, about 40 % of what the portfolio
 produced and nearly five times the TSO forecast's;
 no balance responsible party may schedule that way, so its euros are a warning about scoring
@@ -190,8 +192,9 @@ Day-ahead schedule against the perfect forecast, split exactly into bias and ali
 | F3 seed 0 | -0.0886 / -0.0607 | -1,144 / -19,927 | -310,780 / -490,528 | -311,925 / -510,455 |
 | F4 TSO forecast | -0.1611 / -0.0650 | -2,935 / +21,685 | -326,184 / -348,359 | -329,119 / -326,674 |
 
-A long schedule earns where reBAP averages above the day-ahead price, which it did in both
-windows. Every error is charged where it runs with the system: being long while the system is
+Scheduling below the output, so that the portfolio ends long, earns where reBAP averages above
+the day-ahead price, which it did in both windows. Every error is charged where it runs with the
+system: being long while the system is
 long settles at a low reBAP. A better forecast has smaller errors, but its remaining errors
 are the market's errors, because everyone forecasts the same weather; for this fleet-shaped
 portfolio they correlate with the spread more strongly than any other rung's, in both

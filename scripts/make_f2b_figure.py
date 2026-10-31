@@ -5,8 +5,10 @@
 Panels: pinball loss of every forecast rung at every decision stage; reliability of the
 day-ahead quantiles; and, once the market value exists, each forecast scheduled day-ahead
 against the perfect forecast, split into its bias part and its alignment part
-(error_alignment.csv). The three LightGBM seeds are drawn as their median, with the spread
-across seeds in the CSVs.
+(error_alignment.csv). In the first two panels the three LightGBM seeds are drawn as their
+median, with the spread across seeds in the CSVs. The third panel shows the first seed, as
+README table 2.3 does: medians taken part by part would come from different seeds and need
+not add up to the total.
 """
 import argparse
 from pathlib import Path
@@ -63,14 +65,16 @@ def plot_reliability(ax, scores: pd.DataFrame) -> None:
 
 def plot_alignment(ax, alignment: pd.DataFrame) -> None:
     """Scheduling each forecast day-ahead, against the perfect forecast: why euros do not
-    follow skill. Bias part plus alignment part equals the total exactly."""
+    follow skill. Bias part plus alignment part equals the total exactly, so LightGBM is
+    drawn for one seed (the first), not as medians that would mix seeds."""
     parts = ["bias_part_eur", "alignment_part_eur", "b0_minus_ref_eur"]
-    a = merge_seeds(alignment[["rung", *parts]], parts).set_index("rung").reindex(list(RUNGS))
+    a = (alignment.replace({"rung": {"F3 seed 0": "F3 gradient boosting"}})
+         .set_index("rung")[parts].reindex(list(RUNGS)))
     x = np.arange(len(a))
     bias, align = a["bias_part_eur"] / 1e3, a["alignment_part_eur"] / 1e3
     ax.bar(x, align, color="#7f7f7f", label="errors aligned with the imbalance price")
     ax.bar(x, bias, bottom=np.where(bias * align > 0, align, 0), color="#ff7f0e",
-           label="bias (long earns when reBAP > day-ahead)")
+           label="bias (scheduling below output earns when reBAP > day-ahead)")
     ax.scatter(x, a["b0_minus_ref_eur"] / 1e3, color="black", zorder=3, label="total")
     ax.axhline(0, color="black", lw=0.8)
     ax.set_xticks(x)
