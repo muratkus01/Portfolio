@@ -214,6 +214,32 @@ def test_negprice_pays_each_vintage_against_its_realised_market_value(monkeypatc
         assert rate == pytest.approx(np.full(192, expected[aw])), (aw, rule)
 
 
+@pytest.mark.parametrize("year, eeg_2023, rules", [
+    (2025, "three_hour", ["none", "six_hour", "four_hour", "three_hour", "new_2025"]),
+    (2023, "four_hour", ["none", "six_hour", "four_hour", "new_2025"]),
+])
+def test_negprice_runs_the_rule_of_every_vintage_oldest_first(monkeypatch, capsys, year,
+                                                              eeg_2023, rules):
+    """Each applicable value runs under the rule of every vintage of the evaluated year, from
+    the loosest to the tightest, and the output says which vintage carries which rule.
+
+    Regression test: negprice ran none, six_hour and new_2025 whatever the year, so the
+    four-hour rule of 2021-2022 and the 2023 vintage's yearly threshold never appeared. In 2023
+    that threshold is four hours, the rule of 2021-2022, so one column serves both.
+    """
+    calls = []
+    monkeypatch.setattr(cli, "load_year", two_months)
+    monkeypatch.setattr(cli, "run_ladder", recording_ladder(calls))
+    assert cli.main(["negprice", "--year", str(year), "--days", "2"]) == 0
+    for aw in (73.5, 95.0):
+        assert [rule for a, rule, _ in calls if a == aw] == rules, aw
+    lines = [ln.strip() for ln in capsys.readouterr().out.splitlines()]
+    for vintage, rule in (("before 2016", "none"), ("2016-2020", "six_hour"),
+                          ("2021-2022", "four_hour"), ("2023 to 24 Feb 2025", eeg_2023),
+                          ("from 25 Feb 2025", "new_2025")):
+        assert any(ln.startswith(vintage) and ln.endswith(rule) for ln in lines), vintage
+
+
 def test_negprice_note_reports_the_window_not_a_fixed_year(monkeypatch, capsys):
     """Regression test: the note said "In 2024 ..." whatever year was run."""
     monkeypatch.setattr(cli, "load_year", two_months)
