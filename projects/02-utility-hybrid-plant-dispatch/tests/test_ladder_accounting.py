@@ -43,6 +43,31 @@ def test_perfect_forecasts_do_not_trip_the_ladder_invariant():
     assert res["B3 rolling MPC"]["cost"]["net_revenue"] == pytest.approx(b2, rel=1e-6)
 
 
+def test_a_rounding_size_gain_over_b2_does_not_trip_the_ladder_invariant(monkeypatch):
+    """The tolerance itself, whatever the CBC build rounds to.
+
+    B3 is replaced by B2's own dispatch with 1e-8 more export. On this window that gain is
+    above the old absolute 1e-3 EUR, which stopped the run, and far below 1e-6 of B2.
+    """
+    k = 20.0
+    plant = PlantConfig(wind_mw=50 * k, pv_mw=30 * k, bess_mw=20 * k, bess_mwh=40 * k,
+                        conn_mw=80 * k)
+    run = RunConfig(dt=0.25, horizon_steps=48, plant=plant)
+    wind, pv, price = window(48, seed=1)
+
+    def b2_with_a_little_more_export(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run,
+                                     export_cap=None, progress=False):
+        res = baselines.b2_perfect(wind, pv, eff_price, run, export_cap)
+        return {**res, "export": res["export"] * (1 + 1e-8)}
+
+    monkeypatch.setattr(baselines, "b3_rolling", b2_with_a_little_more_export)
+    res = run_ladder(wind * k, pv * k, price, run, premium_rate=8.0, include_b3=True)
+
+    b2 = res["B2 perfect foresight"]["cost"]["net_revenue"]
+    gain = res["B3 rolling MPC"]["cost"]["net_revenue"] - b2
+    assert 1e-3 < gain < 1e-6 * b2
+
+
 def test_a_genuine_ladder_violation_still_raises(monkeypatch):
     """The relative tolerance must not hide a real defect.
 
