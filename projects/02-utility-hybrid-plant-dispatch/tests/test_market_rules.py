@@ -224,3 +224,25 @@ def test_negprice_note_reports_the_window_not_a_fixed_year(monkeypatch, capsys):
     assert "2025-01 (31 days): wind 36.00, PV 84.00" in out, "January's market values"
     assert "AW 73.5 (recent onshore) PV in 2025" in out, "the zero premium it gets"
     assert "AW 95.0 (older vintage) none" in out
+
+
+# ------------------------------------------------------------------ EEG switch
+def test_effective_price_carries_no_premium_when_eeg_is_off():
+    """Regression test: effective_price added the premium with eeg_enabled=False, while
+    `settle` paid none, so the optimiser planned on money the settlement never paid."""
+    mk = MarketConfig(eeg_enabled=False, direct_marketing_fee=3.0)
+    eff = market.effective_price(np.array([50.0, -10.0]), mk, premium_rate=20.0)
+    assert eff == pytest.approx([47.0, -13.0]), "price minus the marketing fee only"
+
+
+def test_perfect_foresight_curtails_negative_prices_when_eeg_is_off():
+    """Without a premium, exporting at -10 EUR/MWh only loses money, so B2 curtails there.
+
+    Planned on a 20 EUR/MWh premium that is never paid, B2 used to export straight through.
+    """
+    n = 48
+    price = np.where(np.arange(n) < 24, -10.0, 50.0)
+    run = RunConfig(market=MarketConfig(eeg_enabled=False, negative_price_rule="none"))
+    res = run_ladder(np.full(n, 30.0), np.zeros(n), price, run, premium_rate=20.0,
+                     include_b3=False)
+    assert res["B2 perfect foresight"]["cost"]["chosen_curtail_mwh"] > 0.0

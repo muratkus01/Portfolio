@@ -320,8 +320,10 @@ def effective_price(price: np.ndarray, market: MarketConfig,
     whenever the negative-price rule bites - which is precisely why the optimal action flips
     qualitatively across that boundary. `premium_rate` is one rate or one per step, as in
     `settle`; `dt` is the step length in hours, which the negative-price rule needs to count
-    hours.
+    hours. With `market.eeg_enabled` off no premium is payable, as `settle` pays none.
     """
+    if not market.eeg_enabled:
+        return np.asarray(price, dtype=float) - market.direct_marketing_fee
     eligible = premium_eligible(price, market, dt)
     return np.asarray(price, dtype=float) + np.where(eligible, premium_rate, 0.0) \
         - market.direct_marketing_fee
