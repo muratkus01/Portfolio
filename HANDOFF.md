@@ -514,6 +514,39 @@ still holds the Teaching session's uncommitted solver edits, which `rl_eval` imp
 4. Owner decision: `showcase.html` still quotes RL 27.0 % (lines 1439, 1499 to 1500, 1552,
    3032, 3039) and the old ladder (56 %, line 2866).
 
+## Projects renumbered to 01, 02, 03 (2026-10-31, Claude Code)
+
+Murat's reason: a recruiter who sees 01, 05, 06 wonders what happened to the rest.
+`projects/05-utility-hybrid-plant-dispatch` is now `projects/02-...`, and
+`projects/06-probabilistic-forecast-to-bid` is now `projects/03-...`. Package names are
+unchanged (`hybrid`, `f2b`), so no import anywhere moved.
+
+Forced side effect: the archived projects still owned `simulations/results/p0{2,3,4}_scenarios.parquet`,
+so those moved to `archive/<project>/results/` before the active projects could take the names,
+and their three keys left `lookup_cubes.json`.
+
+Found while renumbering: the token rewrite gave `scripts/run_overnight_simulations.py` two
+functions named `_p02_run`, two named `_p03_run`, and duplicate keys in four registries.
+Python accepts all of that silently, the later definition winning. The archived halves also
+still pointed at `projects/02-pumped-storage-rl-multimarket`, a path that moved to `archive/`
+on 2026-10-09, so they could not have run since. Removed them: the runner is 38.9 KB to
+24.1 KB and now knows only the three live projects.
+
+Verified: 295 passed, 6 skipped. `verify_html_integrity.py` green, 83 onclick bindings.
+`showcase.py` 3 of 3 demos. Page driven in the browser through every year switch, project
+switch, resize and simulator with the console open: no errors, badges read 01/02/03, all
+three figures load.
+
+Left alone on purpose: `archive/` keeps the numbers those projects had, so `archive/02-pumped-storage`
+and `projects/02-utility-hybrid` now coexist. `HANDOFF.md` entries before this date keep the old
+numbering, because they record what happened at the time.
+
+Still open for the two newer projects: neither commits a single result file. P01 has 51 CSVs
+under `reports/` and cites them 16 times in its README; P02 and P03 have none and cite
+`reports/` once each. Every number in their READMEs comes from a console run, which is why
+Antigravity could only mark them as unverified claims in the walkthroughs.
+
+
 ## ▶️ Next Concrete Actions (in order)
 
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
@@ -602,3 +635,4 @@ reaches a figure, a README or the showcase unless it traces to a committed CSV.
 - 2026-10-29 · Claude Code · Fehlgeschlagenen Test behoben: nicht der Test war falsch, sondern der Loader. pandas schreibt die kürzeste exakte float64-Darstellung, liest sie aber mit einem ungenauen Parser zurück (14.399999999999995 wurde 14.399999999999997); float_precision="round_trip" in load_model und load_state_normals. 294 passed, 7 skipped. Danach die RL-Wiederholung vorbereitet: H28-Datensatz neu gebaut und das Gate bestanden (B1 -324,9827 / B2 -716,6751 / B3 -675,2715 / 89,4296 %, maximale Abweichung 0,0 gegen den eingecheckten Post-Fix-Bericht). Treiber scripts/rerun_rl_formulations.py committet, staged nach data/processed/rl_rerun_stage und veröffentlicht nichts selbst. Lauf nicht gestartet: Murat führt ihn auf dem Firmenrechner aus, Runbook in diesem HANDOFF unter "Runbook: rerun the four SAC formulations".
 - 2026-10-30 · Claude Code · EIM-MUK: RL rerun of all four SAC formulations finished (25.9 h, 3 seeds each, gate exact) and published: headline 32.4 % (pre-fix 27.0), original -7.3 %, rescaling only -3.4 %, reward only +27.0 %. The README claim that rescaling alone is harmful did not survive three seeds and was corrected. Household sweep and sizing grid stay pre-fix, to be rerun on the personal laptop.
 - 2026-10-30 · Claude Code · Letzte beiden Wiederholungen nach dem HTW-Uhrzeit-Fix abgeschlossen, damit alle Zahlen in P01 aus demselben Datensatz kommen. Sizing-Grid (19,2 min) und 73-Haushalte-Sweep (ca. 35 min) auf dem privaten Rechner. Sweep-Median 85,2 % auf 86,5 % (H28 +1,51, H31 +1,28, kein Haushalt mehr als +3,6 oder -1,8); Sizing-Zeile 9,37 kWh / 5,63 kW auf -394,4 EUR/a, stimmt jetzt exakt mit der Benchmark-Tabelle. README: beide "before the clock fix"-Blöcke entfernt, Sizing-Tabelle und die vier Sizing-Insights neu gerechnet (B3 realisiert 95 % statt 94 % der Perfect-Foresight-Einsparung), household_sweep.png neu erzeugt. 295 passed, 6 skipped, HTML-Integrität grün. Nebenbefund: der Resume-Mechanismus im Sweep macht eine Wiederholung nach einem Datenfix zum stillen No-Op mit Rückgabewert 0.
+- 2026-10-31 · Claude Code · Projekte auf 01, 02, 03 umnummeriert: projects/05-utility-hybrid-plant-dispatch -> 02, projects/06-probabilistic-forecast-to-bid -> 03, inklusive Abbildungsnamen, Parquet-Namen, Cube-Keys, Labels und Figure-Nummern (515 Ersetzungen allein in showcase.html). Paketnamen hybrid und f2b unverändert. Archivierte Szenario-Parquets nach archive/<projekt>/results/ verschoben, damit p02 und p03 frei wurden. Dabei gefunden und behoben: der Runner hatte nach dem Umbenennen doppelte _p02_run und _p03_run Definitionen und doppelte Registry-Keys, die Python still auffrisst; die archivierten Hälften zeigten ohnehin seit 2026-10-09 auf verschobene Pfade. Verifiziert: 295 passed / 6 skipped, Integritätscheck grün, showcase.py 3 von 3, Browser-Konsole fehlerfrei, Badges 01/02/03.
