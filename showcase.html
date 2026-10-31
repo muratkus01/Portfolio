@@ -1578,9 +1578,12 @@
           </div>
 
           <div class="cli-box">
-            <span id="p01-cli-text">prosumer rolling-eval --data data/processed/site_2024_2026_htw_H28.parquet --out reports/rolling_eval_htw_H28</span>
+            <span id="p01-cli-text">cd projects/01-prosumer-pv-bess-mpc-rl &amp;&amp; prosumer rolling-eval --data data/processed/site_2024_2026_htw_H28.parquet --out reports/rolling_eval_htw_H28</span>
             <button class="btn-copy" onclick="copyDynamicText('p01-cli-text')">Copy Command</button>
           </div>
+          <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; margin-top: 8px;">
+            Reruns the B1, B2 and B3 rows of the table. The H28 dataset is not in the repository: build it first with <code>prosumer build-data</code>, then add H28's measured load from the HTW Berlin data with <code>prosumer.data.dataset.with_measured_load</code>.
+          </p>
         </div>
 
         <div class="visual-col">
@@ -2940,7 +2943,7 @@
       b3Rec: '89.4% Recovery',
       rlCost: '-451.82 EUR',
       rlRec: '32.4% Recovery',
-      cli: 'prosumer rolling-eval --data data/processed/site_2024_2026_htw_H28.parquet --out reports/rolling_eval_htw_H28'
+      cli: 'cd projects/01-prosumer-pv-bess-mpc-rl && prosumer rolling-eval --data data/processed/site_2024_2026_htw_H28.parquet --out reports/rolling_eval_htw_H28'
     };
 
     // Global Evaluation Year Configuration & Reactive Engine
