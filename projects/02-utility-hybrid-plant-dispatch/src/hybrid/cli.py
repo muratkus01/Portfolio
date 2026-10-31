@@ -4,6 +4,7 @@
     python -m hybrid.cli sizing    --year 2025 --days 30   connection-ratio sweep (RQ2)
     python -m hybrid.cli negprice  --year 2025 --days 30   negative-price rule by vintage (RQ4)
     python -m hybrid.cli decompose --year 2025 --days 30   where the battery's value comes from
+    python -m hybrid.cli b3-ablation --synthetic-demo      B3: forecast error x terminal value
 
 A window runs --days days of 24 h from --start (MM-DD, Berlin time, 01-01 by default), or
 the whole Berlin calendar year with --full-year. --out PATH also writes the result as a CSV,
@@ -17,8 +18,8 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from . import tables
-from .baselines import run_ladder
+from . import synthetic, tables
+from .baselines import ladder_tolerance, run_ladder
 from .config import NEGATIVE_PRICE_RULES, MarketConfig, PlantConfig, RunConfig
 from .data import describe, load_year, to_plant
 from .market import (market_values, planning_rates, premium_rates, premium_table,
@@ -78,7 +79,10 @@ def load_window(args, dt: float) -> pd.DataFrame:
 
 
 def window_label(args) -> str:
-    """The window's name in file names: "2024" for a whole year, else e.g. "2025-07-01_30d"."""
+    """The window's name in file names: "2024" for a whole year, else e.g. "2025-07-01_30d",
+    and "synthetic_demo" for the showcase's synthetic inputs."""
+    if getattr(args, "synthetic_demo", False):
+        return "synthetic_demo"
     if args.days is None:
         return str(args.year)
     return f"{args.year}-{args.start}_{args.days}d"
@@ -86,6 +90,8 @@ def window_label(args) -> str:
 
 def _window_text(args) -> str:
     """The window as the output names it, e.g. "30 days of 2025" or "2024 (whole year)"."""
+    if getattr(args, "synthetic_demo", False):
+        return "the showcase's 3 synthetic days (demo_05)"
     if args.days is None:
         return f"{args.year} (whole year)"
     text = f"{args.days} days of {args.year}"
@@ -499,6 +505,73 @@ def cmd_decompose(args) -> None:
                                                   **split)])
 
 
+# The B3 settings the ablation crosses: perfect forecasts and a forecast error of 15 %, each
+# without and with a linear terminal value on stored energy (`default_terminal_price`).
+_ABLATION = tuple((sigma, terminal) for sigma in (0.0, 0.15) for terminal in (False, True))
+
+
+def _ablation_inputs(args) -> tuple:
+    """The b3-ablation's window: the showcase's synthetic inputs, or Energy-Charts data.
+
+    args: parsed CLI arguments, e.g. synthetic_demo=False, year=2025, days=30.
+    Returns (run, wind, pv, price, rebap, premium_rate, b3_premium_rate, window columns,
+    premium columns). On real data every rung is settled on the realised annual value and B3
+    plans on the month before's realised rate, as in `ladder`; the demo has one fixed rate.
+    """
+    if args.synthetic_demo:
+        demo = synthetic.demo_inputs()
+        window = tables.window_columns("synthetic (showcase demo_05)", None, len(demo.price),
+                                       demo.run.dt)
+        premium = {"premium_period": "fixed", "premium_wind_mean_eur_mwh": None,
+                   "premium_pv_mean_eur_mwh": None, "premium_rate_mean_eur_mwh": demo.premium_rate,
+                   "b3_premium_rate_mean_eur_mwh": demo.premium_rate}
+        return (demo.run, demo.wind, demo.pv, demo.price, None, demo.premium_rate, None,
+                window, premium)
+    run, index, wind, pv, price, rebap = _setup(args)
+    table, rate = _premium(args, run, index, wind, pv)
+    plan = _b3_planning_premium(args, run, index)
+    run = run.with_(forecast_price_scale=_b3_price_scale(args, run))
+    return (run, wind, pv, price, rebap, rate, plan, _window_columns(args, index, run.dt),
+            _premium_columns(index, table, _DEFAULT_PERIOD, plan))
+
+
+def _recovery(net: dict) -> float | None:
+    """B3's share of the headroom from B1 to B2, (B3 - B1) / (B2 - B1), from net revenue in
+    EUR by rung; None where B2 is not above B1 by more than the ladder's tolerance."""
+    b1, b2, b3 = (net[name] for name in ("B1 curtailment avoidance", "B2 perfect foresight",
+                                         "B3 rolling MPC"))
+    return None if b2 - b1 <= ladder_tolerance(b2) else (b3 - b1) / (b2 - b1)
+
+
+def cmd_b3_ablation(args) -> None:
+    """B3 under perfect forecasts and a 15 % forecast error, without and with a terminal
+    value: B0 to B3, B3's recovery of the B1-to-B2 headroom, and its stored energy at the end."""
+    run, wind, pv, price, rebap, rate, plan, window, premium = _ablation_inputs(args)
+    rows, out = [], []
+    for sigma, terminal in _ABLATION:
+        case = run.with_(forecast_sigma=sigma, terminal_value=terminal)
+        res = run_ladder(wind, pv, price, case, rate, rebap, progress=args.progress,
+                         b3_premium_rate=plan)
+        net = {name: r["cost"]["net_revenue"] for name, r in res.items()}
+        recovery = _recovery(net)
+        rows.append({"forecast_sigma": sigma, "terminal_value": terminal,
+                     **{f"{name[:2]} EUR": value for name, value in net.items()},
+                     "recovery": recovery,
+                     "B3 end SoC MWh": float(res["B3 rolling MPC"]["soc"][-1])})
+        if args.out:
+            out += tables.rung_rows(res, case, window, premium, forecast_sigma=sigma,
+                                    terminal_value=terminal, recovery=recovery)
+    title = f"B3 ablation, forecast error x terminal value, {_window_text(args)}"
+    print(f"\n{title}\n{'=' * len(title)}")
+    print(pd.DataFrame(rows).to_string(index=False, formatters={
+        **{f"B{k} EUR": "{:,.0f}".format for k in range(4)},
+        "recovery": lambda x: "n/a" if x is None or np.isnan(x) else f"{x:.1%}",
+        "B3 end SoC MWh": "{:.1f}".format}))
+    print("recovery: (B3 - B1) / (B2 - B1), B3's share of the headroom from B1 to B2")
+    if args.out:
+        _write(args, out)
+
+
 def _month_day(text: str) -> str:
     """argparse type of --start: a calendar day as MM-DD, e.g. "07-01"."""
     try:
@@ -514,7 +587,8 @@ def build_parser() -> argparse.ArgumentParser:
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     for name, fn in (("ladder", cmd_ladder), ("sizing", cmd_sizing),
-                     ("negprice", cmd_negprice), ("decompose", cmd_decompose)):
+                     ("negprice", cmd_negprice), ("decompose", cmd_decompose),
+                     ("b3-ablation", cmd_b3_ablation)):
         sp = sub.add_parser(name)
         sp.add_argument("--year", type=int, default=2025)
         span = sp.add_mutually_exclusive_group()
@@ -525,7 +599,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help="first day of the window, MM-DD in Berlin time")
         sp.add_argument("--horizon", type=int, default=96)
         sp.add_argument("--neg-rule", default="new_2025", choices=NEGATIVE_PRICE_RULES)
-        sp.add_argument("--fast", action="store_true")
+        if name == "b3-ablation":
+            sp.add_argument("--synthetic-demo", action="store_true",
+                            help="run on showcase.py demo_05's synthetic inputs and settings "
+                                 "instead of the window and plant options")
+        else:
+            sp.add_argument("--fast", action="store_true")
         sp.add_argument("--progress", action="store_true")
         sp.add_argument("--out", metavar="PATH",
                         help="also write the result as a CSV, one row per scenario and rung")

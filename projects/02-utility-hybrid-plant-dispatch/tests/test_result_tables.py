@@ -182,6 +182,99 @@ def test_the_decompose_table_holds_both_connections_and_the_split(monkeypatch, t
         np.full(6, as_built - unconstrained))
 
 
+def tiny_demo():
+    """Inputs short enough for B3 in a test, in the shape of `synthetic.demo_inputs`: two hours
+    of spill at 20 EUR/MWh, then two hours of headroom at 90, behind a 20 MW connection, on a
+    30-minute horizon."""
+    from hybrid import synthetic
+
+    run = RunConfig(dt=0.25, horizon_steps=2, plant=PlantConfig(conn_mw=20.0))
+    wind = np.r_[np.full(8, 30.0), np.full(8, 10.0)]
+    price = np.r_[np.full(8, 20.0), np.full(8, 90.0)]
+    return synthetic.DemoInputs(wind, np.zeros(16), price, run, 8.0)
+
+
+def test_the_b3_ablation_reports_recovery_and_b3s_end_state(monkeypatch, tmp_path):
+    """Feature test: the README's B3 figures (100 %, 88 %, -179 %, 34 to 38 MWh) came from a
+    scratch run that no command could repeat. b3-ablation crosses forecast error with the
+    terminal value and writes each case's ladder, B3's recovery and its end state of charge."""
+    from hybrid import synthetic
+
+    monkeypatch.setattr(synthetic, "demo_inputs", tiny_demo)
+    df = result_table(monkeypatch, tmp_path, ["b3-ablation", "--synthetic-demo"])
+
+    assert set(COMMON + ["forecast_sigma", "terminal_value", "recovery",
+                         "b3_solve_time_mean_s"]) <= set(df.columns)
+    assert_terms_add_up(df)
+    assert len(df) == 4 * 4, "four cases, four rungs"
+    cases = df.groupby(["forecast_sigma", "terminal_value"])
+    assert sorted(cases.groups) == [(0.0, False), (0.0, True), (0.15, False), (0.15, True)]
+    for case, g in cases:
+        net = g.set_index("rung")["net_revenue_eur"]
+        assert net[B2] - net[B1] > 1.0, f"{case}: B2 leaves B1 headroom"
+        expected = (net[B3] - net[B1]) / (net[B2] - net[B1])
+        assert g["recovery"].to_numpy() == pytest.approx(np.full(4, expected)), case
+        assert g.set_index("rung").loc[B3, "final_soc_mwh"] >= 2.0 - 1e-6, "B3's end state"
+    assert (df["inputs"] == "synthetic (showcase demo_05)").all()
+    assert df["window_start_utc"].isna().all(), "the demo has no dates"
+    assert (df["premium_rate_mean_eur_mwh"] == 8.0).all()
+
+
+def test_the_b3_ablation_runs_on_a_window_of_data_as_the_ladder_does(monkeypatch, tmp_path):
+    """On --year/--days the ablation settles every rung as ladder does and plans B3 on the
+    month before's rate; B3 is replaced by B2's dispatch so that nothing but B2 is solved."""
+    def b2_instead(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run, export_cap=None,
+                   progress=False, premium=None):
+        return {**baselines.b2_perfect(wind, pv, eff_price, run, export_cap),
+                "solve_time_s": np.array([0.5])}
+
+    monkeypatch.setattr(baselines, "b3_rolling", b2_instead)
+    df = result_table(monkeypatch, tmp_path, ["b3-ablation", "--year", "2025", "--days", "1"])
+
+    assert set(COMMON + ["recovery", "b3_premium_rate_mean_eur_mwh"]) <= set(df.columns)
+    assert len(df) == 4 * 4
+    assert (df["window_start_berlin"] == "2025-01-01T00:00:00+01:00").all()
+    assert (df["premium_period"] == "year").all()
+    assert df["forecast_price_scale"].to_numpy() == pytest.approx(
+        np.full(16, np.std(calendar_year(2024)["price_eur_mwh"])))
+
+
+def test_the_demo_inputs_are_those_of_showcase_demo_05(monkeypatch):
+    """The ablation's synthetic inputs must be the showcase's, value for value, so that the two
+    report one result. showcase.py builds them inside demo_05; a stand-in for run_ladder
+    records what demo_05 hands it, and nothing is solved."""
+    import importlib.util
+    import io
+    import sys
+    from pathlib import Path
+
+    from hybrid import synthetic
+
+    calls = []
+
+    def recording_ladder(wind, pv, price, run, premium_rate=None, **kwargs):
+        calls.append((wind, pv, price, run, premium_rate, kwargs))
+        cost = {"net_revenue": 1.0, "forced_curtail_mwh": 0.0}
+        return {name: {"cost": cost} for name in (B0, B3)}
+
+    monkeypatch.setattr(baselines, "run_ladder", recording_ladder)
+    monkeypatch.setattr(sys, "path", list(sys.path))      # showcase.py adds project folders
+    monkeypatch.setattr(sys, "stdout", io.StringIO())     # and sets the console's encoding
+    path = Path(__file__).resolve().parents[3] / "showcase.py"
+    spec = importlib.util.spec_from_file_location("showcase_under_test", path)
+    showcase = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(showcase)
+    showcase.demo_05(False)
+
+    (wind, pv, price, run, premium_rate, kwargs), = calls
+    demo = synthetic.demo_inputs()
+    for name, got, want in (("wind", wind, demo.wind), ("PV", pv, demo.pv),
+                            ("price", price, demo.price)):
+        assert np.array_equal(got, want), name
+    assert run == demo.run
+    assert (premium_rate, kwargs) == (demo.premium_rate, {})
+
+
 def test_every_setting_is_recorded_or_named_inert():
     """A setting a table leaves out must be one no command reads, or a row could not be
     re-run from what it records; a new setting has to be put on one of the lists."""
