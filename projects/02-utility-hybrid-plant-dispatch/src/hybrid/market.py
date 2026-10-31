@@ -9,9 +9,11 @@ module implements explicitly, are:
      optimises the wrong thing near month boundaries.
 
   2. **The negative-price rule.** Under the 2025 tightening, a new plant earns NO premium in
-     any quarter-hour with a negative day-ahead price. The revenue function is therefore
-     discontinuous in price and depends on the plant's commissioning vintage - which turns
-     curtailment from something merely tolerated into something rational.
+     any quarter-hour with a negative day-ahead price. Older vintages lose it for a whole run
+     of negative prices once the run lasts long enough: six hours down to one, by vintage. The
+     revenue function is therefore discontinuous in price and depends on the plant's
+     commissioning vintage - which turns curtailment from something merely tolerated into
+     something rational.
 """
 from __future__ import annotations
 
@@ -19,23 +21,101 @@ import numpy as np
 
 from .config import MarketConfig, PlantConfig
 
+# Hours of uninterrupted negative prices after which § 51 EEG removes the premium for the
+# WHOLE run, by rule. A plant keeps the version of § 51 in force when it was commissioned or
+# awarded (§ 100 EEG 2023). Texts from gesetze-im-internet.de, older versions from its
+# archived pages:
+#   six_hour   2016-2020: "in mindestens sechs aufeinanderfolgenden Stunden", § 24 (1)
+#              EEG 2014 and § 51 (1) EEG 2017, kept by § 100 (2) Nr. 13 EEG 2021.
+#   four_hour  2021-2022: "für die Dauer von mindestens vier aufeinanderfolgenden Stunden",
+#              § 51 (1) in the version in force on 31 Dec 2022, kept by § 100 (1) EEG 2023.
+#   four_hour to one_hour  1 Jan 2023 to 24 Feb 2025: § 51 (1) in the version in force on
+#              24 Feb 2025, kept by § 100 (46) EEG 2023: four hours in 2023, three in 2024
+#              and 2025, two in 2026, one from 2027 (see `vintage_rules`).
+# All of them zero the applicable value "für den gesamten Zeitraum, in dem der
+# Spotmarktpreis ohne Unterbrechung negativ ist": every step of the run, not only those
+# after the threshold. Plants commissioned before 2016 carry no rule (§ 24 (3) Nr. 1
+# EEG 2014, § 100 (1) EEG 2017). From 25 Feb 2025 (BGBl. 2025 I Nr. 51) § 51 (1) removes the
+# premium "für Zeiträume, in denen der Spotmarktpreis negativ ist", whatever the run
+# length: rule "new_2025".
+_RUN_HOURS = {"six_hour": 6, "four_hour": 4, "three_hour": 3, "two_hour": 2, "one_hour": 1}
 
-def premium_eligible(price: np.ndarray, cfg: MarketConfig) -> np.ndarray:
-    """Boolean mask: is the market premium payable in this step?"""
+
+def premium_eligible(price: np.ndarray, cfg: MarketConfig, dt: float = 0.25) -> np.ndarray:
+    """Boolean mask: is the market premium payable in this step?
+
+    Parameters
+    ----------
+    price : day-ahead price per step, EUR/MWh, e.g. np.array([42.0, -3.1, -0.5, ...]). The
+        series starts at the top of a calendar hour, as the data layer's frames do.
+    cfg : market settings; `cfg.negative_price_rule` names the plant's rule.
+    dt : step length in hours, 0.25 for quarter-hours.
+
+    Returns
+    -------
+    np.ndarray of bool, one per step, True where the premium is payable.
+    """
     price = np.asarray(price, dtype=float)
     if cfg.negative_price_rule == "none":
         return np.ones(len(price), dtype=bool)
     if cfg.negative_price_rule == "new_2025":
         return price >= 0.0
+    return ~_in_long_negative_run(price, _RUN_HOURS[cfg.negative_price_rule], dt)
 
-    # "six_hour": premium suspended once prices have been negative for 6 consecutive hours
-    neg = price < 0.0
-    run = np.zeros(len(price), dtype=int)
-    for i in range(len(price)):
-        run[i] = run[i - 1] + 1 if (neg[i] and i > 0) else int(neg[i])
-    # 6 hours expressed in steps is resolution-dependent; the caller supplies 15-min data,
-    # so 24 steps. Kept explicit rather than hidden in a constant.
-    return ~(neg & (run >= 24))
+
+def _in_long_negative_run(price: np.ndarray, hours: int, dt: float) -> np.ndarray:
+    """Steps that belong to a run of at least `hours` consecutive negative calendar hours.
+
+    The rules count hours, not steps. Until 30 Sep 2025 the DE-LU day-ahead price is hourly
+    and the data layer holds it across the quarter-hours, so an hour's steps share one price.
+    From 1 Oct 2025 the products are quarter-hours, and § 100 (45) sentence 2 EEG 2023 counts
+    an hour as negative when the arithmetic mean of its quarter-hour prices is negative; the
+    hourly mean below covers both cases. A run cut by the series' start or end counts only
+    its part inside the series.
+    """
+    per_hour = round(1.0 / dt)
+    if per_hour < 1 or abs(per_hour * dt - 1.0) > 1e-9:
+        raise ValueError(f"step length {dt} h does not divide an hour")
+    if len(price) == 0:
+        return np.zeros(0, dtype=bool)
+    starts = np.arange(0, len(price), per_hour)
+    sizes = np.diff(np.append(starts, len(price)))
+    negative_hour = np.add.reduceat(price, starts) / sizes < 0.0
+    # each run of negative hours as [begin, end), read off the edges of the 0/1 sequence
+    edges = np.diff(np.concatenate([[0], negative_hour.astype(int), [0]]))
+    long_hour = np.zeros(len(negative_hour), dtype=bool)
+    for begin, end in zip(np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)):
+        if end - begin >= hours:
+            long_hour[begin:end] = True
+    return np.repeat(long_hour, sizes)
+
+
+def vintage_rules(year: int) -> dict[str, str]:
+    """Negative-price rule of each commissioning vintage in calendar year `year`.
+
+    A plant keeps the rule of its commissioning date (see `_RUN_HOURS`). Only the 2023 to
+    24 Feb 2025 vintage's threshold moves, with the calendar year of the prices; years before
+    2023 get its 2023 threshold, as a counterfactual.
+
+    Parameters
+    ----------
+    year : calendar year of the evaluated prices, e.g. 2024.
+
+    Returns
+    -------
+    dict from vintage label to rule name, oldest vintage first, e.g.
+    {"before 2016": "none", "2016-2020": "six_hour", ..., "from 25 Feb 2025": "new_2025"}.
+    """
+    if year <= 2023:
+        eeg_2023 = "four_hour"
+    elif year <= 2025:
+        eeg_2023 = "three_hour"
+    elif year == 2026:
+        eeg_2023 = "two_hour"
+    else:
+        eeg_2023 = "one_hour"
+    return {"before 2016": "none", "2016-2020": "six_hour", "2021-2022": "four_hour",
+            "2023 to 24 Feb 2025": eeg_2023, "from 25 Feb 2025": "new_2025"}
 
 
 def monthly_market_value(price: np.ndarray, generation: np.ndarray,
@@ -87,7 +167,7 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
             aw = (wind_share * market.anzulegender_wert_wind
                   + (1 - wind_share) * market.anzulegender_wert_pv)
             premium_rate = max(0.0, aw - float(np.mean(price)))
-        eligible = premium_eligible(price, market)
+        eligible = premium_eligible(price, market, dt)
         premium_revenue = float(np.sum(export[eligible]) * dt * premium_rate)
 
     marketing_fee = float(np.sum(export) * dt * market.direct_marketing_fee)
@@ -113,14 +193,15 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
 
 
 def effective_price(price: np.ndarray, market: MarketConfig,
-                    premium_rate: float) -> np.ndarray:
+                    premium_rate: float, dt: float = 0.25) -> np.ndarray:
     """Marginal value of an exported MWh, including the premium where it is payable.
 
     This is what the optimiser should maximise against, and it is discontinuous at zero
     whenever the negative-price rule bites - which is precisely why the optimal action flips
-    qualitatively across that boundary.
+    qualitatively across that boundary. `dt` is the step length in hours, which the
+    negative-price rule needs to count hours.
     """
-    eligible = premium_eligible(price, market)
+    eligible = premium_eligible(price, market, dt)
     return np.asarray(price, dtype=float) + np.where(eligible, premium_rate, 0.0) \
         - market.direct_marketing_fee
 

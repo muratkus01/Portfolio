@@ -76,13 +76,19 @@ def test_forecasts_do_not_leak_the_truth():
     assert not np.allclose(wf, wind) and not np.allclose(prf, price)
 
 
-def test_six_hour_rule_counts_consecutive_quarter_hours():
-    """Premium is lost only once prices have been negative for 24 consecutive steps."""
-    price = np.concatenate([np.full(30, -1.0), [5.0], np.full(10, -1.0)])
+def test_six_hour_rule_removes_the_premium_for_the_whole_run():
+    """A run of at least six negative hours loses the premium in EVERY one of its steps.
+
+    Regression test. This test used to pin the opposite: the first 23 quarter-hours of a long
+    run kept the premium. § 51 (1) EEG 2017 zeroes the applicable value "für den gesamten
+    Zeitraum, in dem die Stundenkontrakte ohne Unterbrechung negativ sind" once that period
+    reaches six hours, so the whole run loses it, not only its tail.
+    """
+    hourly = [-1.0] * 7 + [5.0] + [-1.0] * 5 + [5.0]
+    price = np.repeat(hourly, 4)                       # hourly prices held on quarter-hours
     e = premium_eligible(price, MarketConfig(negative_price_rule="six_hour"))
-    assert e[:23].all(), "first 23 negative steps still earn the premium"
-    assert not e[23:30].any(), "from the 24th consecutive negative step it is suspended"
-    assert e[30:].all(), "the run resets after a non-negative price"
+    assert not e[:28].any(), "all 28 quarter-hours of a 7 h negative run lose the premium"
+    assert e[28:].all(), "a 5 h run keeps it, and the run restarts after a non-negative price"
 
 
 def test_market_value_is_generation_weighted():

@@ -15,7 +15,7 @@ import pandas as pd
 from .baselines import run_ladder
 from .config import MarketConfig, PlantConfig, RunConfig
 from .data import describe, load_year, to_plant
-from .market import rebap_series
+from .market import rebap_series, vintage_rules
 
 
 def _setup(args, plant: PlantConfig | None = None, market: MarketConfig | None = None):
@@ -104,8 +104,13 @@ def cmd_negprice(args) -> None:
     # a recent onshore plant at ~73.5 EUR/MWh is not, and for it the negative-price rule is
     # economically irrelevant because there is no premium to suspend. That contrast is the
     # point of the table.
+    # The rule is fixed by the commissioning date, and one vintage's threshold also moves with
+    # the evaluated year (market.vintage_rules). Columns run from the oldest vintage's rule to
+    # the newest, which is from the loosest to the tightest.
+    by_vintage = vintage_rules(args.year)
+    rules = list(dict.fromkeys(by_vintage.values()))
     for aw, label in ((73.5, "AW 73.5 (recent onshore)"), (95.0, "AW 95.0 (older vintage)")):
-        for rule in ("none", "six_hour", "new_2025"):
+        for rule in rules:
             mk = MarketConfig(negative_price_rule=rule,
                               anzulegender_wert_wind=aw, anzulegender_wert_pv=aw - 5)
             run, wind, pv, price, rebap, _ = _setup(args, market=mk)
@@ -118,13 +123,16 @@ def cmd_negprice(args) -> None:
                              "chosen_curt_MWh": r["cost"]["chosen_curtail_mwh"]})
     df = pd.DataFrame(rows)
     print("\nNegative-price rule (EEG s51 / Solarspitzengesetz) by plant vintage")
+    print(f"rule of each commissioning vintage in {args.year}:")
+    for vintage, rule in by_vintage.items():
+        print(f"  {vintage:<22}{rule}")
     for label, g in df.groupby("vintage"):
         prem = g["premium_rate"].iloc[0]
         print(f"\n{label} - premium rate {prem:.2f} EUR/MWh")
-        print(g.pivot(index="controller", columns="rule", values="net_EUR")
+        print(g.pivot(index="controller", columns="rule", values="net_EUR")[rules]
               .to_string(float_format=lambda x: f"{x:,.0f}"))
         print("  self-chosen curtailment (MWh), should RISE as the rule tightens:")
-        print(g.pivot(index="controller", columns="rule", values="chosen_curt_MWh")
+        print(g.pivot(index="controller", columns="rule", values="chosen_curt_MWh")[rules]
               .to_string(float_format=lambda x: f"{x:,.1f}"))
     print("\nNote: with a premium rate of zero the rule cannot bite - there is no premium to "
           "suspend. In 2024 the DE-LU market value exceeded the applicable value for a recent "
