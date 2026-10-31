@@ -148,7 +148,7 @@ def cmd_ladder(args) -> None:
     run, index, wind, pv, price, rebap = _setup(args)
     table, prem = _premium(args, run, index, wind, pv)
     print(f"{len(price)} steps | {args.days} days of {args.year} | "
-          f"plant {run.plant.wind_mw:.0f} MW wind + {run.plant.pv_mw:.0f} MW PV + "
+          f"plant {run.plant.wind_mw:.0f} MW wind + {run.plant.pv_mw:.0f} MWp PV + "
           f"{run.plant.bess_mw:.0f} MW/{run.plant.bess_mwh:.0f} MWh behind "
           f"{run.plant.conn_mw:.0f} MW (overbuild {run.plant.overbuild_ratio:.2f}x)")
     print(describe(wind, pv, price, run.plant.conn_mw, run.dt))

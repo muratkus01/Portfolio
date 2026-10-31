@@ -24,6 +24,8 @@ class PlantConfig:
       defaults to None (inverter-coupled plant operates without active ramp limits).
     """
     wind_mw: float = 50.0
+    # A DC rating, MWp: data.load_year divides national PV generation by the DC fleet, so
+    # pv_mw scales that factor to a plant of this many MWp.
     pv_mw: float = 30.0
     bess_mw: float = 20.0
     bess_mwh: float = 40.0
@@ -58,11 +60,13 @@ class PlantConfig:
 
     @property
     def installed_mw(self) -> float:
+        """Installed generation: MW of wind plus MWp of PV (a DC rating, see `pv_mw`)."""
         return self.wind_mw + self.pv_mw
 
     @property
     def overbuild_ratio(self) -> float:
-        """Installed generation divided by export capacity. >1 means curtailment happens."""
+        """(MW wind + MWp PV) / MW connection. Above 1 the connection can bind and force
+        curtailment."""
         return self.installed_mw / self.conn_mw
 
     @property
