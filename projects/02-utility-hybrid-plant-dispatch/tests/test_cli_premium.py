@@ -1,15 +1,18 @@
 """The market premium the command line hands the ladder: the realised market value that every
-rung is settled on, per technology and period.
+rung is settled on, per technology and period, and for B3 only a value it could know.
 
-Offline: the data loader is replaced by synthetic calendar years and the ladder by a recorder,
-so no LP is solved.
+Offline: the data loader is replaced by synthetic calendar years and, where the test needs no
+dispatch, the ladder by a recorder that solves nothing.
 """
 from __future__ import annotations
+
+import functools
 
 import numpy as np
 import pandas as pd
 import pytest
 
+import hybrid.baselines as baselines
 import hybrid.cli as cli
 from hybrid.config import MarketConfig, PlantConfig
 
@@ -76,3 +79,67 @@ def test_every_command_settles_on_the_annual_market_value_per_technology(monkeyp
     assert calls, "the command ran the ladder"
     for call in calls:
         assert call["settle"] == pytest.approx(np.full(2 * 96, plant_rate(annual)))
+
+
+def test_b3_plans_each_month_on_the_realised_rate_of_the_month_before(monkeypatch):
+    """Regression test: B3 planned on the premium it was settled on, built from prices of the
+    window it had not seen yet.
+
+    A month's market value is known only once the month is over, so B3 plans January on the
+    realised rate of December of the year before and February on January's, while every rung
+    is still settled on the annual value.
+    """
+    calls = []
+    monkeypatch.setattr(cli, "load_year", calendar_year)
+    monkeypatch.setattr(cli, "run_ladder", recording_ladder(calls))
+
+    assert cli.main(["ladder", "--year", str(YEAR), "--days", "40"]) == 0
+
+    (call,) = calls
+    assert call["b3"] is not None, "B3 was handed no premium of its own"
+    january = 31 * 96
+    assert call["b3"][:january] == pytest.approx(np.full(january, plant_rate(DECEMBER)))
+    assert call["b3"][january:] == pytest.approx(np.full(9 * 96, plant_rate(JANUARY)))
+
+
+def short_window(year: int, days: int | None = None, dt: float = 0.25,
+                 later: float = 50.0) -> pd.DataFrame:
+    """`calendar_year` whose first 16 steps are the window: 50 EUR/MWh, -10 in step 2, and
+    `later` in steps 12 to 15. Four hours keep B3's solves few, whatever `days` asks for."""
+    df = calendar_year(year, dt=dt)
+    if year == YEAR:
+        window = np.full(16, 50.0)
+        window[2], window[12:] = -10.0, later
+        df.iloc[:16, df.columns.get_loc("price_eur_mwh")] = window
+    return df if days is None else df.iloc[:16]
+
+
+def perfect_forecast_ladder(results: list):
+    """The real `run_ladder` with perfect forecasts, recording what it returns: with no
+    forecast error the premium is the only way prices beyond B3's horizon could reach it."""
+    def ladder(wind, pv, price, run, *args, **kwargs):
+        res = baselines.run_ladder(wind, pv, price, run.with_(forecast_sigma=0.0), *args,
+                                   **kwargs)
+        results.append(res)
+        return res
+    return ladder
+
+
+def test_later_prices_do_not_change_b3s_earlier_decisions(monkeypatch):
+    """Regression test: B3's premium was built from the mean of the whole window's prices, so
+    prices it had not seen yet changed what it did before them.
+
+    Under the rule "none" the premium decides whether exporting through -10 EUR/MWh in step 2
+    pays. Raising steps 12 to 15 from 50 to 500 EUR/MWh lies beyond the four-step horizon of
+    steps 0 to 8, so it must not change B3's dispatch there.
+    """
+    dispatch = {}
+    for later in (50.0, 500.0):
+        results = []
+        monkeypatch.setattr(cli, "load_year", functools.partial(short_window, later=later))
+        monkeypatch.setattr(cli, "run_ladder", perfect_forecast_ladder(results))
+        assert cli.main(["ladder", "--year", str(YEAR), "--days", "1", "--horizon", "4",
+                         "--neg-rule", "none"]) == 0
+        b3 = results[0]["B3 rolling MPC"]
+        dispatch[later] = np.r_[b3["export"][:9], b3["p_bat"][:9]]
+    assert dispatch[500.0] == pytest.approx(dispatch[50.0], abs=1e-6)

@@ -15,8 +15,8 @@ import pandas as pd
 from .baselines import run_ladder
 from .config import NEGATIVE_PRICE_RULES, MarketConfig, PlantConfig, RunConfig
 from .data import describe, load_year, to_plant
-from .market import (market_values, premium_rates, premium_table, rebap_series,
-                     vintage_rules)
+from .market import (market_values, planning_rates, premium_rates, premium_table,
+                     rebap_series, vintage_rules)
 
 
 # The default plant, at MarketConfig's applicable values from the 2024/2025 tender ceilings, is
@@ -92,6 +92,28 @@ def _premium(args, run: RunConfig, index: pd.DatetimeIndex, wind: np.ndarray,
     return _realised_premium(year, index, wind, pv, _applicable(run.market), _DEFAULT_PERIOD)
 
 
+def _b3_planning_premium(args, run: RunConfig, index: pd.DatetimeIndex) -> np.ndarray:
+    """B3's premium per step: the plant's realised monthly rate of the month before.
+
+    A market value is known only once its month is over (`market.planning_rates`), so B3, a
+    deployable controller, plans each month on the previous month's realised rate. For a
+    plant paid against the annual value that is its latest realised value too, as the year's
+    own is known only after December. A window starts on 1 January, so its first month needs
+    December of the previous year, which this loads.
+
+    args: parsed CLI arguments, e.g. year=2024. run: the run's settings.
+    index: the window's timestamps.
+    Returns B3's rate per step, EUR/MWh.
+    """
+    frame = pd.concat([load_year(args.year - 1, None, run.dt),
+                       load_year(args.year, None, run.dt)])
+    wind, pv, _ = to_plant(frame, run.plant.wind_mw, run.plant.pv_mw)
+    values = market_values(frame["price_eur_mwh"], _national_weights(frame), "month")
+    monthly = premium_table(frame.index, {"wind": wind, "pv": pv}, values,
+                            _applicable(run.market), "month")
+    return planning_rates(index, monthly)
+
+
 def _print_premium(table: pd.DataFrame, period: str) -> None:
     """Print a premium table's premiums per technology and the plant's rate, by period."""
     print(f"market premium, settled on the realised {'annual' if period == 'year' else 'monthly'}"
@@ -131,8 +153,14 @@ def cmd_ladder(args) -> None:
     print(describe(wind, pv, price, run.plant.conn_mw, run.dt))
     print(f"negative-price rule: {run.market.negative_price_rule}")
     _print_premium(table, _DEFAULT_PERIOD)
+    plan = None
+    if not args.fast:
+        plan = _b3_planning_premium(args, run, index)
+        by_month = pd.Series(plan, index=index.tz_convert("Europe/Berlin").strftime("%Y-%m"))
+        print("B3 plans each month on the realised monthly rate of the month before, EUR/MWh: "
+              + ", ".join(f"{m} {r:.2f}" for m, r in by_month.groupby(level=0).first().items()))
     res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=not args.fast,
-                     progress=args.progress)
+                     progress=args.progress, b3_premium_rate=plan)
     _report(res, f"Hybrid plant ladder, {args.days} days of {args.year}")
     if "B3 rolling MPC" in res and "solve_time_s" in res["B3 rolling MPC"]:
         st = res["B3 rolling MPC"]["solve_time_s"]

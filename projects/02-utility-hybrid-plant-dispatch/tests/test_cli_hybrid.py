@@ -10,14 +10,22 @@ from hybrid.config import NEGATIVE_PRICE_RULES
 
 
 def fake_year(year: int, days: int | None = None, dt: float = 0.25) -> pd.DataFrame:
-    n = int((days or 2) * 24 / dt)
-    idx = pd.date_range(f"{year}-06-01", periods=n, freq="15min", tz="UTC")
+    """A synthetic Berlin calendar year, cut to its first `days` days as load_year cuts it.
+
+    The whole year is there because the premium is paid against realised market values of
+    whole periods, and B3 plans on the month before its window, December of the year before.
+    """
+    start = pd.Timestamp(f"{year}-01-01", tz="Europe/Berlin").tz_convert("UTC")
+    end = pd.Timestamp(f"{year + 1}-01-01", tz="Europe/Berlin").tz_convert("UTC")
+    idx = pd.date_range(start, end, freq=f"{int(dt * 60)}min", inclusive="left")
+    n = len(idx)
     h = np.arange(n) * dt % 24
-    return pd.DataFrame({
+    df = pd.DataFrame({
         "wind_cf": np.clip(0.4 + 0.3 * np.sin(np.arange(n) / 60), 0, 1),
         "pv_cf": 0.7 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1),
         "price_eur_mwh": 80 + 30 * np.sin(2 * np.pi * (h - 18) / 24) - 40 * (h == 13),
     }, index=idx)
+    return df if days is None else df.iloc[:int(days * 24 / dt)]
 
 
 @pytest.mark.parametrize("argv, expect", [
