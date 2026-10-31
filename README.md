@@ -74,7 +74,7 @@ flowchart TB
 | **02** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/02-utility-hybrid-plant-dispatch/) | Co-located LP + B3 Rolling MPC | 50 MW Wind, 30 MW PV, 40 MWh BESS | EEG §51 / §51a Negative Price Rules | `python -m hybrid.cli ladder` |
 | **03** | [**Probabilistic Forecast-to-Bid**](projects/03-probabilistic-forecast-to-bid/) | Quantile forecast ladder (climatology to LightGBM, TSO forecast as benchmark), settled at real day-ahead, intraday (ID AEP) and reBAP prices | 200 MW wind + 100 MW PV, fleet-shaped | German single-price reBAP | `python -m f2b.cli backtest --phase validation` |
 
-Project 03's backtest needs the `[forecast]` extra (LightGBM, SciPy) and one `python -m f2b.cli build-data` run first; its euro results also need reBAP and ID AEP, downloaded by hand from netztransparenz.de ([its README](projects/03-probabilistic-forecast-to-bid/README.md), section 6).
+Project 03's backtest needs the `[forecast]` extra (LightGBM, SciPy) and one `python -m f2b.cli build-data` run first. For its euro results, download reBAP and ID AEP by hand from netztransparenz.de into its `data/raw/netztransparenz/` folder before that run, because `build-data` reads them into the dataset ([its README](projects/03-probabilistic-forecast-to-bid/README.md), section 6).
 
 **Scope decision, 2026-10-09.** The portfolio was narrowed from six projects to three, so that each
 one can be defended in depth rather than listed. Pumped-storage multi-market dispatch, smart EV
