@@ -301,15 +301,23 @@ The package in `src/prosumer/` implements Phases 1-4 and the Phase-6 environment
 [`../../docs/08-milp-to-rl-roadmap.md`](../../docs/08-milp-to-rl-roadmap.md). Everything below
 was produced by a run of the committed code; nothing is estimated.
 
-Every run here uses the `SiteConfig()` battery defaults (8.9 kWh, 10 to 90 % usable,
-5.51 kW, 0.95 efficiency each way, 6.47 kW import limit), not the thesis household. The
-ladder and resolution runs also use the default wear price (0.03 EUR/kWh on charged plus
-discharged energy) and a fixed feed-in tariff of 7.86 ct/kWh. That tariff was the CLI
-default when this section was written; today it needs `--export-mode feed_in_tariff`.
+Every run here uses the `SiteConfig()` battery defaults (8.9 kWh, usable from 0.884 to
+7.956 kWh or about 10 to 89 %, 5.51 kW, 0.95 efficiency each way, 6.47 kW import limit),
+not the thesis household. The ladder and resolution runs also use the default wear price
+(0.03 EUR/kWh on charged plus discharged energy) and a fixed feed-in tariff of 7.86 ct/kWh.
+That tariff was the CLI default when this section was written; today it needs
+`--export-mode feed_in_tariff`. With that flag, today's code reproduces every B1 and B2
+figure and the December ladder table, B3 included, exactly. B3's 60-minute cost, its
+August-week cost and its 69 ms solve time were produced at ddd7a74, when B3 solved each
+window with CBC. Since 3a2a019 it uses HiGHS, which picks other, equally optimal plans
+because the LP is degenerate (see below): B3 then costs 2.500 EUR instead of 2.456 at
+60 minutes (bias +0.219 EUR, +9.6 %) and -27.18 instead of -27.11 EUR in the August week.
+The CSVs of the four weeks under `data/raw/legacy/`, which these commands and
+`train_rl.py` read, are not in the repository.
 
 ```bash
 pip install -e ".[rl,dev]"
-python -m pytest tests/ -q                                          # 67 passed
+python -m pytest tests/ -q                                          # 67 passed when this section was written
 python -m prosumer.cli legacy     --data data/raw/legacy/12-18_08_2024.csv
 python -m prosumer.cli ladder     --data data/raw/legacy/09-15_12_2024.csv --dt 0.25 --export-mode feed_in_tariff
 python -m prosumer.cli resolution --data data/raw/legacy/09-15_12_2024.csv --export-mode feed_in_tariff
@@ -356,8 +364,10 @@ Under B2, peak import rose from 3.66 kW (hourly) to 5.76 kW (15 min), 58 % more;
 other way, the hourly model shows a 37 % lower peak. Both peaks come from the
 perfect-foresight optimiser charging the battery from the grid (at 15 minutes at the full
 5.51 kW inverter rating), not from household demand: B1 peaks at 0.72 kW at both
-resolutions. The difference is a property of the optimiser's grid charging, not a
-household peak that a battery or a grid connection would have to be sized for.
+resolutions. The deployable B3 draws the same 5.76 kW at 15 minutes (3.70 kW hourly). So
+the hourly model understates how hard a price-optimising controller can draw on the grid,
+a draw that the inverter rating caps here and a lower import limit would cap further; it
+says nothing about the household's own peak.
 
 > **Read this result with its caveat.** The measured profiles are hourly, so the 15-minute
 > series is upsampled. What is isolated here is therefore the **control**-resolution effect
