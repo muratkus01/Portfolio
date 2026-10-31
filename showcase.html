@@ -1609,10 +1609,13 @@
         <div class="sim-header-row">
           <div class="sim-card-title">
             <span class="pulse-dot"></span>
-            <span>Interactive Residential Asset Sizing & Dynamic Dispatch Simulator</span>
+            <span>Interactive Sizing Sweep Lookup & Illustrative 24 h Dispatch</span>
           </div>
-          <span class="sim-card-badge">P01 Live Physics Model</span> <span class="sim-card-badge emerald" id="p01-grid-match">(Exact Grid Match)</span> <span class="sim-card-badge emerald" id="p01-grid-match">(Exact Grid Match)</span> <span class="sim-card-badge emerald" id="p01-grid-match">(Exact Grid Match)</span>
+          <span class="sim-card-badge">Scenario sweep lookup, not the README pipeline</span> <span class="sim-card-badge emerald" id="p01-grid-match">(sweep grid point)</span>
         </div>
+        <p style="font-size: 0.8rem; color: var(--text-sub); line-height: 1.6; margin: 12px 0 18px;">
+          What this panel is: a lookup into a scenario sweep (<code>scripts/run_overnight_simulations.py</code>, 432 runs at commit 0585dab, stored in <code>simulations/results/p01_scenarios.parquet</code>), not the pipeline behind the results above. The sweep uses a synthetic household load of about 15 MWh/a, German national solar output scaled to the PV size, the older B1/B2/B3 controllers (B3 re-plans every hour over 24 h and treats all prices in that window as known), a fixed 7.86 ct/kWh feed-in tariff, and only 91 days (2024) or 161 days (2025): it reads each hourly price as one quarter-hour, so prices run four times faster than load and PV. The 2026 year button shows the 2025 sweep. Use it to compare sizes within the sweep only.
+        </p>
         <div class="sim-controls-grid">
           <div class="sim-control-item">
             <div class="sim-control-label-row">
@@ -1635,35 +1638,28 @@
             </div>
             <input type="range" id="p01-slider-inv" min="3.68" max="10.0" step="0.05" value="5.63" oninput="simP01()">
           </div>
-          <div class="sim-control-item">
-            <div class="sim-control-label-row">
-              <span>Direct Wholesale Fee</span>
-              <span class="sim-val-pill" id="p01-val-eeg">1.00 ct/kWh</span>
-            </div>
-            <input type="range" id="p01-slider-eeg" min="0.0" max="2.5" step="0.1" value="1.0" oninput="simP01()">
-          </div>
         </div>
 
         <div class="sim-results-grid">
           <div class="sim-res-box">
-            <div class="sim-res-lbl">Daily Net Operating Cost</div>
-            <div class="sim-res-val emerald" id="p01-res-cost">-2.42 EUR/day</div>
+            <div class="sim-res-lbl">B3 Net Cost over the Simulated Days (sweep)</div>
+            <div class="sim-res-val amber" id="p01-res-cost">+861 EUR over 161 days</div>
           </div>
           <div class="sim-res-box">
-            <div class="sim-res-lbl">Self-Consumption Rate</div>
-            <div class="sim-res-val cyan" id="p01-res-sc">68.4%</div>
+            <div class="sim-res-lbl">Self-Consumption (B3, sweep)</div>
+            <div class="sim-res-val cyan" id="p01-res-sc">64.9%</div>
           </div>
           <div class="sim-res-box">
-            <div class="sim-res-lbl">Peak Grid Export</div>
+            <div class="sim-res-lbl">Peak Export (rule of thumb: min(inverter, 0.88 x kWp); not modelled)</div>
             <div class="sim-res-val" id="p01-res-peak">5.63 kW</div>
           </div>
           <div class="sim-res-box">
-            <div class="sim-res-lbl">B3 Headroom Recovery</div>
-            <div class="sim-res-val emerald" id="p01-res-rec">56.0% Rec</div>
+            <div class="sim-res-lbl">B3 Share of the B1-to-B2 Gap (sweep)</div>
+            <div class="sim-res-val emerald" id="p01-res-rec">48.3% Rec</div>
           </div>
           <div class="sim-res-box">
-            <div class="sim-res-lbl">Inverter Invariant Status</div>
-            <div class="sim-res-val emerald" id="p01-res-stat">Pass (Within Limits)</div>
+            <div class="sim-res-lbl">PV/Inverter Ratio (rule of thumb; not modelled)</div>
+            <div class="sim-res-val emerald" id="p01-res-stat">1.42 (1.5 or below)</div>
           </div>
         </div>
 
@@ -4808,18 +4804,20 @@
     // IN-CARD PROJECT INTERACTIVE PHYSICS SIMULATORS
     // =========================================================================
 
-    // Project 01: Residential PV+BESS Sizing & 24h Dynamic Dispatch
+    // Days each P01 sweep run covers: out_eval_days in simulations/results/p01_scenarios.parquet.
+    // The run length depends only on the year's input files, so it is the same for every cell.
+    const P01_SWEEP_DAYS = { '2024': 91, '2025': 161 };
+
+    // Project 01: lookup into the sizing sweep of scripts/run_overnight_simulations.py
     function simP01() {
       const pvSlider = document.getElementById('p01-slider-pv');
       const bessSlider = document.getElementById('p01-slider-bess');
       const invSlider = document.getElementById('p01-slider-inv');
-      const eegSlider = document.getElementById('p01-slider-eeg');
-      if (!pvSlider || !bessSlider || !invSlider || !eegSlider) return;
+      if (!pvSlider || !bessSlider || !invSlider) return;
 
       const pvRaw = parseFloat(pvSlider.value);
       const bessRaw = parseFloat(bessSlider.value);
       const invRaw = parseFloat(invSlider.value);
-      const eeg = parseFloat(eegSlider.value);
 
       const p1Grid = GRID_PARAMS.p01;
       const pv = snapToGrid(pvRaw, p1Grid.pv);
@@ -4830,14 +4828,14 @@
       document.getElementById('p01-val-pv').innerText = pv.toFixed(1) + ' kWp';
       document.getElementById('p01-val-bess').innerText = bess.toFixed(2) + ' kWh';
       document.getElementById('p01-val-inv').innerText = inv.toFixed(2) + ' kW';
-      document.getElementById('p01-val-eeg').innerText = eeg.toFixed(2) + ' ct/kWh';
 
       const matchEl = document.getElementById('p01-grid-match');
       if (matchEl) {
-        matchEl.innerText = isExact ? '(Exact Grid Match)' : `(Nearest Grid: ${pv}kWp/${bess}kWh/${inv}kW)`;
+        matchEl.innerText = isExact ? '(sweep grid point)' : `(nearest sweep grid point: ${pv} kWp / ${bess} kWh / ${inv} kW)`;
         matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
       }
 
+      // No 2026 sweep exists, so the 2026 button shows the 2025 sweep (the panel note says so).
       const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
       const bessStr = (bess === 9.37) ? '9.37' : bess.toFixed(1);
       const cubeKey = `${pv.toFixed(1)}|${bessStr}|${inv}|${yr}`;
@@ -4851,7 +4849,8 @@
 
         document.getElementById('p01-res-sc').innerText = (scFrac * 100).toFixed(1) + '%';
         const costEl = document.getElementById('p01-res-cost');
-        costEl.innerText = (netCost <= 0 ? '' : '+') + Math.round(netCost).toLocaleString() + ' EUR/yr';
+        // The sweep does not annualise: the cost covers only the simulated days.
+        costEl.innerText = (netCost <= 0 ? '' : '+') + Math.round(netCost).toLocaleString() + ' EUR over ' + P01_SWEEP_DAYS[yr] + ' days';
         costEl.className = 'sim-res-val ' + (netCost <= 0 ? 'emerald' : 'amber');
 
         const recEl = document.getElementById('p01-res-rec');
@@ -4864,15 +4863,17 @@
         }
       }
 
-      // Peak Grid Export & Inverter Status
+      // Peak export and PV/inverter ratio are rules of thumb, not sweep outputs: the sweep
+      // does not limit PV export by the battery inverter, and its labels say so.
       const peakExport = Math.min(inv, pv * 0.88);
       document.getElementById('p01-res-peak').innerText = peakExport.toFixed(2) + ' kW';
       const statEl = document.getElementById('p01-res-stat');
-      if (pv > inv * 1.5) {
-        statEl.innerText = 'Clipping (' + (pv - inv).toFixed(1) + ' kW Overload)';
+      const pvInvRatio = pv / inv;
+      if (pvInvRatio > 1.5) {
+        statEl.innerText = pvInvRatio.toFixed(2) + ' (above 1.5: clipping likely)';
         statEl.className = 'sim-res-val amber';
       } else {
-        statEl.innerText = 'Pass (Within Limits)';
+        statEl.innerText = pvInvRatio.toFixed(2) + ' (1.5 or below)';
         statEl.className = 'sim-res-val emerald';
       }
 
