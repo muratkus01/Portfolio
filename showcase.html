@@ -1450,7 +1450,7 @@
 
           <div class="table-card">
             <div class="table-title">
-              <span>Benchmark Ladder Comparison (window to the last published day-ahead price, 11 to 35 h)</span>
+              <span>Benchmark Ladder Comparison (Out-of-Sample Test)</span>
               <span id="p01-table-sub" style="font-family: var(--font-mono); color: var(--text-muted);">Household H28, test 2025-01-01 to 2026-09-17</span>
             </div>
             <table class="ladder-tbl">
@@ -1505,7 +1505,7 @@
               </tbody>
             </table>
             <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; padding: 10px 20px 12px;">
-              Negative cost is net revenue. The same numbers show for every year button: the project has one test period, not one result per year. Sources in the P01 folder: <code>reports/rolling_eval_htw_H28/rolling_eval_summary.csv</code> (B1, B2, B3) and <code>reports/rl_eval_H28/rl_summary.csv</code> (RL); violations from that CSV and <code>reports/rl_eval_H28/rl_seeds.csv</code>.
+              Household H28 is the measured load profile of an HTW Berlin household, scaled to about 3,221 kWh a year. Of the 73 usable HTW households it is the closest to the median on five load-shape features (<code>reports/htw_household_features.csv</code>). Across all 73, the deployable B3 captures a median 86.5% (<code>reports/household_sweep.csv</code>). Net cost = import cost - export revenue + a wear charge of 0.0544 EUR per kWh discharged; fixed monthly charges are not included, and a negative cost is net revenue. The same numbers show for every year button: the project has one test period, not one result per year. Sources in the P01 folder: <code>reports/rolling_eval_htw_H28/rolling_eval_summary.csv</code> (B1, B2, B3) and <code>reports/rl_eval_H28/rl_summary.csv</code> (RL); violations from that CSV and <code>reports/rl_eval_H28/rl_seeds.csv</code>.
             </p>
           </div>
 
