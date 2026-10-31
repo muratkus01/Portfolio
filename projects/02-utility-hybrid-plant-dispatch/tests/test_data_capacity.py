@@ -69,19 +69,22 @@ def _payloads(capacity: dict, start: pd.Timestamp) -> list[tuple[str, dict]]:
 @pytest.fixture
 def energy_charts(monkeypatch):
     """Return a function that makes datakit serve the synthetic payloads for one capacity table
-    and one start time."""
+    and one start time, and returns the list of (url, cache tag) requests it then serves."""
     module = sys.modules[datakit.public_power.__module__]
 
-    def serve(capacity: dict = CAPACITY_GW, start: pd.Timestamp = START) -> None:
+    def serve(capacity: dict = CAPACITY_GW, start: pd.Timestamp = START) -> list:
         routes = _payloads(capacity, start)
+        requests = []
 
-        def fake_get_json(url: str, *_args) -> dict:
+        def fake_get_json(url: str, cache_dir, tag: str, *_args) -> dict:
+            requests.append((url, tag))
             for fragment, payload in routes:
                 if fragment in url:
                     return payload
             raise AssertionError(f"unexpected Energy-Charts request: {url}")
 
         monkeypatch.setattr(module, "_get_json", fake_get_json)
+        return requests
 
     return serve
 
@@ -111,6 +114,16 @@ def test_pv_factor_is_total_solar_generation_over_the_months_dc_fleet(energy_cha
     energy_charts()
     june = load_year(2024).loc[:JULY - pd.Timedelta("15min")]
     assert june["pv_cf"].to_numpy() == pytest.approx(30_000 / 80_000)
+
+
+def test_total_solar_is_cached_under_the_tag_datakit_total_power_uses(energy_charts):
+    """The stand-in for datakit.total_power must request the same URL under the same cache
+    tag, so that the two share one cache file and the later swap fetches nothing and moves no
+    number. Nothing pinned the tag before."""
+    requests = energy_charts()
+    load_year(2024)
+    assert (f"{datakit.EC}/total_power?country=de&start=2024-01-01&end=2025-01-01",
+            "total_power_de_2024-01-01_2025-01-01") in requests
 
 
 def test_pv_feed_in_factor_is_public_solar_over_the_same_fleet(energy_charts):
