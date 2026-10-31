@@ -106,3 +106,33 @@ def test_imbalance_luck_does_not_trip_the_ladder_invariant():
               for name, r in res.items()}
     assert max(net, key=net.get) != "B2 perfect foresight"
     assert max(before, key=before.get) == "B2 perfect foresight"
+
+
+# ------------------------------------------------------------------ grid imports
+def test_grid_imports_are_paid_at_the_day_ahead_price(monkeypatch):
+    """Regression: with grid charging allowed, the plant imported energy for free.
+
+    No rung charges from the grid today (the LP cannot import), so B1 is replaced by a
+    controller that buys an hour of full-power charging and sells it back. Bought and sold at
+    one flat price, that round trip must lose money; with free imports it made money from
+    nothing and out-earned perfect foresight.
+    """
+    plant = PlantConfig(grid_charging_allowed=True)
+    run = RunConfig(dt=0.25, plant=plant)
+    n = 8
+    nothing = np.zeros(n)
+    price = np.full(n, 60.0)
+    charge_then_sell = np.r_[np.full(4, -plant.bess_mw), np.full(4, plant.bess_mw)]
+
+    def grid_trader(wind, pv, run, export_cap=None):
+        return simulate(wind, pv, charge_then_sell, np.zeros(n), run.dt, run.plant,
+                        export_cap=export_cap)
+
+    monkeypatch.setattr(baselines, "b1_curtailment_avoidance", grid_trader)
+    res = run_ladder(nothing, nothing, price, run, premium_rate=0.0, include_b3=False)
+
+    trader = res["B1 curtailment avoidance"]
+    bought_mwh = np.sum(trader["import"]) * run.dt
+    assert bought_mwh > 0
+    assert trader["cost"]["import_cost"] == pytest.approx(bought_mwh * 60.0)
+    assert trader["cost"]["net_revenue"] < 0

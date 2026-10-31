@@ -215,6 +215,23 @@ def make_forecasts(wind, pv, eff_price, run: RunConfig, rng):
             eff_price + s * np.std(eff_price) * ar_noise(n, rng, r))
 
 
+def _with_import_cost(cost: dict[str, float], imports: np.ndarray, price: np.ndarray,
+                      dt: float) -> dict[str, float]:
+    """Charge grid imports to a settlement; `settle` prices exported energy only.
+
+    With `grid_charging_allowed` the battery may charge from the grid. That energy is bought
+    on the day-ahead market the export is sold on, and the market module has no other price
+    for it, so imports pay the day-ahead price. Grid fees and levies are not modelled.
+
+    cost: a settlement from `market.settle`. imports: grid import per step in MW.
+    price: day-ahead price per step in EUR/MWh. dt: step length in hours.
+    Returns a copy of `cost` with `import_cost` (EUR) added and taken off `net_revenue`.
+    """
+    import_cost = float(np.sum(np.asarray(imports) * np.asarray(price, dtype=float)) * dt)
+    return {**cost, "import_cost": import_cost,
+            "net_revenue": cost["net_revenue"] - import_cost}
+
+
 def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
                rebap=None, export_cap=None, include_b3=True,
                progress=False, schedule=None) -> dict[str, dict]:
@@ -245,8 +262,10 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
                                            export_cap, progress=progress)
 
     for name, r in out.items():
-        r["cost"] = settle(r, price, run.dt, run.plant, run.market,
-                           rebap=rebap, schedule=schedule, premium_rate=premium_rate)
+        r["cost"] = _with_import_cost(
+            settle(r, price, run.dt, run.plant, run.market,
+                   rebap=rebap, schedule=schedule, premium_rate=premium_rate),
+            r["import"], price, run.dt)
         r["violations"] = check_feasible(
             r, run.plant if "no battery" not in name
             else run.plant.__class__(**{**run.plant.__dict__, "bess_mw": 0.0,
