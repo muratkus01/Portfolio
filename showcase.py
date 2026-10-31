@@ -5,10 +5,11 @@
     python showcase.py --real-data   DE-LU 2025 prices and generation via datakit (network)
     python showcase.py --tests       also run the test suite and report the real counts
 
-Every number printed here is computed on the spot by the project packages. Nothing is
-hardcoded: not the costs, not the rankings, not the test counts. If a demo fails, the failure
-is printed rather than swallowed, because a showcase that silently hides a broken project is
-worse than no showcase.
+Demos 01 and 02 compute every number on the spot with the project packages. Demo 03 reads
+Project 03's committed result CSVs instead, because its numbers come from a backtest on real
+data that takes far longer than a showcase run. Nothing is hardcoded: not the costs, not the
+rankings, not the test counts. If a demo fails, the failure is printed rather than swallowed,
+because a showcase that silently hides a broken project is worse than no showcase.
 """
 from __future__ import annotations
 
@@ -96,7 +97,6 @@ def demo_01(real: bool) -> dict:
         "rows": [("B1 self-consumption rule", f"{b1:8.3f} EUR"),
                  ("B2 perfect foresight", f"{b2:8.3f} EUR"),
                  ("B3 rolling MPC (24 h horizon)", f"{b3:8.3f} EUR"),
-                 ("Thesis Optimal Balance (15/8/8)", "7.08% ROCE (-1,476 EUR/yr net)"),
                  ("Fleet on 1 Jan 2026 (MaStR)", fleet)],
         "headline": f"B3 recovers {(b1 - b3) / max(b1 - b2, 1e-9) * 100:.0f}% of the "
                     f"B1-to-B2 headroom; {viol} constraint violations across all rungs",
@@ -194,12 +194,13 @@ def main() -> int:
     print("  AI for Renewable Energy Systems: applied research portfolio")
     print("  Murat Kus | Dipl.-Ing. | M.Sc. Sustainable Energy Systems (FH Upper Austria) | B.Sc. Artificial Intelligence (JKU Linz) - In Progress")
     print(f"  inputs: {'DE-LU 2025 day-ahead prices (datakit)' if args.real_data else 'synthetic, offline'}"
-          f" | every number below is computed now")
+          f" | demos 01-02 compute now, demo 03 reads committed CSVs")
     print("=" * 84)
 
     failures = 0
+    selected = [pid for pid in DEMOS if not args.only or pid == args.only]
     for pid, (title, fn) in DEMOS.items():
-        if args.only and pid != args.only:
+        if pid not in selected:
             continue
         t0 = time.perf_counter()
         print(f"\n[{pid}] {title}")
@@ -222,7 +223,7 @@ def main() -> int:
         print(f"\ninteractive dashboard: {html_path}")
 
     print("\n" + "=" * 84)
-    print(f"  {len(DEMOS) - failures} of {len(DEMOS)} demos ran"
+    print(f"  {len(selected) - failures} of {len(selected)} demos ran"
           + ("" if not failures else f", {failures} FAILED"))
     print("  Details, limitations and full studies: README.md and each projects/*/README.md")
     print("=" * 84)
