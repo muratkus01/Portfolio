@@ -1,6 +1,6 @@
 # Project 01 · Prosumer PV + Battery Energy Management at 15-Minute Resolution
 
-**Rolling-horizon LP-MPC and reinforcement learning for a German residential prosumer site with 8 kWp PV and 9.37 kWh battery storage operating under 15-minute dynamic tariffs (`§41a EnWG`) and realistic forecast information sets.**
+**Rolling-horizon LP-MPC and reinforcement learning for a German residential prosumer site with 8 kWp PV and 9.37 kWh battery storage, controlled every 15 minutes under a day-ahead-indexed dynamic tariff (`§41a EnWG`; hourly day-ahead products until 2025-09-30, quarter-hour products after) and realistic forecast information sets.**
 
 | | |
 |---|---|
@@ -22,7 +22,7 @@ Every number below comes from a committed script and a committed CSV in `reports
 
 ```bash
 pip install -e ".[rl,data,dev]"
-prosumer build-data                         # 15-min load, PV, PV forecast, prices 2024-2026
+prosumer build-data                         # load, PV, PV forecast, prices 2024-2026 on a 15-min grid
 prosumer rolling-eval --data <household>    # B1 / B2 / B3 variants, train 2024, test 2025-2026
 prosumer household-sweep                    # the deployable B3 for 73 measured households
 prosumer quarter-hour-study                 # value of quarter-hour prices after 2025-10-01
@@ -57,7 +57,7 @@ reproduces it; everything new uses correctly timed PV.
 
 ### Master benchmark comparison: 20.5-month out-of-sample evaluation
 
-Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kWh battery, 5.63 kW inverter) across the out-of-sample test period from 2025-01-01 to 2026-09-17 (625 days, 59,996 decision steps at 15-minute resolution). Net costs are negative (net export revenue exceeds import cost).
+Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kWh battery, 5.63 kW inverter) across the out-of-sample test period from 2025-01-01 to 2026-09-17 (625 days, 59,996 decision steps at 15-minute resolution). Every result over this period averages two market designs: the day-ahead price is hourly, held over four quarter-hours, on the first 273 days (26,204 steps, until 2025-09-30) and quarter-hourly on the last 352 (33,792 steps; `price_mtu_min` in the dataset). None of these results is split by market design. The 2024 training year, which sets B3's terminal values and trains the RL agent, has hourly prices only; what that does to the results after the switch was not measured. Net costs are negative (net export revenue exceeds import cost).
 
 | Rung | Controller | Net Cost (20.5m) | Net Cost (€/a) | Headroom % | Annual Cycles | Violations | Mean Solve | Payback | ROCE |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -80,8 +80,9 @@ The figure below isolates the physical dispatch of the price-blind rule-based he
 
 This is a real run of both controllers, warmed up over the three preceding days, on the
 project's own tariff. On this day the export price falls to **0 ct/kWh between 11:00 and
-17:00** (16 quarter-hours of negative spot price), while the evening peak reaches
-**40 ct/kWh** around 21:00.
+17:00** (16 quarter-hours of negative spot price, which are four hourly products: the day
+predates the quarter-hour day-ahead market), while the evening peak reaches **40 ct/kWh**
+around 21:00.
 
 - **Morning (06:00 to 11:00).** B1 charges on the first PV surplus and is full by 08:30. B3
   leaves the battery empty: it entered the day at 6 % and stays there, because surplus in
@@ -112,7 +113,8 @@ information from the test period is used.
 
 For the most typical household (H28, closest to the median of all 73 on five load-shape
 features), the deployable B3 captures **89.4 %** of the gain that perfect foresight would
-achieve over the rule-based controller, 350 of 392 EUR over 20.5 months. The gap
+achieve over the rule-based controller, 350 of 392 EUR over 20.5 months (hourly day-ahead
+prices until 2025-09-30, quarter-hour prices after). The gap
 decomposes cleanly: the price-limited horizon costs about 2 points, the household's load
 not following the standard profile about 6, and PV forecast error about 3. Zero
 constraint violations in every run.
@@ -447,9 +449,9 @@ Full detail: [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-
 
 ```mermaid
 flowchart TB
-    subgraph EXO["Exogenous inputs (15-min)"]
-        W["NWP: irradiance, temperature<br/>Open-Meteo / DWD"]
-        PR["Dynamic tariff price<br/>EPEX Spot + levies + network charge"]
+    subgraph EXO["Exogenous inputs (15-min grid)"]
+        W["NWP: irradiance, temperature<br/>Open-Meteo archives (model not recorded)<br/>hourly, held for four quarter-hours"]
+        PR["Dynamic tariff price<br/>EPEX Spot + levies + network charge<br/>hourly until 2025-09-30, then 15 min"]
     end
 
     subgraph FC["Forecast layer"]
@@ -531,8 +533,8 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 | Household load profiles | Site demand, realistic sub-hourly variability | HTW Berlin 74 measured German household profiles (1 min) | 1 min -> 15 min | Complete, committed |
 | BDEW SLP H0 | Reference baseline load forecast | BDEW standard load profile | 15 min | Complete, committed |
 | PV generation | Site generation | pvlib on Open-Meteo 15-min weather, calibrated to Munich site | 15 min | Complete, committed |
-| NWP forecasts | Day-ahead PV forecast | Open-Meteo previous runs | 15 min | Complete, committed |
-| Day-ahead prices | Dynamic retail tariff base | EPEX Spot DE-LU (hourly -> 15-min from Oct 2025) | 15 min | Complete, committed |
+| NWP forecasts | Day-ahead PV forecast | Open-Meteo previous runs | 60 min, held over the four quarter-hours | Complete; fetched and cached by `prosumer build-data`, not committed |
+| Day-ahead prices | Dynamic retail tariff base | EPEX Spot DE-LU via Energy-Charts (CC BY 4.0, data Bundesnetzagentur / SMARD.de) | 60 min until 2025-09-30, 15 min after | Complete; fetched and cached by `prosumer build-data`, not committed |
 | Battery parameters | Storage physics and degradation | Thesis household (`thesis.THESIS_SITE`): 9.37 kWh (5 to 95 % usable), 5.63 kW, one-way efficiency sqrt(0.95) x 0.97 = 0.945, wear 0.0544 EUR per kWh discharged | - | In code |
 
 ---
