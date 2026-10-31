@@ -570,8 +570,8 @@ weather-to-power chain exists.
 **KPIs, as built:** net revenue over the window, split into spot revenue, premium, marketing
 fee, wear, imbalance and grid imports (EUR); export and curtailment, chosen and forced (MWh);
 constraint violations, 0 in every row; and B3's share of the gain from B1 to B2. **Not
-implemented:** daily distributions, quantiles and CVaR, intraday and aFRR terms, and
-equivalent full cycles.
+implemented:** daily distributions, quantiles and CVaR, an intraday term, an aFRR term (aFRR
+is not built yet, and its settings are inert), and equivalent full cycles.
 
 **Ablations run:** the connection sweep (0.1), the connection limit's effect (0.2), the
 negative-price rule by vintage (0.3), and B3's forecast error against a terminal value on
