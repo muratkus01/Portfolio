@@ -149,10 +149,6 @@ def main():
         '<span>Representative Renewable & Market Regimes:</span>',
         '<span>Representative Renewable & Market Regimes <span style="color:#94a3b8; font-size:0.75rem; font-weight:normal;">(Illustrative 24h Telemetry)</span>:</span>'
     )
-    html = html.replace(
-        '<span>Representative Renewable & Asymmetric Imbalance Scenarios:</span>',
-        '<span>Representative Renewable & Asymmetric Imbalance Scenarios <span style="color:#94a3b8; font-size:0.75rem; font-weight:normal;">(Illustrative 24h Telemetry)</span>:</span>'
-    )
 
     # Add Footnotes to P02 and P02 KPI consoles
     p02_res_grid = '<div class="sim-results-grid">'
@@ -172,7 +168,7 @@ def main():
     # 4. Inline SCENARIO_CUBES in JavaScript
     sc_code = f"""
     // =========================================================================
-    // PRECOMPUTED PYTHON SCENARIO CUBES (2,256 SCENARIOS ACROSS ALL 6 PROJECTS)
+    // PRECOMPUTED PYTHON SCENARIO CUBES
     // =========================================================================
     const SCENARIO_CUBES = {cubes_json};
 
