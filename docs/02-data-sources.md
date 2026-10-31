@@ -48,7 +48,7 @@ the CSVs behind their main results under their `reports/` folders.
 | **Energy-Charts** (Fraunhofer ISE) | Curated German/European electricity data: day-ahead prices, public generation by type and load, monthly installed capacity, the TSOs' generation forecasts | 15 min / 1 h | Public JSON API, no key (`datakit`) | CC BY 4.0 |
 | **Open Power System Data** | Harmonised historical time series, plant registers, weather-derived capacity factors | 15 min / 1 h | Static packaged CSV | Mostly CC BY 4.0 (per-package) |
 | **EPEX SPOT** | Authoritative order-book-level DA/ID data | Tick / 15 min | Commercial | Licence required — **not** a dependency of any project |
-| **aWATTar / Tibber APIs** | Forward-looking dynamic retail tariff prices (`§41a EnWG`) | 1 h / 15 min | Public / customer API | Per provider terms. No project reads them: Project 01's tariff is the day-ahead price plus fixed adders |
+| **aWATTar / Tibber APIs** | Forward-looking dynamic retail tariff prices (`§41a EnWG`) | 1 h / 15 min | Public / customer API | Per provider terms. No project reads them: Project 01 builds its tariff from the day-ahead price, with adders and 19 % VAT (`market/tariff.py`) |
 
 **Pitfall:** the day-ahead price changed native granularity on 1 October 2025, when SDAC
 moved from hourly to 15-minute products. Any multi-year study must handle the resolution
