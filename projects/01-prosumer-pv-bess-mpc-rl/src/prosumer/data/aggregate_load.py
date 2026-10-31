@@ -14,8 +14,10 @@ number of home-storage households there. Neither obvious input survives that mul
 The model here is the population expectation instead: the expected load of an average
 household like the 73 measured in 2010, given the day of week, the state's public holidays,
 the season and the day's temperature anomaly. Fleet = N times that. No national figure uses
-it yet: `experiments/national_impact.py` reads only the MaStR fleet counts, and the per-state
-output reaches only `reports/aggregate_load/` (via `experiments/aggregate_load_states.py`).
+it yet: `experiments/national_impact.py` reads only MaStR data (the per-state counts and the
+Germany-wide mean size) and values copied from the thesis. The per-state output reaches only
+`reports/aggregate_load/` (via `experiments/aggregate_load_states.py`) and the Project 01
+README section that quotes those reports.
 
 Model, fitted once on the 73-household mean of 2010 (`experiments.aggregate_load_fit`):
   E(d)   = alpha[class(d)] + harmonics_3(d) . g + [weekend(d)] harmonics_1(d) . h[class(d)]
@@ -37,7 +39,8 @@ the anomaly by at most about 0.2 in absolute value, largest in the evening
 (`reports/aggregate_load/shape_temperature.csv`).
 
 What differs between states: only the holiday calendar and the temperature anomaly. That is
-deliberate and small; most per-state contrast in residual load comes from fleet size and PV.
+deliberate and small; most per-state contrast in residual load would have to come from fleet
+size and PV, and no code combines this load with PV yet.
 
 Clock. The 2010 file labels behave like legal local time (CET/CEST): the weekday morning ramp
 does not move when summer time starts or ends, where a MEZ reading would make it jump an hour.

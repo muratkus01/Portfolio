@@ -3,9 +3,11 @@
 Why this module exists. Scaling household PV up to the federal states needs one PV series per
 state, because the states differ in annual yield: a single Munich series applied to all 16
 would overstate northern Germany. The per-state targets stay out of the repository (see
-below). Nothing uses the PV series yet: `generate()` has no caller outside the tests, and the
-national analysis (`experiments/national_impact.py`) reads only the MaStR fleet counts. Only
-`STATE_SITES` is used elsewhere, as the temperature sites of `aggregate_load`.
+below). No published result uses the PV series yet: `generate()` has no caller outside the
+tests, and the national analysis (`experiments/national_impact.py`) reads only MaStR data
+(the per-state counts and the Germany-wide mean size) and values copied from the thesis.
+Outside the tests, the repository-root script `scripts/calibrate_pv_states.py` fits and
+validates the losses locally, and `aggregate_load` uses `STATE_SITES` as its temperature sites.
 
 The method is deliberately split in two, because only one half can live in a public repository:
 
