@@ -172,12 +172,14 @@ def cmd_sizing(args) -> None:
     """RQ2: what is the optimal degree of connection undersizing?"""
     rows = []
     # The sweep spans connections BELOW the observed generation peak, because national
-    # capacity factors are far smoother than any single site: aggregated across Germany the
-    # combined wind+PV factor rarely exceeds ~0.45, so a connection sized at 75 % of
-    # nameplate never binds and the curtailment problem disappears entirely. Sweeping down to
-    # 25 % of nameplate is what makes the trade-off visible in this dataset. On site-level
-    # data the same curve would sit much further right - which is precisely why site data is
-    # this project's top acquisition priority.
+    # capacity factors are far smoother than any single site: aggregated across Germany, wind
+    # and PV come nowhere near their combined nameplate at once, so a connection near
+    # nameplate never binds and the curtailment problem disappears. Sweeping down to 25 % of
+    # nameplate is what makes the trade-off visible in this dataset. How far the window's peak
+    # sits below nameplate is not quoted here: the command prints it, computed from the
+    # Energy-Charts factors it loads, so it holds for whatever year and window are run. On
+    # site-level data the same curve would sit much further right - which is precisely why
+    # site data is this project's top acquisition priority.
     for conn in (20.0, 25.0, 30.0, 40.0, 60.0):
         plant = PlantConfig(conn_mw=conn)
         run, index, wind, pv, price, rebap = _setup(args, plant=plant)
@@ -189,7 +191,12 @@ def cmd_sizing(args) -> None:
                          "controller": name, "net_EUR": c["net_revenue"],
                          "forced_curt_MWh": c["forced_curtail_mwh"]})
     df = pd.DataFrame(rows)
-    print("\nConnection-capacity sweep (80 MW installed generation)")
+    # generation and installed ratings are the same at every connection size
+    installed = run.plant.installed_mw
+    peak = float(np.max(wind + pv))
+    print(f"\nConnection-capacity sweep ({installed:.0f} MW wind + MWp PV installed)")
+    print(f"peak combined output in the window: {peak:.1f} MW, {peak / installed:.3f} of "
+          "installed (national Energy-Charts factors)")
     print(df.to_string(index=False, float_format=lambda x: f"{x:,.2f}"))
     piv = df.pivot(index="conn_MW", columns="controller", values="net_EUR")
     piv["battery_value_EUR"] = piv["B2 perfect foresight"] - piv["B0 no battery"]

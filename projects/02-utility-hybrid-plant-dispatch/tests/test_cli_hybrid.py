@@ -42,6 +42,17 @@ def test_cli_command_runs(monkeypatch, capsys, argv, expect):
     assert expect in capsys.readouterr().out
 
 
+def test_sizing_prints_the_peak_of_the_data_it_loads(monkeypatch, capsys):
+    """The sweep's reason, how far the window's peak sits below nameplate, is printed from the
+    loaded factors rather than quoted in the code, where it went stale when the data changed."""
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    assert cli.main(["sizing", "--days", "2"]) == 0
+    df = fake_year(2025, 2)
+    peak = float((50.0 * df["wind_cf"] + 30.0 * df["pv_cf"]).max())
+    assert (f"peak combined output in the window: {peak:.1f} MW, {peak / 80.0:.3f} of installed"
+            in capsys.readouterr().out)
+
+
 @pytest.mark.parametrize("rule", NEGATIVE_PRICE_RULES)
 def test_every_negative_price_rule_can_be_chosen(monkeypatch, capsys, rule):
     """Regression test: --neg-rule offered only none, six_hour and new_2025, so the four-hour
