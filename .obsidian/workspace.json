@@ -196,8 +196,10 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "1f329de6dc49b0d5",
+  "active": "bd14c30c9d2aeeec",
   "lastOpenFiles": [
+    "projects/01-prosumer-pv-bess-mpc-rl/src/prosumer/data/__pycache__/mastr.cpython-312.pyc",
+    "projects/01-prosumer-pv-bess-mpc-rl/src/prosumer/data/__pycache__/aggregate_load.cpython-312.pyc",
     "simulations/results/p03_scenarios.parquet",
     "simulations/results/p02_scenarios.parquet",
     "projects/03-probabilistic-forecast-to-bid/docs/figures/p03_forecast_fan_2026.png",
@@ -214,8 +216,6 @@
     "projects/03-probabilistic-forecast-to-bid/src/f2b/__pycache__/config.cpython-312.pyc",
     "projects/03-probabilistic-forecast-to-bid/src/f2b/__pycache__/cli.cpython-312.pyc",
     "projects/03-probabilistic-forecast-to-bid/src/f2b.egg-info/top_level.txt",
-    "projects/03-probabilistic-forecast-to-bid/src/f2b.egg-info/SOURCES.txt",
-    "projects/03-probabilistic-forecast-to-bid/src/f2b.egg-info/requires.txt",
     "projects/03-probabilistic-forecast-to-bid/docs/figures/p06_forecast_fan_2025.png",
     "projects/03-probabilistic-forecast-to-bid/docs/figures/p06_forecast_fan_2026.png",
     "projects/03-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png",
