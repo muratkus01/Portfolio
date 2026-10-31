@@ -29,6 +29,11 @@ jobs:
           mkdir -p _site
           cp index.html _site/
           cp showcase.html _site/
+          # The page loads its figures by relative path, so copy each figure folder with its path.
+          for d in projects/*/docs/figures; do
+            mkdir -p "_site/$d"
+            cp -r "$d/." "_site/$d/"
+          done
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
