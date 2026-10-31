@@ -116,8 +116,12 @@ def run_resolution_study(df: pd.DataFrame, run: RunConfig = EXTENSION_RUN,
                      "value of 15-min signal EUR": b - a, "hourly model reports EUR": c,
                      "hourly model error EUR": c - a})
     summary = pd.DataFrame(rows).set_index("controller")
-    months = len(monthly)
-    summary["value of 15-min signal EUR/yr"] = summary["value of 15-min signal EUR"] * 12 / months
+    # Annualise by the days the test period covers. Counting calendar months treated a
+    # partial last month as a whole one: the published run ends on 2026-09-17, so its 12
+    # months are 352 days, not a year.
+    days = len(te) * run.dt / 24.0
+    summary["days covered"] = days
+    summary["value of 15-min signal EUR/yr"] = summary["value of 15-min signal EUR"] * 365.0 / days
     headroom = tot["B1 | 15-min"] - tot["B2 | 15-min"]
     summary["value as % of B1->B2 headroom"] = 100 * summary["value of 15-min signal EUR"] / headroom
 
