@@ -15,9 +15,9 @@ The method is deliberately split in two, because only one half can live in a pub
     may use locally but not redistribute, so they stay in gitignored files and are never
     written into committed code: the exports under `reference_dir()`, and the losses fitted
     to them in the file at `calibration_path()`, which is what `generate()` reads. Without that
-    file the module still runs on a literature loss of 11 %, and says so: `generate()` and
-    `site_system()` issue a `FallbackLossWarning`, and `generate()` records the loss and its
-    source in the `attrs` of the series it returns.
+    file `generate()` still runs on a literature loss of 11 %, and says so: it issues a
+    `FallbackLossWarning` and records the loss and its source in the `attrs` of the series it
+    returns. `site_system()` and `model_1kwp()` issue the same warning when no loss is passed.
 
 Reference-file repair. The 15 state exports carry a defect: their timestamp column is not
 monotonic. Exactly one row, always the last, is labelled one year and one hour before the
@@ -92,14 +92,14 @@ FALLBACK_SYSTEM_LOSS = 0.11
 
 
 class FallbackLossWarning(UserWarning):
-    """A state is modelled with `FALLBACK_SYSTEM_LOSS` because no calibrated loss was found."""
+    """A state is modelled with `FALLBACK_SYSTEM_LOSS`: no calibrated loss, or none passed."""
 
 
-def _warn_fallback(code: str) -> None:
-    # A fallback run looks exactly like a calibrated one, so it must never be silent.
-    warnings.warn(f"{code}: no calibrated system loss in {calibration_path()}; using the "
-                  f"literature fallback of {FALLBACK_SYSTEM_LOSS:.0%}",
-                  FallbackLossWarning, stacklevel=3)
+def _warn_fallback(code: str, reason: str) -> None:
+    # A fallback run looks exactly like a calibrated one, so it must never be silent. The
+    # reason says which: generate() found no calibrated loss, or a caller passed none.
+    warnings.warn(f"{code}: {reason}; using the literature fallback of "
+                  f"{FALLBACK_SYSTEM_LOSS:.0%}", FallbackLossWarning, stacklevel=3)
 
 
 def reference_dir() -> Path:
@@ -189,11 +189,12 @@ def find_reference_files(folder: str | Path | None = None) -> dict[str, Path]:
 def site_system(code: str, kwp: float = 1.0, system_loss: float | None = None) -> PVSystem:
     """The south-facing array at a state's site, `kwp` peak, with the given lumped loss.
 
-    `system_loss=None` means `FALLBACK_SYSTEM_LOSS` and issues a `FallbackLossWarning`.
+    `system_loss=None` means `FALLBACK_SYSTEM_LOSS` and issues a `FallbackLossWarning`. It
+    does not look up the calibration file; `generate()` does.
     """
     site = STATE_SITES[code]
     if system_loss is None:
-        _warn_fallback(code)
+        _warn_fallback(code, "no system loss passed")
         system_loss = FALLBACK_SYSTEM_LOSS
     return PVSystem(kwp=kwp, system_loss=system_loss,
                     latitude=site.latitude, longitude=site.longitude, altitude=site.altitude)
@@ -293,7 +294,7 @@ def generate(code: str, start: str, end: str) -> pd.Series:
     """
     loss, source = system_loss_for(code)
     if source == "fallback":
-        _warn_fallback(code)
+        _warn_fallback(code, f"no calibrated system loss in {calibration_path()}")
     out = model_1kwp(code, start, end, system_loss=loss)
     out.attrs.update(system_loss=loss, loss_source=source)
     return out

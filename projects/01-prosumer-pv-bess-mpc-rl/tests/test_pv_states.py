@@ -62,6 +62,25 @@ def test_site_system_warns_when_it_substitutes_the_fallback_loss():
     assert system.system_loss == pv_states.FALLBACK_SYSTEM_LOSS
 
 
+def test_site_system_warning_names_the_missing_argument_not_the_file(offline):
+    """Regression: site_system() blamed the calibration file, which it never reads.
+
+    With BE calibrated in the file, a call without a loss still falls back, and the warning
+    must say that no loss was passed, not that the file lacks one.
+    """
+    offline.write_text(json.dumps({"states": {"BE": {"system_loss": 0.2}}}), encoding="utf-8")
+    with pytest.warns(pv_states.FallbackLossWarning) as caught:
+        pv_states.site_system("BE")
+    message = str(caught[0].message)
+    assert "no system loss passed" in message
+    assert "calibrat" not in message
+
+
+def test_generate_warning_names_the_calibration_file(offline):
+    with pytest.warns(pv_states.FallbackLossWarning, match="no calibrated system loss in"):
+        pv_states.generate("BY", "2024-06-21", "2024-06-22")
+
+
 def test_state_sites_are_the_capitals_of_the_fleet_table():
     """The comment on STATE_SITES says so; this keeps the two tables from drifting apart."""
     from prosumer.experiments.national_impact import _GEO
