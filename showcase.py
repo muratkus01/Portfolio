@@ -129,13 +129,32 @@ def demo_05(real: bool) -> dict:
 
 
 def demo_06(real: bool) -> dict:
-    # Project 03 is being rebuilt on real reBAP, a real intraday index and a learned forecast
-    # (HANDOFF, 2026-10-31). The old demo scored synthetic AR(1) noise as forecast skill, and
-    # the f2b API it called is changing, so the showcase computes no P03 number until the
-    # rebuilt results are committed as CSVs under projects/03-*/reports/.
+    """Read Project 03's committed test-window results; recompute nothing.
+
+    The backtest needs reBAP and intraday prices downloaded by hand and fits LightGBM with
+    three seeds, so the showcase prints cells of the CSVs that the P03 README cites instead
+    of rerunning it. `real` is ignored: the CSVs are real-data results either way.
+    Returns {"rows": [(label, value), ...], "headline": str}, like the other demos.
+    """
+    import pandas as pd
+
+    reports = HERE / "projects" / PROJECTS["03"] / "reports" / "test"
+    stages = pd.read_csv(reports / "forecast_by_stage.csv")
+    pinball = stages[stages["stage"] == "DA"].set_index("rung")["pinball"]
+    policies = pd.read_csv(reports / "policies.csv")
+    b0 = policies[policies["policy"] == "B0 day-ahead only"].set_index("rung")["net_revenue"]
+    gains = pd.read_csv(reports / "value_of_forecast.csv")
+    lgbm = gains[(gains["rung"] == "F3 seed 0") & (gains["policy"] == "B0 day-ahead only")].iloc[0]
+
+    rungs = [("LightGBM, seed 0", "F3 seed 0"), ("TSO forecast (benchmark)", "F4 TSO forecast"),
+             ("climatology", "F0 climatology")]
+    rows = [(label, f"day-ahead pinball {pinball[rung]:.2f} MW | B0 {b0[rung]:,.0f} EUR")
+            for label, rung in rungs]
     return {
-        "rows": [("Status", "rebuilding on real data, results pending")],
-        "headline": "no P03 number is shown until the rebuilt results are committed",
+        "rows": rows,
+        "headline": f"LightGBM's B0 gain over climatology {lgbm['gain_vs_F0_eur']:+,.0f} EUR, 90% "
+                    f"interval {lgbm['ci90_low']:+,.0f} to {lgbm['ci90_high']:+,.0f}; read from "
+                    "reports/test/ (2026 test window), not recomputed",
     }
 
 
