@@ -301,12 +301,18 @@ The package in `src/prosumer/` implements Phases 1-4 and the Phase-6 environment
 [`../../docs/08-milp-to-rl-roadmap.md`](../../docs/08-milp-to-rl-roadmap.md). Everything below
 was produced by a run of the committed code; nothing is estimated.
 
+Every run here uses the `SiteConfig()` battery defaults (8.9 kWh, 10 to 90 % usable,
+5.51 kW, 0.95 efficiency each way, 6.47 kW import limit), not the thesis household. The
+ladder and resolution runs also use the default wear price (0.03 EUR/kWh on charged plus
+discharged energy) and a fixed feed-in tariff of 7.86 ct/kWh. That tariff was the CLI
+default when this section was written; today it needs `--export-mode feed_in_tariff`.
+
 ```bash
 pip install -e ".[rl,dev]"
 python -m pytest tests/ -q                                          # 67 passed
 python -m prosumer.cli legacy     --data data/raw/legacy/12-18_08_2024.csv
-python -m prosumer.cli ladder     --data data/raw/legacy/09-15_12_2024.csv --dt 0.25
-python -m prosumer.cli resolution --data data/raw/legacy/09-15_12_2024.csv
+python -m prosumer.cli ladder     --data data/raw/legacy/09-15_12_2024.csv --dt 0.25 --export-mode feed_in_tariff
+python -m prosumer.cli resolution --data data/raw/legacy/09-15_12_2024.csv --export-mode feed_in_tariff
 python train_rl.py --steps 50000 --seeds 5
 ```
 
@@ -346,9 +352,12 @@ invariant `B2 <= B3` is asserted at runtime.
 | B2 perfect foresight | 1.584 | 1.900 | +0.316 | +19.9 % |
 | B3 rolling MPC | 2.281 | 2.456 | +0.175 | +7.7 % |
 
-Peak import rose from 3.66 kW (hourly) to 5.76 kW (15 min) under B2: the hourly model
-**understates the peak power requirement by 58 %**, which is a battery- and connection-sizing
-error, not merely an accounting one.
+Under B2, peak import rose from 3.66 kW (hourly) to 5.76 kW (15 min), 58 % more; put the
+other way, the hourly model shows a 37 % lower peak. Both peaks come from the
+perfect-foresight optimiser charging the battery from the grid (at 15 minutes at the full
+5.51 kW inverter rating), not from household demand: B1 peaks at 0.72 kW at both
+resolutions. The difference is a property of the optimiser's grid charging, not a
+household peak that a battery or a grid connection would have to be sized for.
 
 > **Read this result with its caveat.** The measured profiles are hourly, so the 15-minute
 > series is upsampled. What is isolated here is therefore the **control**-resolution effect
