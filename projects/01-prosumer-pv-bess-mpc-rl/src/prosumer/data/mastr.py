@@ -68,6 +68,12 @@ _STATE_FILE_CODE: dict[str, str] = {
     "thuringia": "TH",
 }
 
+# Every top-level export this module reads. Checking only one of them let a partial download
+# pass `available()` and fail later inside `snapshot()` or `mean_size_by_state()`.
+_FILES = ("home_storage_mean_energy_power.csv", "battery_count_by_segment.csv",
+          "battery_energy_by_segment.csv", "battery_energy_by_state_lithium_ion.csv",
+          "battery_power_by_state_lithium_ion.csv")
+
 
 def available() -> bool:
     """True when the files the national fleet analysis reads are all present.
@@ -75,7 +81,7 @@ def available() -> bool:
     The CSVs are gitignored (see SOURCE.md), so a fresh clone and CI have none of them.
     Tests use this to skip instead of failing.
     """
-    if not (RAW / "home_storage_mean_energy_power.csv").exists():
+    if not all((RAW / name).exists() for name in _FILES):
         return False
     return all((RAW / "state_counts" / f"{stem}.csv").exists() for stem in _STATE_FILE_CODE)
 
