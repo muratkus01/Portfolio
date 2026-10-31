@@ -268,8 +268,9 @@ def planning_rates(index: pd.DatetimeIndex, monthly: pd.DataFrame) -> np.ndarray
 
     A market value is the actual mean of its whole period (Anlage 1 Nr. 3.3, 4.3), so it is
     known only once the period is over. A controller deciding inside a month therefore knows
-    at best the previous month's, and that is its estimate of the premium, also for a plant
-    paid against the annual value, which is known only after December. B2 may plan on the
+    the previous month's at best, and this takes it as the estimate of the premium. For a
+    plant paid against the annual value it is one estimate among several known as early: the
+    previous year's annual value, or the mean of the year's months so far. B2 may plan on the
     realised value; B3, a deployable controller, plans on this.
 
     Parameters

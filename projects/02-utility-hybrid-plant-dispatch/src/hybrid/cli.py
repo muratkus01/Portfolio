@@ -96,11 +96,14 @@ def _premium(args, run: RunConfig, index: pd.DatetimeIndex, wind: np.ndarray,
 def _b3_planning_premium(args, run: RunConfig, index: pd.DatetimeIndex) -> np.ndarray:
     """B3's premium per step: the plant's realised monthly rate of the month before.
 
-    A market value is known only once its month is over (`market.planning_rates`), so B3, a
-    deployable controller, plans each month on the previous month's realised rate. For a
-    plant paid against the annual value that is its latest realised value too, as the year's
-    own is known only after December. A window starts on 1 January, so its first month needs
-    December of the previous year, which this loads.
+    A market value is known only once its period is over (`market.planning_rates`), so B3, a
+    deployable controller, plans on an estimate: each month on the previous month's realised
+    rate. For the default plant, which is paid against the annual value, that is one choice
+    among estimates known as early. The previous year's annual value is complete when
+    December's monthly one is, and the year's months so far are known from February on.
+    ladder prints the rates B3 plans on next to the rate it is settled on, so the gap shows.
+    A window starts on 1 January, so its first month needs December of the previous year,
+    which this loads.
 
     args: parsed CLI arguments, e.g. year=2024. run: the run's settings.
     index: the window's timestamps.
