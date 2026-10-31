@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hybrid import cli, config, market
+from hybrid import baselines, cli, config, market
 from hybrid.baselines import run_ladder
 from hybrid.config import MarketConfig, RunConfig
 from hybrid.market import premium_eligible, settle
@@ -86,6 +86,29 @@ def test_the_ladder_plans_on_the_hours_it_is_settled_on():
 
     for name in ("B2 perfect foresight", "B3 rolling MPC"):
         assert res[name]["export"][1:5] == pytest.approx(np.zeros(4), abs=1e-6), name
+
+
+def test_b3_prices_its_horizons_on_the_hours_it_is_settled_on(monkeypatch):
+    """B3 prices each plan's horizon at its decision step's premium wherever the premium is
+    payable, so the mask that says where must be counted at the run's step length as well.
+
+    The test above cannot see that mask: with one premium rate the horizon pricing changes
+    nothing. Here B3's stand-in records the mask run_ladder hands it.
+    """
+    seen = {}
+
+    def recording_b3(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run, export_cap=None,
+                     progress=False, premium=None):
+        seen["eligible"] = np.asarray(premium[1]).copy()
+        return baselines.b0_no_battery(wind, pv, run, export_cap)
+
+    monkeypatch.setattr(baselines, "b3_rolling", recording_b3)
+    run = RunConfig(dt=1.0, horizon_steps=4, market=MarketConfig(negative_price_rule="four_hour"))
+    price = np.array([50.0, -5.0, -5.0, -5.0, -5.0, 50.0, 50.0, 50.0])
+
+    run_ladder(np.full(8, 30.0), np.zeros(8), price, run, premium_rate=20.0)
+
+    assert list(seen["eligible"]) == [True] + [False] * 4 + [True] * 3
 
 
 def test_a_step_length_that_does_not_divide_an_hour_is_refused():
