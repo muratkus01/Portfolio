@@ -10,7 +10,8 @@ abstract: >-
   earlier ones are archived and still tested. Project 01 controls a prosumer PV
   and battery system every 15 minutes with rolling-horizon model predictive
   control (MPC) and a reinforcement-learning agent (SAC), on real German
-  day-ahead prices and weather and measured household load. For one household
+  day-ahead prices, modelled weather (Open-Meteo) and household load measured
+  in 2010 (HTW Berlin). For one household
   over 20.5 months out of sample, the MPC recovers 89.4 % of the cost headroom
   between a rule-based controller and perfect foresight, and the agent 32.4 %
   (median of three seeds). Project 02 dispatches a wind, PV and battery hybrid

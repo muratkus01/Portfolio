@@ -71,8 +71,8 @@ holds each hourly price over its four quarter-hours.
 | **FINO 1/2/3** | Offshore met-mast measurements | 10 min | Registration | Research use, attribution |
 
 **Pitfall:** Open-Meteo's historical-forecast archive stitches together the shortest lead of
-every model run. Project 01 uses it only as the observed weather behind its PV model; as a
-forecast input it would leak, which is why Projects 01 and 03 take their forecasts from the
+every model run. Project 01 uses it only as the stand-in for actual weather behind its PV
+model; as a forecast input it would leak, which is why Projects 01 and 03 take their forecasts from the
 previous-runs archive.
 
 ---
