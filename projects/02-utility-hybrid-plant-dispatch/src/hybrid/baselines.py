@@ -12,7 +12,7 @@ import time
 import numpy as np
 import pulp
 
-from .config import RunConfig
+from .config import MarketConfig, RunConfig
 from .market import effective_price, premium_eligible, settle
 from .plant import battery_interval, simulate
 
@@ -22,6 +22,11 @@ from .plant import battery_interval, simulate
 # the objective, so the tolerance scales with it; the floor covers objectives near zero.
 _INVARIANT_REL_TOL = 1e-6
 _INVARIANT_ABS_TOL = 1e-3          # EUR
+# Share of the charged energy that may come from the grid before it counts as bought. With
+# grid charging allowed, LP rounding alone imports a tiny share of the charged energy, at any
+# window length and plant size; an absolute threshold would refuse that residue on a long
+# enough window or a large enough plant.
+_GRID_SHARE_TOL = 1e-6
 
 
 # ------------------------------------------------------------------ B0 / B1
@@ -223,7 +228,9 @@ def _with_import_cost(cost: dict[str, float], imports: np.ndarray, price: np.nda
 
     With `grid_charging_allowed` the battery may charge from the grid. That energy is bought
     on the day-ahead market the export is sold on, and the market module has no other price
-    for it, so imports pay the day-ahead price. Grid fees and levies are not modelled.
+    for it, so imports pay the day-ahead price. Grid fees and levies are not modelled. Sold
+    again, that energy must not earn the market premium; `_refuse_premium_on_grid_energy`
+    stops such a run.
 
     cost: a settlement from `market.settle`. imports: grid import per step in MW.
     price: day-ahead price per step in EUR/MWh. dt: step length in hours.
@@ -232,6 +239,34 @@ def _with_import_cost(cost: dict[str, float], imports: np.ndarray, price: np.nda
     import_cost = float(np.sum(np.asarray(imports) * np.asarray(price, dtype=float)) * dt)
     return {**cost, "import_cost": import_cost,
             "net_revenue": cost["net_revenue"] - import_cost}
+
+
+def _refuse_premium_on_grid_energy(name: str, res: dict[str, np.ndarray],
+                                   premium_rate: float | np.ndarray, market: MarketConfig,
+                                   dt: float) -> None:
+    """Stop the run when a rung charged grid energy while the market premium is paid.
+
+    The premium follows renewable energy into the battery (§ 19 (3) EEG 2023); energy bought
+    from the grid carries none when it is sold again. `settle` pays the premium on all
+    eligible export, and the ladder does not track which part of the stored energy came from
+    the grid, so a rung that buys, stores and resells would be paid the premium on energy it
+    never generated. No shipped rung buys grid energy; this guards a controller that would.
+
+    name: rung name, for the message. res: the rung's dispatch, with "import" and "p_ch"
+    per step in MW (the plant imports only to charge, so import <= p_ch).
+    premium_rate: market premium in EUR/MWh, one rate or one per step.
+    market: the run's market settings. dt: step length in hours.
+    Raises NotImplementedError when more than _GRID_SHARE_TOL of the charged energy came
+    from the grid while a premium is paid.
+    """
+    bought = float(np.sum(res["import"]) * dt)
+    charged = float(np.sum(res["p_ch"]) * dt)
+    premium_paid = market.eeg_enabled and bool(np.any(np.asarray(premium_rate) > 0.0))
+    if premium_paid and bought > _GRID_SHARE_TOL * charged:
+        raise NotImplementedError(
+            f"{name} charged {charged:,.2f} MWh, {bought:,.2f} MWh of it from the grid, while "
+            "the market premium is paid; the premium is due on renewable energy only, and the "
+            "ladder cannot tell grid energy from renewable energy in the battery")
 
 
 def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
@@ -247,7 +282,8 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         The settlement's imbalance_cost is the deviation priced at reBAP minus spot.
     export_cap: per-step export limit in MW (a redispatch order), or None for the connection.
     Returns {rung name: dispatch arrays plus "cost" (the settlement) and "violations"}.
-    Raises AssertionError when a rung beats perfect foresight B2 on revenue before imbalance.
+    Raises AssertionError when a rung beats perfect foresight B2 on revenue before imbalance,
+    and NotImplementedError when a rung charged grid energy while the market premium is paid.
     """
     from .plant import check_feasible
 
@@ -270,6 +306,7 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     spread = None if rebap is None else (np.asarray(rebap, dtype=float)
                                          - np.asarray(price, dtype=float))
     for name, r in out.items():
+        _refuse_premium_on_grid_energy(name, r, premium_rate, run.market, run.dt)
         r["cost"] = _with_import_cost(
             settle(r, price, run.dt, run.plant, run.market,
                    rebap=spread, schedule=schedule, premium_rate=premium_rate),

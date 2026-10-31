@@ -156,6 +156,45 @@ def test_grid_imports_are_paid_at_the_day_ahead_price(monkeypatch):
     assert trader["cost"]["net_revenue"] < 0
 
 
+def test_the_market_premium_is_not_paid_on_grid_energy(monkeypatch):
+    """Regression: energy bought from the grid and sold again earned the market premium.
+
+    The premium follows renewable energy into the battery (§ 19 (3) EEG 2023); grid energy
+    carries none. The stand-in for B1 charges at 20 MW beside 10 MW of wind for an hour, so
+    half of what it stores comes from the grid, and sells it all in the next hour. The ladder
+    cannot tell the two apart in the battery, so it must refuse the rung rather than pay the
+    premium on the grid share. The rung stays below B2, so the invariant did not catch it.
+    """
+    plant = PlantConfig(grid_charging_allowed=True)
+    run = RunConfig(dt=0.25, plant=plant)
+    n = 8
+    charge_then_sell = np.r_[np.full(4, -plant.bess_mw), np.full(4, plant.bess_mw)]
+
+    def grid_trader(wind, pv, run, export_cap=None):
+        return simulate(wind, pv, charge_then_sell, np.zeros(n), run.dt, run.plant,
+                        export_cap=export_cap)
+
+    monkeypatch.setattr(baselines, "b1_curtailment_avoidance", grid_trader)
+    with pytest.raises(NotImplementedError, match="from the grid"):
+        run_ladder(np.full(n, 10.0), np.zeros(n), np.full(n, 60.0), run, premium_rate=10.0,
+                   include_b3=False)
+
+
+def test_solver_residue_is_not_taken_for_grid_energy():
+    """The refusal must not fire on rungs that never buy from the grid.
+
+    With grid charging allowed, LP rounding can leave B2 importing a tiny share of what it
+    charges. That is residue, not trading, so the run must settle as usual.
+    """
+    run = RunConfig(dt=0.25, plant=PlantConfig(conn_mw=40.0, grid_charging_allowed=True))
+    wind, pv, price = window(96)
+
+    res = run_ladder(wind, pv, price, run, premium_rate=8.0, include_b3=False)
+
+    b2 = res["B2 perfect foresight"]
+    assert np.sum(b2["import"]) <= 1e-6 * np.sum(b2["p_ch"])
+
+
 # ------------------------------------------------------------------ initial stored energy
 def test_no_rung_earns_from_energy_it_never_bought():
     """Regression: every battery rung started half full and sold that energy as revenue.
