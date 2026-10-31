@@ -1,9 +1,44 @@
 # Project 02 · Utility-Scale Hybrid Wind + PV + Battery Plant Dispatch
 
-**Dispatch optimisation for a co-located wind, PV and battery plant sharing one grid
-connection point in Germany - under EEG direct marketing, the negative-price rule, Redispatch
-2.0 obligations and a binding connection capacity limit. Evaluated across the full benchmark
-ladder B0 → B3 and against a learned policy.**
+**Dispatch of a co-located wind, PV and battery plant behind one grid connection in Germany,
+under EEG direct marketing and the negative-price rule of each plant vintage. Evaluated on a
+benchmark ladder from B0 (no battery) to B3 (rolling MPC), whose optimisers are linear
+programs solved with PuLP and CBC, on Energy-Charts data for the calendar years 2024 and
+2025.**
+
+| | |
+|---|---|
+| **Status** | Ladder B0 to B3 implemented and evaluated; the project stops at B3, on purpose (below). 161 tests, all offline |
+| **Method** | B0 no battery · B1 rule-based storage · B2 perfect-foresight LP · B3 rolling LP-MPC on synthetic forecasts |
+| **Asset** | 50 MW onshore wind + 30 MWp PV + a 20 MW / 40 MWh battery behind a 60 MW connection; not a real site |
+| **Markets** | Day-ahead price and the EEG market premium per technology. Not modelled: intraday trading, a day-ahead schedule settled at reBAP, redispatch. aFRR is not built yet: its settings in `MarketConfig` are inert |
+| **Data** | National wind and solar generation, installed capacity and day-ahead prices from Energy-Charts (CC BY 4.0) |
+| **Resolution** | 15 min |
+
+> **Project 02 stops at B3, on purpose.** A learned policy is worth training where a rolling
+> MPC cannot keep up with the problem, and this model does not pose such a problem yet. Each
+> reason can be checked in the code and the tables:
+>
+> 1. **No rung commits a day-ahead schedule.** `market.settle` prices a deviation from a
+>    committed schedule at reBAP, and `baselines.run_ladder` accepts a `schedule`, but no rung
+>    produces one and no command passes one. So `imbalance_cost_eur` is 0 in every row of
+>    every table.
+> 2. **No redispatch.** `market.redispatch_series` exists, but no command calls it or passes
+>    an export cap, and `tables.INERT_SETTINGS` names its settings as unused.
+> 3. **The connection does not bind on national profiles.** At the plant's 60 MW,
+>    `steps_over_connection` is 0 in every Energy-Charts window of
+>    [`window_stats.csv`](reports/window_stats.csv). The curtail-or-store decision appears
+>    only where the sizing sweep narrows the connection.
+> 4. **The premium is deterministic.** It is one realised rate per technology and calendar
+>    month or year (`market.premium_table`), and B3 plans on the previous month's realised
+>    rate (`market.planning_rates`). No random premium state is left for a policy to learn.
+>
+> Reinforcement learning is shown in [Project 01](../01-prosumer-pv-bess-mpc-rl/), on a
+> household PV battery: a soft actor-critic agent reaches 32.4 % of the gain from B1 to B2
+> (median of three seeds), against 89.4 % for its rolling MPC
+> ([`rl_summary.csv`](../01-prosumer-pv-bess-mpc-rl/reports/rl_eval_H28/rl_summary.csv)).
+> Here, RQ3/H3 and the RL work packages (WP8, WP9) are future work. They become worth doing
+> once every rung commits a day-ahead schedule that is settled at reBAP.
 
 ## 0. Implementation status
 
@@ -97,16 +132,6 @@ negative-price table above is unaffected, because on national data the connectio
 > why the sweep above runs down to 25 % of nameplate. On site-level data the whole curve sits
 > much further right, and curtailment - the effect this project is about - is substantially
 > larger. Site-level generation data is the top acquisition priority.
-
----
-
-| | |
-|---|---|
-| **Status** | **Ladder implemented** on real 2025 wind/PV/price data · RL environment not yet built |
-| **Method** | Full benchmark ladder (B0-B3) + PPO/SAC with safety layer |
-| **Asset** | ~50 MW wind + ~30 MW PV + ~20 MW / 40 MWh battery behind a ~60 MW connection |
-| **Markets** | Day-ahead · intraday · imbalance · EEG market premium · aFRR, not built yet (its settings in `MarketConfig` are inert) |
-| **Resolution** | 15 min |
 
 ---
 
