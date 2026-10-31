@@ -117,14 +117,6 @@ def _scenario_id(project: str, params: dict) -> str:
 
 def _check_invariants(project: str, params: dict, result: dict) -> list:
     violations = []
-    if project == "p02":
-        turb = result.get("turb_mw", [])
-        pump = result.get("pump_mw", [])
-        if isinstance(turb, list) and isinstance(pump, list) and len(turb) and len(pump):
-            t = np.array(turb); p_arr = np.array(pump)
-            sim = int(np.sum((t > 0.01) & (p_arr > 0.01)))
-            if sim > 0:
-                violations.append(f"simultaneous pump+turb: {sim} steps")
     if project == "p01":
         cost = result.get("net_cost_eur", None)
         if cost is not None and cost < -15000:
@@ -236,316 +228,8 @@ def _p01_run(params: dict) -> dict:
 # ============================================================
 # P02: Pumped Storage Hydro
 # ============================================================
+# ============================================================
 def _p02_grid(smoke: bool) -> list:
-    turb_mw   = [75.0]        if smoke else [50.0, 75.0, 100.0]
-    e_max_mwh = [2400.0]      if smoke else [1200.0, 2400.0, 3600.0]
-    wear      = [100]         if smoke else [0, 50, 100, 150, 200, 300]
-    policies  = ["b1"]        if smoke else ["b1", "b2", "b3", "rl_smoothed", "rl_unsmoothed"]
-    years     = [2025]        if smoke else [2024, 2025]
-    return [{"turb_mw_unit": t, "e_max_mwh": e, "wear_eur": w, "policy": p, "year": y}
-            for t, e, w, p, y in itertools.product(turb_mw, e_max_mwh, wear, policies, years)]
-
-
-def _p02_run(params: dict) -> dict:
-    sys.path.insert(0, str(ROOT / "projects" / "02-pumped-storage-rl-multimarket" / "src"))
-    from psw.config import PlantConfig
-    from psw.baselines import (
-        RunConfig, b1_price_threshold, b2_perfect, b3_rolling, make_price_forecast,
-    )
-    from psw.market import settle
-    from psw.plant import reversals
-
-    year  = params["year"]
-    price = _load_price(year)
-    e_max = params["e_max_mwh"]
-    policy = params["policy"]
-    t_unit = float(params["turb_mw_unit"])
-
-    plant = PlantConfig(
-        n_units=4,
-        p_turb_max_unit=t_unit,
-        p_turb_min_unit=t_unit * (25.0 / 75.0),
-        p_pump_unit=t_unit * (70.0 / 75.0),
-        e_max=e_max,
-        e_min=e_max * 0.05,
-        e_init=e_max * 0.5,
-        ramp_mw_per_step=t_unit * 2.0,
-        mode_change_cost=float(params["wear_eur"]),
-        e_reserve_low=e_max * 0.08,
-        e_reserve_high=e_max * 0.95,
-    )
-
-    rc = dataclasses.replace(RunConfig(), plant=plant)
-
-    # 14-day evaluation window (1,344 quarter-hours) of real German spot prices
-    n_days = 14
-    n_steps = n_days * 96
-    price_14 = price[:n_steps]
-    scale = 365.0 / n_days
-
-    b1_res = b1_price_threshold(price_14, rc)
-    b2_res = b2_perfect(price_14, rc)
-
-    sp_arr, sn_arr, act_arr = None, None, None
-
-    if policy == "b3":
-        rng = np.random.default_rng(rc.seed)
-        price_fc = make_price_forecast(price_14, rc, rng)
-        b3_res = b3_rolling(price_14, price_fc, rc, resolve_every=4)
-        active_res = b3_res
-    elif policy == "b2":
-        b3_res = None
-        active_res = b2_res
-    elif policy.startswith("rl_"):
-        b3_res = None
-        from psw.env import PSWEnv
-        from stable_baselines3 import PPO
-
-        smooth = 0.5 if policy == "rl_smoothed" else 0.0
-
-        class ShapedPSWEnv(PSWEnv):
-            def __init__(self, *args, action_smooth=0.5, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.action_smooth = action_smooth
-                self.prev_action_0 = 0.0
-
-            def reset(self, **kwargs):
-                self.prev_action_0 = 0.0
-                return super().reset(**kwargs)
-
-            def step(self, action):
-                a = np.copy(action)
-                if self.action_smooth > 0:
-                    a[0] = (1 - self.action_smooth) * a[0] + self.action_smooth * self.prev_action_0
-                    self.prev_action_0 = a[0]
-                obs, reward, term, trunc, info = super().step(a)
-                return obs, reward, term, trunc, info
-
-        model_path = ROOT / "projects" / "02-pumped-storage-rl-multimarket" / "models" / "ppo_psw_reference"
-        model = PPO.load(model_path)
-        env = ShapedPSWEnv(price_14, price_14, rc, episode_steps=n_steps, random_start=False, seed=rc.seed, action_smooth=smooth)
-        obs, _ = env.reset()
-        p_trace, ps_trace, e_trace, sp_trace, sn_trace, act_trace = [], [], [], [], [], []
-        for _ in range(n_steps):
-            act, _ = model.predict(obs, deterministic=True)
-            obs, r, term, trunc, info = env.step(act)
-            p_trace.append(info["p"])
-            ps_trace.append(info["p_sched"])
-            e_trace.append(info["e_res"])
-            sp_trace.append(info["sold_pos"])
-            sn_trace.append(info["sold_neg"])
-            act_trace.append(info["activation"])
-            if term or trunc:
-                break
-        p_arr = np.array(p_trace)
-        active_res = {
-            "p": p_arr, "p_sched": np.array(ps_trace),
-            "p_turb": np.maximum(p_arr, 0.0), "p_pump": np.maximum(-p_arr, 0.0),
-            "turb_mw": np.maximum(p_arr, 0.0), "pump_mw": np.maximum(-p_arr, 0.0),
-            "e_res": np.array(e_trace), "mode_changes": reversals(p_arr),
-            "reversals_per_day": float(np.sum(reversals(p_arr))) / n_days,
-        }
-        sp_arr = np.array(sp_trace)
-        sn_arr = np.array(sn_trace)
-        act_arr = np.array(act_trace)
-    else:
-        b3_res = None
-        active_res = b1_res
-
-    c_b1 = settle(b1_res, price_14, rc.dt, plant, rc.market)
-    c_b2 = settle(b2_res, price_14, rc.dt, plant, rc.market)
-    if sp_arr is not None:
-        c_act = settle(active_res, price_14, rc.dt, plant, rc.market,
-                       sold_pos=sp_arr, sold_neg=sn_arr, activation=act_arr,
-                       schedule=active_res.get("p_sched"))
-    else:
-        c_act = settle(active_res, price_14, rc.dt, plant, rc.market)
-    c_b3 = settle(b3_res, price_14, rc.dt, plant, rc.market) if b3_res is not None else c_b2
-
-    revenue   = float(c_act["net_revenue"] * scale)
-    reversals_val = active_res.get("reversals_per_day")
-    if reversals_val is None and "mode_changes" in active_res:
-        reversals_val = float(np.sum(active_res["mode_changes"])) / n_days
-    else:
-        reversals_val = float(reversals_val or 0.0)
-    wear_cost = float(c_act.get("wear_cost", 0.0) * scale)
-    b1_rev = float(c_b1["net_revenue"] * scale)
-    b2_rev = float(c_b2["net_revenue"] * scale)
-    b3_rev = float(c_b3["net_revenue"] * scale)
-
-    turb_arr  = active_res.get("turb_mw", active_res.get("p_turb", []))
-    pump_arr  = active_res.get("pump_mw", active_res.get("p_pump", []))
-
-    return {
-        "eval_days": n_days,
-        "annualised": True,
-        "revenue_eur_per_year_extrapolated": revenue,
-        "reversals_per_day": reversals_val,
-        "wear_cost_eur_per_year_extrapolated": wear_cost,
-        "b1_revenue_eur_per_year_extrapolated": b1_rev,
-        "b2_revenue_eur_per_year_extrapolated": b2_rev,
-        "b3_revenue_eur_per_year_extrapolated": b3_rev,
-        "turb_mw": list(turb_arr) if hasattr(turb_arr, "__iter__") and not isinstance(turb_arr, (int, float)) else [],
-        "pump_mw": list(pump_arr) if hasattr(pump_arr, "__iter__") and not isinstance(pump_arr, (int, float)) else [],
-    }
-
-
-# ============================================================
-# P03: Smart EV Charging
-# ============================================================
-def _p03_grid(smoke: bool) -> list:
-    dim_limit  = [80.0]        if smoke else [40.0, 60.0, 80.0, 100.0, 140.0, 180.0, 220.0]
-    sessions   = [48]          if smoke else [24, 36, 48, 64, 72]
-    buffer_kwh = [0.0]         # Fixed to 0.0 as buffer storage is not modelled in evc site allocation
-    years      = [2025]        if smoke else [2024, 2025]
-    return [{"dim_limit_kw": d, "sessions_per_day": s, "buffer_kwh": b, "year": y}
-            for d, s, b, y in itertools.product(dim_limit, sessions, buffer_kwh, years)]
-
-
-def _p03_run(params: dict) -> dict:
-    sys.path.insert(0, str(ROOT / "projects" / "03-smart-ev-charging-14a" / "src"))
-    from evc.sessions import generate as gen_sessions
-    from evc.baselines import RunConfig, b0_uncontrolled, b3_price_greedy, cost as evc_cost
-
-    year         = params["year"]
-    dim_kw       = params["dim_limit_kw"]
-    sess_per_day = params["sessions_per_day"]
-    buffer_kwh   = params["buffer_kwh"]
-    price        = _load_price(year) / 1000.0   # EUR/kWh
-    n_days       = 14
-    n_steps      = n_days * 96
-
-    base_rc  = RunConfig(days=n_days)
-    new_arch = dataclasses.replace(base_rc.archetype, arrivals_per_day=float(sess_per_day))
-    new_site = dataclasses.replace(
-        base_rc.site,
-        buffer_kwh=buffer_kwh,
-        buffer_kw=buffer_kwh / 2.0 if buffer_kwh > 0 else 0.0,
-        n_connectors=max(int(sess_per_day * 1.2), 10),
-    )
-    rc = dataclasses.replace(base_rc, archetype=new_arch, site=new_site)
-
-    price_14 = np.tile(price, -(-n_steps // len(price)))[:n_steps]
-    hours_14 = np.tile(np.arange(96) // 4, n_days)[:n_steps].astype(float)
-    dim_arr  = np.full(n_steps, dim_kw)
-
-    sessions = gen_sessions(rc)
-    r_b0 = b0_uncontrolled(sessions, n_steps, rc, price_14)
-    r_b3 = b3_price_greedy(sessions, n_steps, rc, price_14, dim=dim_arr)
-
-    c_b0_dict = evc_cost(r_b0, price_14, hours_14, rc)
-    c_b3_dict = evc_cost(r_b3, price_14, hours_14, rc)
-    cost_b0     = float(c_b0_dict.get("net_cost", c_b0_dict.get("energy_cost", 0.0)))
-    cost_b3     = float(c_b3_dict.get("net_cost", c_b3_dict.get("energy_cost", 0.0)))
-    missed_b3   = int(r_b3.get("missed_departures", 0))
-    total_sess  = len(sessions)
-    fulfil      = float(1.0 - missed_b3 / total_sess) if total_sess > 0 else 1.0
-    curtail_kwh = float(max(0.0, r_b0.get("energy_kwh", 0.0) - r_b3.get("energy_kwh", 0.0)))
-    peak_kw     = float(r_b3.get("peak_kw", 0.0))
-    savings_pct = float((cost_b0 - cost_b3) / abs(cost_b0) * 100) if cost_b0 != 0 else 0.0
-
-    return {
-        "eval_days": n_days,
-        "annualised": False,
-        "cost_b0_eur": cost_b0, "cost_b3_eur": cost_b3,
-        "savings_pct": savings_pct, "departure_fulfillment_frac": fulfil,
-        "missed_departures": missed_b3, "curtail_kwh": curtail_kwh,
-        "peak_demand_kw": peak_kw,
-    }
-
-
-# ============================================================
-# P04: Renewable Energy Community
-# ============================================================
-def _p04_grid(smoke: bool) -> list:
-    c_net   = [0.02, 0.07]  if smoke else [0.000, 0.010, 0.020, 0.030, 0.050,
-                                            0.070, 0.090, 0.100, 0.110, 0.120, 0.140]
-    members = [10]          if smoke else [6, 10, 15, 20, 25, 30]
-    pv_kwp  = [50.0]        if smoke else [30.0, 50.0, 65.0, 90.0, 120.0]
-    years   = [2025]        if smoke else [2024, 2025]
-    return [{"c_net": c, "n_members": m, "shared_pv_kwp": p, "year": y}
-            for c, m, p, y in itertools.product(c_net, members, pv_kwp, years)]
-
-
-def _p04_run(params: dict) -> dict:
-    sys.path.insert(0, str(ROOT / "projects" / "04-energy-sharing-rec" / "src"))
-    from rec.community import (
-        RunConfig, CommunityConfig, RegimeConfig, MemberConfig,
-        pv_profile, member_profiles, allocate, settle,
-    )
-    from rec.game import (
-        build_game, owen_allocation, core_excess, break_even_network_charge,
-    )
-
-    year   = params["year"]
-    c_net  = params["c_net"]
-    n_mem  = params["n_members"]
-    pv_kwp = params["shared_pv_kwp"]
-    n_days = 14
-
-    rng = np.random.default_rng(42)
-    demand_vals = rng.uniform(2500, 6000, n_mem)
-    members = tuple(
-        MemberConfig(
-            name=f"m{i:02d}",
-            annual_kwh=float(demand_vals[i]),
-            pv_kwp=float(rng.choice([0.0, 0.0, 3.0, 5.0])),
-        )
-        for i in range(n_mem)
-    )
-
-    base_rc       = RunConfig(days=n_days)
-    new_community = dataclasses.replace(base_rc.community, shared_pv_kwp=pv_kwp)
-    new_regime    = dataclasses.replace(base_rc.regime, shared_network_charge=c_net)
-    rc = dataclasses.replace(base_rc, community=new_community,
-                             regime=new_regime, members=members)
-
-    gen  = pv_profile(rc, kwp=pv_kwp)
-    cons = member_profiles(rc)
-    alloc = allocate(gen, cons, rc.mechanism, rc)
-    result = settle(cons, alloc, gen, rc)
-
-    community_bill     = float(result.get("community_bill", 0.0))
-    community_baseline = float(result.get("community_baseline", 0.0))
-    welfare_eur        = community_baseline - community_bill
-    welfare_wk         = welfare_eur / (n_days / 7.0)
-    consumer_saving    = float(np.mean(result.get("consumer_saving", [0.0])))
-    owner_gain         = float(result.get("owner_gain", 0.0))
-    self_cons          = float(result.get("self_consumption", 0.0)) * 100
-    shared_kwh         = float(result.get("shared_kwh", 0.0))
-    breakeven          = float(break_even_network_charge(rc))
-
-    # Cooperative game evaluation: Owen core stability & blocking coalitions
-    game = build_game(rc, cons, gen)
-    x_opt = result.get("member_payoff", np.zeros(n_mem))
-    if n_mem <= 12:
-        from rec.game import all_coalition_values
-        v_all = all_coalition_values(game)
-        c_stab = core_excess(game, x_opt, values=v_all)
-    else:
-        c_stab = core_excess(game, x_opt, values=None, n_sample=500)
-
-    blocking_coalitions = int(c_stab.get("blocking_coalitions", 0))
-    in_core = int(c_stab.get("in_core", True))
-
-    return {
-        "eval_days": n_days,
-        "annualised": False,
-        "welfare_eur_per_week": welfare_wk,
-        "consumer_saving_eur": consumer_saving,
-        "owner_gain_eur": owner_gain,
-        "self_consumption_pct": self_cons,
-        "shared_kwh_per_day": shared_kwh / n_days,
-        "breakeven_tariff_eur_kwh": breakeven,
-        "blocking_coalitions": blocking_coalitions,
-        "in_core": in_core,
-    }
-
-
-# ============================================================
-# P05: Utility Hybrid Wind+PV+BESS
-# ============================================================
-def _p05_grid(smoke: bool) -> list:
     poc_mw   = [40.0]       if smoke else [25.0, 30.0, 40.0, 50.0, 60.0]
     pv_mw    = [30.0]       if smoke else [20.0, 30.0, 40.0, 50.0, 60.0]
     bess_mwh = [20.0]       if smoke else [0.0, 10.0, 20.0, 30.0, 40.0]
@@ -554,8 +238,8 @@ def _p05_grid(smoke: bool) -> list:
             for p, pv, b, y in itertools.product(poc_mw, pv_mw, bess_mwh, years)]
 
 
-def _p05_run(params: dict) -> dict:
-    sys.path.insert(0, str(ROOT / "projects" / "05-utility-hybrid-plant-dispatch" / "src"))
+def _p02_run(params: dict) -> dict:
+    sys.path.insert(0, str(ROOT / "projects" / "02-utility-hybrid-plant-dispatch" / "src"))
     from hybrid.baselines import (
         RunConfig as RC5, b0_no_battery, b1_curtailment_avoidance, b2_perfect,
         b3_rolling, make_forecasts, effective_price, settle,
@@ -623,9 +307,9 @@ def _p05_run(params: dict) -> dict:
 
 
 # ============================================================
-# P06: Probabilistic Forecast-to-Bid
+# P03: Probabilistic Forecast-to-Bid
 # ============================================================
-def _p06_grid(smoke: bool) -> list:
+def _p03_grid(smoke: bool) -> list:
     tau        = [0.42]       if smoke else [0.15, 0.25, 0.35, 0.42, 0.50, 0.60, 0.70, 0.85]
     sigma_base = [0.05]       if smoke else [0.02, 0.04, 0.059, 0.075, 0.10]
     rebap_asym = [42.0]       if smoke else [15.0, 30.0, 42.0, 60.0, 80.0]
@@ -634,8 +318,8 @@ def _p06_grid(smoke: bool) -> list:
             for t, s, r, y in itertools.product(tau, sigma_base, rebap_asym, years)]
 
 
-def _p06_run(params: dict) -> dict:
-    sys.path.insert(0, str(ROOT / "projects" / "06-probabilistic-forecast-to-bid" / "src"))
+def _p03_run(params: dict) -> dict:
+    sys.path.insert(0, str(ROOT / "projects" / "03-probabilistic-forecast-to-bid" / "src"))
     from f2b.policies import RunConfig, b0_day_ahead_only, b3_stochastic_mpc, settle
     from f2b.forecast import build_store, ForecastConfig
 
@@ -698,7 +382,6 @@ def _p06_run(params: dict) -> dict:
 # ============================================================
 PROJECT_RUNNERS = {
     "p01": _p01_run, "p02": _p02_run, "p03": _p03_run,
-    "p04": _p04_run, "p05": _p05_run, "p06": _p06_run,
 }
 
 
@@ -733,25 +416,16 @@ def _run_scenario(task: tuple) -> dict:
 
 KEY_COLS = {
     "p01": ["pv_kwp", "bess_kwh", "inv_kw", "year"],
-    "p02": ["turb_mw_unit", "e_max_mwh", "wear_eur", "policy", "year"],
-    "p03": ["dim_limit_kw", "sessions_per_day", "buffer_kwh", "year"],
-    "p04": ["c_net", "n_members", "shared_pv_kwp", "year"],
-    "p05": ["poc_mw", "pv_mw", "bess_mwh", "year"],
-    "p06": ["tau", "sigma_base", "rebap_asymmetry", "year"],
+    "p02": ["poc_mw", "pv_mw", "bess_mwh", "year"],
+    "p03": ["tau", "sigma_base", "rebap_asymmetry", "year"],
 }
 METRIC_COLS = {
     "p01": ["out_net_cost_eur", "out_self_consumption_frac", "out_grid_independence_frac",
             "out_b1_cost_eur", "out_b3_cost_eur", "out_gap_closure_frac"],
-    "p02": ["out_revenue_eur_per_year_extrapolated", "out_reversals_per_day", "out_wear_cost_eur_per_year_extrapolated",
-            "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated"],
-    "p03": ["out_cost_b0_eur", "out_cost_b3_eur", "out_savings_pct",
-            "out_departure_fulfillment_frac", "out_curtail_kwh"],
-    "p04": ["out_welfare_eur_per_week", "out_consumer_saving_eur",
-            "out_owner_gain_eur", "out_self_consumption_pct", "out_breakeven_tariff_eur_kwh"],
-    "p05": ["out_revenue_eur_per_year_extrapolated", "out_curtail_mwh_per_year_extrapolated", "out_overplanting_factor",
+    "p02": ["out_revenue_eur_per_year_extrapolated", "out_curtail_mwh_per_year_extrapolated", "out_overplanting_factor",
             "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated", "out_revenue_lift_pct",
             "out_neg_price_avoided_eur_per_year_extrapolated"],
-    "p06": ["out_capture_price_b3_eur_mwh", "out_net_gain_30d_eur",
+    "p03": ["out_capture_price_b3_eur_mwh", "out_net_gain_30d_eur",
             "out_imbalance_volume_reduction_pct"],
 }
 
@@ -762,7 +436,6 @@ METRIC_COLS = {
 def build_tasks(smoke: bool, project_filter: str | None = None) -> list:
     grids = {
         "p01": _p01_grid(smoke), "p02": _p02_grid(smoke), "p03": _p03_grid(smoke),
-        "p04": _p04_grid(smoke), "p05": _p05_grid(smoke), "p06": _p06_grid(smoke),
     }
     if project_filter:
         grids = {project_filter: grids[project_filter]}
@@ -775,39 +448,33 @@ def build_tasks(smoke: bool, project_filter: str | None = None) -> list:
 
 
 def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None,
-              reset_p05: bool = False, reset_p06: bool = False) -> None:
+              reset_p02: bool = False, reset_p03: bool = False) -> None:
     tasks     = build_tasks(smoke, project_filter=project_filter)
     completed = _load_checkpoint()
     commit    = _get_git_commit()
 
-    rows_by_proj = {p: [] for p in ["p01","p02","p03","p04","p05","p06"]}
+    rows_by_proj = {p: [] for p in ["p01","p02","p03"]}
     for proj in rows_by_proj:
         pq = RESULTS / f"{proj}_scenarios.parquet"
         if pq.exists():
             df = pd.read_parquet(pq)
-            if proj == "p02" and "turb_mw_unit" in df.columns and 20.0 in df["turb_mw_unit"].values:
-                log.info("Detected legacy P02 sizing (20/30/40 MW). Resetting P02 for 50/75/100 MW re-run.")
-                old_sids = set(df["sid"].dropna())
-                completed.difference_update(old_sids)
-                _save_checkpoint(completed)
-                continue
             if "seed" not in df.columns:
                 df["seed"] = 42
             if "git_commit" not in df.columns:
                 df["git_commit"] = commit
             rows_by_proj[proj].extend(df.to_dict("records"))
 
-    if reset_p05 or project_filter == "p05":
-        log.info("Resetting P05 scenario cache and completed IDs for re-run.")
-        p05_sids = {_scenario_id("p05", p) for p in _p05_grid(smoke)}
-        completed.difference_update(p05_sids)
-        rows_by_proj["p05"] = []
+    if reset_p02 or project_filter == "p02":
+        log.info("Resetting P02 scenario cache and completed IDs for re-run.")
+        p02_sids = {_scenario_id("p02", p) for p in _p02_grid(smoke)}
+        completed.difference_update(p02_sids)
+        rows_by_proj["p02"] = []
 
-    if reset_p06 or project_filter == "p06":
-        log.info("Resetting P06 scenario cache and completed IDs for re-run.")
-        p06_sids = {_scenario_id("p06", p) for p in _p06_grid(smoke)}
-        completed.difference_update(p06_sids)
-        rows_by_proj["p06"] = []
+    if reset_p03 or project_filter == "p03":
+        log.info("Resetting P03 scenario cache and completed IDs for re-run.")
+        p03_sids = {_scenario_id("p03", p) for p in _p03_grid(smoke)}
+        completed.difference_update(p03_sids)
+        rows_by_proj["p03"] = []
 
     pending       = [t for t in tasks if t[2] not in completed]
     total         = len(tasks)
@@ -873,8 +540,8 @@ def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None,
                        "violations": len(violations_all),
                        "violation_details": violations_all}, f, indent=2)
 
-    # Validation check across active projects (p01, p05, p06): fail loudly if any metric column is constant 0.0
-    for p in ["p01", "p05", "p06"]:
+    # Validation check across active projects (p01, p02, p03): fail loudly if any metric column is constant 0.0
+    for p in ["p01", "p02", "p03"]:
         rows = rows_by_proj.get(p, [])
         if rows:
             df_p = pd.DataFrame(rows)
@@ -897,7 +564,7 @@ def _build_lookup_cubes() -> None:
     key_cols = KEY_COLS
     metric_cols = METRIC_COLS
 
-    for proj in ["p01","p02","p03","p04","p05","p06"]:
+    for proj in ["p01","p02","p03"]:
         pq = RESULTS / f"{proj}_scenarios.parquet"
         if not pq.exists():
             cubes[proj] = {}; continue
@@ -933,10 +600,10 @@ if __name__ == "__main__":
     grp.add_argument("--smoke-test", action="store_true")
     grp.add_argument("--full", action="store_true")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 4) - 1))
-    ap.add_argument("--project", type=str, choices=["p01", "p02", "p03", "p04", "p05", "p06"], default=None,
+    ap.add_argument("--project", type=str, choices=["p01", "p02", "p03", "p04", "p02", "p03"], default=None,
                     help="Run scenarios only for a specific project")
-    ap.add_argument("--reset-p05", action="store_true", help="Force re-run of P05 scenarios")
-    ap.add_argument("--reset-p06", action="store_true", help="Force re-run of P06 scenarios")
+    ap.add_argument("--reset-p02", action="store_true", help="Force re-run of P02 scenarios")
+    ap.add_argument("--reset-p03", action="store_true", help="Force re-run of P03 scenarios")
     args = ap.parse_args()
 
     log.info("=" * 72)
@@ -949,4 +616,4 @@ if __name__ == "__main__":
 
     run_batch(smoke=args.smoke_test, n_workers=args.workers,
               project_filter=args.project,
-              reset_p05=args.reset_p05, reset_p06=args.reset_p06)
+              reset_p02=args.reset_p02, reset_p03=args.reset_p03)

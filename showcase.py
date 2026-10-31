@@ -26,8 +26,8 @@ HERE = Path(__file__).resolve().parent
 # showcase. They still build and still run their tests; see archive/README.md.
 PROJECTS = {
     "01": "01-prosumer-pv-bess-mpc-rl",
-    "05": "05-utility-hybrid-plant-dispatch",
-    "06": "06-probabilistic-forecast-to-bid",
+    "02": "02-utility-hybrid-plant-dispatch",
+    "03": "03-probabilistic-forecast-to-bid",
 }
 for d in PROJECTS.values():
     sys.path.insert(0, str(HERE / "projects" / d / "src"))
@@ -157,8 +157,8 @@ def demo_06(real: bool) -> dict:
 
 DEMOS = {
     "01": ("Prosumer PV + battery at 15-minute resolution", demo_01),
-    "05": ("Hybrid wind + PV + battery behind one connection", demo_05),
-    "06": ("Probabilistic forecast-to-bid", demo_06),
+    "02": ("Hybrid wind + PV + battery behind one connection", demo_05),
+    "03": ("Probabilistic forecast-to-bid", demo_06),
 }
 
 

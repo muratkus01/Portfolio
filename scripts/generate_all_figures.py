@@ -1,7 +1,7 @@
 """Generate complete multi-year 300 DPI visual benchmark suite for all 6 projects.
 
 Generates 2024 and 2025 dispatch time series, benchmark ladders, and mechanism
-trade-off figures for Projects 01 through 06.
+trade-off figures for the three active projects.
 """
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ for p in [
     "02-pumped-storage-rl-multimarket",
     "03-smart-ev-charging-14a",
     "04-energy-sharing-rec",
-    "05-utility-hybrid-plant-dispatch",
-    "06-probabilistic-forecast-to-bid",
+    "02-utility-hybrid-plant-dispatch",
+    "03-probabilistic-forecast-to-bid",
 ]:
     sys.path.insert(0, str(ROOT / "projects" / p / "src"))
 
@@ -427,11 +427,11 @@ def gen_p04():
 
 
 # ==============================================================================
-# PROJECT 05: Utility Hybrid Wind+PV+BESS
+# PROJECT 02: Utility Hybrid Wind+PV+BESS
 # ==============================================================================
-def gen_p05():
-    print("Generating Project 05 figures...")
-    out = ROOT / "projects" / "05-utility-hybrid-plant-dispatch" / "docs" / "figures"
+def gen_p02():
+    print("Generating Project 02 figures...")
+    out = ROOT / "projects" / "02-utility-hybrid-plant-dispatch" / "docs" / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
     for year in (2024, 2025, 2026):
@@ -459,7 +459,7 @@ def gen_p05():
         axes[0].axhline(0, color="#64748b", lw=0.8, ls=":")
         axes[0].fill_between(t, np.minimum(0, spot), color=ROSE, alpha=0.35, label="EEG §51 Negative Remuneration Suspension")
         axes[0].set_ylabel("Price (EUR/MWh)")
-        axes[0].set_title(f"Project 05: Utility Hybrid Plant Dispatch Behind 40 MW Interconnection ({year})", weight="bold")
+        axes[0].set_title(f"Project 02: Utility Hybrid Plant Dispatch Behind 40 MW Interconnection ({year})", weight="bold")
         axes[0].legend(loc="upper right", framealpha=0.4)
         axes[0].grid(True)
 
@@ -480,7 +480,7 @@ def gen_p05():
         axes[2].grid(True)
 
         plt.tight_layout()
-        fig_path = out / f"p05_dispatch_{year}.png"
+        fig_path = out / f"p02_dispatch_{year}.png"
         fig.savefig(fig_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
         print(f"  Saved {fig_path.name}")
@@ -507,16 +507,16 @@ def gen_p05():
     ax2.grid(True, axis="x")
 
     plt.tight_layout()
-    fig.savefig(out / "p05_curtailment_attribution.png", dpi=300, bbox_inches="tight")
+    fig.savefig(out / "p02_curtailment_attribution.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 
 # ==============================================================================
-# PROJECT 06: Probabilistic Forecast-to-Bid
+# PROJECT 03: Probabilistic Forecast-to-Bid
 # ==============================================================================
-def gen_p06():
-    print("Generating Project 06 figures...")
-    out = ROOT / "projects" / "06-probabilistic-forecast-to-bid" / "docs" / "figures"
+def gen_p03():
+    print("Generating Project 03 figures...")
+    out = ROOT / "projects" / "03-probabilistic-forecast-to-bid" / "docs" / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
     for year in (2024, 2025, 2026):
@@ -544,7 +544,7 @@ def gen_p06():
         ax1.plot(t, q50, color=CYAN, lw=2.0, label="Median Forecast (q50)")
         ax1.plot(t, actual, color=AMBER, lw=2.2, label="Realized Actual Generation (MW)")
         ax1.set_ylabel("Generation (MW)")
-        ax1.set_title(f"Project 06: Probabilistic Renewable Generation Fan Chart ({year} Weather Anchor)", weight="bold")
+        ax1.set_title(f"Project 03: Probabilistic Renewable Generation Fan Chart ({year} Weather Anchor)", weight="bold")
         ax1.legend(loc="upper left", ncol=2, framealpha=0.4, fontsize=9)
         ax1.grid(True)
 
@@ -560,7 +560,7 @@ def gen_p06():
         ax2.grid(True)
 
         plt.tight_layout()
-        fig_path = out / f"p06_forecast_fan_{year}.png"
+        fig_path = out / f"p03_forecast_fan_{year}.png"
         fig.savefig(fig_path, dpi=300, bbox_inches="tight")
         plt.close(fig)
         print(f"  Saved {fig_path.name}")
@@ -572,6 +572,6 @@ if __name__ == "__main__":
     gen_p02()
     gen_p03()
     gen_p04()
-    gen_p05()
-    gen_p06()
+    gen_p02()
+    gen_p03()
     print("All figures successfully generated at 300 DPI!")

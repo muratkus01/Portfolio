@@ -115,42 +115,42 @@ def main():
         html
     )
 
-    # P05
+    # P02
     html = re.sub(
-        r'<input type="range" id="p05-slider-poc"[^>]+>',
-        '<input type="range" id="p05-slider-poc" min="25" max="60" step="5" value="40" oninput="simP05()">',
+        r'<input type="range" id="p02-slider-poc"[^>]+>',
+        '<input type="range" id="p02-slider-poc" min="25" max="60" step="5" value="40" oninput="simP02()">',
         html
     )
     html = re.sub(
-        r'<input type="range" id="p05-slider-pv"[^>]+>',
-        '<input type="range" id="p05-slider-pv" min="20" max="60" step="10" value="40" oninput="simP05()">',
+        r'<input type="range" id="p02-slider-pv"[^>]+>',
+        '<input type="range" id="p02-slider-pv" min="20" max="60" step="10" value="40" oninput="simP02()">',
         html
     )
     html = re.sub(
-        r'<input type="range" id="p05-slider-bess"[^>]+>',
-        '<input type="range" id="p05-slider-bess" min="0" max="40" step="10" value="20" oninput="simP05()">',
+        r'<input type="range" id="p02-slider-bess"[^>]+>',
+        '<input type="range" id="p02-slider-bess" min="0" max="40" step="10" value="20" oninput="simP02()">',
         html
     )
 
-    # P06
+    # P03
     html = re.sub(
-        r'<input type="range" id="p06-slider-risk"[^>]+>',
-        '<input type="range" id="p06-slider-risk" min="0.15" max="0.85" step="0.05" value="0.42" oninput="simP06()">',
+        r'<input type="range" id="p03-slider-risk"[^>]+>',
+        '<input type="range" id="p03-slider-risk" min="0.15" max="0.85" step="0.05" value="0.42" oninput="simP03()">',
         html
     )
     html = re.sub(
-        r'<input type="range" id="p06-slider-mae"[^>]+>',
-        '<input type="range" id="p06-slider-mae" min="2.0" max="10.0" step="0.5" value="5.9" oninput="simP06()">',
+        r'<input type="range" id="p03-slider-mae"[^>]+>',
+        '<input type="range" id="p03-slider-mae" min="2.0" max="10.0" step="0.5" value="5.9" oninput="simP03()">',
         html
     )
     html = re.sub(
-        r'<input type="range" id="p06-slider-spread"[^>]+>',
-        '<input type="range" id="p06-slider-spread" min="15" max="80" step="5" value="42" oninput="simP06()">',
+        r'<input type="range" id="p03-slider-spread"[^>]+>',
+        '<input type="range" id="p03-slider-spread" min="15" max="80" step="5" value="42" oninput="simP03()">',
         html
     )
 
     # 3. Add match status indicators and illustrative dispatch canvas labels
-    for pid in ["p01", "p02", "p03", "p04", "p05", "p06"]:
+    for pid in ["p01", "p02", "p03", "p04", "p02", "p03"]:
         badge_orig = f'<span class="sim-card-badge">{pid.upper()} Live Physics Model</span>'
         badge_new = f'<span class="sim-card-badge">{pid.upper()} Live Physics Model</span> <span class="sim-card-badge emerald" id="{pid}-grid-match">(Exact Grid Match)</span>'
         if badge_orig in html:
@@ -182,19 +182,19 @@ def main():
         '<span>Representative Renewable & Asymmetric Imbalance Scenarios <span style="color:#94a3b8; font-size:0.75rem; font-weight:normal;">(Illustrative 24h Telemetry)</span>:</span>'
     )
 
-    # Add Footnotes to P02 and P05 KPI consoles
+    # Add Footnotes to P02 and P02 KPI consoles
     p02_res_grid = '<div class="sim-results-grid">'
-    # Let's insert footnotes after the sim-results-grid in P02 and P05
+    # Let's insert footnotes after the sim-results-grid in P02 and P02
     p02_footnote = '<div style="font-size:0.72rem; color:#94a3b8; margin-top:8px; margin-bottom:12px;">*Note: Figures extrapolated from 14-day empirical telemetry window (scaled by 365/14) to represent full annual operations.</div>'
     
-    # We will inject the footnote in the section of P02 and P05
+    # We will inject the footnote in the section of P02 and P02
     html = html.replace(
         '<div class="sim-res-val emerald" id="p02-res-stat">0 Simultaneous (Guaranteed)</div>\n          </div>\n        </div>',
         '<div class="sim-res-val emerald" id="p02-res-stat">0 Simultaneous (Guaranteed)</div>\n          </div>\n        </div>\n        ' + p02_footnote
     )
     html = html.replace(
-        '<div class="sim-res-val emerald" id="p05-res-avoid">34,200 EUR/yr</div>\n          </div>\n        </div>',
-        '<div class="sim-res-val emerald" id="p05-res-avoid">34,200 EUR/yr</div>\n          </div>\n        </div>\n        ' + p02_footnote
+        '<div class="sim-res-val emerald" id="p02-res-avoid">34,200 EUR/yr</div>\n          </div>\n        </div>',
+        '<div class="sim-res-val emerald" id="p02-res-avoid">34,200 EUR/yr</div>\n          </div>\n        </div>\n        ' + p02_footnote
     )
 
     # 4. Inline SCENARIO_CUBES in JavaScript
@@ -225,12 +225,12 @@ def main():
         members: [6, 10, 15, 20, 25, 30],
         pv: [30.0, 50.0, 65.0, 90.0, 120.0]
       }},
-      p05: {{
+      p02: {{
         poc: [25.0, 30.0, 40.0, 50.0, 60.0],
         pv: [20.0, 30.0, 40.0, 50.0, 60.0],
         bess: [0.0, 10.0, 20.0, 30.0, 40.0]
       }},
-      p06: {{
+      p03: {{
         tau: [0.15, 0.25, 0.35, 0.42, 0.50, 0.60, 0.70, 0.85],
         sigma: [0.02, 0.04, 0.059, 0.075, 0.10],
         spread: [15.0, 30.0, 42.0, 60.0, 80.0]
@@ -262,7 +262,7 @@ def main():
             print("ERROR: Could not find DAY_REGIMES_MULTIYEAR anchor!")
             return
 
-    # 5. Replace simP01 to simP06 functions with SCENARIO_CUBES lookup
+    # 5. Replace simP01 to simP03 functions with SCENARIO_CUBES lookup
     new_sim_funcs = """
     // Project 01: Residential PV+BESS Sizing & 24h Dynamic Dispatch
     function simP01() {
@@ -504,28 +504,28 @@ def main():
       updateHudP04(scrubberIdxP04);
     }
 
-    // Project 05: Hybrid Over-Planting Curtailment
-    function simP05() {
-      const pocEl = document.getElementById('p05-slider-poc');
-      const pvEl = document.getElementById('p05-slider-pv');
-      const bessEl = document.getElementById('p05-slider-bess');
+    // Project 02: Hybrid Over-Planting Curtailment
+    function simP02() {
+      const pocEl = document.getElementById('p02-slider-poc');
+      const pvEl = document.getElementById('p02-slider-pv');
+      const bessEl = document.getElementById('p02-slider-bess');
       if (!pocEl || !pvEl || !bessEl) return;
 
       const pocRaw = parseFloat(pocEl.value);
       const pvRaw = parseFloat(pvEl.value);
       const bessRaw = parseFloat(bessEl.value);
 
-      const p5Grid = GRID_PARAMS.p05;
+      const p5Grid = GRID_PARAMS.p02;
       const poc = snapToGrid(pocRaw, p5Grid.poc);
       const pv = snapToGrid(pvRaw, p5Grid.pv);
       const bess = snapToGrid(bessRaw, p5Grid.bess);
       const isExact = (Math.abs(pocRaw - poc) < 0.1 && Math.abs(pvRaw - pv) < 0.1 && Math.abs(bessRaw - bess) < 0.1);
 
-      document.getElementById('p05-val-poc').innerText = Math.round(poc) + ' MW';
-      document.getElementById('p05-val-pv').innerText = Math.round(pv) + ' MW';
-      document.getElementById('p05-val-bess').innerText = Math.round(bess) + ' MWh';
+      document.getElementById('p02-val-poc').innerText = Math.round(poc) + ' MW';
+      document.getElementById('p02-val-pv').innerText = Math.round(pv) + ' MW';
+      document.getElementById('p02-val-bess').innerText = Math.round(bess) + ' MWh';
 
-      const matchEl = document.getElementById('p05-grid-match');
+      const matchEl = document.getElementById('p02-grid-match');
       if (matchEl) {
         matchEl.innerText = isExact ? '(Exact Grid Match)' : `(Nearest: ${poc}MW POC/${pv}MW PV/${bess}MWh)`;
         matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
@@ -533,7 +533,7 @@ def main():
 
       const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
       const cubeKey = `${poc.toFixed(1)}|${pv.toFixed(1)}|${bess.toFixed(1)}|${yr}`;
-      const cell = SCENARIO_CUBES.p05 && SCENARIO_CUBES.p05.data ? SCENARIO_CUBES.p05.data[cubeKey] : null;
+      const cell = SCENARIO_CUBES.p02 && SCENARIO_CUBES.p02.data ? SCENARIO_CUBES.p02.data[cubeKey] : null;
 
       if (cell) {
         // [revenue_eur_per_year_extrapolated, curtail_mwh_per_year_extrapolated, overplanting_factor, b1_revenue_eur_per_year_extrapolated, b3_revenue_eur_per_year_extrapolated, revenue_lift_pct]
@@ -542,29 +542,29 @@ def main():
         const overplant = cell[2];
         const liftPct = cell[5];
 
-        document.getElementById('p05-res-ratio').innerText = overplant.toFixed(2) + 'x Overplant';
-        document.getElementById('p05-res-curtail').innerText = curtailMwh.toFixed(1) + ' MWh/yr*';
-        document.getElementById('p05-res-lift').innerText = (liftPct >= 0 ? '+' : '') + liftPct.toFixed(1) + '% Rev';
-        document.getElementById('p05-res-avoid').innerText = Math.round(rev).toLocaleString() + ' EUR/yr*';
+        document.getElementById('p02-res-ratio').innerText = overplant.toFixed(2) + 'x Overplant';
+        document.getElementById('p02-res-curtail').innerText = curtailMwh.toFixed(1) + ' MWh/yr*';
+        document.getElementById('p02-res-lift').innerText = (liftPct >= 0 ? '+' : '') + liftPct.toFixed(1) + '% Rev';
+        document.getElementById('p02-res-avoid').innerText = Math.round(rev).toLocaleString() + ' EUR/yr*';
       }
 
-      recomputeDispatchP05(poc, pv, bess);
-      drawDispatchCanvasP05();
-      updateHudP05(scrubberIdxP05);
+      recomputeDispatchP02(poc, pv, bess);
+      drawDispatchCanvasP02();
+      updateHudP02(scrubberIdxP02);
     }
 
-    // Project 06: Forecast-to-Bid Quantile reBAP Imbalance
-    function simP06() {
-      const riskEl = document.getElementById('p06-slider-risk');
-      const maeEl = document.getElementById('p06-slider-mae');
-      const spreadEl = document.getElementById('p06-slider-spread');
+    // Project 03: Forecast-to-Bid Quantile reBAP Imbalance
+    function simP03() {
+      const riskEl = document.getElementById('p03-slider-risk');
+      const maeEl = document.getElementById('p03-slider-mae');
+      const spreadEl = document.getElementById('p03-slider-spread');
       if (!riskEl || !maeEl || !spreadEl) return;
 
       const riskRaw = parseFloat(riskEl.value);
       const maeRaw = parseFloat(maeEl.value);
       const spreadRaw = parseFloat(spreadEl.value);
 
-      const p6Grid = GRID_PARAMS.p06;
+      const p6Grid = GRID_PARAMS.p03;
       const risk = snapToGrid(riskRaw, p6Grid.tau);
       const sigmaMap = [0.02, 0.04, 0.059, 0.075, 0.10];
       const sigma = snapToGrid(maeRaw / 100.0, sigmaMap);
@@ -573,11 +573,11 @@ def main():
       const isExact = (Math.abs(riskRaw - risk) < 0.01 && Math.abs((maeRaw / 100.0) - sigma) < 0.005 && Math.abs(spreadRaw - spread) < 0.1);
 
       const qLabel = 'q' + Math.round(risk * 100);
-      document.getElementById('p06-val-risk').innerText = qLabel + ' (Tau ' + risk.toFixed(2) + ')';
-      document.getElementById('p06-val-mae').innerText = (sigma * 100).toFixed(1) + '%';
-      document.getElementById('p06-val-spread').innerText = spread.toFixed(1) + ' EUR/MWh';
+      document.getElementById('p03-val-risk').innerText = qLabel + ' (Tau ' + risk.toFixed(2) + ')';
+      document.getElementById('p03-val-mae').innerText = (sigma * 100).toFixed(1) + '%';
+      document.getElementById('p03-val-spread').innerText = spread.toFixed(1) + ' EUR/MWh';
 
-      const matchEl = document.getElementById('p06-grid-match');
+      const matchEl = document.getElementById('p03-grid-match');
       if (matchEl) {
         matchEl.innerText = isExact ? '(Exact Grid Match)' : `(Nearest: Tau ${risk.toFixed(2)}/Sigma ${sigma}/Spread ${spread})`;
         matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
@@ -586,7 +586,7 @@ def main():
       const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
       const sigmaStr = (sigma === 0.059) ? '0.059' : (sigma === 0.075 ? '0.075' : sigma.toFixed(2));
       const cubeKey = `${risk.toFixed(2)}|${sigmaStr}|${spread.toFixed(1)}|${yr}`;
-      const cell = SCENARIO_CUBES.p06 && SCENARIO_CUBES.p06.data ? SCENARIO_CUBES.p06.data[cubeKey] : null;
+      const cell = SCENARIO_CUBES.p03 && SCENARIO_CUBES.p03.data ? SCENARIO_CUBES.p03.data[cubeKey] : null;
 
       if (cell) {
         // [capture_price_b3_eur_mwh, net_gain_30d_eur, imbalance_volume_reduction_pct]
@@ -594,32 +594,32 @@ def main():
         const netGain = cell[1];
         const volRed = cell[2];
 
-        document.getElementById('p06-res-price').innerText = capPrice.toFixed(2) + ' EUR/MWh';
-        document.getElementById('p06-res-vol').innerText = '15,785 MWh (Optimal Bid)';
+        document.getElementById('p03-res-price').innerText = capPrice.toFixed(2) + ' EUR/MWh';
+        document.getElementById('p03-res-vol').innerText = '15,785 MWh (Optimal Bid)';
         const gainSign = netGain >= 0 ? '+' : '';
-        const gainEl = document.getElementById('p06-res-gain');
+        const gainEl = document.getElementById('p03-res-gain');
         if (gainEl) {
           gainEl.innerText = gainSign + Math.round(netGain).toLocaleString() + ' EUR (30d)';
           gainEl.className = 'sim-res-val ' + (netGain >= 0 ? 'emerald' : 'amber');
         }
-        const volEl = document.getElementById('p06-res-riskred');
+        const volEl = document.getElementById('p03-res-riskred');
         if (volEl) {
           volEl.innerText = '-' + volRed.toFixed(1) + '% Vol';
         }
       }
 
-      recomputeDispatchP06(risk, maeRaw, spread);
-      drawDispatchCanvasP06();
-      updateHudP06(scrubberIdxP06);
+      recomputeDispatchP03(risk, maeRaw, spread);
+      drawDispatchCanvasP03();
+      updateHudP03(scrubberIdxP03);
     }
 """
-    # Replace the existing simP01 - simP06 functions
-    sim_regex = r'// Project 01: Residential PV\+BESS Sizing & 24h Dynamic Dispatch\s+function simP01\(\) \{[\s\S]+?updateHudP06\(scrubberIdxP06\);\s+\}'
+    # Replace the existing simP01 - simP03 functions
+    sim_regex = r'// Project 01: Residential PV\+BESS Sizing & 24h Dynamic Dispatch\s+function simP01\(\) \{[\s\S]+?updateHudP03\(scrubberIdxP03\);\s+\}'
     if re.search(sim_regex, html):
         html = re.sub(sim_regex, new_sim_funcs.strip(), html)
-        print("Replaced simP01-simP06 functions with SCENARIO_CUBES lookups.")
+        print("Replaced simP01-simP03 functions with SCENARIO_CUBES lookups.")
     else:
-        print("ERROR: Could not find simP01-simP06 functions block!")
+        print("ERROR: Could not find simP01-simP03 functions block!")
         return
 
     # Write output

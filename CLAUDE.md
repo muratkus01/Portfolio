@@ -15,8 +15,8 @@ projects live in `projects/`; three earlier ones were archived on 2026-10-09 and
 
 The three active projects, all structured packages with full test suites:
 - `projects/01-prosumer-pv-bess-mpc-rl/` (`prosumer`, 88 tests)
-- `projects/05-utility-hybrid-plant-dispatch/` (`hybrid`, 26 tests)
-- `projects/06-probabilistic-forecast-to-bid/` (`f2b`, 18 tests)
+- `projects/02-utility-hybrid-plant-dispatch/` (`hybrid`, 26 tests)
+- `projects/03-probabilistic-forecast-to-bid/` (`f2b`, 18 tests)
 
 Archived, still built and still tested, but not shown in `showcase.html`:
 - `archive/02-pumped-storage-rl-multimarket/` (`psw`, 27 tests)

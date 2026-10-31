@@ -1,4 +1,4 @@
-# Project 05 · Utility-Scale Hybrid Wind + PV + Battery Plant Dispatch
+# Project 02 · Utility-Scale Hybrid Wind + PV + Battery Plant Dispatch
 
 **Dispatch optimisation for a co-located wind, PV and battery plant sharing one grid
 connection point in Germany - under EEG direct marketing, the negative-price rule, Redispatch
@@ -395,7 +395,7 @@ attributing the differences.
 
 Follows [`../../templates/project-template/`](../../templates/project-template/); conventions
 in [`../../docs/05-tech-stack.md`](../../docs/05-tech-stack.md). The forecast layer is shared
-with [Project 06](../06-probabilistic-forecast-to-bid/).
+with [Project 06](../03-probabilistic-forecast-to-bid/).
 
 ---
 

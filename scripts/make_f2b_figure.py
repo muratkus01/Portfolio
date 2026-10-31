@@ -1,4 +1,4 @@
-"""Generate recruiter-grade benchmark figure for Project 06 (Probabilistic Forecast-to-Bid)."""
+"""Generate recruiter-grade benchmark figure for Project 03 (Probabilistic Forecast-to-Bid)."""
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
@@ -129,7 +129,7 @@ ax3.grid(True, linestyle="--", alpha=0.5)
 ax3.legend(loc="upper left", fontsize=8.5, framealpha=0.9)
 
 plt.tight_layout()
-out_path = Path("projects/06-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png")
+out_path = Path("projects/03-probabilistic-forecast-to-bid/docs/figures/f2b_trading_benchmark.png")
 out_path.parent.mkdir(parents=True, exist_ok=True)
 plt.savefig(out_path, dpi=300, bbox_inches="tight")
 print("Saved figure to:", out_path)

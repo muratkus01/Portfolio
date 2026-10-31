@@ -46,7 +46,7 @@ this portfolio therefore uses **Δt = 15 min** as the native resolution.
 ```
 
 A dispatch policy that optimises one of these stages in isolation leaves money on the table
-and, worse, can create commitments it cannot honour later. Projects 02, 05 and 06 explicitly
+and, worse, can create commitments it cannot honour later. Projects 02 and 03 explicitly
 model the **sequential, nested** nature of this decision problem.
 
 ### 1.3 Balancing (Regelleistung) products
@@ -296,6 +296,6 @@ The table below compiles every regulatory constant, levy, surcharge, and tax rat
 | § 14a Module 1 Flat Discount | mod1_flat_eur | 110.0 to 190.0 €/year (~150 €/a default) | BNetzA Module 1 Determination | Effective 2024-01-01 | P03 (evc.market) |
 | § 14a Module 2 Percentage Discount | mod2_discount_pct | 60.0% reduction on working price | BNetzA Module 2 Determination | Effective 2024-01-01 | P03 (evc.market) |
 | § 42b Collective Building Supply | internal_price_default | 18.00 ct/kWh (0.1800 €/kWh) | EnWG § 42b / EEG § 21 Mieterstrom | Effective 2024-01-01 | P04 (rec.config) |
-| Negative Price Curtailment Gate | negative_price_rule | 4h / 3h / 1h consecutive negative hours | EEG § 51 / Solarspitzengesetz 2025 | Vintage-dependent | P05 (hybrid.config) |
+| Negative Price Curtailment Gate | negative_price_rule | 4h / 3h / 1h consecutive negative hours | EEG § 51 / Solarspitzengesetz 2025 | Vintage-dependent | P02 (hybrid.config) |
 | Imbalance Settlement Period | mtu_minutes | 15 minutes | StromNZV § 4 / SDAC 15-min implementation | Ongoing (DE-LU standard) | All projects |
 

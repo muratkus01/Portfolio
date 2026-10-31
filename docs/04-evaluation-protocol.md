@@ -69,7 +69,7 @@ information asymmetry. Therefore:
 | Schedule adherence | Deviation from committed positions; balancing availability delivered vs. sold |
 | Decision latency | Wall-clock time per control decision, against the market gate it must meet |
 
-### 3.3 Forecast (Project 06 and all forecast components)
+### 3.3 Forecast (Project 03 and all forecast components)
 
 Point: MAE, RMSE, bias. Probabilistic: **CRPS**, pinball loss per quantile, PIT histogram and
 reliability diagram for calibration, Winkler score for intervals. Sharpness is reported only

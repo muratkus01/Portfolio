@@ -12,8 +12,8 @@ def generate_all_dispatch_js():
     p02_json = json.dumps(data['p02'], separators=(',', ':'))
     p03_json = json.dumps(data['p03'], separators=(',', ':'))
     p04_json = json.dumps(data['p04'], separators=(',', ':'))
-    p05_json = json.dumps(data['p05'], separators=(',', ':'))
-    p06_json = json.dumps(data['p06'], separators=(',', ':'))
+    p02_json = json.dumps(data['p02'], separators=(',', ':'))
+    p03_json = json.dumps(data['p03'], separators=(',', ':'))
 
     js_parts = []
 
@@ -1150,16 +1150,16 @@ def generate_all_dispatch_js():
     """)
 
     # =========================================================================
-    # P05
+    # P02
     # =========================================================================
     js_parts.append(f"""
     // =========================================================================
-    // PROJECT 05: 24-HOUR HYBRID OVER-PLANTING & EEG §51 DISPATCH ENGINE
+    // PROJECT 02: 24-HOUR HYBRID OVER-PLANTING & EEG §51 DISPATCH ENGINE
     // =========================================================================
-    const DAY_REGIMES_P05 = {p05_json};
+    const DAY_REGIMES_P02 = {p02_json};
 
-    let currentRegimeKeyP05 = 'overplanting_storm';
-    const activeChannelsP05 = {{
+    let currentRegimeKeyP02 = 'overplanting_storm';
+    const activeChannelsP02 = {{
       raw: true,
       export: true,
       bess: true,
@@ -1167,41 +1167,41 @@ def generate_all_dispatch_js():
       soc: true
     }};
 
-    function toggleChannelP05(chKey) {{
-      activeChannelsP05[chKey] = !activeChannelsP05[chKey];
-      const card = document.getElementById('p05-leg-' + chKey);
-      if (card) card.classList.toggle('disabled', !activeChannelsP05[chKey]);
-      drawDispatchCanvasP05();
+    function toggleChannelP02(chKey) {{
+      activeChannelsP02[chKey] = !activeChannelsP02[chKey];
+      const card = document.getElementById('p02-leg-' + chKey);
+      if (card) card.classList.toggle('disabled', !activeChannelsP02[chKey]);
+      drawDispatchCanvasP02();
     }}
 
-    function selectDayRegimeP05(regKey) {{
-      if (!DAY_REGIMES_P05[regKey]) return;
-      currentRegimeKeyP05 = regKey;
-      const reg = DAY_REGIMES_P05[regKey];
+    function selectDayRegimeP02(regKey) {{
+      if (!DAY_REGIMES_P02[regKey]) return;
+      currentRegimeKeyP02 = regKey;
+      const reg = DAY_REGIMES_P02[regKey];
 
       ['overplanting_storm', 'eeg51_negative_run', 'summer_solar_noon', 'winter_wind_gale', 'extreme_high_spike', 'bottleneck_grid'].forEach(k => {{
-        const btn = document.getElementById('p05-dbtn-' + k);
+        const btn = document.getElementById('p02-dbtn-' + k);
         if (btn) btn.classList.toggle('active', k === regKey);
       }});
 
-      const dateEl = document.getElementById('p05-active-regime-date');
+      const dateEl = document.getElementById('p02-active-regime-date');
       if (dateEl) dateEl.innerText = reg.tag + ' (' + reg.date + ')';
 
-      const descEl = document.getElementById('p05-day-regime-desc');
+      const descEl = document.getElementById('p02-day-regime-desc');
       if (descEl) {{
         descEl.innerHTML = '<strong>' + reg.title + ':</strong> ' + reg.desc +
           ' <span style="color: var(--cyan-bright); margin-left: 8px;">Spot: ' +
           Math.min(...reg.prices).toFixed(1) + ' to ' + Math.max(...reg.prices).toFixed(1) + ' EUR/MWh</span>';
       }}
 
-      simP05();
+      simP02();
     }}
 
-    const dispatchDataP05 = [];
-    let scrubberIdxP05 = 52;
+    const dispatchDataP02 = [];
+    let scrubberIdxP02 = 52;
 
-    function recomputeDispatchP05(pocCapMw, pvMw, bessMwh) {{
-      const reg = (typeof DAY_REGIMES_P05 !== 'undefined' && DAY_REGIMES_P05[currentRegimeKeyP05]) ? DAY_REGIMES_P05[currentRegimeKeyP05] : DAY_REGIMES_P05['overplanting_storm'];
+    function recomputeDispatchP02(pocCapMw, pvMw, bessMwh) {{
+      const reg = (typeof DAY_REGIMES_P02 !== 'undefined' && DAY_REGIMES_P02[currentRegimeKeyP02]) ? DAY_REGIMES_P02[currentRegimeKeyP02] : DAY_REGIMES_P02['overplanting_storm'];
       if (!reg) return;
 
       const totalGenScale = (40.0 + pvMw) / 80.0;
@@ -1224,17 +1224,17 @@ def generate_all_dispatch_js():
         const actualExport = Math.min(pocCapMw, Math.max(0, rawGen - bessFlow));
         const bessSoc = Math.min(100.0, Math.max(10.0, reg.bess_soc[i]));
 
-        if (dispatchDataP05[i]) {{
-          dispatchDataP05[i].time = timeStr;
-          dispatchDataP05[i].step = i + 1;
-          dispatchDataP05[i].price = price;
-          dispatchDataP05[i].raw = rawGen;
-          dispatchDataP05[i].export = actualExport;
-          dispatchDataP05[i].bess = bessFlow;
-          dispatchDataP05[i].soc = bessSoc;
-          dispatchDataP05[i].poc = pocCapMw;
+        if (dispatchDataP02[i]) {{
+          dispatchDataP02[i].time = timeStr;
+          dispatchDataP02[i].step = i + 1;
+          dispatchDataP02[i].price = price;
+          dispatchDataP02[i].raw = rawGen;
+          dispatchDataP02[i].export = actualExport;
+          dispatchDataP02[i].bess = bessFlow;
+          dispatchDataP02[i].soc = bessSoc;
+          dispatchDataP02[i].poc = pocCapMw;
         }} else {{
-          dispatchDataP05.push({{
+          dispatchDataP02.push({{
             time: timeStr,
             step: i + 1,
             price: price,
@@ -1248,8 +1248,8 @@ def generate_all_dispatch_js():
       }}
     }}
 
-    function drawDispatchCanvasP05() {{
-      const canvas = document.getElementById('p05-dispatchCanvas');
+    function drawDispatchCanvasP02() {{
+      const canvas = document.getElementById('p02-dispatchCanvas');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       const rect = canvas.getBoundingClientRect();
@@ -1273,11 +1273,11 @@ def generate_all_dispatch_js():
       const plotH = h - padTop - padBottom;
       const stepW = plotW / 96.0;
 
-      const observedMaxMw = Math.max(60.0, Math.max(...dispatchDataP05.map(d => Math.max(d.raw, d.poc))));
+      const observedMaxMw = Math.max(60.0, Math.max(...dispatchDataP02.map(d => Math.max(d.raw, d.poc))));
       const maxMw = Math.max(70.0, Math.ceil(observedMaxMw / 10.0) * 10.0);
       const mwY = mw => (plotY + plotH) - (Math.max(0, mw) / maxMw) * plotH;
 
-      const rawPrices = dispatchDataP05.map(d => d.price);
+      const rawPrices = dispatchDataP02.map(d => d.price);
       const rawMinP = Math.min(...rawPrices);
       const rawMaxP = Math.max(...rawPrices);
       let minP = 0.0;
@@ -1393,8 +1393,8 @@ def generate_all_dispatch_js():
 
       // Over-Planting Curtailment Shading
       for (let i = 0; i < 96; i++) {{
-        const raw = dispatchDataP05[i].raw;
-        const poc = dispatchDataP05[i].poc;
+        const raw = dispatchDataP02[i].raw;
+        const poc = dispatchDataP02[i].poc;
         if (raw > poc) {{
           const yRaw = mwY(raw);
           const yPoc = mwY(poc);
@@ -1405,8 +1405,8 @@ def generate_all_dispatch_js():
       }}
 
       // Horizontal PCC Limit
-      if (dispatchDataP05.length > 0) {{
-        const pocY = mwY(dispatchDataP05[0].poc);
+      if (dispatchDataP02.length > 0) {{
+        const pocY = mwY(dispatchDataP02[0].poc);
         ctx.strokeStyle = '#f59e0b';
         ctx.lineWidth = 1.6;
         ctx.setLineDash([6, 4]);
@@ -1419,18 +1419,18 @@ def generate_all_dispatch_js():
         ctx.fillStyle = '#f59e0b';
         ctx.font = '9px "JetBrains Mono", monospace';
         ctx.textAlign = 'left';
-        ctx.fillText('PCC Grid Limit: ' + dispatchDataP05[0].poc.toFixed(0) + ' MW', plotX + 6, pocY - 4);
+        ctx.fillText('PCC Grid Limit: ' + dispatchDataP02[0].poc.toFixed(0) + ' MW', plotX + 6, pocY - 4);
       }}
 
       // Raw Wind+PV curve
-      if (activeChannelsP05.raw) {{
+      if (activeChannelsP02.raw) {{
         ctx.strokeStyle = '#34d399';
         ctx.lineWidth = 1.8;
         ctx.beginPath();
         for (let i = 0; i < 96; i++) {{
           const xStart = plotX + i * stepW;
           const xEnd = plotX + (i + 1) * stepW;
-          const y = mwY(dispatchDataP05[i].raw);
+          const y = mwY(dispatchDataP02[i].raw);
           if (i === 0) ctx.moveTo(xStart, y);
           else ctx.lineTo(xStart, y);
           ctx.lineTo(xEnd, y);
@@ -1439,14 +1439,14 @@ def generate_all_dispatch_js():
       }}
 
       // PCC Export curve
-      if (activeChannelsP05.export) {{
+      if (activeChannelsP02.export) {{
         ctx.strokeStyle = '#38bdf8';
         ctx.lineWidth = 2.2;
         ctx.beginPath();
         for (let i = 0; i < 96; i++) {{
           const xStart = plotX + i * stepW;
           const xEnd = plotX + (i + 1) * stepW;
-          const y = mwY(dispatchDataP05[i].export);
+          const y = mwY(dispatchDataP02[i].export);
           if (i === 0) ctx.moveTo(xStart, y);
           else ctx.lineTo(xStart, y);
           ctx.lineTo(xEnd, y);
@@ -1455,9 +1455,9 @@ def generate_all_dispatch_js():
       }}
 
       // BESS Power bars
-      if (activeChannelsP05.bess) {{
+      if (activeChannelsP02.bess) {{
         for (let i = 0; i < 96; i++) {{
-          const bess = dispatchDataP05[i].bess;
+          const bess = dispatchDataP02[i].bess;
           if (Math.abs(bess) > 0.2) {{
             const barH = (Math.abs(bess) / maxMw) * plotH;
             const x = plotX + i * stepW + 0.6;
@@ -1472,14 +1472,14 @@ def generate_all_dispatch_js():
       }}
 
       // Day-Ahead Spot
-      if (activeChannelsP05.price) {{
+      if (activeChannelsP02.price) {{
         ctx.strokeStyle = '#f59e0b';
         ctx.lineWidth = 1.8;
         ctx.beginPath();
         for (let i = 0; i < 96; i++) {{
           const xStart = plotX + i * stepW;
           const xEnd = plotX + (i + 1) * stepW;
-          const y = priceY(dispatchDataP05[i].price);
+          const y = priceY(dispatchDataP02[i].price);
           if (i === 0) ctx.moveTo(xStart, y);
           else ctx.lineTo(xStart, y);
           ctx.lineTo(xEnd, y);
@@ -1488,7 +1488,7 @@ def generate_all_dispatch_js():
       }}
 
       // BESS SoC
-      if (activeChannelsP05.soc) {{
+      if (activeChannelsP02.soc) {{
         ctx.strokeStyle = '#fb7185';
         ctx.lineWidth = 1.6;
         ctx.setLineDash([4, 3]);
@@ -1496,7 +1496,7 @@ def generate_all_dispatch_js():
         for (let i = 0; i < 96; i++) {{
           const xStart = plotX + i * stepW;
           const xEnd = plotX + (i + 1) * stepW;
-          const y = socY(dispatchDataP05[i].soc);
+          const y = socY(dispatchDataP02[i].soc);
           if (i === 0) ctx.moveTo(xStart, y);
           else ctx.lineTo(xStart, y);
           ctx.lineTo(xEnd, y);
@@ -1505,7 +1505,7 @@ def generate_all_dispatch_js():
         ctx.setLineDash([]);
       }}
 
-      const curX = plotX + scrubberIdxP05 * stepW;
+      const curX = plotX + scrubberIdxP02 * stepW;
       ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
       ctx.fillRect(curX, plotY, stepW, plotH);
       ctx.strokeStyle = '#38bdf8';
@@ -1518,48 +1518,48 @@ def generate_all_dispatch_js():
       ctx.fill();
     }}
 
-    function updateHudP05(idx) {{
-      const d = dispatchDataP05[idx];
+    function updateHudP02(idx) {{
+      const d = dispatchDataP02[idx];
       if (!d) return;
 
-      const timeEl = document.getElementById('p05-hud-time');
+      const timeEl = document.getElementById('p02-hud-time');
       if (timeEl) timeEl.innerText = d.time + ' (Step ' + d.step + '/96)';
 
-      const priceEl = document.getElementById('p05-hud-price');
+      const priceEl = document.getElementById('p02-hud-price');
       if (priceEl) priceEl.innerText = d.price.toFixed(2) + ' EUR/MWh';
 
-      const rawEl = document.getElementById('p05-hud-raw');
+      const rawEl = document.getElementById('p02-hud-raw');
       if (rawEl) rawEl.innerText = d.raw.toFixed(1) + ' MW';
 
       const exportStr = d.export.toFixed(1) + ' MW' + (d.export >= d.poc - 0.1 ? ' (Capped)' : '');
-      const exportEl = document.getElementById('p05-hud-export');
+      const exportEl = document.getElementById('p02-hud-export');
       if (exportEl) exportEl.innerText = exportStr;
 
       const bessStr = d.bess > 0.1 ? '+' + d.bess.toFixed(1) + ' MW (Chg)' : (d.bess < -0.1 ? d.bess.toFixed(1) + ' MW (Dis)' : '0.0 MW (Idle)');
-      const bessEl = document.getElementById('p05-hud-bess');
+      const bessEl = document.getElementById('p02-hud-bess');
       if (bessEl) bessEl.innerText = bessStr;
 
-      const socEl = document.getElementById('p05-hud-soc');
+      const socEl = document.getElementById('p02-hud-soc');
       if (socEl) socEl.innerText = d.soc.toFixed(1) + '%';
 
-      const legRaw = document.getElementById('p05-legval-raw');
+      const legRaw = document.getElementById('p02-legval-raw');
       if (legRaw) legRaw.innerText = d.raw.toFixed(1) + ' MW';
 
-      const legExport = document.getElementById('p05-legval-export');
+      const legExport = document.getElementById('p02-legval-export');
       if (legExport) legExport.innerText = exportStr;
 
-      const legBess = document.getElementById('p05-legval-bess');
+      const legBess = document.getElementById('p02-legval-bess');
       if (legBess) legBess.innerText = bessStr;
 
-      const legPrice = document.getElementById('p05-legval-price');
+      const legPrice = document.getElementById('p02-legval-price');
       if (legPrice) legPrice.innerText = d.price.toFixed(2) + ' EUR/MWh';
 
-      const legSoc = document.getElementById('p05-legval-soc');
+      const legSoc = document.getElementById('p02-legval-soc');
       if (legSoc) legSoc.innerText = d.soc.toFixed(1) + '%';
     }}
 
-    function setupCanvasListenersP05() {{
-      const canvas = document.getElementById('p05-dispatchCanvas');
+    function setupCanvasListenersP02() {{
+      const canvas = document.getElementById('p02-dispatchCanvas');
       if (!canvas) return;
       function handleMove(clientX) {{
         const rect = canvas.getBoundingClientRect();
@@ -1568,9 +1568,9 @@ def generate_all_dispatch_js():
         const plotW = rect.width - padLeft - padRight;
         const mouseX = clientX - rect.left;
         const clampedX = Math.max(0, Math.min(plotW - 0.001, mouseX - padLeft));
-        scrubberIdxP05 = Math.min(95, Math.max(0, Math.floor((clampedX / plotW) * 96)));
-        updateHudP05(scrubberIdxP05);
-        drawDispatchCanvasP05();
+        scrubberIdxP02 = Math.min(95, Math.max(0, Math.floor((clampedX / plotW) * 96)));
+        updateHudP02(scrubberIdxP02);
+        drawDispatchCanvasP02();
       }}
       canvas.addEventListener('mousemove', e => handleMove(e.clientX));
       canvas.addEventListener('touchmove', e => {{
@@ -1580,16 +1580,16 @@ def generate_all_dispatch_js():
     """)
 
     # =========================================================================
-    # P06
+    # P03
     # =========================================================================
     js_parts.append(f"""
     // =========================================================================
-    // PROJECT 06: 24-HOUR PROBABILISTIC FORECAST FAN & REBAP BIDDING ENGINE
+    // PROJECT 03: 24-HOUR PROBABILISTIC FORECAST FAN & REBAP BIDDING ENGINE
     // =========================================================================
-    const DAY_REGIMES_P06 = {p06_json};
+    const DAY_REGIMES_P03 = {p03_json};
 
-    let currentRegimeKeyP06 = 'system_shortage';
-    const activeChannelsP06 = {{
+    let currentRegimeKeyP03 = 'system_shortage';
+    const activeChannelsP03 = {{
       bid: true,
       real: true,
       fan: true,
@@ -1597,41 +1597,41 @@ def generate_all_dispatch_js():
       da: true
     }};
 
-    function toggleChannelP06(chKey) {{
-      activeChannelsP06[chKey] = !activeChannelsP06[chKey];
-      const card = document.getElementById('p06-leg-' + chKey);
-      if (card) card.classList.toggle('disabled', !activeChannelsP06[chKey]);
-      drawDispatchCanvasP06();
+    function toggleChannelP03(chKey) {{
+      activeChannelsP03[chKey] = !activeChannelsP03[chKey];
+      const card = document.getElementById('p03-leg-' + chKey);
+      if (card) card.classList.toggle('disabled', !activeChannelsP03[chKey]);
+      drawDispatchCanvasP03();
     }}
 
-    function selectDayRegimeP06(regKey) {{
-      if (!DAY_REGIMES_P06[regKey]) return;
-      currentRegimeKeyP06 = regKey;
-      const reg = DAY_REGIMES_P06[regKey];
+    function selectDayRegimeP03(regKey) {{
+      if (!DAY_REGIMES_P03[regKey]) return;
+      currentRegimeKeyP03 = regKey;
+      const reg = DAY_REGIMES_P03[regKey];
 
       ['system_shortage', 'system_long', 'storm_ramp_uncertainty', 'stable_high_pressure', 'asymmetric_spread', 'forecast_bust_stress'].forEach(k => {{
-        const btn = document.getElementById('p06-dbtn-' + k);
+        const btn = document.getElementById('p03-dbtn-' + k);
         if (btn) btn.classList.toggle('active', k === regKey);
       }});
 
-      const dateEl = document.getElementById('p06-active-regime-date');
+      const dateEl = document.getElementById('p03-active-regime-date');
       if (dateEl) dateEl.innerText = reg.tag + ' (' + reg.date + ')';
 
-      const descEl = document.getElementById('p06-day-regime-desc');
+      const descEl = document.getElementById('p03-day-regime-desc');
       if (descEl) {{
         descEl.innerHTML = '<strong>' + reg.title + ':</strong> ' + reg.desc +
           ' <span style="color: var(--cyan-bright); margin-left: 8px;">reBAP Spread: ' +
           Math.min(...reg.rebap_prices).toFixed(1) + ' to ' + Math.max(...reg.rebap_prices).toFixed(1) + ' EUR/MWh</span>';
       }}
 
-      simP06();
+      simP03();
     }}
 
-    const dispatchDataP06 = [];
-    let scrubberIdxP06 = 72;
+    const dispatchDataP03 = [];
+    let scrubberIdxP03 = 72;
 
-    function recomputeDispatchP06(riskTau, maePct, spreadEur) {{
-      const reg = (typeof DAY_REGIMES_P06 !== 'undefined' && DAY_REGIMES_P06[currentRegimeKeyP06]) ? DAY_REGIMES_P06[currentRegimeKeyP06] : DAY_REGIMES_P06['system_shortage'];
+    function recomputeDispatchP03(riskTau, maePct, spreadEur) {{
+      const reg = (typeof DAY_REGIMES_P03 !== 'undefined' && DAY_REGIMES_P03[currentRegimeKeyP03]) ? DAY_REGIMES_P03[currentRegimeKeyP03] : DAY_REGIMES_P03['system_shortage'];
       if (!reg) return;
 
       const spreadScale = spreadEur / 42.0;
@@ -1667,20 +1667,20 @@ def generate_all_dispatch_js():
 
         const realized = reg.realized_mw[i];
 
-        if (dispatchDataP06[i]) {{
-          dispatchDataP06[i].time = timeStr;
-          dispatchDataP06[i].step = i + 1;
-          dispatchDataP06[i].price = price;
-          dispatchDataP06[i].rebap = rebap;
-          dispatchDataP06[i].q10 = q10;
-          dispatchDataP06[i].q25 = q25;
-          dispatchDataP06[i].q50 = q50;
-          dispatchDataP06[i].q75 = q75;
-          dispatchDataP06[i].q90 = q90;
-          dispatchDataP06[i].bid = bid;
-          dispatchDataP06[i].real = realized;
+        if (dispatchDataP03[i]) {{
+          dispatchDataP03[i].time = timeStr;
+          dispatchDataP03[i].step = i + 1;
+          dispatchDataP03[i].price = price;
+          dispatchDataP03[i].rebap = rebap;
+          dispatchDataP03[i].q10 = q10;
+          dispatchDataP03[i].q25 = q25;
+          dispatchDataP03[i].q50 = q50;
+          dispatchDataP03[i].q75 = q75;
+          dispatchDataP03[i].q90 = q90;
+          dispatchDataP03[i].bid = bid;
+          dispatchDataP03[i].real = realized;
         }} else {{
-          dispatchDataP06.push({{
+          dispatchDataP03.push({{
             time: timeStr,
             step: i + 1,
             price: price,
@@ -1697,8 +1697,8 @@ def generate_all_dispatch_js():
       }}
     }}
 
-    function drawDispatchCanvasP06() {{
-      const canvas = document.getElementById('p06-dispatchCanvas');
+    function drawDispatchCanvasP03() {{
+      const canvas = document.getElementById('p03-dispatchCanvas');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       const rect = canvas.getBoundingClientRect();
@@ -1722,12 +1722,12 @@ def generate_all_dispatch_js():
       const plotH = h - padTop - padBottom;
       const stepW = plotW / 96.0;
 
-      const observedMaxMw = Math.max(30.0, Math.max(...dispatchDataP06.map(d => Math.max(d.q90, d.real, d.bid))));
+      const observedMaxMw = Math.max(30.0, Math.max(...dispatchDataP03.map(d => Math.max(d.q90, d.real, d.bid))));
       const maxMw = Math.max(35.0, Math.ceil(observedMaxMw / 5.0) * 5.0);
       const mwY = mw => (plotY + plotH) - (Math.max(0, mw) / maxMw) * plotH;
 
       const allPrices = [];
-      dispatchDataP06.forEach(d => {{
+      dispatchDataP03.forEach(d => {{
         allPrices.push(d.price);
         allPrices.push(d.rebap);
       }});
@@ -1838,19 +1838,19 @@ def generate_all_dispatch_js():
       }}
 
       // 1. Uncertainty Fan: q10 to q90 ribbon
-      if (activeChannelsP06.fan) {{
+      if (activeChannelsP03.fan) {{
         // Outer ribbon (q10 to q90)
         ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
         ctx.beginPath();
         for (let i = 0; i < 96; i++) {{
           const x = plotX + (i + 0.5) * stepW;
-          const y = mwY(dispatchDataP06[i].q90);
+          const y = mwY(dispatchDataP03[i].q90);
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }}
         for (let i = 95; i >= 0; i--) {{
           const x = plotX + (i + 0.5) * stepW;
-          const y = mwY(dispatchDataP06[i].q10);
+          const y = mwY(dispatchDataP03[i].q10);
           ctx.lineTo(x, y);
         }}
         ctx.closePath();
@@ -1861,13 +1861,13 @@ def generate_all_dispatch_js():
         ctx.beginPath();
         for (let i = 0; i < 96; i++) {{
           const x = plotX + (i + 0.5) * stepW;
-          const y = mwY(dispatchDataP06[i].q75);
+          const y = mwY(dispatchDataP03[i].q75);
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }}
         for (let i = 95; i >= 0; i--) {{
           const x = plotX + (i + 0.5) * stepW;
-          const y = mwY(dispatchDataP06[i].q25);
+          const y = mwY(dispatchDataP03[i].q25);
           ctx.lineTo(x, y);
         }}
         ctx.closePath();
@@ -1879,7 +1879,7 @@ def generate_all_dispatch_js():
         ctx.beginPath();
         for (let i = 0; i < 96; i++) {{
           const x = plotX + (i + 0.5) * stepW;
-          const y = mwY(dispatchDataP06[i].q50);
+          const y = mwY(dispatchDataP03[i].q50);
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }}
@@ -1887,9 +1887,9 @@ def generate_all_dispatch_js():
       }}
 
       // 2. Realized Wind Generation Bars
-      if (activeChannelsP06.real) {{
+      if (activeChannelsP03.real) {{
         for (let i = 0; i < 96; i++) {{
-          const real = dispatchDataP06[i].real;
+          const real = dispatchDataP03[i].real;
           if (real > 0.2) {{
             const barH = (real / maxMw) * plotH;
             const x = plotX + i * stepW + 0.6;
@@ -1904,7 +1904,7 @@ def generate_all_dispatch_js():
       }}
 
       // 3. Optimal Newsvendor Bid q* Staircase
-      if (activeChannelsP06.bid) {{
+      if (activeChannelsP03.bid) {{
         ctx.strokeStyle = '#38bdf8';
         ctx.lineWidth = 2.2;
         ctx.setLineDash([5, 3]);
@@ -1912,7 +1912,7 @@ def generate_all_dispatch_js():
         for (let i = 0; i < 96; i++) {{
           const xStart = plotX + i * stepW;
           const xEnd = plotX + (i + 1) * stepW;
-          const y = mwY(dispatchDataP06[i].bid);
+          const y = mwY(dispatchDataP03[i].bid);
           if (i === 0) ctx.moveTo(xStart, y);
           else ctx.lineTo(xStart, y);
           ctx.lineTo(xEnd, y);
@@ -1922,14 +1922,14 @@ def generate_all_dispatch_js():
       }}
 
       // 4. reBAP Imbalance Price
-      if (activeChannelsP06.rebap) {{
+      if (activeChannelsP03.rebap) {{
         ctx.strokeStyle = '#fb7185';
         ctx.lineWidth = 1.8;
         ctx.beginPath();
         for (let i = 0; i < 96; i++) {{
           const xStart = plotX + i * stepW;
           const xEnd = plotX + (i + 1) * stepW;
-          const y = priceY(dispatchDataP06[i].rebap);
+          const y = priceY(dispatchDataP03[i].rebap);
           if (i === 0) ctx.moveTo(xStart, y);
           else ctx.lineTo(xStart, y);
           ctx.lineTo(xEnd, y);
@@ -1938,7 +1938,7 @@ def generate_all_dispatch_js():
       }}
 
       // 5. Day-Ahead Spot
-      if (activeChannelsP06.da) {{
+      if (activeChannelsP03.da) {{
         ctx.strokeStyle = '#f59e0b';
         ctx.lineWidth = 1.6;
         ctx.setLineDash([3, 3]);
@@ -1946,7 +1946,7 @@ def generate_all_dispatch_js():
         for (let i = 0; i < 96; i++) {{
           const xStart = plotX + i * stepW;
           const xEnd = plotX + (i + 1) * stepW;
-          const y = priceY(dispatchDataP06[i].price);
+          const y = priceY(dispatchDataP03[i].price);
           if (i === 0) ctx.moveTo(xStart, y);
           else ctx.lineTo(xStart, y);
           ctx.lineTo(xEnd, y);
@@ -1955,7 +1955,7 @@ def generate_all_dispatch_js():
         ctx.setLineDash([]);
       }}
 
-      const curX = plotX + scrubberIdxP06 * stepW;
+      const curX = plotX + scrubberIdxP03 * stepW;
       ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
       ctx.fillRect(curX, plotY, stepW, plotH);
       ctx.strokeStyle = '#38bdf8';
@@ -1968,47 +1968,47 @@ def generate_all_dispatch_js():
       ctx.fill();
     }}
 
-    function updateHudP06(idx) {{
-      const d = dispatchDataP06[idx];
+    function updateHudP03(idx) {{
+      const d = dispatchDataP03[idx];
       if (!d) return;
 
-      const timeEl = document.getElementById('p06-hud-time');
+      const timeEl = document.getElementById('p03-hud-time');
       if (timeEl) timeEl.innerText = d.time + ' (Step ' + d.step + '/96)';
 
-      const daEl = document.getElementById('p06-hud-da');
+      const daEl = document.getElementById('p03-hud-da');
       if (daEl) daEl.innerText = d.price.toFixed(2) + ' EUR/MWh';
 
       const rebapStr = (d.rebap >= 0 ? '+' : '') + d.rebap.toFixed(2) + ' EUR/MWh';
-      const rebapEl = document.getElementById('p06-hud-rebap');
+      const rebapEl = document.getElementById('p03-hud-rebap');
       if (rebapEl) rebapEl.innerText = rebapStr;
 
-      const q50El = document.getElementById('p06-hud-q50');
+      const q50El = document.getElementById('p03-hud-q50');
       if (q50El) q50El.innerText = d.q50.toFixed(1) + ' MW';
 
-      const bidEl = document.getElementById('p06-hud-bid');
+      const bidEl = document.getElementById('p03-hud-bid');
       if (bidEl) bidEl.innerText = d.bid.toFixed(1) + ' MW (q*)';
 
-      const realEl = document.getElementById('p06-hud-real');
+      const realEl = document.getElementById('p03-hud-real');
       if (realEl) realEl.innerText = d.real.toFixed(1) + ' MW';
 
-      const legBid = document.getElementById('p06-legval-bid');
+      const legBid = document.getElementById('p03-legval-bid');
       if (legBid) legBid.innerText = d.bid.toFixed(1) + ' MW';
 
-      const legReal = document.getElementById('p06-legval-real');
+      const legReal = document.getElementById('p03-legval-real');
       if (legReal) legReal.innerText = d.real.toFixed(1) + ' MW';
 
-      const legFan = document.getElementById('p06-legval-fan');
+      const legFan = document.getElementById('p03-legval-fan');
       if (legFan) legFan.innerText = 'q10: ' + d.q10.toFixed(1) + ' / q90: ' + d.q90.toFixed(1);
 
-      const legRebap = document.getElementById('p06-legval-rebap');
+      const legRebap = document.getElementById('p03-legval-rebap');
       if (legRebap) legRebap.innerText = rebapStr;
 
-      const legDa = document.getElementById('p06-legval-da');
+      const legDa = document.getElementById('p03-legval-da');
       if (legDa) legDa.innerText = d.price.toFixed(2) + ' EUR/MWh';
     }}
 
-    function setupCanvasListenersP06() {{
-      const canvas = document.getElementById('p06-dispatchCanvas');
+    function setupCanvasListenersP03() {{
+      const canvas = document.getElementById('p03-dispatchCanvas');
       if (!canvas) return;
       function handleMove(clientX) {{
         const rect = canvas.getBoundingClientRect();
@@ -2017,9 +2017,9 @@ def generate_all_dispatch_js():
         const plotW = rect.width - padLeft - padRight;
         const mouseX = clientX - rect.left;
         const clampedX = Math.max(0, Math.min(plotW - 0.001, mouseX - padLeft));
-        scrubberIdxP06 = Math.min(95, Math.max(0, Math.floor((clampedX / plotW) * 96)));
-        updateHudP06(scrubberIdxP06);
-        drawDispatchCanvasP06();
+        scrubberIdxP03 = Math.min(95, Math.max(0, Math.floor((clampedX / plotW) * 96)));
+        updateHudP03(scrubberIdxP03);
+        drawDispatchCanvasP03();
       }}
       canvas.addEventListener('mousemove', e => handleMove(e.clientX));
       canvas.addEventListener('touchmove', e => {{
@@ -2035,9 +2035,9 @@ def generate_all_dispatch_js():
     print("Em dashes:", em_dashes, "En dashes:", en_dashes)
     assert em_dashes == 0 and en_dashes == 0, "DASH BAN VIOLATION!"
 
-    with open('scripts/generated_dispatch_p02_p06.js', 'w', encoding='utf-8') as f:
+    with open('scripts/generated_dispatch_p02_p03.js', 'w', encoding='utf-8') as f:
         f.write(full_code)
-    print("Successfully saved to scripts/generated_dispatch_p02_p06.js")
+    print("Successfully saved to scripts/generated_dispatch_p02_p03.js")
 
 if __name__ == '__main__':
     generate_all_dispatch_js()

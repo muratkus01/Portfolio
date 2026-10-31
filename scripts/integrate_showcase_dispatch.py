@@ -1,5 +1,5 @@
 """
-Integrate P02-P06 interactive 24-hour canvas dispatch engines into showcase.html.
+Integrate P02-P03 interactive 24-hour canvas dispatch engines into showcase.html.
 Ensures zero em/en dashes and strict synchronization.
 """
 import re
@@ -8,7 +8,7 @@ def integrate():
     with open('showcase.html', 'r', encoding='utf-8') as f:
         html = f.read()
 
-    with open('scripts/generated_dispatch_p02_p06.js', 'r', encoding='utf-8') as f:
+    with open('scripts/generated_dispatch_p02_p03.js', 'r', encoding='utf-8') as f:
         generated_js = f.read()
 
     # 1. Update padLeft/padRight/padTop/padBottom in P01 drawDispatchCanvas
@@ -50,8 +50,8 @@ def integrate():
         if (projId === 'p02' || projId === 'all') drawDispatchCanvasP02();
         if (projId === 'p03' || projId === 'all') drawDispatchCanvasP03();
         if (projId === 'p04' || projId === 'all') drawDispatchCanvasP04();
-        if (projId === 'p05' || projId === 'all') drawDispatchCanvasP05();
-        if (projId === 'p06' || projId === 'all') drawDispatchCanvasP06();
+        if (projId === 'p02' || projId === 'all') drawDispatchCanvasP02();
+        if (projId === 'p03' || projId === 'all') drawDispatchCanvasP03();
       }, 50);
     }"""
     assert old_select_proj in html, "Could not find selectProject ending"
@@ -112,39 +112,39 @@ def integrate():
     assert old_simp04_end in html, "Could not find simP04 ending"
     html = html.replace(old_simp04_end, new_simp04_end, 1)
 
-    # 8. Update simP05 to trigger dispatch recomputation and redraw
-    old_simp05_end = """      // EEG §51 avoidance
+    # 8. Update simP02 to trigger dispatch recomputation and redraw
+    old_simp02_end = """      // EEG §51 avoidance
       const avoid = 34200 * (totalGen / 80.0) * (1.0 + (bess / 20.0) * 0.3);
-      document.getElementById('p05-res-avoid').innerText = Math.round(avoid).toLocaleString() + ' EUR/yr';
+      document.getElementById('p02-res-avoid').innerText = Math.round(avoid).toLocaleString() + ' EUR/yr';
     }"""
-    new_simp05_end = """      // EEG §51 avoidance
+    new_simp02_end = """      // EEG §51 avoidance
       const avoid = 34200 * (totalGen / 80.0) * (1.0 + (bess / 20.0) * 0.3);
-      document.getElementById('p05-res-avoid').innerText = Math.round(avoid).toLocaleString() + ' EUR/yr';
+      document.getElementById('p02-res-avoid').innerText = Math.round(avoid).toLocaleString() + ' EUR/yr';
 
       // Update 24h Hybrid Over-Planting and EEG §51 Canvas
-      recomputeDispatchP05(poc, pv, bess);
-      drawDispatchCanvasP05();
-      updateHudP05(scrubberIdxP05);
+      recomputeDispatchP02(poc, pv, bess);
+      drawDispatchCanvasP02();
+      updateHudP02(scrubberIdxP02);
     }"""
-    assert old_simp05_end in html, "Could not find simP05 ending"
-    html = html.replace(old_simp05_end, new_simp05_end, 1)
+    assert old_simp02_end in html, "Could not find simP02 ending"
+    html = html.replace(old_simp02_end, new_simp02_end, 1)
 
-    # 9. Update simP06 to trigger dispatch recomputation and redraw
-    old_simp06_end = """      // Risk reduction
+    # 9. Update simP03 to trigger dispatch recomputation and redraw
+    old_simp03_end = """      // Risk reduction
       const riskRed = -(44.0 + 15.0 * (0.50 - risk));
-      document.getElementById('p06-res-riskred').innerText = riskRed.toFixed(1) + '% Vol';
+      document.getElementById('p03-res-riskred').innerText = riskRed.toFixed(1) + '% Vol';
     }"""
-    new_simp06_end = """      // Risk reduction
+    new_simp03_end = """      // Risk reduction
       const riskRed = -(44.0 + 15.0 * (0.50 - risk));
-      document.getElementById('p06-res-riskred').innerText = riskRed.toFixed(1) + '% Vol';
+      document.getElementById('p03-res-riskred').innerText = riskRed.toFixed(1) + '% Vol';
 
       // Update 24h Forecast Fan and reBAP Imbalance Canvas
-      recomputeDispatchP06(risk, mae, spread);
-      drawDispatchCanvasP06();
-      updateHudP06(scrubberIdxP06);
+      recomputeDispatchP03(risk, mae, spread);
+      drawDispatchCanvasP03();
+      updateHudP03(scrubberIdxP03);
     }"""
-    assert old_simp06_end in html, "Could not find simP06 ending"
-    html = html.replace(old_simp06_end, new_simp06_end, 1)
+    assert old_simp03_end in html, "Could not find simP03 ending"
+    html = html.replace(old_simp03_end, new_simp03_end, 1)
 
     # 10. Update DOMContentLoaded and resize event listener
     old_dom_loaded = """    window.addEventListener('DOMContentLoaded', () => {
@@ -156,8 +156,8 @@ def integrate():
       simP02();
       simP03();
       simP04();
-      simP05();
-      simP06();
+      simP02();
+      simP03();
     });"""
 
     new_dom_loaded = """    function redrawAllCanvases() {
@@ -165,8 +165,8 @@ def integrate():
       drawDispatchCanvasP02();
       drawDispatchCanvasP03();
       drawDispatchCanvasP04();
-      drawDispatchCanvasP05();
-      drawDispatchCanvasP06();
+      drawDispatchCanvasP02();
+      drawDispatchCanvasP03();
     }
     window.addEventListener('resize', redrawAllCanvases);
 
@@ -176,23 +176,23 @@ def integrate():
       setupCanvasListenersP02();
       setupCanvasListenersP03();
       setupCanvasListenersP04();
-      setupCanvasListenersP05();
-      setupCanvasListenersP06();
+      setupCanvasListenersP02();
+      setupCanvasListenersP03();
 
       // Initialize all 6 project simulators with defaults
       simP01();
       simP02();
       simP03();
       simP04();
-      simP05();
-      simP06();
+      simP02();
+      simP03();
 
       updateHud(scrubberIdx);
       updateHudP02(scrubberIdxP02);
       updateHudP03(scrubberIdxP03);
       updateHudP04(scrubberIdxP04);
-      updateHudP05(scrubberIdxP05);
-      updateHudP06(scrubberIdxP06);
+      updateHudP02(scrubberIdxP02);
+      updateHudP03(scrubberIdxP03);
     });"""
 
     assert old_dom_loaded in html, "Could not find DOMContentLoaded block"
@@ -206,7 +206,7 @@ def integrate():
 
     with open('showcase.html', 'w', encoding='utf-8') as f:
         f.write(html)
-    print("Successfully integrated P02-P06 canvas engines into showcase.html!")
+    print("Successfully integrated P02-P03 canvas engines into showcase.html!")
 
 if __name__ == '__main__':
     integrate()

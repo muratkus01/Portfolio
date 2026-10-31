@@ -44,19 +44,19 @@ def build():
         assert p04_old_btn in html, "Could not find p04-galbtn-2025"
         html = html.replace(p04_old_btn, p04_new_btns, 1)
 
-    # P05
-    p05_old_btn = '<button class="gallery-btn active" id="p05-galbtn-2025" onclick="switchVisual(\'p05\', \'2025\')">2025 Dispatch</button>'
-    p05_new_btns = '<button class="gallery-btn" id="p05-galbtn-2026" onclick="switchVisual(\'p05\', \'2026\')">2026 (YTD)</button>\n                ' + p05_old_btn
-    if 'id="p05-galbtn-2026"' not in html:
-        assert p05_old_btn in html, "Could not find p05-galbtn-2025"
-        html = html.replace(p05_old_btn, p05_new_btns, 1)
+    # P02
+    p02_old_btn = '<button class="gallery-btn active" id="p02-galbtn-2025" onclick="switchVisual(\'p02\', \'2025\')">2025 Dispatch</button>'
+    p02_new_btns = '<button class="gallery-btn" id="p02-galbtn-2026" onclick="switchVisual(\'p02\', \'2026\')">2026 (YTD)</button>\n                ' + p02_old_btn
+    if 'id="p02-galbtn-2026"' not in html:
+        assert p02_old_btn in html, "Could not find p02-galbtn-2025"
+        html = html.replace(p02_old_btn, p02_new_btns, 1)
 
-    # P06
-    p06_old_btn = '<button class="gallery-btn active" id="p06-galbtn-2025" onclick="switchVisual(\'p06\', \'2025\')">2025 Fan Chart</button>'
-    p06_new_btns = '<button class="gallery-btn" id="p06-galbtn-2026" onclick="switchVisual(\'p06\', \'2026\')">2026 (YTD)</button>\n                ' + p06_old_btn
-    if 'id="p06-galbtn-2026"' not in html:
-        assert p06_old_btn in html, "Could not find p06-galbtn-2025"
-        html = html.replace(p06_old_btn, p06_new_btns, 1)
+    # P03
+    p03_old_btn = '<button class="gallery-btn active" id="p03-galbtn-2025" onclick="switchVisual(\'p03\', \'2025\')">2025 Fan Chart</button>'
+    p03_new_btns = '<button class="gallery-btn" id="p03-galbtn-2026" onclick="switchVisual(\'p03\', \'2026\')">2026 (YTD)</button>\n                ' + p03_old_btn
+    if 'id="p03-galbtn-2026"' not in html:
+        assert p03_old_btn in html, "Could not find p03-galbtn-2025"
+        html = html.replace(p03_old_btn, p03_new_btns, 1)
 
     # 2. Update PROJECT_VISUALS to include 2026
     # Let's inspect PROJECT_VISUALS replacement
@@ -132,41 +132,41 @@ def build():
         assert old_p04_vis in html, "Could not find old p04 visual"
         html = html.replace(old_p04_vis, new_p04_vis, 1)
 
-    old_p05_vis = """      p05: {
+    old_p02_vis = """      p02: {
         '2025': {
-          src: 'projects/05-utility-hybrid-plant-dispatch/docs/figures/p05_dispatch_2025.png',
-          caption: '<strong>Figure 5 (2025):</strong> 80 MW hybrid plant dispatch holding strict 40 MW POC interconnection limit under 2025 spot prices with battery buffer cycling and EEG §51 curtailment.'
+          src: 'projects/02-utility-hybrid-plant-dispatch/docs/figures/p02_dispatch_2025.png',
+          caption: '<strong>Figure 2 (2025):</strong> 80 MW hybrid plant dispatch holding strict 40 MW POC interconnection limit under 2025 spot prices with battery buffer cycling and EEG §51 curtailment.'
         },"""
-    new_p05_vis = """      p05: {
+    new_p02_vis = """      p02: {
         '2026': {
-          src: 'projects/05-utility-hybrid-plant-dispatch/docs/figures/p05_dispatch_2026.png',
-          caption: '<strong>Figure 5 (2026 YTD):</strong> 80 MW hybrid plant dispatch holding strict 40 MW POC interconnection limit under 2026 spot prices with battery buffer cycling and EEG §51 curtailment.'
+          src: 'projects/02-utility-hybrid-plant-dispatch/docs/figures/p02_dispatch_2026.png',
+          caption: '<strong>Figure 2 (2026 YTD):</strong> 80 MW hybrid plant dispatch holding strict 40 MW POC interconnection limit under 2026 spot prices with battery buffer cycling and EEG §51 curtailment.'
         },
         '2025': {
-          src: 'projects/05-utility-hybrid-plant-dispatch/docs/figures/p05_dispatch_2025.png',
-          caption: '<strong>Figure 5 (2025):</strong> 80 MW hybrid plant dispatch holding strict 40 MW POC interconnection limit under 2025 spot prices with battery buffer cycling and EEG §51 curtailment.'
+          src: 'projects/02-utility-hybrid-plant-dispatch/docs/figures/p02_dispatch_2025.png',
+          caption: '<strong>Figure 2 (2025):</strong> 80 MW hybrid plant dispatch holding strict 40 MW POC interconnection limit under 2025 spot prices with battery buffer cycling and EEG §51 curtailment.'
         },"""
-    if "'2026': {\n          src: 'projects/05-utility-hybrid-plant-dispatch/docs/figures/p05_dispatch_2026.png'" not in html:
-        assert old_p05_vis in html, "Could not find old p05 visual"
-        html = html.replace(old_p05_vis, new_p05_vis, 1)
+    if "'2026': {\n          src: 'projects/02-utility-hybrid-plant-dispatch/docs/figures/p02_dispatch_2026.png'" not in html:
+        assert old_p02_vis in html, "Could not find old p02 visual"
+        html = html.replace(old_p02_vis, new_p02_vis, 1)
 
-    old_p06_vis = """      p06: {
+    old_p03_vis = """      p03: {
         '2025': {
-          src: 'projects/06-probabilistic-forecast-to-bid/docs/figures/p06_forecast_fan_2025.png',
-          caption: '<strong>Figure 6 (2025):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2025 weather patterns.'
+          src: 'projects/03-probabilistic-forecast-to-bid/docs/figures/p03_forecast_fan_2025.png',
+          caption: '<strong>Figure 3 (2025):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2025 weather patterns.'
         },"""
-    new_p06_vis = """      p06: {
+    new_p03_vis = """      p03: {
         '2026': {
-          src: 'projects/06-probabilistic-forecast-to-bid/docs/figures/p06_forecast_fan_2026.png',
-          caption: '<strong>Figure 6 (2026 YTD):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2026 weather patterns.'
+          src: 'projects/03-probabilistic-forecast-to-bid/docs/figures/p03_forecast_fan_2026.png',
+          caption: '<strong>Figure 3 (2026 YTD):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2026 weather patterns.'
         },
         '2025': {
-          src: 'projects/06-probabilistic-forecast-to-bid/docs/figures/p06_forecast_fan_2025.png',
-          caption: '<strong>Figure 6 (2025):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2025 weather patterns.'
+          src: 'projects/03-probabilistic-forecast-to-bid/docs/figures/p03_forecast_fan_2025.png',
+          caption: '<strong>Figure 3 (2025):</strong> 24-hour fan chart with 9 quantile ribbons (q10 to q90) and real-time reBAP imbalance cashout distribution under 2025 weather patterns.'
         },"""
-    if "'2026': {\n          src: 'projects/06-probabilistic-forecast-to-bid/docs/figures/p06_forecast_fan_2026.png'" not in html:
-        assert old_p06_vis in html, "Could not find old p06 visual"
-        html = html.replace(old_p06_vis, new_p06_vis, 1)
+    if "'2026': {\n          src: 'projects/03-probabilistic-forecast-to-bid/docs/figures/p03_forecast_fan_2026.png'" not in html:
+        assert old_p03_vis in html, "Could not find old p03 visual"
+        html = html.replace(old_p03_vis, new_p03_vis, 1)
 
     # 3. Update switchVisual to support 2026
     old_switch_vis = """      ['2025', '2024', 'bench'].forEach(vk => {
@@ -182,7 +182,7 @@ def build():
 
     # 4. Update setGlobalYear gallery switching
     old_set_gal = """      // Switch active figure in galleries for all projects
-      const projList = ['p01', 'p02', 'p03', 'p04', 'p05', 'p06'];
+      const projList = ['p01', 'p02', 'p03', 'p04', 'p02', 'p03'];
       const vYearKey = yKey === '2024' ? '2024' : '2025';
       projList.forEach(pid => {
         const benchBtn = document.getElementById(pid + '-galbtn-bench');
@@ -193,7 +193,7 @@ def build():
       });"""
     new_set_gal = """      // Switch active figure in galleries for all projects to currently selected year
       currentGlobalYear = yKey;
-      const projList = ['p01', 'p02', 'p03', 'p04', 'p05', 'p06'];
+      const projList = ['p01', 'p02', 'p03', 'p04', 'p02', 'p03'];
       projList.forEach(pid => {
         const benchBtn = document.getElementById(pid + '-galbtn-bench');
         const isBench = benchBtn && benchBtn.classList.contains('active');
@@ -293,37 +293,37 @@ def build():
         }}
       }});
 
-      // Update Project 05
-      const r05 = yr.p05[currentRegimeKeyP05] || yr.p05['overplanting_storm'];
-      const date05 = document.getElementById('p05-active-regime-date');
+      // Update Project 02
+      const r05 = yr.p02[currentRegimeKeyP02] || yr.p02['overplanting_storm'];
+      const date05 = document.getElementById('p02-active-regime-date');
       if (date05) date05.innerText = r05.tag + ' (' + r05.date + ')';
-      const desc05 = document.getElementById('p05-day-regime-desc');
+      const desc05 = document.getElementById('p02-day-regime-desc');
       if (desc05) {{
         desc05.innerHTML = '<strong>' + r05.title + ':</strong> ' + r05.desc +
           ' <span style="color: var(--cyan-bright); margin-left: 8px;">Spot: ' +
           r05.price_min.toFixed(1) + ' to ' + r05.price_max.toFixed(1) + ' EUR/MWh</span>';
       }}
       ['overplanting_storm', 'eeg51_negative_run', 'summer_solar_noon', 'winter_wind_gale', 'extreme_high_spike', 'bottleneck_grid'].forEach(k => {{
-        const btn = document.getElementById('p05-dbtn-' + k);
-        if (btn && yr.p05[k]) {{
-          btn.innerText = yr.p05[k].tag;
+        const btn = document.getElementById('p02-dbtn-' + k);
+        if (btn && yr.p02[k]) {{
+          btn.innerText = yr.p02[k].tag;
         }}
       }});
 
-      // Update Project 06
-      const r06 = yr.p06[currentRegimeKeyP06] || yr.p06['system_shortage'];
-      const date06 = document.getElementById('p06-active-regime-date');
+      // Update Project 03
+      const r06 = yr.p03[currentRegimeKeyP03] || yr.p03['system_shortage'];
+      const date06 = document.getElementById('p03-active-regime-date');
       if (date06) date06.innerText = r06.tag + ' (' + r06.date + ')';
-      const desc06 = document.getElementById('p06-day-regime-desc');
+      const desc06 = document.getElementById('p03-day-regime-desc');
       if (desc06) {{
         desc06.innerHTML = '<strong>' + r06.title + ':</strong> ' + r06.desc +
           ' <span style="color: var(--cyan-bright); margin-left: 8px;">reBAP Spread: ' +
           r06.price_min.toFixed(1) + ' to ' + r06.price_max.toFixed(1) + ' EUR/MWh</span>';
       }}
       ['system_shortage', 'system_long', 'storm_ramp_uncertainty', 'stable_high_pressure', 'asymmetric_spread', 'forecast_bust_stress'].forEach(k => {{
-        const btn = document.getElementById('p06-dbtn-' + k);
-        if (btn && yr.p06[k]) {{
-          btn.innerText = yr.p06[k].tag;
+        const btn = document.getElementById('p03-dbtn-' + k);
+        if (btn && yr.p03[k]) {{
+          btn.innerText = yr.p03[k].tag;
         }}
       }});
 
@@ -332,8 +332,8 @@ def build():
       simP02();
       simP03();
       simP04();
-      simP05();
-      simP06();
+      simP02();
+      simP03();
     }}
 """
     assert old_regimes_decl in html, "Could not find currentRegimeKey declaration"
@@ -428,49 +428,49 @@ def build():
     assert old_recomp_p04 in html, "Could not find recomputeDispatchP04"
     html = html.replace(old_recomp_p04, new_recomp_p04, 1)
 
-    # P05 selectDayRegimeP05
-    old_sel_p05 = """    function selectDayRegimeP05(regKey) {
-      if (!DAY_REGIMES_P05[regKey]) return;
-      currentRegimeKeyP05 = regKey;
-      const reg = DAY_REGIMES_P05[regKey];"""
-    new_sel_p05 = """    function selectDayRegimeP05(regKey) {
-      const regMap = getRegimes('p05');
+    # P02 selectDayRegimeP02
+    old_sel_p02 = """    function selectDayRegimeP02(regKey) {
+      if (!DAY_REGIMES_P02[regKey]) return;
+      currentRegimeKeyP02 = regKey;
+      const reg = DAY_REGIMES_P02[regKey];"""
+    new_sel_p02 = """    function selectDayRegimeP02(regKey) {
+      const regMap = getRegimes('p02');
       if (!regMap[regKey]) return;
-      currentRegimeKeyP05 = regKey;
+      currentRegimeKeyP02 = regKey;
       const reg = regMap[regKey];"""
-    assert old_sel_p05 in html, "Could not find selectDayRegimeP05"
-    html = html.replace(old_sel_p05, new_sel_p05, 1)
+    assert old_sel_p02 in html, "Could not find selectDayRegimeP02"
+    html = html.replace(old_sel_p02, new_sel_p02, 1)
 
-    # P05 recomputeDispatchP05
-    old_recomp_p05 = """    function recomputeDispatchP05(pocCapMw, pvMw, bessMwh) {
-      const reg = (typeof DAY_REGIMES_P05 !== 'undefined' && DAY_REGIMES_P05[currentRegimeKeyP05]) ? DAY_REGIMES_P05[currentRegimeKeyP05] : DAY_REGIMES_P05['overplanting_storm'];"""
-    new_recomp_p05 = """    function recomputeDispatchP05(pocCapMw, pvMw, bessMwh) {
-      const regMap = getRegimes('p05');
-      const reg = (regMap && regMap[currentRegimeKeyP05]) ? regMap[currentRegimeKeyP05] : regMap['overplanting_storm'];"""
-    assert old_recomp_p05 in html, "Could not find recomputeDispatchP05"
-    html = html.replace(old_recomp_p05, new_recomp_p05, 1)
+    # P02 recomputeDispatchP02
+    old_recomp_p02 = """    function recomputeDispatchP02(pocCapMw, pvMw, bessMwh) {
+      const reg = (typeof DAY_REGIMES_P02 !== 'undefined' && DAY_REGIMES_P02[currentRegimeKeyP02]) ? DAY_REGIMES_P02[currentRegimeKeyP02] : DAY_REGIMES_P02['overplanting_storm'];"""
+    new_recomp_p02 = """    function recomputeDispatchP02(pocCapMw, pvMw, bessMwh) {
+      const regMap = getRegimes('p02');
+      const reg = (regMap && regMap[currentRegimeKeyP02]) ? regMap[currentRegimeKeyP02] : regMap['overplanting_storm'];"""
+    assert old_recomp_p02 in html, "Could not find recomputeDispatchP02"
+    html = html.replace(old_recomp_p02, new_recomp_p02, 1)
 
-    # P06 selectDayRegimeP06
-    old_sel_p06 = """    function selectDayRegimeP06(regKey) {
-      if (!DAY_REGIMES_P06[regKey]) return;
-      currentRegimeKeyP06 = regKey;
-      const reg = DAY_REGIMES_P06[regKey];"""
-    new_sel_p06 = """    function selectDayRegimeP06(regKey) {
-      const regMap = getRegimes('p06');
+    # P03 selectDayRegimeP03
+    old_sel_p03 = """    function selectDayRegimeP03(regKey) {
+      if (!DAY_REGIMES_P03[regKey]) return;
+      currentRegimeKeyP03 = regKey;
+      const reg = DAY_REGIMES_P03[regKey];"""
+    new_sel_p03 = """    function selectDayRegimeP03(regKey) {
+      const regMap = getRegimes('p03');
       if (!regMap[regKey]) return;
-      currentRegimeKeyP06 = regKey;
+      currentRegimeKeyP03 = regKey;
       const reg = regMap[regKey];"""
-    assert old_sel_p06 in html, "Could not find selectDayRegimeP06"
-    html = html.replace(old_sel_p06, new_sel_p06, 1)
+    assert old_sel_p03 in html, "Could not find selectDayRegimeP03"
+    html = html.replace(old_sel_p03, new_sel_p03, 1)
 
-    # P06 recomputeDispatchP06
-    old_recomp_p06 = """    function recomputeDispatchP06(riskTau, maePct, spreadEur) {
-      const reg = (typeof DAY_REGIMES_P06 !== 'undefined' && DAY_REGIMES_P06[currentRegimeKeyP06]) ? DAY_REGIMES_P06[currentRegimeKeyP06] : DAY_REGIMES_P06['system_shortage'];"""
-    new_recomp_p06 = """    function recomputeDispatchP06(riskTau, maePct, spreadEur) {
-      const regMap = getRegimes('p06');
-      const reg = (regMap && regMap[currentRegimeKeyP06]) ? regMap[currentRegimeKeyP06] : regMap['system_shortage'];"""
-    assert old_recomp_p06 in html, "Could not find recomputeDispatchP06"
-    html = html.replace(old_recomp_p06, new_recomp_p06, 1)
+    # P03 recomputeDispatchP03
+    old_recomp_p03 = """    function recomputeDispatchP03(riskTau, maePct, spreadEur) {
+      const reg = (typeof DAY_REGIMES_P03 !== 'undefined' && DAY_REGIMES_P03[currentRegimeKeyP03]) ? DAY_REGIMES_P03[currentRegimeKeyP03] : DAY_REGIMES_P03['system_shortage'];"""
+    new_recomp_p03 = """    function recomputeDispatchP03(riskTau, maePct, spreadEur) {
+      const regMap = getRegimes('p03');
+      const reg = (regMap && regMap[currentRegimeKeyP03]) ? regMap[currentRegimeKeyP03] : regMap['system_shortage'];"""
+    assert old_recomp_p03 in html, "Could not find recomputeDispatchP03"
+    html = html.replace(old_recomp_p03, new_recomp_p03, 1)
 
     # Update simP01 to use getRegimes('p01')
     old_simp01_reg = """      const reg = (typeof DAY_REGIMES !== 'undefined' && DAY_REGIMES[currentRegimeKey]) ? DAY_REGIMES[currentRegimeKey] : null;"""

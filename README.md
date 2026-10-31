@@ -27,7 +27,7 @@ Run the master interactive showcase dashboard to simulate live benchmarks across
 # Clone and install the three packages in editable mode
 git clone https://github.com/muratkus01/Portfolio.git
 cd Portfolio
-pip install -e projects/01-prosumer-pv-bess-mpc-rl -e projects/05-utility-hybrid-plant-dispatch -e projects/06-probabilistic-forecast-to-bid
+pip install -e projects/01-prosumer-pv-bess-mpc-rl -e projects/02-utility-hybrid-plant-dispatch -e projects/03-probabilistic-forecast-to-bid
 
 # Run the Master Showcase Runner
 python showcase.py
@@ -56,8 +56,8 @@ flowchart TB
     end
 
     subgraph FTM["Front of the Meter"]
-        P5["05 · Utility Hybrid Plant<br/>(Wind+PV+BESS Behind a Connection Cap, EEG §51)"]
-        P6["06 · Forecast-to-Bid Pipeline<br/>(reBAP Imbalance Risk Minimization)"]
+        P5["02 · Utility Hybrid Plant<br/>(Wind+PV+BESS Behind a Connection Cap, EEG §51)"]
+        P6["03 · Forecast-to-Bid Pipeline<br/>(reBAP Imbalance Risk Minimization)"]
     end
 
     FOUND --> BTM
@@ -76,8 +76,8 @@ flowchart TB
 | # | Project Dossier | Core Method | Asset / Scale | Regulatory Framework | Quickstart Command |
 |:---:|---|---|---|---|---|
 | **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Fast LP-MPC + Rescaled SAC RL | 8 kWp PV, 9.37 kWh BESS, 5.63 kW Inverter | §14a / §41a EnWG, EEG 2023 | `prosumer rolling-eval` |
-| **05** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/05-utility-hybrid-plant-dispatch/) | Co-located LP + B3 Rolling MPC | 50 MW Wind, 30 MW PV, 40 MWh BESS | EEG §51 / §51a Negative Price Rules | `python -m hybrid.cli ladder` |
-| **06** | [**Probabilistic Forecast-to-Bid**](projects/06-probabilistic-forecast-to-bid/) | Quantile Loss + Newsvendor Fractile | 300 MW Portfolio | SIDC Intraday, German reBAP | `python -m f2b.cli policies` |
+| **02** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/02-utility-hybrid-plant-dispatch/) | Co-located LP + B3 Rolling MPC | 50 MW Wind, 30 MW PV, 40 MWh BESS | EEG §51 / §51a Negative Price Rules | `python -m hybrid.cli ladder` |
+| **03** | [**Probabilistic Forecast-to-Bid**](projects/03-probabilistic-forecast-to-bid/) | Quantile Loss + Newsvendor Fractile | 300 MW Portfolio | SIDC Intraday, German reBAP | `python -m f2b.cli policies` |
 
 **Scope decision, 2026-10-09.** The portfolio was narrowed from six projects to three, so that each
 one can be defended in depth rather than listed. Pumped-storage multi-market dispatch, smart EV
@@ -97,8 +97,8 @@ Every project asserts structural physical, electrical, and market invariants at 
 | **02** | Zero violations; B2 >= B3 >= B1; symmetrical reservation | Reservoir bounds overrode ramp limits during overtopping (resolved by modeling spill). Continuous LP permitted fractional concurrent turbining and pumping to slip past ramp limits (resolved by binary mode mutual exclusion). Capacity sold in aFRR auctions was omitted from heuristics, letting baselines trade through reserved headroom. |
 | **03** | Zero missed declared departures | Per-connector feasibility checks failed to detect collective contention: the price-aware policy missed 108 departures until the Earliest Deadline First (EDF) aggregate floor was implemented. Truncating boundary arrivals at horizon termination falsely scored uncompleted visits as misses (resolved via right-censoring). |
 | **04** | Core non-emptiness & individual rationality | Coalition value formulation previously mixed retail import savings with operator feed-in revenue; correcting the cooperative surplus proved cooperation remains viable up to a 0.110 EUR/kWh network charge. |
-| **05** | B3 >= B1; every rung <= perfect foresight | B3 applied a planned curtailment fraction from forecast generation to actual generation, discarding deliverable energy. Voluntarily gating curtailment to negative prices lifted B3 to +5.4% over the unhybridized plant. |
-| **06** | Lookahead audit clean; monotonic quantiles | Test fixtures previously shared stateful RNG instances between forecast synthesis and evaluation. Adding strict `IssueTimeStore` prevents any feature from leaking future market states. |
+| **02** | B3 >= B1; every rung <= perfect foresight | B3 applied a planned curtailment fraction from forecast generation to actual generation, discarding deliverable energy. Voluntarily gating curtailment to negative prices lifted B3 to +5.4% over the unhybridized plant. |
+| **03** | Lookahead audit clean; monotonic quantiles | Test fixtures previously shared stateful RNG instances between forecast synthesis and evaluation. Adding strict `IssueTimeStore` prevents any feature from leaking future market states. |
 
 ---
 
@@ -129,8 +129,8 @@ Portfolio/
 ├── docs/                              ← Energy market primers, regulatory guides & math
 ├── projects/                          ← The three active projects (132 tests)
 │   ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (88 tests, 1 skipped without private data)
-│   ├── 05-utility-hybrid-plant-dispatch/ ← Package: hybrid (26 tests)
-│   └── 06-probabilistic-forecast-to-bid/ ← Package: f2b (18 tests)
+│   ├── 02-utility-hybrid-plant-dispatch/ ← Package: hybrid (26 tests)
+│   └── 03-probabilistic-forecast-to-bid/ ← Package: f2b (18 tests)
 └── archive/                           ← Set aside 2026-10-09, still tested (88 tests)
     ├── 02-pumped-storage-rl-multimarket/ ← Package: psw (27 tests)
     ├── 03-smart-ev-charging-14a/      ← Package: evc (20 tests)

@@ -1,6 +1,6 @@
 # 09 · Learned Forecast Layer, and a Review of Three Proposed Projects
 
-Written 2026-09-25. Evaluates an external suggestion to merge Project 06 into Project 02,
+Written 2026-09-25. Evaluates an external suggestion to merge Project 03 into Project 02,
 and specifies the backbone of the work that should happen instead.
 
 **Verdict in one line: the diagnosis is right, the prescription is wrong. The portfolio does
@@ -22,7 +22,7 @@ Checked before writing, not taken from a README.
 | 05 Hybrid plant | AR(1) noise, `forecast_sigma = 0.15`, `forecast_rho = 0.8` | No |
 | 06 Forecast-to-bid | `f2b/forecast.py::build_store` perturbs the truth with AR(1) noise whose spread widens with lead time | **No** |
 
-Project 06 is the important row. Its README reports a forecast-quality table (MAE 12.3 MW at
+Project 03 is the important row. Its README reports a forecast-quality table (MAE 12.3 MW at
 15 minutes rising to 49.6 MW at 24 hours, CRPS 9.3 to 35.7, calibration error 0.022 to 0.062).
 Those numbers are not a measurement of a forecaster. They are a restatement of the noise
 parameters that generated them. A reviewer who opens `forecast.py` sees this in about
@@ -30,7 +30,7 @@ thirty seconds, and everything downstream of it becomes suspect by association.
 
 This is the actual gap in the portfolio, and it is a single gap, not three.
 
-**What Project 06 does contain, and what is genuinely good in it:** the issue-time forecast
+**What Project 03 does contain, and what is genuinely good in it:** the issue-time forecast
 store. Every forecast is materialised once, tagged with the time at which it would really have
 been available, and every policy reads the same object. `audit_no_lookahead` checks it
 automatically. Look-ahead bias is made structurally impossible rather than a matter of
@@ -39,7 +39,7 @@ worth more than the forecaster that is missing from underneath it.
 
 ---
 
-## 2. Review of the proposal: merge Project 06 into Project 02
+## 2. Review of the proposal: merge Project 03 into Project 02
 
 ### What the proposal gets right
 
@@ -56,7 +56,7 @@ worth more than the forecaster that is missing from underneath it.
 **1. The two projects model different market actors, not two halves of one.**
 Project 02 is an asset operator: a 300 MW / 2,400 MWh pumped-storage plant with reversal
 wear, a grid-security objective, aFRR capacity commitments and the section 118(6) EnWG
-network-charge exemption. Project 06 is a balance responsible party managing a renewable
+network-charge exemption. Project 03 is a balance responsible party managing a renewable
 portfolio across day-ahead, intraday and imbalance stages. Their state, their constraints and
 their regulatory exposure have almost nothing in common. Merging them produces one project
 that has to explain two market roles before it can state a result.
@@ -66,12 +66,12 @@ round-trip efficiency, ramp behaviour, wear model and network-charge treatment a
 a grid-scale BESS. The euro-per-MW-per-year headline the proposal wants is a BESS trading
 metric and does not transfer to a pumped-storage plant without restatement.
 
-**3. The merge destroys the part of Project 06 worth keeping.** Dissolving it into Project 02
+**3. The merge destroys the part of Project 03 worth keeping.** Dissolving it into Project 02
 turns a reusable information-set discipline into one project's internal plumbing. The forecast
-store should move in the opposite direction: out of Project 06 and into `datakit`, where all
+store should move in the opposite direction: out of Project 03 and into `datakit`, where all
 six projects can read it.
 
-**4. The coupling the proposal asks for already exists.** Project 06 already bids the median
+**4. The coupling the proposal asks for already exists.** Project 03 already bids the median
 (policy B1), already bids a quantile (the newsvendor policy NV), and already optimises over
 scenarios built from the quantiles (B3 stochastic MPC), and already reports the spread between
 them: 3,287,532 EUR for the point forecast against 3,576,029 EUR for stochastic MPC over 30
@@ -142,7 +142,7 @@ euro.
 | Input | Source | Access | Note |
 |---|---|---|---|
 | DE-LU day-ahead prices, 15 min | ENTSO-E Transparency, or Energy-Charts via `datakit` | free, already cached for 2024 to 2026 | hourly products before 2025-10-01, quarter-hour after; the regime change must be handled explicitly |
-| Intraday prices and index | EPEX via SMARD | free download | needed for the intraday stage in Project 06 |
+| Intraday prices and index | EPEX via SMARD | free download | needed for the intraday stage in Project 03 |
 | Actual wind and PV generation, 15 min | SMARD or Energy-Charts | free, already cached | |
 | Day-ahead TSO generation forecast | ENTSO-E Transparency, or netztransparenz.de | free | this is the operational benchmark to beat, not an input to copy |
 | Load forecast and actual | ENTSO-E | free | |
@@ -194,7 +194,7 @@ downstream policy assumes an ascending set.
 1. `datakit/forecast/` with the store moved and the model ladder implemented.
 2. A reliability diagram and a pinball-loss-by-lead-time figure per target, both generated
    from committed CSVs.
-3. Project 06 re-run on the learned store, with its README table restated and explicitly
+3. Project 03 re-run on the learned store, with its README table restated and explicitly
    labelled as measured rather than parameterised.
 4. Projects 05 and 02 switched from `forecast_sigma` noise to the learned store, with their
    B3 results restated.
@@ -279,7 +279,7 @@ that sophistication is not needed is still a result, and it is more credible tha
 **A module inside Project 06, not a seventh project.**
 
 The proposal is right that this is the niche few applicants show, that the data is free, and
-that BESS traders care about it. It is wrong that it should stand alone. Project 06 already has
+that BESS traders care about it. It is wrong that it should stand alone. Project 03 already has
 an imbalance stage, already settles against reBAP, and already reports imbalance volume by
 policy. A standalone project would duplicate that machinery to house one model.
 
@@ -332,7 +332,7 @@ battery should do, and by how much in euro?
 1. Fix the Project 01 figures. See the 2026-09-25 review in `HANDOFF.md`.
 2. Move the forecast store from `f2b` into `datakit` with its interface and tests unchanged.
 3. Build the model ladder F0 to F4 for one target, day-ahead price, and report it honestly.
-4. Switch Project 06 to the learned store and restate its numbers.
+4. Switch Project 03 to the learned store and restate its numbers.
 5. Extend to generation, then switch Projects 05 and 02.
 6. Publish the cross-asset value-of-forecast table. This is the flagship result.
 7. Only then consider Backbone B, and Backbone C after it.

@@ -160,7 +160,7 @@ def generate_multiyear_regimes():
     }
 
     # Projects 02 to 06: generate 2025 and 2026
-    for pid in ["p02", "p03", "p04", "p05", "p06"]:
+    for pid in ["p02", "p03", "p04", "p02", "p03"]:
         multiyear["2025"][pid] = {}
         multiyear["2026"][pid] = {}
         base_p = data_2024[pid]
@@ -199,7 +199,7 @@ def generate_multiyear_regimes():
                 reg26["rebap_prices"] = [round(float(x * 1.25), 2) for x in reg["rebap_prices"]]
             multiyear["2026"][pid][reg_key] = reg26
 
-    # Specific 2026 titles / tags for P02-P06
+    # Specific 2026 titles / tags for P02-P03
     multiyear["2026"]["p02"]["extreme_high"]["title"] = "Summer Scarcity Peak (+747 EUR/MWh)"
     multiyear["2026"]["p02"]["extreme_high"]["desc"] = "Historic summer scarcity peak pushing spot prices to +747.10 EUR/MWh. Reversible machine runs at 30 MW full turbine generation."
     multiyear["2026"]["p02"]["extreme_low"]["title"] = "Labor Day Negative Pumping (-500 EUR/MWh)"
@@ -208,15 +208,15 @@ def generate_multiyear_regimes():
     multiyear["2026"]["p03"]["negative_soak"]["title"] = "May Day Negative Tariff Soak (-500 EUR/MWh)"
     multiyear["2026"]["p03"]["negative_soak"]["desc"] = "Spot prices dip to -499.99 EUR/MWh. Fleet charges at maximum allowable grid ceiling to capture negative tariff credits."
 
-    multiyear["2026"]["p05"]["extreme_high_spike"]["title"] = "Summer Heatwave Scarcity (+747 EUR/MWh)"
-    multiyear["2026"]["p05"]["extreme_high_spike"]["desc"] = "Point of Common Coupling exports at full 50 MW capacity during 747 EUR/MWh price spike; BESS dispatches all stored energy."
-    multiyear["2026"]["p05"]["eeg51_negative_run"]["title"] = "EEG 51 Negative Run (-500 EUR/MWh Crash)"
-    multiyear["2026"]["p05"]["eeg51_negative_run"]["desc"] = "Consecutive negative price hours reaching -499.99 EUR/MWh trigger EEG Section 51 export ban; BESS absorbs excess wind and solar."
+    multiyear["2026"]["p02"]["extreme_high_spike"]["title"] = "Summer Heatwave Scarcity (+747 EUR/MWh)"
+    multiyear["2026"]["p02"]["extreme_high_spike"]["desc"] = "Point of Common Coupling exports at full 50 MW capacity during 747 EUR/MWh price spike; BESS dispatches all stored energy."
+    multiyear["2026"]["p02"]["eeg51_negative_run"]["title"] = "EEG 51 Negative Run (-500 EUR/MWh Crash)"
+    multiyear["2026"]["p02"]["eeg51_negative_run"]["desc"] = "Consecutive negative price hours reaching -499.99 EUR/MWh trigger EEG Section 51 export ban; BESS absorbs excess wind and solar."
 
-    multiyear["2026"]["p06"]["system_shortage"]["title"] = "Summer Shortage Spike (+747 EUR/MWh)"
-    multiyear["2026"]["p06"]["system_shortage"]["desc"] = "Grid control area severe deficit shifts optimal newsvendor bid to high quantile q75 to avoid massive penalties."
-    multiyear["2026"]["p06"]["system_long"]["title"] = "May 1st Deep Negative reBAP (-500 EUR/MWh)"
-    multiyear["2026"]["p06"]["system_long"]["desc"] = "Negative reBAP imbalance price of -499.99 EUR/MWh penalizes long positions, driving optimal bid down to conservative q25."
+    multiyear["2026"]["p03"]["system_shortage"]["title"] = "Summer Shortage Spike (+747 EUR/MWh)"
+    multiyear["2026"]["p03"]["system_shortage"]["desc"] = "Grid control area severe deficit shifts optimal newsvendor bid to high quantile q75 to avoid massive penalties."
+    multiyear["2026"]["p03"]["system_long"]["title"] = "May 1st Deep Negative reBAP (-500 EUR/MWh)"
+    multiyear["2026"]["p03"]["system_long"]["desc"] = "Negative reBAP imbalance price of -499.99 EUR/MWh penalizes long positions, driving optimal bid down to conservative q25."
 
     out_file = ROOT / "simulations" / "results" / "day_regimes_multiyear.json"
     full_json = json.dumps(multiyear, indent=2)

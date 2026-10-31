@@ -37,7 +37,7 @@ resolution regime per timestamp.
 | Source | Content | Resolution | Access | Licence |
 |--------|---------|-----------|--------|---------|
 | **DWD Open Data** | ICON-D2 / ICON-EU NWP fields, MOSMIX station forecasts, observation archive (CDC) | 15 min – 3 h, hourly grid | Open FTP/HTTPS | Free (GeoNutzV), attribution |
-| **DWD ICON-D2-EPS** | Ensemble NWP — the basis for probabilistic forecasting in Project 06 | 1 h, 20 members | Open FTP/HTTPS | Free (GeoNutzV) |
+| **DWD ICON-D2-EPS** | Ensemble NWP — the basis for probabilistic forecasting in Project 03 | 1 h, 20 members | Open FTP/HTTPS | Free (GeoNutzV) |
 | **PVGIS** (JRC) | PV yield, irradiance climatology, typical meteorological years | Hourly | Web + API | Free reuse, attribution |
 | **Renewables.ninja** | Wind & PV capacity factor time series from MERRA-2/SARAH | Hourly | Web + API | CC BY-NC 4.0 — **non-commercial**, check before reuse |
 | **ERA5 / CDS** (Copernicus) | Reanalysis wind, irradiance, temperature | Hourly | API | Copernicus licence, free with attribution |

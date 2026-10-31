@@ -32,8 +32,8 @@ jobs:
           pip install -e "archive/02-pumped-storage-rl-multimarket[dev]"
           pip install -e "archive/03-smart-ev-charging-14a[dev]"
           pip install -e "archive/04-energy-sharing-rec[dev]"
-          pip install -e "projects/05-utility-hybrid-plant-dispatch[dev]"
-          pip install -e "projects/06-probabilistic-forecast-to-bid[dev]"
+          pip install -e "projects/02-utility-hybrid-plant-dispatch[dev]"
+          pip install -e "projects/03-probabilistic-forecast-to-bid[dev]"
 
       - name: Run full portfolio test suite
         run: |

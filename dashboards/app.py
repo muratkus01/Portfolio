@@ -90,8 +90,8 @@ CUBES = _load_cubes()
 # scenario rows are still present in the cubes. See archive/README.md.
 PROJECT_LABELS = {
     "p01": "01 Residential PV+BESS",
-    "p05": "05 Utility Hybrid Plant",
-    "p06": "06 Probabilistic F2B",
+    "p02": "02 Utility Hybrid Plant",
+    "p03": "03 Probabilistic F2B",
 }
 
 # ---------------------------------------------------------------------------
@@ -162,29 +162,29 @@ with ui.sidebar(width=300):
         ui.input_select("p04_pv",      "Shared PV Capacity (kWp)",
                         choices=["30.0", "50.0", "65.0", "90.0", "120.0"], selected="50.0")
 
-    # --- P05 sliders ---
-    with ui.panel_conditional("input.project === 'p05'"):
+    # --- P02 sliders ---
+    with ui.panel_conditional("input.project === 'p02'"):
         ui.h6("Hybrid Plant Parameters", style=f"color: {ACCENT};")
-        ui.input_select("p05_poc",  "Grid Connection POC (MW)",
+        ui.input_select("p02_poc",  "Grid Connection POC (MW)",
                         choices=["25.0", "30.0", "40.0", "50.0", "60.0"], selected="40.0")
-        ui.input_select("p05_pv",   "Co-located Solar PV (MW)",
+        ui.input_select("p02_pv",   "Co-located Solar PV (MW)",
                         choices=["20.0", "30.0", "40.0", "50.0", "60.0"], selected="30.0")
-        ui.input_select("p05_bess", "Buffer BESS (MWh)",
+        ui.input_select("p02_bess", "Buffer BESS (MWh)",
                         choices=["0.0", "10.0", "20.0", "30.0", "40.0"], selected="20.0")
 
-    # --- P06 sliders ---
-    with ui.panel_conditional("input.project === 'p06'"):
+    # --- P03 sliders ---
+    with ui.panel_conditional("input.project === 'p03'"):
         ui.h6("Forecast-to-Bid Parameters", style=f"color: {ACCENT};")
-        ui.input_slider("p06_tau",   "Risk-Aversion Quantile (tau)", min=0.15, max=0.85, value=0.42, step=0.05)
-        ui.input_select("p06_sigma", "Forecast Uncertainty (Norm. MAE)",
+        ui.input_slider("p03_tau",   "Risk-Aversion Quantile (tau)", min=0.15, max=0.85, value=0.42, step=0.05)
+        ui.input_select("p03_sigma", "Forecast Uncertainty (Norm. MAE)",
                         choices=["2%", "4%", "5.9%", "7.5%", "10%"],
                         selected="5.9%")
-        ui.input_select("p06_rebap", "reBAP Spread Asymmetry (EUR/MWh)",
+        ui.input_select("p03_rebap", "reBAP Spread Asymmetry (EUR/MWh)",
                         choices=["15.0", "30.0", "42.0", "60.0", "80.0"], selected="42.0")
 
     ui.hr(style="border-color: #1e2d47;")
     ui.markdown(f'<span style="color:{SUB}; font-size:0.75rem;">Results load from precomputed parquet tables in `simulations/results/`. Run `--full` overnight simulation to populate all cells.</span>')
-    ui.markdown(f'<span style="color:{SUB}; font-size:0.72rem; display:block; margin-top:6px;">*Note: Projects 02 and 05 evaluate a 14-day telemetry window extrapolated to 365 days (scaled by 365/14). In schema, these metrics are designated with `_per_year_extrapolated` alongside `eval_days=14` and `annualised=True`.</span>')
+    ui.markdown(f'<span style="color:{SUB}; font-size:0.72rem; display:block; margin-top:6px;">*Note: Project 02 evaluates a 14-day telemetry window extrapolated to 365 days (scaled by 365/14). In schema, these metrics are designated with `_per_year_extrapolated` alongside `eval_days=14` and `annualised=True`.</span>')
 
 
 # ===========================================================================
@@ -233,15 +233,15 @@ def _cube_lookup():
         c_val  = min(c_grid, key=lambda x: abs(x - input.p04_cnet()))
         key = f"{c_val}|{input.p04_members()}|{input.p04_pv()}|{year}"
 
-    elif proj == "p05":
-        key = f"{input.p05_poc()}|{input.p05_pv()}|{input.p05_bess()}|{year}"
+    elif proj == "p02":
+        key = f"{input.p02_poc()}|{input.p02_pv()}|{input.p02_bess()}|{year}"
 
-    elif proj == "p06":
+    elif proj == "p03":
         sigma_map = {"2%": "0.02", "4%": "0.04", "5.9%": "0.059", "7.5%": "0.075", "10%": "0.10"}
-        s_val = sigma_map.get(input.p06_sigma(), "0.059")
+        s_val = sigma_map.get(input.p03_sigma(), "0.059")
         tau_grid = [0.15, 0.25, 0.35, 0.42, 0.50, 0.60, 0.70, 0.85]
-        tau_val  = min(tau_grid, key=lambda x: abs(x - input.p06_tau()))
-        key = f"{tau_val}|{s_val}|{input.p06_rebap()}|{year}"
+        tau_val  = min(tau_grid, key=lambda x: abs(x - input.p03_tau()))
+        key = f"{tau_val}|{s_val}|{input.p03_rebap()}|{year}"
 
     else:
         key = ""
@@ -279,10 +279,10 @@ with ui.card():
             elif proj == "p04":
                 val = data[0] if data else 0.0
                 return ui.value_box("Welfare Surplus / Week", f"EUR {val:,.0f}")
-            elif proj == "p05":
+            elif proj == "p02":
                 val = data[0] if data else 0.0
                 return ui.value_box("Annual Revenue", f"EUR {val:,.0f}")
-            elif proj == "p06":
+            elif proj == "p03":
                 val = data[0] if data else 0.0
                 return ui.value_box("Capture Price B3", f"EUR {val:.2f}/MWh")
             return ui.value_box("--", "--")
@@ -305,10 +305,10 @@ with ui.card():
             elif proj == "p04":
                 val = data[1] if len(data) > 1 else 0.0
                 return ui.value_box("Prosumer Export Gain", f"{val:.1f}%")
-            elif proj == "p05":
+            elif proj == "p02":
                 val = data[1] if len(data) > 1 else 0.0
                 return ui.value_box("Forced Curtailment", f"{val:.0f} MWh")
-            elif proj == "p06":
+            elif proj == "p03":
                 val = data[1] if len(data) > 1 else 0.0
                 return ui.value_box("Net 30d Gain", f"EUR {val:,.0f}")
             return ui.value_box("--", "--")
@@ -331,10 +331,10 @@ with ui.card():
             elif proj == "p04":
                 val = data[3] if len(data) > 3 else 0.0
                 return ui.value_box("Break-even Tariff", f"EUR {val:.3f}/kWh")
-            elif proj == "p05":
+            elif proj == "p02":
                 val = data[5] if len(data) > 5 else 0.0
                 return ui.value_box("Revenue Lift vs B1", f"{val:.1f}%")
-            elif proj == "p06":
+            elif proj == "p03":
                 val = data[2] if len(data) > 2 else 0.0
                 return ui.value_box("Imbalance Risk Reduction", f"{val:.1f}%")
             return ui.value_box("--", "--")
@@ -416,7 +416,7 @@ with ui.card():
             ax.set_ylabel("Community Welfare Surplus (EUR/week)")
             ax.set_title(f"P04 Welfare vs Network Tariff  |  Year {year}")
 
-        elif proj == "p05":
+        elif proj == "p02":
             if "poc_mw" not in df_yr.columns:
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
             b1_col_p5 = "out_b1_revenue_eur_per_year_extrapolated" if "out_b1_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_b1_revenue_eur"
@@ -429,9 +429,9 @@ with ui.card():
             ax.set_xticks(x); ax.set_xticklabels([f"{v:.0f} MW" for v in summary.index])
             ax.set_xlabel("Grid Connection (MW)")
             ax.set_ylabel("Annual Revenue (EUR)")
-            ax.set_title(f"P05 Revenue vs POC Limit  |  Year {year}")
+            ax.set_title(f"P02 Revenue vs POC Limit  |  Year {year}")
 
-        elif proj == "p06":
+        elif proj == "p03":
             if "tau" not in df_yr.columns:
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
             summary = df_yr.groupby("tau")[["out_capture_price_b3_eur_mwh", "out_imbalance_risk_reduction_pct"]].mean()
@@ -445,12 +445,12 @@ with ui.card():
             ax.set_ylabel("Capture Price (EUR/MWh)", color=ACCENT)
             ax2.set_ylabel("Imbalance Risk Reduction (%)", color=color2)
             ax2.tick_params(colors=color2)
-            ax.set_title(f"P06 Capture Price & Risk Reduction vs Tau  |  Year {year}")
+            ax.set_title(f"P03 Capture Price & Risk Reduction vs Tau  |  Year {year}")
             lines1, labs1 = ax.get_legend_handles_labels()
             lines2, labs2 = ax2.get_legend_handles_labels()
             ax.legend(lines1 + lines2, labs1 + labs2, loc="upper left")
 
-        ax.legend(loc="best") if proj not in ("p04", "p06") else None
+        ax.legend(loc="best") if proj not in ("p04", "p03") else None
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
         fig.patch.set_facecolor(BG)
@@ -523,7 +523,7 @@ with ui.card():
             ax.set_title("Weekly Welfare Surplus Heatmap (EUR)")
             plt.colorbar(im, ax=ax)
 
-        elif proj == "p05":
+        elif proj == "p02":
             rev_col_p5 = "out_revenue_eur_per_year_extrapolated" if "out_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_revenue_eur"
             if not all(c in df_yr.columns for c in ["poc_mw", "bess_mwh", rev_col_p5]):
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
@@ -535,7 +535,7 @@ with ui.card():
             ax.set_title("Revenue Heatmap (EUR)")
             plt.colorbar(im, ax=ax)
 
-        elif proj == "p06":
+        elif proj == "p03":
             if not all(c in df_yr.columns for c in ["tau", "sigma_base", "out_net_gain_30d_eur"]):
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
             pivot = df_yr.groupby(["tau", "sigma_base"])["out_net_gain_30d_eur"].mean().unstack(fill_value=0)

@@ -1,4 +1,4 @@
-# Project 06 · Probabilistic Forecast-to-Bid for Intraday Trading and Imbalance Management
+# Project 03 · Probabilistic Forecast-to-Bid for Intraday Trading and Imbalance Management
 
 **Distributional forecasting of renewable generation and prices, coupled to a trading policy
 through decision-focused learning - for a balance responsible party managing a German

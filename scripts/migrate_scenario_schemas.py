@@ -53,10 +53,10 @@ def migrate():
         df.to_parquet(p04_path, index=False)
         print("Migrated P04: eval_days=14, annualised=False. Rows:", len(df))
 
-    # P05
-    p05_path = RESULTS / "p05_scenarios.parquet"
-    if p05_path.exists():
-        df = pd.read_parquet(p05_path)
+    # P02
+    p02_path = RESULTS / "p02_scenarios.parquet"
+    if p02_path.exists():
+        df = pd.read_parquet(p02_path)
         df["eval_days"] = 14
         df["annualised"] = True
         rename_map_05 = {
@@ -70,17 +70,17 @@ def migrate():
             if old in df.columns:
                 df[new] = df[old]
                 df.drop(columns=[old], inplace=True)
-        df.to_parquet(p05_path, index=False)
-        print("Migrated P05: renamed extrapolated columns, eval_days=14, annualised=True. Rows:", len(df))
+        df.to_parquet(p02_path, index=False)
+        print("Migrated P02: renamed extrapolated columns, eval_days=14, annualised=True. Rows:", len(df))
 
-    # P06
-    p06_path = RESULTS / "p06_scenarios.parquet"
-    if p06_path.exists():
-        df = pd.read_parquet(p06_path)
+    # P03
+    p03_path = RESULTS / "p03_scenarios.parquet"
+    if p03_path.exists():
+        df = pd.read_parquet(p03_path)
         df["eval_days"] = df["year"].apply(lambda y: 366 if y == 2024 else 365)
         df["annualised"] = False
-        df.to_parquet(p06_path, index=False)
-        print("Migrated P06: eval_days, annualised added. Rows:", len(df))
+        df.to_parquet(p03_path, index=False)
+        print("Migrated P03: eval_days, annualised added. Rows:", len(df))
 
 if __name__ == "__main__":
     migrate()
