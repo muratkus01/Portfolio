@@ -692,6 +692,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="also write the result as a CSV, one row per scenario and rung")
         sp.set_defaults(func=fn)
     rp = sub.add_parser("report", help="run the published experiments into reports/")
+    rp.add_argument("--commands", metavar="FILE",
+                    help="run the experiments FILE holds instead of the publish set: one "
+                         "command line of this program per line, without 'python -m "
+                         "hybrid.cli'; '#' starts a comment")
     rp.add_argument("--only", nargs="+", metavar="EXPERIMENT",
                     help="run only these experiments, e.g. sizing_2024; processes running "
                          "different ones can work side by side")

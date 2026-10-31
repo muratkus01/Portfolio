@@ -208,6 +208,23 @@ def test_an_unknown_experiment_is_refused(stand_ins, tmp_path):
         cli.main(["report", "--reports-dir", str(tmp_path), "--only", "sizing_2023"])
 
 
+def test_the_report_runs_the_set_a_file_holds(stand_ins, tmp_path):
+    """Feature test: the report ran PUBLISH_SET or a part of it, so any other set of
+    experiments needed a code edit. --commands names a file of hybrid.cli command lines."""
+    commands = tmp_path / "set.txt"
+    commands.write_text("# two tiny experiments\nladder --year 2025 --days 1 --horizon 4 --fast\n"
+                        "\ndecompose --year 2025 --days 1   # at the default plant\n",
+                        encoding="utf-8")
+    out = tmp_path / "reports"
+    assert cli.main(["report", "--commands", str(commands), "--reports-dir", str(out)]) == 0
+    assert sorted(path.name for path in out.glob("*.csv")) == [
+        "decompose_2025-01-01_1d.csv", "ladder_2025-01-01_1d_horizon-4_fast.csv",
+        "run_meta.csv", "window_stats.csv"]
+    rows = meta(out)
+    assert sorted(rows.loc[rows["item"] == "command", "value"]) == [
+        "decompose --year 2025 --days 1", "ladder --year 2025 --days 1 --horizon 4 --fast"]
+
+
 def test_experiments_that_differ_in_an_option_have_names_of_their_own():
     """Regression test: experiments() named a command line by its command and window only, so
     lines that differed in --horizon or --neg-rule became one experiment, the last one."""

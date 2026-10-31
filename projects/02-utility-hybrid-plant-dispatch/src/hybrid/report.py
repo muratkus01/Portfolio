@@ -4,6 +4,7 @@ was computed from.
     python -m hybrid.cli report                        the publish set, one after another
     python -m hybrid.cli report --only sizing_2024     a part of it; processes running other
                                                        parts can work side by side
+    python -m hybrid.cli report --commands FILE        the set of command lines FILE holds
 
 Each experiment is a command of `hybrid.cli` from the pinned PUBLISH_SET, run with --out
 reports/<name>.csv, where the name is the command, the window and every option that is off
@@ -95,18 +96,32 @@ def _name(args, defaults: dict) -> str:
     return name
 
 
-def cmd_report(args) -> None:
-    """Run the publish set, or the experiments --only names, into the reports folder.
+def read_commands(path: Path) -> tuple[str, ...]:
+    """The command lines a set file holds, for `experiments`: one hybrid.cli command line per
+    line, e.g. "ladder --year 2025 --days 30 --horizon 48"; blank lines and text from '#' on
+    are left out.
 
-    args: parsed arguments of `hybrid.cli report`: only (names or None), reports_dir (a path
-    or None for REPORTS_DIR) and argv, the command line it was started with.
+    path: the file. Returns its command lines, in the file's order.
+    """
+    lines = (line.split("#", 1)[0].strip()
+             for line in path.read_text(encoding="utf-8").splitlines())
+    return tuple(line for line in lines if line)
+
+
+def cmd_report(args) -> None:
+    """Run the publish set, or the set a file holds, or the experiments of it --only names,
+    into the reports folder.
+
+    args: parsed arguments of `hybrid.cli report`: commands (a file of command lines, or None
+    for PUBLISH_SET), only (names or None), reports_dir (a path, or None for REPORTS_DIR) and
+    argv, the command line it was started with.
     Raises ValueError naming any experiment --only asks for that the set does not hold.
     """
     reports = Path(args.reports_dir) if args.reports_dir else REPORTS_DIR
-    plan = experiments()
+    plan = experiments(None if args.commands is None else read_commands(Path(args.commands)))
     unknown = sorted(set(args.only or ()) - set(plan))
     if unknown:
-        raise ValueError(f"no experiment {unknown} in the publish set: {list(plan)}")
+        raise ValueError(f"no experiment {unknown} in the set: {list(plan)}")
     # read before anything is written, and outside the reports folder, so that the tables
     # this run writes do not count as changes to the code that wrote them
     code = git_state(PROJECT_DIR, reports)

@@ -8,7 +8,7 @@ ladder B0 → B3 and against a learned policy.**
 ## 0. Implementation status
 
 Ladder B0/B1/B2/B3 implemented and running on **real German 2025 wind, PV and price data**
-(national capacity factors from Energy-Charts via `datakit`). 155 tests pass.
+(national capacity factors from Energy-Charts via `datakit`). 156 tests pass.
 
 ```bash
 pip install -e ".[dev]" && python -m pytest tests/ -q
@@ -24,8 +24,9 @@ python -m hybrid.cli report                            # the publish set, to rep
 also writes its result as a CSV: one row per scenario and rung, with every settlement term,
 the window and the settings used. `report` runs the pinned publish set in
 `src/hybrid/report.py` into `reports/`, with `window_stats.csv` and `run_meta.csv` (commit,
-versions, input hashes and sources) beside the tables; `--only` runs a part of it, so parts
-can run side by side. The figures below predate `report` and do not come from those CSVs yet.
+versions, input hashes and sources) beside the tables. `--only` runs a part of it, so parts
+can run side by side, and `--commands FILE` runs the command lines in a file instead. The
+figures below predate `report` and do not come from those CSVs yet.
 
 **Connection-capacity sweep** (80 MW installed, 20 days of 2024, perfect foresight):
 
