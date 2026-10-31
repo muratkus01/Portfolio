@@ -90,8 +90,10 @@ are converted once, on ingestion.
 household), the same in the optimisation and the simulation. No project models a
 piecewise-linear efficiency curve.
 
-**Degradation.** Battery: a linear wear cost per kWh discharged (0.0544 EUR in Project 01, the
-thesis value); no rainflow ageing model. Hydro (archived pumped storage): mode-reversal wear.
+**Degradation.** Project 01 prices battery wear linearly: 0.0544 EUR per kWh discharged for
+the thesis household (`thesis.THESIS_SITE`, the thesis value) and 0.03 EUR per kWh charged
+plus discharged in the `SiteConfig` defaults; it has no rainflow ageing model. Hydro
+(archived pumped storage): mode-reversal wear.
 
 ---
 
