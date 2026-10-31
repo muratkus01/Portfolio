@@ -17,11 +17,11 @@
 ## 🎯 60-Second Executive Quickstart
 
 ### 🌐 Interactive Web Showcase
-Simulate the full 1,082-scenario parameter grid across the three projects with live sensitivity sweeps and 15-minute dispatch profiles directly in your browser:  
+Explore the three projects' results, sensitivity sweeps and 15-minute dispatch profiles directly in your browser:  
 👉 **[muratkus01.github.io/Portfolio/showcase.html](https://muratkus01.github.io/Portfolio/showcase.html)**
 
 ### 💻 Local Execution
-Run the master interactive showcase dashboard to simulate live benchmarks across the three projects:
+Run the terminal showcase: it runs the Project 01 and 02 benchmark ladders and prints Project 03's committed test-window results:
 
 ```bash
 # Clone and install the three packages in editable mode
@@ -45,10 +45,10 @@ Each project is a fully structured Python package with clean modular `src/`, rep
 ```mermaid
 flowchart TB
     subgraph FOUND["Shared Foundations"]
-        F1["5-Rung Benchmark Ladder: B0 -> B1 -> B2 -> B3 -> RL"]
+        F1["Benchmark ladders: every method against simpler rungs and a perfect-information bound"]
         F2["15-Min MTU Market Model (DA, ID, aFRR, reBAP)"]
         F3["German Regulatory Constraint Layer (§41a, §51, reBAP)"]
-        F4["Issue-Time Forecast Store (no look-ahead by construction)"]
+        F4["Issue-time forecasts with an information-set test"]
     end
 
     subgraph BTM["Behind the Meter"]
@@ -57,16 +57,11 @@ flowchart TB
 
     subgraph FTM["Front of the Meter"]
         P5["02 · Utility Hybrid Plant<br/>(Wind+PV+BESS Behind a Connection Cap, EEG §51)"]
-        P6["03 · Forecast-to-Bid Pipeline<br/>(reBAP Imbalance Risk Minimization)"]
+        P6["03 · Forecast-to-Bid Pipeline<br/>(settled at real reBAP and ID AEP)"]
     end
 
     FOUND --> BTM
     FOUND --> FTM
-    P6 -->|Quantiles & Scenarios| P1
-    P6 -->|Quantiles & Scenarios| P5
-    P1 -->|Value of Forecast Skill| VAL["Cross-Asset Comparison:<br/>what is a better forecast worth per year?"]
-    P5 -->|Value of Forecast Skill| VAL
-    P6 -->|Value of Forecast Skill| VAL
 ```
 
 ---
@@ -77,7 +72,9 @@ flowchart TB
 |:---:|---|---|---|---|---|
 | **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Fast LP-MPC + Rescaled SAC RL | 8 kWp PV, 9.37 kWh BESS, 5.63 kW Inverter | §14a / §41a EnWG, EEG 2023 | `prosumer rolling-eval` |
 | **02** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/02-utility-hybrid-plant-dispatch/) | Co-located LP + B3 Rolling MPC | 50 MW Wind, 30 MW PV, 40 MWh BESS | EEG §51 / §51a Negative Price Rules | `python -m hybrid.cli ladder` |
-| **03** | [**Probabilistic Forecast-to-Bid**](projects/03-probabilistic-forecast-to-bid/) | Quantile Loss + Newsvendor Fractile | 300 MW Portfolio | SIDC Intraday, German reBAP | `python -m f2b.cli policies` |
+| **03** | [**Probabilistic Forecast-to-Bid**](projects/03-probabilistic-forecast-to-bid/) | Quantile forecast ladder (climatology to LightGBM, TSO forecast as benchmark), settled at real day-ahead, intraday (ID AEP) and reBAP prices | 200 MW wind + 100 MW PV, fleet-shaped | German single-price reBAP | `python -m f2b.cli backtest --phase validation` |
+
+Project 03's backtest needs the `[forecast]` extra (LightGBM, SciPy) and one `python -m f2b.cli build-data` run first; its euro results also need reBAP and ID AEP, downloaded by hand from netztransparenz.de ([its README](projects/03-probabilistic-forecast-to-bid/README.md), section 6).
 
 **Scope decision, 2026-10-09.** The portfolio was narrowed from six projects to three, so that each
 one can be defended in depth rather than listed. Pumped-storage multi-market dispatch, smart EV
@@ -89,13 +86,13 @@ charging under §14a EnWG, and cooperative energy sharing in renewable energy co
 
 ## 🛡️ Bugs the Invariants Caught
 
-Every project asserts structural physical, electrical, and market invariants at runtime. Each invariant caught a real defect that would otherwise have produced plausible but invalid optimization results:
+Every project checks structural physical, electrical, and market invariants, at runtime or in its tests. Each invariant caught a real defect that would otherwise have produced plausible but invalid results:
 
 | Project | Invariant | What It Caught |
 |:---:|---|---|
 | **01** | B2 <= B3 <= B1; zero violations under random actions | Linear terminal storage valuation priced stored energy at full retail import, driving MPC to buy from the grid at every horizon boundary. Continuous action clipping truncated policy outputs at 80% (resolved via action rescaling). |
 | **02** | B3 >= B1; every rung <= perfect foresight | B3 applied a planned curtailment fraction from forecast generation to actual generation, discarding deliverable energy. Voluntarily gating curtailment to negative prices lifted B3 to +5.4% over the unhybridized plant. |
-| **03** | Lookahead audit clean; monotonic quantiles | Test fixtures previously shared stateful RNG instances between forecast synthesis and evaluation. Adding strict `IssueTimeStore` prevents any feature from leaking future market states. |
+| **03** | No forecast read after its decision time (an audit that can fail); features unchanged when everything outside their information set is corrupted | Day-ahead positions read forecasts issued after the 12:00 gate closure for every quarter-hour delivered after noon; the old audit only re-checked the store's own guard; a PV feature wrapped around to the end of the series on the first day. The rebuild also found that the old model set the intraday price equal to the day-ahead price. |
 
 The archived projects ([`archive/README.md`](archive/README.md)) carry the number of their folder, prefixed with A:
 
@@ -107,9 +104,9 @@ The archived projects ([`archive/README.md`](archive/README.md)) carry the numbe
 
 ---
 
-## 📐 Methodological Spine: The 5-Rung Benchmark Ladder
+## 📐 Methodological Spine: Benchmark Ladders
 
-Every project enforces the same rigorous evaluation protocol:
+Every method is measured against simpler rungs on the same data and against a perfect-information bound. Projects 01 and 02 climb a controller ladder:
 
 | Rung | Controller | Purpose & Criterion |
 |:---:|---|---|
@@ -117,7 +114,9 @@ Every project enforces the same rigorous evaluation protocol:
 | **B1** | Rule-Based Expert Baseline | Industry-standard heuristic (e.g. greedy self-consumption, threshold shaving). |
 | **B2** | Perfect-Foresight Optimization | Theoretical performance ceiling over the entire simulation horizon. |
 | **B3** | Rolling-Horizon MPC | **The deployable classical benchmark** operating under imperfect lookahead. |
-| **RL** | Learned Policy (PPO / SAC) | **Must beat B3 on out-of-sample data** to justify algorithmic deployment. |
+| **RL** | Learned Policy (SAC, Project 01 only) | **Must beat B3 on out-of-sample data** to justify algorithmic deployment. |
+
+Project 03 climbs a forecast ladder instead: climatology, persistence, linear quantile regression and LightGBM, with the forecast the transmission system operators publish as a benchmark. Every forecast is traded by the same fixed policies (day-ahead only, intraday to the median, a deadband rule) and compared with the perfect forecast.
 
 ---
 
