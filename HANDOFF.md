@@ -12,6 +12,101 @@ assistants: [Antigravity, Claude Pro, Claude Code]
 
 ---
 
+## Starting point on the other machine (2026-10-31, Claude Code)
+
+Read this first if you are picking the portfolio up on the company laptop.
+
+### What travels and what does not
+
+| Folder | Repo | Reaches the other laptop? |
+|---|---|---|
+| `Documents/Portfolio` | `muratkus01/Portfolio`, public | **yes**, by git |
+| `Documents/Jobsuche` | `muratkus01/Jobsuche` | **yes**, by git |
+| `Documents/Study` | git repo with **no remote and no commits** | **no.** `Study/JobVorbereitung/` stays on this laptop until a remote is added and it is pushed |
+| `Documents/AGENTS.md`, root `HANDOFF.md`, `.agents/`, `.claude/` | not a repo | no. Rebuild with `.agents/bootstrap-machine.ps1` |
+
+`git pull` first, read this file, then work.
+
+### Open decision: an auto-committer writes into this public repo
+
+Obsidian-Git is active on `Portfolio` and commits and pushes roughly every ten minutes. Two
+commits from 2026-10-31 show what that does:
+
+```
+41c00cb  vault backup: 2026-10-31 12:39:33
+dd130ea  vault backup: 2026-10-31 12:33:01     72 files, +3063 -1237
+```
+
+`dd130ea` swallowed the whole project renumbering and pushed it under a timestamp. The commit
+that explains the change, `aa6a851`, ended up holding only `HANDOFF.md`, because the
+auto-committer had already taken everything else.
+
+Consequences, both still open:
+
+1. `.obsidian/` is now tracked in a public repository that recruiters read, including the
+   plugin configuration.
+2. The history of the repository is part of the work sample. A history of timestamped commits
+   containing 72 mixed files reads worse than no history, and it pushes unfinished work before
+   anyone has looked at it.
+
+Nothing was rewritten, because that would need a force-push to a public repo. The decision is
+Murat's: turn the auto-commit off for `Portfolio` and add `.obsidian/` to `.gitignore` with
+`git rm -r --cached .obsidian`, or leave it. Until it is decided, assume anything saved here
+is public within ten minutes.
+
+### State of the three projects
+
+Renumbered on 2026-10-31 to `01-prosumer-pv-bess-mpc-rl`, `02-utility-hybrid-plant-dispatch`,
+`03-probabilistic-forecast-to-bid`. Package names unchanged: `prosumer`, `hybrid`, `f2b`.
+`archive/` keeps the numbers those projects had.
+
+Verified at that point: 295 passed, 6 skipped. `python scripts/verify_html_integrity.py` green
+with 83 onclick bindings. `python showcase.py` runs 3 of 3 demos. The page was driven in a
+browser through every year switch, project switch, resize and simulator with the console open:
+no errors, section badges read 01, 02, 03, all three figures load.
+
+### Next actions, in order of value
+
+1. **Decide the auto-committer question above.** It affects everything else that gets
+   committed here.
+
+2. **Make projects 02 and 03 commit their results.** This is the largest single gap in the
+   portfolio and the cheapest to close.
+
+   | | README lines | figures embedded | CSVs in `reports/` | `reports/` cited |
+   |---|---:|---:|---:|---:|
+   | 01 Prosumer | 558 | 4 | 51 | 16 times |
+   | 02 Hybrid | 418 | 1 | **0** | once |
+   | 03 Forecast | 421 | 1 | **0** | once |
+
+   Neither 02 nor 03 writes a single result file, so every number in their READMEs comes from
+   a console run and cannot be checked by a reader. That is why the code walkthroughs could
+   only list those numbers as unverified claims, and why a live run of
+   `python -m f2b.cli policies --year 2025 --days 30` returned different figures than the P03
+   README did before it was corrected. Add a CLI subcommand per project that writes what it
+   computes into `reports/`, then cite those files from the README.
+
+3. **Project 03 does not forecast anything.** `src/f2b/forecast.py:76` is still `ar_noise`:
+   the truth plus an AR(1) perturbation whose spread widens with lead time. The reported MAE,
+   RMSE and CRPS values therefore restate the noise parameters rather than measuring a model.
+   The plan for replacing it is `docs/09-learned-forecast-layer.md`, and it is also priority 2
+   in `Jobsuche/bewerbung/skill_matrix.md`. Until it is built, do not claim a trained
+   forecaster anywhere.
+
+4. **Project 02's aFRR parameters are inert.** `afrr_enabled`, `afrr_capacity_eur_mw_h` and
+   `afrr_block_steps` appear 6 times in `src/hybrid/config.py` and 0 times in every other
+   module, while the README describes behaviour that does not exist. The capacity and energy
+   co-optimisation from the archived pumped-storage project is the natural thing to move here,
+   onto an asset class the target employers actually own.
+
+5. **Project 02 has no RL rung.** The portfolio's methodological spine ends in RL and this
+   project stops at B3. Either build it or say in the README that it deliberately stops there.
+
+6. The four open P01 data-quality questions are in their own section below, added by the P01
+   session as `c49da2c`.
+
+---
+
 ## 📌 Standing Decisions & Architecture
 
 1. **Monorepo Layout:** 6 structured projects under `projects/` with modular `src/` and `tests/`.
@@ -731,3 +826,4 @@ reaches a figure, a README or the showcase unless it traces to a committed CSV.
 - 2026-10-30 · Claude Code · Letzte beiden Wiederholungen nach dem HTW-Uhrzeit-Fix abgeschlossen, damit alle Zahlen in P01 aus demselben Datensatz kommen. Sizing-Grid (19,2 min) und 73-Haushalte-Sweep (ca. 35 min) auf dem privaten Rechner. Sweep-Median 85,2 % auf 86,5 % (H28 +1,51, H31 +1,28, kein Haushalt mehr als +3,6 oder -1,8); Sizing-Zeile 9,37 kWh / 5,63 kW auf -394,4 EUR/a, stimmt jetzt exakt mit der Benchmark-Tabelle. README: beide "before the clock fix"-Blöcke entfernt, Sizing-Tabelle und die vier Sizing-Insights neu gerechnet (B3 realisiert 95 % statt 94 % der Perfect-Foresight-Einsparung), household_sweep.png neu erzeugt. 295 passed, 6 skipped, HTML-Integrität grün. Nebenbefund: der Resume-Mechanismus im Sweep macht eine Wiederholung nach einem Datenfix zum stillen No-Op mit Rückgabewert 0.
 - 2026-10-31 · Claude Code · Projekte auf 01, 02, 03 umnummeriert: projects/05-utility-hybrid-plant-dispatch -> 02, projects/06-probabilistic-forecast-to-bid -> 03, inklusive Abbildungsnamen, Parquet-Namen, Cube-Keys, Labels und Figure-Nummern (515 Ersetzungen allein in showcase.html). Paketnamen hybrid und f2b unverändert. Archivierte Szenario-Parquets nach archive/<projekt>/results/ verschoben, damit p02 und p03 frei wurden. Dabei gefunden und behoben: der Runner hatte nach dem Umbenennen doppelte _p02_run und _p03_run Definitionen und doppelte Registry-Keys, die Python still auffrisst; die archivierten Hälften zeigten ohnehin seit 2026-10-09 auf verschobene Pfade. Verifiziert: 295 passed / 6 skipped, Integritätscheck grün, showcase.py 3 von 3, Browser-Konsole fehlerfrei, Badges 01/02/03.
 - 2026-10-31 · Claude Code · Vier offene Datenqualitätsfragen von Murat in den Abschnitt "Open data-quality questions on P01" geschrieben, statt sie aus dem Gedächtnis zu beantworten: Preisauflösung und der Wechsel auf 15-Minuten-MTU am 01.10.2025, Skalierung vom Haushalt auf Bundesland und Bund (Zeitreihe mal N wäre die Obergrenze bei perfekter Gleichzeitigkeit, Skalare sind unkritisch), und die Schritte der beiden neuen Pipelines pv_states und aggregate_load. Die billigste und zuerst zu beantwortende Frage: ob pv_states und aggregate_load überhaupt in national_impact einspeisen oder ein gebauter, aber nicht angeschlossener Zweig sind. Ein gestarteter Audit wurde auf Murats Wunsch nach wenigen Minuten abgebrochen, es gibt also keine Befunde, nur die Fragen. Keine Codeänderung in diesem Schritt.
+- 2026-10-31 · Claude Code · Handoff für den Wechsel auf das Firmen-Laptop geschrieben: Abschnitt "Starting point on the other machine" ganz oben, mit der Tabelle was per git reist und was nicht (Study/JobVorbereitung reist NICHT, kein Remote und kein Commit), der offenen Entscheidung zum Obsidian-Git-Auto-Commit in diesem öffentlichen Repo, dem verifizierten Stand nach der Umnummerierung und sechs Next Actions nach Wirkung sortiert.
