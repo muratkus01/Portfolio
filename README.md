@@ -127,8 +127,8 @@ Portfolio/
 ├── CLAUDE.md                          ← Assistant instructions & quickstart guide
 ├── datakit/                           ← Shared market data loaders & spot price connectors
 ├── docs/                              ← Energy market primers, regulatory guides & math
-├── projects/                          ← The three active projects (132 tests)
-│   ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (88 tests, 1 skipped without private data)
+├── projects/                          ← The three active projects (218 tests)
+│   ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (174 tests; data tests skip without the gitignored data)
 │   ├── 02-utility-hybrid-plant-dispatch/ ← Package: hybrid (26 tests)
 │   └── 03-probabilistic-forecast-to-bid/ ← Package: f2b (18 tests)
 └── archive/                           ← Set aside 2026-10-09, still tested (88 tests)
