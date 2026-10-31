@@ -8,7 +8,7 @@ ladder B0 → B3 and against a learned policy.**
 ## 0. Implementation status
 
 Ladder B0/B1/B2/B3 implemented and running on **real German 2025 wind, PV and price data**
-(national capacity factors from Energy-Charts via `datakit`). 160 tests pass.
+(national capacity factors from Energy-Charts via `datakit`). 161 tests pass.
 
 ```bash
 pip install -e ".[dev]" && python -m pytest tests/ -q
@@ -20,20 +20,24 @@ python -m hybrid.cli b3-ablation --synthetic-demo      # B3: forecast error x te
 python -m hybrid.cli report                            # the publish set, to reports/*.csv
 ```
 
-`--start MM-DD` (Berlin time) and `--full-year` choose a command's window, and `--out PATH`
-also writes its result as a CSV: one row per scenario and rung, with every settlement term,
-the window and the settings used, B3's as `b3_*`. Each row records the plant its rung ran
-on, so B0 and "B2 no battery" show no battery, and the values a setting left to the run:
-the battery's start in MWh and, on B3's row, its price error's scale and its mean terminal
-price. `ladder_tolerance_eur` is how far apart two rungs may lie by the solver's rounding
-alone, B3 above B2 included. `decompose` splits the battery's value into
-arbitrage and the connection limit's effect at the connection `--conn MW` sets, 60 MW by
-default, and leaves out what curtailing at low prices earns without a battery. `report`
-runs the pinned publish set in `src/hybrid/report.py` into `reports/`, with
-`window_stats.csv` and `run_meta.csv` (commit, versions, input hashes and sources) beside
-the tables. `--only` runs a part of it, so parts can run side by side, and
-`--commands FILE` runs the command lines in a file instead. The figures below predate
-`report` and do not come from those CSVs yet.
+`--start MM-DD` (Berlin time) and `--full-year` choose a command's window. `--out PATH` also
+writes the result as a CSV, one row per scenario and rung, with:
+
+- every settlement term, the window and the settings used, B3's as `b3_*`;
+- the plant each rung ran on, so B0 and "B2 no battery" show no battery;
+- the values a setting left to the run: the battery's start in MWh and, on B3's row, the
+  scale of its price error and the mean terminal price of its plans;
+- `ladder_tolerance_eur`, how far two rungs may differ by the solver's rounding alone, B3
+  above B2 included.
+
+`negprice` also writes `<name>_premium.csv`: each vintage's market values, premiums and
+plant rate by period. `decompose` splits the battery's value into arbitrage and the
+connection limit's effect at the connection `--conn MW` sets (60 MW by default). It leaves
+out what curtailing at low prices earns, which needs no battery. `report` runs the pinned
+publish set in `src/hybrid/report.py` into `reports/`, with `window_stats.csv` and
+`run_meta.csv` (commit, versions, input hashes and sources) beside the tables. `--only` runs
+a part of it, so parts can run side by side, and `--commands FILE` runs the command lines in
+a file instead. The figures below predate `report` and do not come from those CSVs yet.
 
 **Connection-capacity sweep** (80 MW installed, 20 days of 2024, perfect foresight):
 

@@ -182,6 +182,39 @@ def test_the_negprice_table_names_the_year_its_note_is_about(monkeypatch, tmp_pa
     assert (df["premium_rate_mean_eur_mwh"] == 0.0).all()
 
 
+def test_negprice_writes_each_vintages_premium_by_period(monkeypatch, tmp_path):
+    """Regression test: the older vintage is paid against each month's market value, but its
+    rows kept only the window's mean rate, so its monthly premiums, which the README quotes,
+    traced to no file. negprice now writes its premium tables beside its result, one row per
+    vintage and period. The window, 30 January to 1 February, spans two months."""
+    from hybrid import data
+    from hybrid.market import market_values
+
+    df = result_table(monkeypatch, tmp_path,
+                      ["negprice", "--year", "2025", "--start", "01-30", "--days", "3"])
+    premium = pd.read_csv(tmp_path / "result_premium.csv")
+
+    older, recent = "AW 95.0 (older vintage)", "AW 73.5 (recent onshore)"
+    assert premium.groupby("vintage")["period"].apply(list).to_dict() == {
+        older: ["2025-01", "2025-02"], recent: ["2025"]}
+    assert (premium["window_start_berlin"] == "2025-01-30T00:00:00+01:00").all()
+    for row in premium.itertuples():
+        assert row.premium_wind_eur_mwh == pytest.approx(
+            max(0.0, row.applicable_wind_eur_mwh - row.market_value_wind_eur_mwh))
+        assert row.premium_pv_eur_mwh == pytest.approx(
+            max(0.0, row.applicable_pv_eur_mwh - row.market_value_pv_eur_mwh))
+    year = calendar_year(2025)
+    monthly = market_values(year["price_eur_mwh"], data.market_value_weights(year), "month")
+    months = premium[premium["vintage"] == older].set_index("period")
+    assert months["market_value_wind_eur_mwh"].to_numpy() == pytest.approx(
+        monthly.loc[["2025-01", "2025-02"], "wind"].to_numpy())
+    assert months["premium_wind_eur_mwh"].min() > 0, "a premium the table would average away"
+    # the rows' mean rate weights each month's by the window's days in it: two and one
+    rate = months["plant_rate_eur_mwh"]
+    assert df.loc[df["vintage"] == older, "premium_rate_mean_eur_mwh"].to_numpy() == (
+        pytest.approx((2 * rate["2025-01"] + rate["2025-02"]) / 3))
+
+
 def test_decompose_splits_the_battery_from_curtailing_at_low_prices(monkeypatch, tmp_path,
                                                                    capsys):
     """Regression test: decompose called B2 minus B0 the battery's value and, at a connection

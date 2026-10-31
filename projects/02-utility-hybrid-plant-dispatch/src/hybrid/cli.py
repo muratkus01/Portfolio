@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -250,9 +251,14 @@ def _window_columns(args, index: pd.DatetimeIndex, dt: float) -> dict:
     return tables.window_columns("Energy-Charts", args.year, len(index), dt, index)
 
 
-def _write(args, rows: list[dict]) -> None:
-    """Write a command's result rows to --out and say where."""
-    path = tables.write_csv(rows, args.out)
+def _write(args, rows: list[dict], suffix: str = "") -> None:
+    """Write a command's result rows to --out and say where.
+
+    suffix: added to the file name's stem to write beside --out instead, e.g. "_premium"
+    turns reports/negprice_2024.csv into reports/negprice_2024_premium.csv.
+    """
+    out = Path(args.out)
+    path = tables.write_csv(rows, out.with_name(f"{out.stem}{suffix}{out.suffix}"))
     print(f"\nwrote {len(rows)} rows to {path}")
 
 
@@ -452,6 +458,31 @@ def cmd_negprice(args) -> None:
     _print_negprice(args.year, by_vintage, rules, premiums, pd.DataFrame(rows))
     if args.out:
         _write(args, out)
+        _write(args, _premium_rows(premiums, _window_columns(args, index, base.dt)), "_premium")
+
+
+def _premium_rows(premiums: dict, window: dict) -> list[dict]:
+    """negprice's premium tables as rows, one per vintage and market-value period.
+
+    A vintage paid against monthly values has a rate per month, and its result rows keep only
+    the rates' mean over the window, so the values per period are written here.
+    premiums: `_negprice_premiums(...)`. window: `_window_columns(...)` of the window.
+    Returns per vintage and period its days of market data, each technology's applicable
+    value, market value and premium, and the plant's rate on this window's wind/PV mix, all
+    in EUR/MWh, then the window columns.
+    """
+    rows = []
+    for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES:
+        for key, t in premiums[label][0].iterrows():
+            rows.append({"vintage": label, "premium_period": period, "period": key,
+                         "market_data_days": t["days"],
+                         "applicable_wind_eur_mwh": aw_wind, "applicable_pv_eur_mwh": aw_pv,
+                         "market_value_wind_eur_mwh": t["mw_wind"],
+                         "market_value_pv_eur_mwh": t["mw_pv"],
+                         "premium_wind_eur_mwh": t["premium_wind"],
+                         "premium_pv_eur_mwh": t["premium_pv"],
+                         "plant_rate_eur_mwh": t["rate"], **window})
+    return rows
 
 
 def _no_premium(table: pd.DataFrame) -> str:
