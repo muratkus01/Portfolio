@@ -10,7 +10,8 @@ holidays and temperature, and only by a little.
 Two energy levels are reported: the HTW population at normal weather (`model.a_ref`) and the
 thesis household (3,221 kWh/a). Fleet sizes are the 1 January MaStR snapshot of each year,
 labelled as such; the fleet grew by about half during 2024, so a study of a whole year
-should use the monthly counts instead.
+should use the monthly counts instead. They count lithium-ion home storages, about 3 % below
+all chemistries, and take each storage as one household (`n_households_1jan`).
 """
 from __future__ import annotations
 

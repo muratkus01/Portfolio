@@ -5,7 +5,8 @@ The file is public in the thesis repository and is fetched from the immutable ta
 
 Time convention. The thesis timestamps are CET without daylight saving (UTC+1 all year):
 the 2024 EPEX prices in the file match the Energy-Charts series exactly under that reading
-and under no other. They are converted to the package's UTC index on ingestion.
+and under neither UTC nor legal local time (`tests/test_data_2024_2026.py`). They are
+converted to the package's UTC index on ingestion.
 
 PV timing. The PV column (`PV_Bayern_*`) is one hour early relative to load and prices.
 Its source, a company ERA5 model export (`MODELLING_ERA5_KWH`, timestamps in UTC), is

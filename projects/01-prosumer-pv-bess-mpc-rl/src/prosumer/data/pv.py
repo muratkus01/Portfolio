@@ -8,8 +8,8 @@ is exactly the forecast error of the weather model.
 
 Calibration. `system_loss` is set so that the modelled 2024 specific yield equals the
 thesis profile (1195.1 kWh/kWp in Munich), which keeps the household's PV scale identical to
-the thesis. With Open-Meteo 15-minute irradiance that is a loss of 7.7 %, at the low end of
-the usual 8 to 14 % range. The modelled production is centred on solar noon (12:16 CET on
+the thesis. With Open-Meteo 15-minute irradiance that is a loss of 7.7 %, just below the
+usual 8 to 14 % range. The modelled production is centred on solar noon (12:16 CET on
 average); the thesis profile is centred about one hour earlier, consistent with UTC
 timestamps having been read as CET when it was prepared.
 """

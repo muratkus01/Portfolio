@@ -52,7 +52,7 @@ flowchart TB
     end
 
     subgraph BTM["Behind the Meter"]
-        P1["01 · Prosumer PV + BESS<br/>(15-min Dynamic Tariffs, §41a EnWG)"]
+        P1["01 · Prosumer PV + BESS<br/>(15-min control, day-ahead dynamic tariff, §41a EnWG)"]
     end
 
     subgraph FTM["Front of the Meter"]
