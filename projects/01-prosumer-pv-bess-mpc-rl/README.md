@@ -18,7 +18,9 @@
 The thesis optimised one household over 2024 at hourly resolution with perfect foresight.
 This extension asks what a controller that could actually be deployed achieves, and what the
 switch of the EPEX day-ahead market to quarter-hour products on 1 October 2025 is worth.
-Every number below comes from a committed script and a committed CSV in `reports/`.
+Every result below comes from a committed script and a committed CSV in `reports/` (for
+Gate 0, a committed test and its reference CSV). Solve times and a few supporting checks
+come from one-off runs, and those checks are marked.
 
 ```bash
 pip install -e ".[rl,data,dev]"
@@ -38,22 +40,26 @@ published yearly figures of each scenario within 0.01 EUR. The retail tariff was
 from the published data exactly: `EP_buy = 1.19 * EPEX + 0.1937`,
 `EP_sell = max(0, 1.19 * EPEX - 0.01)` EUR/kWh.
 
-**Found while validating:** the thesis PV profile is one hour early. Its source, a company
-ERA5 model export, has UTC timestamps and is correct; during data preparation they were
+**Found while validating:** the thesis PV profile is one hour early, which
+`tests/test_thesis_reproduction.py` checks. Its source, a company ERA5 model export with
+UTC timestamps, is centred on solar noon; during data preparation the timestamps were
 written into the CET column one to one (8778 of 8784 hours identical under that reading).
-Correcting it lowers the optimised scenario's annual profit by 2 % (1039.0 to 1018.2 EUR);
-the thesis conclusions hold. The thesis data is kept as published so Gate 0 still
-reproduces it; everything new uses correctly timed PV.
+Both statements rest on a one-off comparison with that export, which cannot be
+redistributed, so no test repeats it. Correcting the timing
+(`load_thesis_year(correct_pv_timing=True)`) lowers the optimised scenario's annual profit
+by about 2 % (1039.0 to 1018.2 EUR, a one-off rerun that no test covers yet); the thesis
+conclusions hold. The thesis data is kept as published so Gate 0 still reproduces it;
+everything new uses correctly timed PV.
 
 ### Data, 2024 to 2026, 15 minutes
 
 | Input | Source | Check |
 |---|---|---|
 | Prices | EPEX DE-LU day-ahead, Energy-Charts | 2024 matches the thesis exactly; hourly products until 2025-09-30, quarter-hour after |
-| PV | pvlib on Open-Meteo 15-min weather, loss calibrated to the thesis 2024 yield | daily correlation with the thesis PV 0.95; with measured German PV 0.77 (2024), 0.83 (2025), 0.82 (2026), same level as the company data (0.78) |
-| PV forecast | the same model on the weather forecast issued a day earlier (Open-Meteo previous runs) | nRMSE 0.30 to 0.38 in daytime, bias within 1.5 % |
+| PV | pvlib on Open-Meteo 15-min weather, loss calibrated to the thesis 2024 yield | daily correlation with the thesis PV in 2024: 0.95 (one-off check) |
+| PV forecast | the same model on the hourly weather forecast issued a day earlier (Open-Meteo previous runs) | nRMSE 0.30 to 0.38 in daytime, bias within 1.5 % (one-off check) |
 | Load | 74 measured households, HTW Berlin (Tjaden et al. 2015), scaled to 3221 kWh/a and replayed on the 2024 to 2026 calendar on the households' own clock (legal local time) | one household shows PV behind the meter and is excluded ([screen](reports/htw_pv_screen.csv)) |
-| Load forecast | BDEW H0 standard profile with Bavarian holidays | nRMSE at 15 min, RMSE over mean load, 2024 to 2026: 0.82 for H28, 1.02 for H31 |
+| Load forecast | BDEW H0 standard profile with Bavarian holidays | nRMSE at 15 min, RMSE over mean load, 2024 to 2026: 0.82 for H28, 1.02 for H31 (one-off check) |
 
 ### Master benchmark comparison: 20.5-month out-of-sample evaluation
 
@@ -150,7 +156,7 @@ The preliminary RL benchmark (Soft Actor-Critic trained on 2024 data and tested 
 1. **Dead Gradient from Action Clipping (77 to 82 % clipping rate):** In raw action formulations where the policy outputs a normalized battery power setpoint $a \in [-1, 1]$ scaled to $[-P_{max}, P_{max}]$, the physical state of charge and grid limits frequently prevent the requested action. The safety layer clipped 77 to 82 % of actions. When actions are clipped by an external projection, policy gradient updates produce zero or misdirected gradient steps. This was the obvious suspect; the ablation below shows it was the lesser of the two problems, and that removing the clipping without fixing the reward makes no reliable difference.
 2. **Uncontrollable term in the step reward:** The raw reward was the total step electricity cost:
    $$r_t = - \left( c_{imp}(t) \cdot p_{imp}(t) - c_{exp}(t) \cdot p_{exp}(t) \right) \Delta t$$
-   Most of that cost is set by household load and irradiance, which the battery cannot influence. Measured on the test period, the no-battery step cost has a standard deviation of 4.4 ct while the battery's own contribution under B1 dispatch has 2.9 ct, so the uncontrollable part adds noise of roughly one and a half times the signal the agent is trying to learn from. It does not swamp the signal, but it does make credit assignment harder than it needs to be.
+   Most of that cost is set by household load and irradiance, which the battery cannot influence. Measured once on the test period (no committed script), the no-battery step cost has a standard deviation of 4.4 ct while the battery's own contribution under B1 dispatch has 2.9 ct, so the uncontrollable part adds noise of roughly one and a half times the signal the agent is trying to learn from. It does not swamp the signal, but it does make credit assignment harder than it needs to be.
 
 #### Implemented Solutions
 
@@ -279,7 +285,7 @@ What it does not claim: it is not validated for any state or year (the only trut
 
 ### Limitations
 
-- The actual weather and the forecast come from the same provider's model family, so the PV forecast problem is slightly easier than against measurements (irradiance nRMSE 0.27 against its own analysis, 0.31 against independent ERA5).
+- The actual weather and the forecast come from the same provider's model family, so the PV forecast problem is slightly easier than against measurements.
 - The measured households are from 2010 (no heat pumps or electric vehicles) and from one unknown region; they are replayed on the 2024 to 2026 calendar by weekday and local clock.
 - **Fixed 2026-10-26 (c07847e):** `htw.replay_on_calendar` read the HTW labels as MEZ, but they follow legal local time (see the aggregate load section), so every result that uses an HTW household as truth replayed its summer behaviour one hour late against PV and prices. Rerun with the fix: the benchmark table (B0 to B3), the capture ladder and its figure, H31, the quarter-hour study and its figure, the summer example day and its figure, and the load-forecast nRMSE. With the old code the rebuilt dataset reproduced every published number to four decimals, so each change comes from the fix alone (B3 capture 87.9 % to 89.4 %). All four RL formulations were retrained on the fixed data (3 seeds each); retrained policies also vary from seed to seed, so the RL changes are not attributed to the fix alone. The 73-household sweep, its figure and the sizing grid were rerun last (2026-10-30): the sweep median moved 85.2 % to 86.5 % and the 9.37 kWh / 5.63 kW sizing row -387.5 to -394.4 EUR/a, so every number on this page now comes from the same dataset.
 - The hourly counterfactual uses the hourly mean of the quarter-hour prices; bidding under hourly products would have differed, so the study measures the value of the finer signal, not a market counterfactual.
@@ -531,8 +537,8 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 | Data | Purpose | Source | Resolution | Status |
 |---|---|---|---|---|
 | Household load profiles | Site demand, realistic sub-hourly variability | HTW Berlin 74 measured German household profiles (1 min) | 1 min -> 15 min | Complete, committed |
-| BDEW SLP H0 | Reference baseline load forecast | BDEW standard load profile | 15 min | Complete, committed |
-| PV generation | Site generation | pvlib on Open-Meteo 15-min weather, calibrated to Munich site | 15 min | Complete, committed |
+| BDEW SLP H0 | Reference baseline load forecast | BDEW standard load profile | 15 min | Complete; fetched from the thesis repository by `slp.fetch_h0_table`, not committed |
+| PV generation | Site generation | pvlib on Open-Meteo 15-min weather, loss calibrated to the thesis 2024 Munich yield | 15 min | Complete; computed by `prosumer build-data`, not committed |
 | NWP forecasts | Day-ahead PV forecast | Open-Meteo previous runs | 60 min, held over the four quarter-hours | Complete; fetched and cached by `prosumer build-data`, not committed |
 | Day-ahead prices | Dynamic retail tariff base | EPEX Spot DE-LU via Energy-Charts (CC BY 4.0, data Bundesnetzagentur / SMARD.de) | 60 min until 2025-09-30, 15 min after | Complete; fetched and cached by `prosumer build-data`, not committed |
 | Battery parameters | Storage physics and degradation | Thesis household (`thesis.THESIS_SITE`): 9.37 kWh (5 to 95 % usable), 5.63 kW, one-way efficiency sqrt(0.95) x 0.97 = 0.945, wear 0.0544 EUR per kWh discharged | - | In code |
