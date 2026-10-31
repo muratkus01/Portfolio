@@ -217,7 +217,18 @@ def make_forecasts(wind, pv, eff_price, run: RunConfig, rng):
 
 def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
                rebap=None, export_cap=None, include_b3=True,
-               progress=False) -> dict[str, dict]:
+               progress=False, schedule=None) -> dict[str, dict]:
+    """Run every rung on the same window, settle it, and check the ladder invariant.
+
+    wind, pv: available generation per step in MW, e.g. np.array([31.2, 29.8, ...]).
+    price: day-ahead price per step in EUR/MWh. premium_rate: market premium in EUR/MWh.
+    rebap, schedule: imbalance price in EUR/MWh and the export the plant committed to, in MW,
+        both per step. Each rung's deviation from the schedule is settled at reBAP only when
+        both are given; no rung commits a schedule of its own, so reBAP alone settles nothing.
+    export_cap: per-step export limit in MW (a redispatch order), or None for the connection.
+    Returns {rung name: dispatch arrays plus "cost" (the settlement) and "violations"}.
+    Raises AssertionError when a rung beats perfect foresight B2 on revenue before imbalance.
+    """
     from .plant import check_feasible
 
     rng = np.random.default_rng(run.seed)
@@ -234,9 +245,8 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
                                            export_cap, progress=progress)
 
     for name, r in out.items():
-        sched = r["export"] if rebap is None else None
         r["cost"] = settle(r, price, run.dt, run.plant, run.market,
-                           rebap=rebap, schedule=sched, premium_rate=premium_rate)
+                           rebap=rebap, schedule=schedule, premium_rate=premium_rate)
         r["violations"] = check_feasible(
             r, run.plant if "no battery" not in name
             else run.plant.__class__(**{**run.plant.__dict__, "bess_mw": 0.0,
@@ -244,11 +254,16 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
 
     # Perfect foresight cannot lose to ANY other rung. Checking only B3 would have missed the
     # premium-feedback bug, which showed up as B2 scoring below the do-nothing baseline.
-    b2 = out["B2 perfect foresight"]["cost"]["net_revenue"]
+    # B2 is the ceiling of what it optimises, and imbalance lies outside that: the committed
+    # schedule and reBAP are not in its objective, so a rung that deviates the lucky way can
+    # out-earn it there. The check therefore compares revenue before imbalance.
+    before = {name: r["cost"]["net_revenue"] + r["cost"]["imbalance_cost"]
+              for name, r in out.items()}
+    b2 = before["B2 perfect foresight"]
     tol = max(_INVARIANT_ABS_TOL, _INVARIANT_REL_TOL * abs(b2))
-    for name, r in out.items():
-        if name != "B2 perfect foresight" and r["cost"]["net_revenue"] > b2 + tol:
+    for name, rev in before.items():
+        if name != "B2 perfect foresight" and rev > b2 + tol:
             raise AssertionError(
-                f"ladder invariant violated: {name} ({r['cost']['net_revenue']:,.0f}) beats "
-                f"perfect foresight B2 ({b2:,.0f}) - impossible, so something is wrong")
+                f"ladder invariant violated: {name} ({rev:,.0f}) beats perfect foresight "
+                f"B2 ({b2:,.0f}) before imbalance - impossible, so something is wrong")
     return out

@@ -60,3 +60,49 @@ def test_a_genuine_ladder_violation_still_raises(monkeypatch):
     monkeypatch.setattr(baselines, "b2_perfect", wasteful_b2)
     with pytest.raises(AssertionError, match="ladder invariant violated"):
         run_ladder(wind, pv, price, run, premium_rate=8.0, include_b3=False)
+
+
+# ------------------------------------------------------------------ imbalance
+@pytest.mark.parametrize("committed_mw, sign", [(65.0, +1), (0.0, -1)],
+                         ids=["promised more than the connection carries", "promised nothing"])
+def test_a_deviation_from_the_committed_schedule_is_settled_at_rebap(committed_mw, sign):
+    """Regression: run_ladder dropped the schedule whenever reBAP was given, so the imbalance
+    cost was 0 in every run.
+
+    reBAP sits 70 EUR/MWh above spot (the system is short). A plant that delivers less than
+    it committed must buy the shortfall at reBAP, which is a cost; one that delivers more is
+    paid reBAP for the surplus, which is income.
+    """
+    run = RunConfig(dt=0.25)
+    wind, pv, price = window(16)
+    rebap = price + 70.0
+    schedule = np.full(16, committed_mw)
+
+    res = run_ladder(wind, pv, price, run, premium_rate=8.0, rebap=rebap, schedule=schedule,
+                     include_b3=False)
+
+    for name, r in res.items():
+        deviation = r["export"] - schedule
+        assert r["cost"]["imbalance_cost"] == pytest.approx(-np.sum(deviation * rebap) * run.dt)
+        assert np.sign(r["cost"]["imbalance_cost"]) == sign, name
+
+
+def test_imbalance_luck_does_not_trip_the_ladder_invariant():
+    """B2 is the ceiling of what it optimises, and imbalance lies outside that objective.
+
+    At a scarcity reBAP of 1,000 EUR/MWh with nothing committed, every delivered MWh earns
+    reBAP, so the rung that exports most wins on imbalance alone. That is luck, not a defect:
+    the run must not stop, and B2 must still lead before imbalance.
+    """
+    run = RunConfig(dt=0.25, plant=PlantConfig(conn_mw=40.0))
+    wind, pv, price = window(96, seed=2)
+    n = len(price)
+
+    res = run_ladder(wind, pv, price, run, premium_rate=8.0, rebap=np.full(n, 1000.0),
+                     schedule=np.zeros(n), include_b3=False)
+
+    net = {name: r["cost"]["net_revenue"] for name, r in res.items()}
+    before = {name: r["cost"]["net_revenue"] + r["cost"]["imbalance_cost"]
+              for name, r in res.items()}
+    assert max(net, key=net.get) != "B2 perfect foresight"
+    assert max(before, key=before.get) == "B2 perfect foresight"
