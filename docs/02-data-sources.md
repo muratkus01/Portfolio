@@ -17,8 +17,8 @@ NDA. Proprietary data, where obtained, improves fidelity but is never a precondi
 | Project | Input | Source | Resolution | In the repository |
 |---|---|---|---|---|
 | 01 | Day-ahead price, DE-LU | Energy-Charts (data from Bundesnetzagentur / SMARD.de) | hourly products until 2025-09-30, quarter-hourly from 2025-10-01; the dataset records which (`price_mtu_min`) | fetched and cached by `prosumer build-data`, not committed |
-| 01 | Weather behind the PV model | Open-Meteo historical-forecast archive, Munich | 15 min | fetched and cached, not committed |
-| 01 | Weather behind the PV forecast | Open-Meteo previous-runs archive, the forecast issued one day earlier | hourly, held over four quarter-hours | fetched and cached, not committed |
+| 01 | Weather behind the PV model | Open-Meteo historical-forecast archive, Munich | 15 min | fetched and cached, not committed apart from a four-day sample (section 6) |
+| 01 | Weather behind the PV forecast | Open-Meteo previous-runs archive, the forecast issued one day earlier | hourly, held over four quarter-hours | fetched and cached, not committed apart from a four-day sample (section 6) |
 | 01 | Household load | HTW Berlin, 74 households measured in 2010 (Tjaden et al. 2015) | 15-minute smart-meter data, published refined to 1 s; the 1-minute files are averaged back to 15 min | downloaded by hand, not redistributed |
 | 01 | Load forecast | BDEW H0 standard load profile, from the thesis repository | 15 min | fetched, not committed |
 | 01 | Daily mean temperature (aggregate load model) | ERA5 through the Open-Meteo archive API, at the state capitals | daily | fetched and cached, not committed |
@@ -31,8 +31,8 @@ NDA. Proprietary data, where obtained, improves fidelity but is never a precondi
 | 03 | Imbalance price (reBAP) and intraday price index (ID AEP) | netztransparenz.de, CSV export | 15 min | downloaded by hand, not committed ([SOURCE](../projects/03-probabilistic-forecast-to-bid/data/raw/netztransparenz/SOURCE.md)) |
 
 Project 02 lists its inputs in its own README. The data folders are gitignored apart from
-their `SOURCE.md` files. Projects 01 and 03 commit the CSVs behind their main results under
-their `reports/` folders.
+their `SOURCE.md` files, with one exception named in section 6. Projects 01 and 03 commit
+the CSVs behind their main results under their `reports/` folders.
 
 ---
 
@@ -143,10 +143,15 @@ All projects follow the same conventions so pipelines and evaluation code are po
   files come from (Project 01's price `SOURCE.md` records only the last fetch; the HTW
   profiles are documented in `prosumer/data/htw.py`), and `datakit` appends endpoint,
   retrieval time and licence to its cache's `SOURCE.md` on every download.
-- **No raw data in git.** `.gitignore` excludes `/data/` and everything under
-  `projects/*/data/` except the `SOURCE.md` files. `prosumer build-data` and
-  `python -m f2b.cli build-data` rebuild the datasets from the public APIs; the HTW profiles,
-  the MaStR exports and the netztransparenz files have to be downloaded by hand.
+- **Raw data stays out of git, with one exception.** `.gitignore` excludes `/data/` and
+  everything under `projects/*/data/` except the `SOURCE.md` files. The exception is a
+  four-day Open-Meteo cache for Munich from June 2025 (two CSVs and a `SOURCE.md` naming
+  the provider and its CC BY 4.0 licence) under
+  `projects/01-prosumer-pv-bess-mpc-rl/src/data/raw/weather/`. That path is outside the
+  ignore rule because `prosumer/data/weather.py` caches relative to the working directory.
+  `prosumer build-data` and `python -m f2b.cli build-data` rebuild the datasets from the
+  public APIs; the HTW profiles, the MaStR exports and the netztransparenz files have to be
+  downloaded by hand.
 
 ---
 
