@@ -156,3 +156,51 @@ def test_built_dataset_has_mtu_switch():
     after = df.loc["2025-10-01":].spot_eur_per_kwh.to_numpy()
     after = after[: len(after) // 4 * 4].reshape(-1, 4)
     assert np.mean(after.std(axis=1) > 1e-9) > 0.9            # quarter-hour products
+
+
+# --------------------------------------------------------------------------- prices vs thesis
+PRICE_CACHE = ROOT / "data" / "raw" / "prices" / "energycharts_price_DE-LU_2024-01-01_2026-09-18.json"
+
+
+@pytest.fixture(scope="module")
+def thesis_and_cached_prices() -> tuple[pd.DataFrame, pd.Series]:
+    """The thesis input year and the Energy-Charts series that `prosumer build-data` cached."""
+    if not PRICE_CACHE.exists():
+        pytest.skip("price cache absent; run prosumer build-data")
+    from prosumer.data.loaders import fetch_spot_prices
+    from prosumer.data.thesis_data import fetch_thesis_year
+    try:
+        path = fetch_thesis_year(ROOT / "data" / "raw" / "thesis")
+    except OSError as exc:                                          # pragma: no cover
+        pytest.skip(f"thesis input year not available offline: {exc}")
+    raw = pd.read_csv(path, sep=";", encoding="ISO-8859-1")
+    cached = fetch_spot_prices("2024-01-01", "2026-09-18", cache_dir=PRICE_CACHE.parent)
+    return raw, cached["spot_eur_per_kwh"]
+
+
+def _matching_hours(raw: pd.DataFrame, cached: pd.Series, clock: str) -> tuple[int, int]:
+    """(hours whose EPEX price equals the cached price, hours compared), labels read on `clock`."""
+    labels = pd.to_datetime(raw["DateTime"], dayfirst=True)
+    stamps = pd.DatetimeIndex(labels.dt.tz_localize(clock, ambiguous="NaT", nonexistent="NaT"))
+    keep = ~stamps.isna()
+    ours = cached.reindex(stamps[keep]).to_numpy()
+    theirs = raw["EP_epex"].astype(float).to_numpy()[keep]
+    return int((np.abs(ours - theirs) < 1e-9).sum()), int(keep.sum())
+
+
+def test_cached_2024_prices_equal_the_thesis_epex_column_read_as_cet(thesis_and_cached_prices):
+    """README data table: the 2024 prices are the thesis prices, hour for hour.
+
+    The thesis labels read as CET without daylight saving (UTC+1, as `load_thesis_year`
+    reads them) give all 8,784 hours of 2024 the cached price, to float rounding.
+    """
+    raw, cached = thesis_and_cached_prices
+    assert _matching_hours(raw, cached, "Etc/GMT-1") == (8784, 8784)
+
+
+@pytest.mark.parametrize("clock", ["UTC", "Europe/Berlin"])
+def test_thesis_epex_column_does_not_fit_another_clock(thesis_and_cached_prices, clock):
+    """Read as UTC or as legal local time, fewer than half of the hours match."""
+    raw, cached = thesis_and_cached_prices
+    matched, compared = _matching_hours(raw, cached, clock)
+    assert matched < 0.5 * compared
