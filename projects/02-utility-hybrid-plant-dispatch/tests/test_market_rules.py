@@ -143,6 +143,19 @@ def test_annual_market_value_weights_the_whole_year_by_feed_in():
     assert mv.loc["2024", "days"] == 2, "31 Jan and 1 Feb in Berlin"
 
 
+def test_a_market_value_is_complete_only_when_the_data_holds_every_step_of_its_period():
+    """March 2024 has 743 hours in Berlin. One quarter-hour short it still touches all 31 days,
+    but its value is the value so far, not the realised one."""
+    idx = pd.date_range(pd.Timestamp("2024-03-01", tz="Europe/Berlin"),
+                        pd.Timestamp("2024-04-01", tz="Europe/Berlin"), freq="15min",
+                        inclusive="left")
+    price, feed_in = pd.Series(50.0, index=idx), pd.DataFrame({"wind": 1.0}, index=idx)
+    whole = market.market_values(price, feed_in, "month").loc["2024-03"]
+    short = market.market_values(price.iloc[:-1], feed_in.iloc[:-1], "month").loc["2024-03"]
+    assert len(idx) == 743 * 4 and whole["complete"]
+    assert short["days"] == 31 and not short["complete"]
+
+
 def test_an_unknown_market_value_period_is_refused():
     idx = pd.date_range("2024-01-01", periods=4, freq="15min", tz="UTC")
     with pytest.raises(ValueError, match="period"):
@@ -211,23 +224,28 @@ def test_the_ladder_runs_on_a_premium_that_changes_by_month():
 # ------------------------------------------------------------------ negprice
 def two_months(year: int, days: int | None = None, dt: float = 0.25,
                sunny: float = 100.0) -> pd.DataFrame:
-    """January and February of `year` from Berlin midnight, cut as `load_year` cuts its frame.
+    """A Berlin calendar year of which only January and February generate, cut as `load_year`
+    cuts its frame.
 
     January alternates cheap windy hours (20 EUR/MWh, wind 0.8, PV 0.2) with sunny ones at
     `sunny` EUR/MWh (wind 0.2, PV 0.8). At the default 100 EUR/MWh wind's market value is 36
     and PV's 84 against a mean price of 60. February is flat at 60 EUR/MWh with both factors
-    at 0.5. PV feed-in has the shape of PV generation.
+    at 0.5. From March on nothing generates, at 60 EUR/MWh, so the year's market values are
+    those of January and February, while the data covers the whole year, as a realised
+    annual value needs. PV feed-in has the shape of PV generation.
     """
-    jan, feb = 31 * 96, 28 * 96
-    idx = pd.date_range(f"{year}-01-01", periods=jan + feb, freq="15min",
-                        tz="Europe/Berlin").tz_convert("UTC")
-    windy = (np.arange(jan) // 4) % 2 == 0
-    pv = np.concatenate([np.where(windy, 0.2, 0.8), np.full(feb, 0.5)])
+    start = pd.Timestamp(f"{year}-01-01", tz="Europe/Berlin")
+    end = pd.Timestamp(f"{year + 1}-01-01", tz="Europe/Berlin")
+    idx = pd.date_range(start, end, freq="15min", inclusive="left").tz_convert("UTC")
+    month = idx.tz_convert("Europe/Berlin").month
+    january, february = month == 1, month == 2
+    windy = (np.arange(len(idx)) // 4) % 2 == 0
+    pv = np.select([january, february], [np.where(windy, 0.2, 0.8), 0.5], 0.0)
     df = pd.DataFrame({
-        "wind_cf": np.concatenate([np.where(windy, 0.8, 0.2), np.full(feb, 0.5)]),
+        "wind_cf": np.select([january, february], [np.where(windy, 0.8, 0.2), 0.5], 0.0),
         "pv_cf": pv,
         "pv_feed_in_cf": pv,
-        "price_eur_mwh": np.concatenate([np.where(windy, 20.0, sunny), np.full(feb, 60.0)]),
+        "price_eur_mwh": np.where(january, np.where(windy, 20.0, sunny), 60.0),
     }, index=idx)
     return df if days is None else df.iloc[:int(days * 24 / dt)]
 

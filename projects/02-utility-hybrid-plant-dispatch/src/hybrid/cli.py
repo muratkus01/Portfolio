@@ -74,7 +74,30 @@ def _realised_premium(year: pd.DataFrame, index: pd.DatetimeIndex, wind: np.ndar
     """
     values = market_values(year["price_eur_mwh"], _national_weights(year), period)
     table = premium_table(index, {"wind": wind, "pv": pv}, values, applicable, period)
+    _refuse_unrealised(values.loc[table.index], period)
     return table, premium_rates(index, table, period)
+
+
+def _refuse_unrealised(values: pd.DataFrame, period: str) -> None:
+    """Stop when a period the window is settled on is not over in the data.
+
+    Its market value is then the value of the period so far, which moves until the period
+    ends: settled on as the realised value it would overclaim, and no result built on it
+    would survive the period's end. datakit caches every payload forever, so a year fetched
+    before it ended stays short until its cached payloads are deleted.
+
+    values: `market.market_values` rows of the periods the window is settled on.
+    period: "month" or "year".
+    Raises ValueError naming each such period and its days of data.
+    """
+    short = [f"{key} ({row['days']:.0f} days of data)" for key, row in values.iterrows()
+             if not row["complete"]]
+    if short:
+        raise ValueError(
+            f"the {'annual' if period == 'year' else 'monthly'} market value of "
+            f"{', '.join(short)} is not realised yet: the data does not cover the whole "
+            "period. Run a period that is over; if it is over, delete the datakit cache files "
+            "of that year, which were fetched before it ended")
 
 
 def _applicable(market: MarketConfig) -> dict:

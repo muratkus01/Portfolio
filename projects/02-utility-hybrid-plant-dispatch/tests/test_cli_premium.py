@@ -85,6 +85,22 @@ def test_every_command_settles_on_the_annual_market_value_per_technology(monkeyp
         assert call["settle"] == pytest.approx(np.full(2 * 96, plant_rate(annual)))
 
 
+@pytest.mark.parametrize("command", ["ladder", "sizing", "negprice", "decompose"])
+def test_a_year_still_running_is_not_settled_on(monkeypatch, command):
+    """Regression test: for a year still running, every command settled on the market value of
+    the year so far, and ladder called it the realised annual value. That value moves until
+    the year ends, so no result built on it survives the year's end.
+    """
+    def until_march(year: int, days: int | None = None, dt: float = 0.25) -> pd.DataFrame:
+        df = calendar_year(year, dt=dt).iloc[:59 * 96]          # 1 January to 28 February
+        return df if days is None else df.iloc[:int(days * 24 / dt)]
+
+    monkeypatch.setattr(cli, "load_year", until_march)
+    monkeypatch.setattr(cli, "run_ladder", recording_ladder([]))
+    with pytest.raises(ValueError, match=r"of 2025 \(59 days of data\) is not realised yet"):
+        cli.main([command, "--year", str(YEAR), "--days", "2", "--fast"])
+
+
 def test_b3_plans_each_month_on_the_realised_rate_of_the_month_before(monkeypatch):
     """Regression test: B3 planned on the premium it was settled on, built from prices of the
     window it had not seen yet.

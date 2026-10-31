@@ -157,6 +157,14 @@ def _period_labels(index: pd.DatetimeIndex, period: str) -> np.ndarray:
     return np.asarray(local.to_period(_PERIODS[period]).astype(str))
 
 
+def _period_length(key: str, period: str) -> pd.Timedelta:
+    """Length of the Berlin calendar month or year `key` ("2024-03" or "2024"), daylight saving
+    time included: March 2024 is 743 hours."""
+    p = pd.Period(key, freq=_PERIODS[period])
+    return ((p + 1).start_time.tz_localize("Europe/Berlin")
+            - p.start_time.tz_localize("Europe/Berlin"))
+
+
 def market_values(price: pd.Series, feed_in: pd.DataFrame,
                   period: str = "month") -> pd.DataFrame:
     """Technology market values ("Marktwert") per Berlin calendar month or year.
@@ -180,10 +188,14 @@ def market_values(price: pd.Series, feed_in: pd.DataFrame,
     Returns
     -------
     pd.DataFrame indexed by period label ("2024-01" or "2024"): one column per technology in
-    EUR/MWh, and "days", the Berlin calendar days the data covers in the period.
+    EUR/MWh; "days", the Berlin calendar days the data covers in the period; and "complete",
+    whether the data holds every step of the period. Only then is a value the realised one;
+    otherwise it is the value of the period so far, which moves until the period ends.
     """
     labels = _period_labels(price.index, period)
     days = pd.Series(price.index.tz_convert("Europe/Berlin").tz_localize(None).normalize())
+    # The data's step length; a day count alone would call a month whole on its last day.
+    step = price.index[1] - price.index[0] if len(price) > 1 else None
     rows = {}
     for key in pd.unique(labels):
         m = labels == key
@@ -191,6 +203,8 @@ def market_values(price: pd.Series, feed_in: pd.DataFrame,
                                                 feed_in[tech].to_numpy()[m])
                      for tech in feed_in.columns}
         rows[key]["days"] = days[m].nunique()
+        rows[key]["complete"] = (step is not None
+                                 and int(m.sum()) * step == _period_length(key, period))
     return pd.DataFrame.from_dict(rows, orient="index")
 
 
