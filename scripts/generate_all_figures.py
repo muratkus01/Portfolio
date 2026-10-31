@@ -1,7 +1,8 @@
-"""Generate complete multi-year 300 DPI visual benchmark suite for all 6 projects.
+"""Draw the Project 02 figures that showcase.html shows (gen_p02) and the REC sharing figures
+of the archived energy-community project (gen_p04).
 
-Generates 2024 and 2025 dispatch time series, benchmark ladders, and mechanism
-trade-off figures for the three active projects.
+Project 01 and Project 03 draw their own figures from their committed results:
+prosumer.reporting.figures and scripts/make_f2b_figure.py.
 """
 from __future__ import annotations
 
@@ -16,16 +17,6 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "datakit"))
-for p in [
-    "01-prosumer-pv-bess-mpc-rl",
-    "02-pumped-storage-rl-multimarket",
-    "03-smart-ev-charging-14a",
-    "04-energy-sharing-rec",
-    "02-utility-hybrid-plant-dispatch",
-    "03-probabilistic-forecast-to-bid",
-]:
-    sys.path.insert(0, str(ROOT / "projects" / p / "src"))
 
 # Clean styling constants
 BG = "#0b101d"
@@ -80,36 +71,6 @@ def get_prices(year: int, n_steps: int = 288, start_step: int = 4000) -> np.ndar
     base = 67.2 if year == 2024 else (78.5 if year == 2025 else 105.8)
     spread = 45 if year == 2024 else (65 if year == 2025 else 90)
     return base + spread * np.sin(t * np.pi / 12) + 15 * np.sin(t * np.pi / 6)
-
-
-# ==============================================================================
-# PROJECT 01: Residential PV+BESS
-# ==============================================================================
-def gen_p01():
-    print("Generating Project 01 figures...")
-    out = ROOT / "projects" / "01-prosumer-pv-bess-mpc-rl" / "docs" / "figures"
-    out.mkdir(parents=True, exist_ok=True)
-
-    # Ladder Benchmark Figure
-    fig, ax = plt.subplots(figsize=(8.5, 4.5), dpi=300)
-    controllers = ["B1 Rule-Based", "RL Rescaled SAC", "B3 Rolling MPC", "B2 MILP Ceiling"]
-    headroom = [0.0, 27.0, 56.0, 100.0]
-    costs_2024 = [-2.180, -2.224, -2.271, -2.342]
-    costs_2025 = [-2.417, -2.470, -2.526, -2.613]
-    y_pos = np.arange(len(controllers))
-
-    b1 = ax.barh(y_pos - 0.18, headroom, 0.35, color=CYAN, label="Headroom Recovery (%)", edgecolor="none")
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(controllers, weight="bold")
-    ax.set_xlabel("Headroom Recovery (%)")
-    ax.set_xlim(0, 115)
-    for i, v in enumerate(headroom):
-        ax.text(v + 1.5, i - 0.18, f"{v:.1f}% ({costs_2025[i]:.3f} EUR/d)", va="center", color=TEXT, fontsize=9)
-    ax.set_title("Project 01: Benchmark Ladder Performance Progression (DE-LU Anchor)", weight="bold", pad=12)
-    ax.grid(True, axis="x")
-    plt.tight_layout()
-    fig.savefig(out / "p01_ladder_benchmark.png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
 
 
 # ==============================================================================
@@ -249,7 +210,6 @@ def gen_p02():
 
 if __name__ == "__main__":
     print("Starting generation of multi-year benchmark figures...")
-    gen_p01()
     gen_p02()
     gen_p04()
     print("All figures successfully generated at 300 DPI!")
