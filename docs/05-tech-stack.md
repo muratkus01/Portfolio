@@ -11,7 +11,7 @@ own market model, safety checks and evaluation code.
 | Layer | Choice | Where it is used |
 |-------|--------|------------------|
 | Language | Python 3.10+ (`requires-python`); CI tests 3.11 and 3.12 | Every project |
-| Numerics and data | NumPy, pandas; PyArrow for the Parquet caches | Every project |
+| Numerics and data | NumPy, pandas; PyArrow for the Parquet datasets of Projects 01 and 03 | Every project |
 | Linear programming | SciPy `linprog` with the **HiGHS** solver | Project 01: the perfect-foresight LP (B2) and every rolling-MPC window (B3), `baselines/lp_fast.py` |
 | Optimisation models | **PuLP** with the **CBC** solver | Project 01's thesis MILP (Gates 0 and 1, `baselines/milp.py`); Project 02's dispatch models; the archived pumped-storage plant |
 | PV model | pvlib | Project 01: PV output and PV forecast from Open-Meteo weather |
