@@ -96,7 +96,7 @@ def _window_text(args) -> str:
         return "the showcase's 3 synthetic days (demo_05)"
     if args.days is None:
         return f"{args.year} (whole year)"
-    text = f"{args.days} days of {args.year}"
+    text = f"{args.days} {'day' if args.days == 1 else 'days'} of {args.year}"
     return text if args.start == "01-01" else f"{text} from {args.start}"
 
 
@@ -256,6 +256,16 @@ def _write(args, rows: list[dict]) -> None:
     print(f"\nwrote {len(rows)} rows to {path}")
 
 
+def _shown(diff: float, b2: float) -> float:
+    """A difference of two rungs' net revenue as printed, EUR: 0 where it lies within the
+    ladder's tolerance of B2's revenue `b2` (`ladder_tolerance`), as that much is the solver's
+    rounding and printed "-0" where it was negative. The --out tables keep the raw difference.
+
+    diff: e.g. B2 no battery minus B0. b2: B2's net revenue in the same run, EUR.
+    """
+    return 0.0 if abs(diff) <= ladder_tolerance(b2) else diff
+
+
 def _report(res: dict, title: str) -> None:
     """Print each rung's settlement: net revenue, export, curtailment chosen and forced by the
     connection, and constraint violations, then each rung's gain over B0."""
@@ -355,11 +365,15 @@ def cmd_sizing(args) -> None:
           "installed (national Energy-Charts factors)")
     print(df.to_string(index=False, float_format=lambda x: f"{x:,.2f}"))
     piv = df.pivot(index="conn_MW", columns="controller", values="net_EUR")[list(_SIZING_RUNGS)]
-    piv["battery_value_EUR"] = piv["B2 perfect foresight"] - piv["B2 no battery"]
-    piv["chosen_curtailment_value_EUR"] = piv["B2 no battery"] - piv["B0 no battery"]
+    b2 = piv["B2 perfect foresight"]
+    for column, diff in (("battery_value_EUR", b2 - piv["B2 no battery"]),
+                         ("chosen_curtailment_value_EUR",
+                          piv["B2 no battery"] - piv["B0 no battery"])):
+        piv[column] = [_shown(d, r) for d, r in zip(diff, b2)]
     print("\nValue by connection size: the battery's own (B2 - B2 no battery), and that of "
           "curtailing\nat low prices, which needs no battery (B2 no battery - B0):")
     print(piv.to_string(float_format=lambda x: f"{x:,.0f}"))
+    print("(a difference within the solver's rounding prints as 0; --out keeps it as solved)")
     if args.out:
         _write(args, out)
 

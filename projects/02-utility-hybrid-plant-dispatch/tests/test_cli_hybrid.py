@@ -89,6 +89,30 @@ def test_a_window_can_start_later_in_the_year(monkeypatch, capsys):
     assert "Hybrid plant ladder, 2 days of 2025 from 07-01" in capsys.readouterr().out
 
 
+def test_one_day_is_named_in_the_singular(monkeypatch, capsys):
+    """Regression test: a one-day window was printed as "1 days of 2025 from 07-01"."""
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    assert cli.main(["ladder", "--fast", "--start", "07-01", "--days", "1"]) == 0
+    assert "Hybrid plant ladder, 1 day of 2025 from 07-01\n" in capsys.readouterr().out
+
+
+def test_sizing_prints_a_difference_within_solver_rounding_as_zero(monkeypatch, capsys):
+    """Regression test: where B2 no battery equalled B0 up to the solver's rounding, sizing
+    printed the value of curtailing at low prices as "-0" at every connection."""
+    def ladder(wind, pv, price, run, premium_rate, rebap=None, **kwargs):
+        net = {"B0 no battery": 1_000.0, "B1 curtailment avoidance": 1_000.0,
+               "B2 perfect foresight": 1_500.0, "B2 no battery": 1_000.0 - 1e-5}
+        return {name: {"cost": {"net_revenue": value, "forced_curtail_mwh": 0.0}}
+                for name, value in net.items()}
+
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    monkeypatch.setattr(cli, "run_ladder", ladder)
+    assert cli.main(["sizing", "--days", "1"]) == 0
+    values = capsys.readouterr().out.split("(B2 no battery - B0):")[1].split()
+    assert "-0" not in values
+    assert values.count("500") == 5, "the battery's value, at each connection"
+
+
 def test_full_year_is_the_berlin_calendar_year(monkeypatch):
     monkeypatch.setattr(cli, "load_year", fake_year)
     frame, label = window(["sizing", "--year", "2024", "--full-year"])
