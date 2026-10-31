@@ -19,18 +19,20 @@ def verify():
 
     # 2. Check canvases
     # Projects 02, 03 and 04 were archived on 2026-10-09; see archive/README.md.
-    canvases = ['dispatchCanvas', 'p02-dispatchCanvas', 'p03-dispatchCanvas']
+    # The current P03 has no simulator canvas: its scenario grid swept synthetic forecast noise
+    # and was retired.
+    canvases = ['dispatchCanvas', 'p02-dispatchCanvas']
     for c in canvases:
         assert f'id="{c}"' in html, f"Missing canvas {c}"
         print(f"Canvas OK: {c}")
 
     # 3. Check functions exist in script
     funcs = [
-        'drawDispatchCanvas', 'drawDispatchCanvasP02', 'drawDispatchCanvasP03',
-        'selectDayRegime', 'selectDayRegimeP02', 'selectDayRegimeP03',
-        'toggleChannel', 'toggleChannelP02', 'toggleChannelP03',
-        'updateHud', 'updateHudP02', 'updateHudP03',
-        'setupCanvasListeners', 'setupCanvasListenersP02', 'setupCanvasListenersP03',
+        'drawDispatchCanvas', 'drawDispatchCanvasP02',
+        'selectDayRegime', 'selectDayRegimeP02',
+        'toggleChannel', 'toggleChannelP02',
+        'updateHud', 'updateHudP02',
+        'setupCanvasListeners', 'setupCanvasListenersP02',
         'updateRepresentativeDaysForYear', 'getRegimes'
     ]
     for fn in funcs:
