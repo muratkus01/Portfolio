@@ -3,17 +3,18 @@
 Why this module exists. Scaling household PV up to the federal states needs one PV series per
 state, because the states differ in annual yield: a single Munich series applied to all 16
 would overstate northern Germany. The per-state targets stay out of the repository (see
-below). Nothing uses the PV series yet: `generate()` has no caller, and the national analysis
-(`experiments/national_impact.py`) reads only the MaStR fleet counts. Only `STATE_SITES` is
-used elsewhere, as the temperature sites of `aggregate_load`.
+below). Nothing uses the PV series yet: `generate()` has no caller outside the tests, and the
+national analysis (`experiments/national_impact.py`) reads only the MaStR fleet counts. Only
+`STATE_SITES` is used elsewhere, as the temperature sites of `aggregate_load`.
 
 The method is deliberately split in two, because only one half can live in a public repository:
 
   * the MODEL is public. Open-Meteo irradiance (CC BY 4.0) through the pvlib chain in `pv.py`,
     one calibration scalar per state.
   * the CALIBRATION TARGETS are not. They come from a company reference export that Murat
-    may use locally but not redistribute, so they are read at runtime from a gitignored file
-    and are never written into committed code. `calibration_path()` says where. Without that
+    may use locally but not redistribute, so they stay in gitignored files and are never
+    written into committed code: the exports under `reference_dir()`, and the losses fitted
+    to them in the file at `calibration_path()`, which is what `generate()` reads. Without that
     file the module still runs on a literature loss of 11 %, and says so: `generate()` and
     `site_system()` issue a `FallbackLossWarning`, and `generate()` records the loss and its
     source in the `attrs` of the series it returns.
