@@ -115,6 +115,16 @@ def test_the_command_refuses_a_window_past_the_end_of_its_year(monkeypatch):
         cli.main(["ladder", "--fast", "--year", "2025", "--days", "366"])
 
 
+@pytest.mark.parametrize("days", ["-5", "0"])
+def test_a_window_shorter_than_a_day_is_refused(monkeypatch, capsys, days):
+    """Regression test: --days -5 ran all but the last 5 days of the year, as load_year cuts
+    with iloc[:-480], and called them "-5 days"; --days 0 failed later on a KeyError."""
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    with pytest.raises(SystemExit):
+        cli.main(["ladder", "--fast", "--year", "2025", "--days", days])
+    assert "at least 1 day" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("rule", NEGATIVE_PRICE_RULES)
 def test_every_negative_price_rule_can_be_chosen(monkeypatch, capsys, rule):
     """Regression test: --neg-rule offered only none, six_hour and new_2025, so the four-hour

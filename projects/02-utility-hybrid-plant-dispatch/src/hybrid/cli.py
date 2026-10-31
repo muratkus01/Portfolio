@@ -593,6 +593,21 @@ def _month_day(text: str) -> str:
     return f"{day.month:02d}-{day.day:02d}"
 
 
+def _days(text: str) -> int:
+    """argparse type of --days: a whole number of days, at least 1, e.g. "30".
+
+    load_year cuts a window with iloc[:steps], so a negative count kept all but the last days
+    of the year without a word, and 0 kept nothing and failed later on an unrelated error.
+    """
+    try:
+        days = int(text)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"not a whole number of days: {text!r}") from err
+    if days < 1:
+        raise argparse.ArgumentTypeError(f"a window needs at least 1 day, not {days}")
+    return days
+
+
 def build_parser() -> argparse.ArgumentParser:
     """The command line: one subcommand per experiment, each with its window and settings."""
     p = argparse.ArgumentParser(prog="hybrid", description=__doc__,
@@ -604,7 +619,7 @@ def build_parser() -> argparse.ArgumentParser:
         sp = sub.add_parser(name)
         sp.add_argument("--year", type=int, default=2025)
         span = sp.add_mutually_exclusive_group()
-        span.add_argument("--days", type=int, default=30, help="window length in days of 24 h")
+        span.add_argument("--days", type=_days, default=30, help="window length in days of 24 h")
         span.add_argument("--full-year", dest="days", action="store_const", const=None,
                           help="the whole calendar year in Berlin time")
         sp.add_argument("--start", type=_month_day, default="01-01",
