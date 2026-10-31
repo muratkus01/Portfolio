@@ -51,13 +51,13 @@ by about 2 % (1039.0 to 1018.2 EUR, a one-off rerun that no test covers yet); th
 conclusions hold. The thesis data is kept as published so Gate 0 still reproduces it;
 everything new uses correctly timed PV.
 
-### Data, 2024 to 2026, 15 minutes
+### Data, 2024 to 2026, on a 15-minute grid
 
 | Input | Source | Check |
 |---|---|---|
 | Prices | EPEX DE-LU day-ahead, Energy-Charts | 2024 matches the thesis exactly; hourly products until 2025-09-30, quarter-hour after |
 | PV | pvlib on Open-Meteo 15-min weather, loss calibrated to the thesis 2024 yield | daily correlation with the thesis PV in 2024: 0.95 (one-off check) |
-| PV forecast | the same model on the hourly weather forecast issued a day earlier (Open-Meteo previous runs) | nRMSE 0.30 to 0.38 in daytime, bias within 1.5 % (one-off check) |
+| PV forecast | the same model on the hourly weather forecast issued a day earlier (Open-Meteo previous runs) | nRMSE (RMSE over mean PV, quarter-hours with PV above 0.05 kW) 0.30 to 0.38 per year 2024 to 2026, bias within 1.5 % (one-off check) |
 | Load | 74 measured households, HTW Berlin (Tjaden et al. 2015), scaled to 3221 kWh/a and replayed on the 2024 to 2026 calendar on the households' own clock (legal local time) | one household shows PV behind the meter and is excluded ([screen](reports/htw_pv_screen.csv)) |
 | Load forecast | BDEW H0 standard profile with Bavarian holidays | nRMSE at 15 min, RMSE over mean load, 2024 to 2026: 0.82 for H28, 1.02 for H31 (one-off check) |
 
@@ -174,7 +174,7 @@ To resolve these defects, two principled formulations were engineered and integr
 
 #### Measured Performance Impact
 
-With these two fixes applied, a 3-seed SAC evaluation was trained on 2024 and tested over the 20.5-month out-of-sample evaluation period (59,996 quarter-hours):
+With these two fixes applied, a 3-seed SAC evaluation was trained on 2024 and tested over the 20.5-month out-of-sample evaluation period (59,996 quarter-hours; hourly day-ahead prices until 2025-09-30, quarter-hour prices after):
 
 - **Headroom Recovery:** Headroom recovery swung from **-7.3 %** to **+32.4 %** (range 31.7 % to 32.4 % across seeds), capturing an additional 127 EUR of economic value over the price-blind B1 heuristic. Before the HTW clock fix the same formulation reached 27.0 % (26.2 % to 32.3 %); one of those seeds already reached today's level, so with three seeds the change cannot be credited to the fix.
 - **Action Clipping:** Safety layer action clipping dropped from **77-82 % down to exactly 0.0 %** across all seeds.
@@ -287,9 +287,9 @@ What it does not claim: it is not validated for any state or year (the only trut
 
 ### Limitations
 
-- The actual weather and the forecast come from the same provider's model family, so the PV forecast problem is slightly easier than against measurements.
-- The measured households are from 2010 and from one unknown region, and the data do not record how the homes are heated: one home, H46, uses on average 3.9 times as much power in winter (November to February) as in summer (May to August) ([features](reports/htw_household_features.csv)). They are replayed on the 2024 to 2026 calendar by weekday and local clock.
-- **Fixed 2026-10-26 (c07847e):** `htw.replay_on_calendar` read the HTW labels as MEZ, but they follow legal local time (see the aggregate load section), so every result that uses an HTW household as truth replayed its summer behaviour one hour late against PV and prices. Rerun with the fix: the benchmark table (B0 to B3), the capture ladder and its figure, H31, the quarter-hour study and its figure, the summer example day and its figure, and the load-forecast nRMSE. With the old code the rebuilt dataset reproduced every published number to four decimals, so each change comes from the fix alone (B3 capture 87.9 % to 89.4 %). All four RL formulations were retrained on the fixed data (3 seeds each); retrained policies also vary from seed to seed, so the RL changes are not attributed to the fix alone. The 73-household sweep, its figure and the sizing grid were rerun last (2026-10-30): the sweep median moved 85.2 % to 86.5 % and the 9.37 kWh / 5.63 kW sizing row -387.5 to -394.4 EUR/a, so every number on this page now comes from the same dataset.
+- The actual weather and the forecast come from the same provider's model family, so the PV forecast problem is likely easier than against measured weather; by how much is not measured. No check in the repository compares the modelled PV with measured PV: its only check is the one-off daily correlation with the thesis PV, which is itself a model export.
+- The measured households are from 2010 and from one unknown region; they are replayed on the 2024 to 2026 calendar by weekday and local clock. Nothing in the repository records how the homes are heated. One home, H46, uses on average 3.9 times as much power in winter (November to February) as in summer (May to August) ([features](reports/htw_household_features.csv)), which electric heating would explain; it is part of the 73-home mean, so the aggregate load model's temperature slope may partly reflect one home's heating.
+- **Fixed 2026-10-26 (c07847e):** `htw.replay_on_calendar` read the HTW labels as MEZ, but they follow legal local time (see the aggregate load section), so every result that uses an HTW household as truth replayed its summer behaviour one hour late against PV and prices. Rerun with the fix: the benchmark table (B0 to B3), the capture ladder and its figure, H31, the quarter-hour study and its figure, the summer example day and its figure, and the load-forecast nRMSE. With the old code the rebuilt dataset reproduced every published number to four decimals (one-off check), so each change comes from the fix alone (B3 capture 87.9 % to 89.4 %). All four RL formulations were retrained on the fixed data (3 seeds each); retrained policies also vary from seed to seed, so the RL changes are not attributed to the fix alone. The 73-household sweep, its figure and the sizing grid were rerun last (2026-10-30): the sweep median moved 85.2 % to 86.5 % and the 9.37 kWh / 5.63 kW sizing row -387.5 to -394.4 EUR/a, so every 2025-2026 result of the thesis extension now comes from the same post-fix dataset, apart from the solve times in the benchmark table, which were measured before the fix.
 - The hourly counterfactual uses the hourly mean of the quarter-hour prices; bidding under hourly products would have differed, so the study measures the value of the finer signal, not a market counterfactual.
 - 2026 ends on 17 September.
 
