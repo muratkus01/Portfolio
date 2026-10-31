@@ -736,6 +736,61 @@ calibrated for all 16 states against the 2024 reference.
 
 Not established: everything in the four questions above.
 
+## Project 03 rebuilt on real data (2026-10-31, Claude Code on EIM-MUK)
+
+Murat split the 2026-10-31 work by project: this session owned `projects/03-*`,
+`docs/09-learned-forecast-layer.md`, `scripts/make_f2b_figure.py` and additions to `datakit`;
+the "RL Simulation" session owns P02, P01 and the shared public files (showcase, root
+README, CITATION.cff, docs/02, docs/05, the other scripts, simulations/results). Branch
+`quality/p03`, worktree `Vaults/Portfolio-quality`, based on 4c13a4a; nothing pushed.
+
+### What changed
+- An audit (2026-10-31) found the old P03 headline (B3 beats B1 by 286,110 EUR) came from a
+  model in which intraday trading could not earn: intraday price = day-ahead price, synthetic
+  reBAP, forecasts = truth plus noise with independent errors per lead, day-ahead positions
+  read after the 12:00 gate closure, an audit that could not fail. All fixed, each with a
+  regression test that fails on the old code; the headline is withdrawn.
+- Real data: Energy-Charts actuals and TSO forecasts over monthly AC capacity (new datakit
+  functions `installed_power_monthly`, `installed_capacity_at`, `public_power_forecast`, and
+  `total_power` for P02), Open-Meteo previous-runs weather at 18 sites, reBAP and ID AEP from
+  netztransparenz.de (downloaded by Murat into the gitignored `projects/03-*/data/raw/netztransparenz/`;
+  its `SOURCE.md` says how).
+- The forecast ladder F0 to F4 (climatology, persistence, linear quantile, LightGBM with three
+  seeds, TSO forecast as benchmark), decision stages from timestamps, an information-set test,
+  a split by delivery time, held-out recalibration. Commands: `f2b build-data`,
+  `f2b backtest --phase validation|test [--reuse-forecasts]`. The old commands survive as the
+  labelled `synthetic-*` ablation.
+
+### Results (`projects/03-*/README.md`, every number from `reports/`)
+- Test window 2026-01-01 to 2026-10-14, evaluated once at 6fea28d (the same P03 code as
+  935a408; 6fea28d only added `datakit.total_power`). It ends on the 14th because reBAP for 15,
+  16 and 18 October was not yet published.
+- Forecast skill is stable in both windows: TSO 1.56 MW day-ahead pinball, LightGBM 2.41,
+  linear 3.16, climatology 7.29, persistence 7.71 (test).
+- Euros follow skill in the test window (Spearman +1.0) but not in validation (-0.4); no B0
+  gain over climatology has a 90 % interval that excludes zero. `error_alignment.csv` explains
+  why: a long bias earns while reBAP averages above day-ahead, and every error that runs with
+  the system is charged; the fleet-shaped portfolio's errors are the system's errors.
+- Following every forecast revision intraday (B1) loses money from a half-spread of
+  0.5 EUR/MWh with every forecast that revises, in both windows; in 2026 also at zero cost with
+  the TSO forecast and LightGBM.
+- An independent check of every README number against the CSVs (211 PASS) found two rounding
+  slips, one unlabelled seed and several claims stated too widely; all corrected before commit.
+
+### Data on EIM-MUK only (gitignored)
+`projects/03-*/data/processed/` (dataset and hourly weather parquets, the forecast caches
+`ladder_validation.npz` and `ladder_test.npz` with their JSON), `data/raw/open_meteo/`,
+`data/raw/netztransparenz/`, `datakit/cache/`. LightGBM 4.7.0 was added to the shared venv.
+
+### Open
+1. Murat's OK to push `quality/p03`; rebase on origin/main first (no file overlap with the
+   other session's commits as of 7ee3bfa).
+2. The other session's shared-files pass needs P03's wording: root README row and invariants
+   table, showcase section, demo_06. Sent to it when this lands.
+3. Not built, deliberately: price and reBAP forecasting, decision-focused learning, an RL
+   trading policy, a regional (not fleet-shaped) portfolio. A second test window must be a new,
+   later window, never a rerun of this one.
+
 ## ▶️ Next Concrete Actions (in order)
 
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
@@ -780,6 +835,7 @@ Not established: everything in the four questions above.
 - 2026-09-21 · Antigravity · Added 2.0 kWh and 3.5 kWh residential BESS options to Project 01 parameter grid, executed 96 new annual simulation scenarios across 2024 and 2025 (432 P01 rows, 2,352 total scenarios portfolio-wide, 0 violations), re-built lookup_cubes.json (163 KB), wired updated BESS slider grid into showcase.html and dashboards/app.py, and verified 207 unit tests passing.
 - 2026-09-23 · Antigravity · Expanded Project 01 with M.Sc. thesis methodology: default wholesale-indexed export tariff (spot_gross_floored), dual sensitivity engine (1,016 3D configurations and fixed-PV heatmaps), Germany-wide 16-state impact with 2025/2026 battery-charts data, CLI subcommands, and 88 unit tests passing (100% green).
 - 2026-09-23 · Antigravity · Wired M.Sc. thesis sensitivity analysis (1,016 configs, 2D heatmaps) and 16-state Germany-wide fleet impact into showcase.html, updated showcase.py with thesis KPIs, fixed dashboards/app.py heatmap branches, verified 219 tests passing (100% green) and 0 em/en dashes.
+- 2026-10-31 · Claude Code (EIM-MUK, quality/p03) · Rebuilt P03 on real data: audit fixes with regression tests, F0-F4 forecast ladder, real reBAP and ID AEP, validation and a once-only 2026 test, README restated from `reports/`; full suite 302 passed / 42 skipped without P01 data. Section "Project 03 rebuilt on real data".
 
 
 ## Review of the Project 01 thesis extension (2026-09-25, Claude Code)
