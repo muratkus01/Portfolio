@@ -18,6 +18,7 @@ from hybrid.config import MarketConfig, PlantConfig, RunConfig
 
 B0, B1, B2, B3 = ("B0 no battery", "B1 curtailment avoidance", "B2 perfect foresight",
                   "B3 rolling MPC")
+B2NB = "B2 no battery"
 # Columns every result table carries.
 COMMON = ["rung", "spot_revenue_eur", "premium_revenue_eur", "marketing_fee_eur",
           "degradation_cost_eur", "imbalance_cost_eur", "import_cost_eur", "net_revenue_eur",
@@ -109,6 +110,37 @@ def test_the_ladder_table_records_b3s_solve_times_and_settings(monkeypatch, tmp_
         "2025-01-01T00:00:00+01:00", "2025-01-02T00:00:00+01:00")
     assert (b3["window_start_utc"], b3["year"], b3["days"], b3["steps"]) == (
         "2024-12-31T23:00:00+00:00", 2025, 1.0, 96)
+
+
+def test_sizing_splits_the_battery_from_curtailing_at_low_prices(monkeypatch, tmp_path):
+    """Feature test: the battery's value was B2 minus B0, which also counts what curtailing at
+    low prices earns, and that needs no battery. B2 with the battery taken out splits the two.
+
+    The synthetic price dips below zero once a day, so both parts are worth something here.
+    """
+    df = result_table(monkeypatch, tmp_path, ["sizing", "--year", "2025", "--days", "1"])
+
+    assert set(COMMON + ["conn_mw", "overbuild", "battery_value_eur",
+                         "chosen_curtailment_value_eur"]) <= set(df.columns)
+    assert_terms_add_up(df)
+    assert len(df) == 5 * 4, "five connections, four rungs"
+    assert sorted(df["conn_mw"].unique()) == [20.0, 25.0, 30.0, 40.0, 60.0]
+    assert (df["violations"] == 0).all()
+    for conn, g in df.groupby("conn_mw"):
+        net = g.set_index("rung")["net_revenue_eur"]
+        assert set(net.index) == {B0, B1, B2, B2NB}
+        tol = 1e-6 * abs(net[B2])
+        assert net[B2] >= net[B2NB] - tol, f"{conn} MW: the battery cannot cost B2 money"
+        assert net[B2NB] >= net[B0] - tol, f"{conn} MW: B0's dispatch is open to B2 no battery"
+        assert g["battery_value_eur"].to_numpy() == pytest.approx(np.full(4, net[B2] - net[B2NB]))
+        assert g["chosen_curtailment_value_eur"].to_numpy() == pytest.approx(
+            np.full(4, net[B2NB] - net[B0]))
+        assert g["overbuild"].to_numpy() == pytest.approx(np.full(4, 80.0 / conn))
+        assert (g["plant_conn_mw"] == conn).all()
+    b2 = df[df["rung"] == B2].set_index("conn_mw")
+    assert (b2["chosen_curtailment_value_eur"] > 0).all()
+    assert b2.loc[60.0, "battery_value_eur"] > 0, "the default connection leaves headroom"
+    assert (df.loc[df["rung"] == B2NB, "final_soc_mwh"] < 1e-6).all(), "it has no battery"
 
 
 def test_the_negprice_table_names_the_year_its_note_is_about(monkeypatch, tmp_path):

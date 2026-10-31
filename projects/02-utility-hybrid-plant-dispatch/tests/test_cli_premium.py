@@ -57,8 +57,10 @@ def recording_ladder(calls: list):
                       "price_scale": getattr(run, "forecast_price_scale", None)})
         cost = {"net_revenue": 1.0, "export_mwh": 0.0, "chosen_curtail_mwh": 0.0,
                 "forced_curtail_mwh": 0.0}
-        return {name: {"cost": cost, "violations": {}} for name in
-                ("B0 no battery", "B1 curtailment avoidance", "B2 perfect foresight")}
+        names = ["B0 no battery", "B1 curtailment avoidance", "B2 perfect foresight"]
+        if kwargs.get("include_b2_no_battery"):
+            names.append("B2 no battery")
+        return {name: {"cost": cost, "violations": {}} for name in names}
     return ladder
 
 

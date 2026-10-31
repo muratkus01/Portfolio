@@ -4,15 +4,19 @@ B0  unhybridised reference   wind + PV marketed separately, no battery, no curta
 B1  commercial practice      battery on a curtailment-avoidance rule, no price awareness
 B2  perfect foresight        LP over the whole period, knows prices and generation exactly
 B3  rolling-horizon MPC      the deployable classical optimum, on forecasts
+
+"B2 no battery", B2 with the battery taken out, splits B2's gain over B0 into what curtailing
+at low prices earns, which needs no battery, and what the battery itself adds.
 """
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 
 import numpy as np
 import pulp
 
-from .config import MarketConfig, RunConfig
+from .config import MarketConfig, PlantConfig, RunConfig
 from .market import effective_price, premium_eligible, settle
 from .plant import battery_interval, simulate
 
@@ -41,6 +45,15 @@ def ladder_tolerance(b2_revenue: float) -> float:
 
 
 # ------------------------------------------------------------------ B0 / B1
+def _without_battery(plant: PlantConfig) -> PlantConfig:
+    """The plant with its battery taken out: a 0 MW, 1e-6 MWh stand-in, started empty.
+
+    plant: the plant as built. Returns a copy for the rungs without a battery and their
+    feasibility check.
+    """
+    return replace(plant, bess_mw=0.0, bess_mwh=1e-6, soc_init_frac=None)
+
+
 def b0_no_battery(wind: np.ndarray, pv: np.ndarray, run: RunConfig,
                   export_cap: np.ndarray | None = None) -> dict[str, np.ndarray]:
     """The counterfactual: same generation, no storage, curtail only when forced.
@@ -49,8 +62,7 @@ def b0_no_battery(wind: np.ndarray, pv: np.ndarray, run: RunConfig,
     reference for the question "is the battery worth building?".
     """
     n = len(wind)
-    cfg_nobess = run.plant.__class__(**{**run.plant.__dict__, "bess_mw": 0.0,
-                                        "bess_mwh": 1e-6})
+    cfg_nobess = _without_battery(run.plant)
     # Start the 1e-6 MWh stand-in at its own minimum: from 0, below that minimum, the safety
     # layer forced it to charge, which drew a few 1e-8 MWh from the grid.
     return simulate(wind, pv, np.zeros(n), np.zeros(n), run.dt, cfg_nobess,
@@ -162,6 +174,17 @@ def b2_perfect(wind, pv, eff_price, run: RunConfig,
         raise RuntimeError("B2 infeasible")
     p_bat, curt = sol
     return simulate(wind, pv, p_bat, curt, run.dt, run.plant, export_cap=export_cap)
+
+
+def b2_no_battery(wind, pv, eff_price, run: RunConfig,
+                  export_cap=None) -> dict[str, np.ndarray]:
+    """B2 with the battery taken out: perfect foresight that can only curtail.
+
+    Its gain over B0 is what curtailing at low prices earns, which needs no battery; B2's gain
+    over it is what the battery itself adds. Arguments and result as for `b2_perfect`.
+    """
+    return b2_perfect(wind, pv, eff_price, run.with_(plant=_without_battery(run.plant)),
+                      export_cap)
 
 
 def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
@@ -296,7 +319,8 @@ def _refuse_premium_on_grid_energy(name: str, res: dict[str, np.ndarray],
 
 def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
                rebap=None, export_cap=None, include_b3=True,
-               progress=False, schedule=None, b3_premium_rate=None) -> dict[str, dict]:
+               progress=False, schedule=None, b3_premium_rate=None,
+               include_b2_no_battery=False) -> dict[str, dict]:
     """Run every rung on the same window, settle it, and check the ladder invariant.
 
     wind, pv: available generation per step in MW, e.g. np.array([31.2, 29.8, ...]).
@@ -315,6 +339,8 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         both are given; no rung commits a schedule of its own, so reBAP alone settles nothing.
         The settlement's imbalance_cost is the deviation priced at reBAP minus spot.
     export_cap: per-step export limit in MW (a redispatch order), or None for the connection.
+    include_b2_no_battery: also run "B2 no battery" (`b2_no_battery`), planned and settled as
+        B2 is; the invariant then holds it below B2 as well.
     Returns {rung name: dispatch arrays plus "cost" (the settlement) and "violations"}.
     Raises AssertionError when a rung beats perfect foresight B2 on revenue before imbalance,
     NotImplementedError when a rung charged grid energy while the market premium is paid, and
@@ -340,6 +366,8 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         "B1 curtailment avoidance": b1_curtailment_avoidance(wind, pv, run, export_cap),
         "B2 perfect foresight": b2_perfect(wind, pv, eff, run, export_cap),
     }
+    if include_b2_no_battery:
+        out["B2 no battery"] = b2_no_battery(wind, pv, eff, run, export_cap)
     if include_b3:
         # B3 plans on the premium it can know, not on the realised value it is settled on: a
         # month's market value is known only once the month is over.
@@ -368,9 +396,7 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         r["cost"] = settle(r, price, run.dt, run.plant, run.market,
                            rebap=spread, schedule=schedule, premium_rate=premium_rate)
         r["violations"] = check_feasible(
-            r, run.plant if "no battery" not in name
-            else run.plant.__class__(**{**run.plant.__dict__, "bess_mw": 0.0,
-                                        "bess_mwh": 1e-6}))
+            r, run.plant if "no battery" not in name else _without_battery(run.plant))
 
     # Perfect foresight cannot lose to ANY other rung. Checking only B3 would have missed the
     # premium-feedback bug, which showed up as B2 scoring below the do-nothing baseline.

@@ -293,6 +293,11 @@ def cmd_ladder(args) -> None:
                                       _premium_columns(index, table, _DEFAULT_PERIOD, plan)))
 
 
+# The rungs sizing prints. B2 minus B0 counts what curtailing at low prices earns as well, which
+# needs no battery; "B2 no battery" splits the two.
+_SIZING_RUNGS = ("B0 no battery", "B2 no battery", "B2 perfect foresight")
+
+
 def cmd_sizing(args) -> None:
     """RQ2: what is the optimal degree of connection undersizing?"""
     rows, out = [], []
@@ -309,16 +314,21 @@ def cmd_sizing(args) -> None:
         plant = PlantConfig(conn_mw=conn)
         run, index, wind, pv, price, rebap = _setup(args, plant=plant)
         table, prem = _premium(args, run, index, wind, pv)
-        res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False)
-        for name in ("B0 no battery", "B2 perfect foresight"):
+        res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False,
+                         include_b2_no_battery=True)
+        for name in _SIZING_RUNGS:
             c = res[name]["cost"]
             rows.append({"conn_MW": conn, "overbuild": plant.overbuild_ratio,
                          "controller": name, "net_EUR": c["net_revenue"],
                          "forced_curt_MWh": c["forced_curtail_mwh"]})
         if args.out:
-            out += tables.rung_rows(res, run, _window_columns(args, index, run.dt),
-                                    _premium_columns(index, table, _DEFAULT_PERIOD),
-                                    conn_mw=conn, overbuild=plant.overbuild_ratio)
+            net = {name: r["cost"]["net_revenue"] for name, r in res.items()}
+            out += tables.rung_rows(
+                res, run, _window_columns(args, index, run.dt),
+                _premium_columns(index, table, _DEFAULT_PERIOD), conn_mw=conn,
+                overbuild=plant.overbuild_ratio,
+                battery_value_eur=net["B2 perfect foresight"] - net["B2 no battery"],
+                chosen_curtailment_value_eur=net["B2 no battery"] - net["B0 no battery"])
     df = pd.DataFrame(rows)
     # generation and installed ratings are the same at every connection size
     installed = run.plant.installed_mw
@@ -328,9 +338,11 @@ def cmd_sizing(args) -> None:
     print(f"peak combined output in the window: {peak:.1f} MW, {peak / installed:.3f} of "
           "installed (national Energy-Charts factors)")
     print(df.to_string(index=False, float_format=lambda x: f"{x:,.2f}"))
-    piv = df.pivot(index="conn_MW", columns="controller", values="net_EUR")
-    piv["battery_value_EUR"] = piv["B2 perfect foresight"] - piv["B0 no battery"]
-    print("\nValue of the battery by connection size:")
+    piv = df.pivot(index="conn_MW", columns="controller", values="net_EUR")[list(_SIZING_RUNGS)]
+    piv["battery_value_EUR"] = piv["B2 perfect foresight"] - piv["B2 no battery"]
+    piv["chosen_curtailment_value_EUR"] = piv["B2 no battery"] - piv["B0 no battery"]
+    print("\nValue by connection size: the battery's own (B2 - B2 no battery), and that of "
+          "curtailing\nat low prices, which needs no battery (B2 no battery - B0):")
     print(piv.to_string(float_format=lambda x: f"{x:,.0f}"))
     if args.out:
         _write(args, out)
