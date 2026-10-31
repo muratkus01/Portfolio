@@ -134,12 +134,41 @@ def test_a_premium_that_changes_in_the_window_needs_a_planning_premium_for_b3():
                    premium_rate=rate)
 
 
-def test_forecasts_do_not_leak_the_truth():
+def test_forecasts_carry_an_error_and_no_negative_generation():
     run = RunConfig()
     wind, pv, price = synth()
     wf, pf, prf = make_forecasts(wind, pv, price, run, np.random.default_rng(0))
     assert np.all(wf >= 0) and np.all(pf >= 0)
     assert not np.allclose(wf, wind) and not np.allclose(prf, price)
+
+
+def test_early_forecasts_ignore_later_prices_and_the_window_length():
+    """Regression test: later prices and the window's length reached the forecasts of a
+    window's first steps, and so B3's decisions there.
+
+    The price error was sized on the spread of the whole window's prices, and the three series
+    drew from one stream in turn, so a step's PV and price errors depended on the window's
+    length.
+    """
+    run = RunConfig(horizon_steps=8)
+    wind, pv, price = synth(64)
+    later = np.r_[price[:32], price[32:] + 400.0]
+    base = make_forecasts(wind, pv, price, run, np.random.default_rng(0))
+    moved = make_forecasts(wind, pv, later, run, np.random.default_rng(0))
+    short = make_forecasts(wind[:32], pv[:32], price[:32], run, np.random.default_rng(0))
+    for name, b, m, s in zip(("wind", "PV", "price"), base, moved, short):
+        assert m[:32] == pytest.approx(b[:32]), f"{name}: later prices reached it"
+        assert s == pytest.approx(b[:32]), f"{name}: the window's length reached it"
+
+
+def test_the_price_error_is_sized_on_the_given_scale_or_else_the_first_horizon():
+    run = RunConfig(horizon_steps=8)
+    wind, pv, price = synth(64)
+    error = {scale: make_forecasts(wind, pv, price, run.with_(forecast_price_scale=scale),
+                                   np.random.default_rng(0))[2] - price
+             for scale in (10.0, 20.0, None)}
+    assert error[20.0] == pytest.approx(2 * error[10.0])
+    assert error[None] == pytest.approx(np.std(price[:8]) / 10.0 * error[10.0])
 
 
 def test_six_hour_rule_removes_the_premium_for_the_whole_run():

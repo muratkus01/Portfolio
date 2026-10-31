@@ -151,6 +151,11 @@ class RunConfig:
     terminal_price: float | None = None
     forecast_sigma: float = 0.15
     forecast_rho: float = 0.8
+    # What B3's price-forecast error is sized on, EUR/MWh: the error's standard deviation is
+    # forecast_sigma times this. It must be known before the window, or later prices reach
+    # B3's earlier forecasts. None sizes it on the effective price of the first planning
+    # horizon, the only prices B3's first plan sees (`baselines.make_forecasts`).
+    forecast_price_scale: float | None = None
     seed: int = 0
 
     plant: PlantConfig = field(default_factory=PlantConfig)

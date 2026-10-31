@@ -239,11 +239,31 @@ def ar_noise(n, rng, rho):
 
 
 def make_forecasts(wind, pv, eff_price, run: RunConfig, rng):
+    """B3's forecasts: the truth with AR(1) errors of relative size `run.forecast_sigma`.
+
+    No price after a plan's horizon may reach the forecasts that plan sees. Two did. The price
+    error was sized on the whole window's price spread, so a later price moved the error of
+    every earlier forecast; it is sized now on `run.forecast_price_scale`, known before the
+    window, or else on the effective price of the first planning horizon. And the three series
+    drew from one stream in turn, so a step's PV and price errors depended on how many steps
+    the window held; each series now draws from a stream of its own.
+
+    wind, pv: available generation per step, MW, e.g. np.array([31.2, 29.8, ...]).
+    eff_price: effective price per step, EUR/MWh (`market.effective_price`).
+    run: the run's settings; forecast_sigma, forecast_rho, forecast_price_scale and
+        horizon_steps are read.
+    rng: the generator the three streams are seeded from, e.g. np.random.default_rng(0).
+    Returns (wind_fc, pv_fc, price_fc), one value per step; generation is clipped at 0.
+    """
     n = len(wind)
     s, r = run.forecast_sigma, run.forecast_rho
-    return (np.clip(wind * (1 + s * ar_noise(n, rng, r)), 0, None),
-            np.clip(pv * (1 + s * ar_noise(n, rng, r)), 0, None),
-            eff_price + s * np.std(eff_price) * ar_noise(n, rng, r))
+    scale = (run.forecast_price_scale if run.forecast_price_scale is not None
+             else float(np.std(eff_price[:run.horizon_steps])))
+    wind_rng, pv_rng, price_rng = (np.random.default_rng(seed)
+                                   for seed in rng.integers(2 ** 63, size=3))
+    return (np.clip(wind * (1 + s * ar_noise(n, wind_rng, r)), 0, None),
+            np.clip(pv * (1 + s * ar_noise(n, pv_rng, r)), 0, None),
+            eff_price + s * scale * ar_noise(n, price_rng, r))
 
 
 def _refuse_premium_on_grid_energy(name: str, res: dict[str, np.ndarray],
