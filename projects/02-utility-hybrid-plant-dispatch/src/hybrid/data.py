@@ -144,8 +144,10 @@ def load_year(year: int, days: int | None = None,
     # rooftop output that the DC fleet still counts, so it understated a fully exporting
     # plant, most of all in winter; total_power's 'Solar' includes it.
     pv = pick(total, "Solar")
-    # The market-value proxy keeps public feed-in as its PV weight, the series it has always
-    # been checked with (`market.market_values`); only the plant's PV factor changes.
+    # The market-value proxy keeps public feed-in as its PV weight, as before
+    # (`market.market_values`). Energy-Charts' total solar is its public solar times one
+    # factor per month, so a monthly value comes out the same with either weight; an annual
+    # value does not, as the factors weight the months differently.
     pv_feed_in = pick(power, "Solar")
 
     # Each quarter-hour is divided by its own month's fleet. One annual figure near the
