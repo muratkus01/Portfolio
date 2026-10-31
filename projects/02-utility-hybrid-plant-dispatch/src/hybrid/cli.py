@@ -175,7 +175,11 @@ def _print_negprice(year: int, by_vintage: dict, rules: list, premiums: dict,
     print(f"rule of each commissioning vintage in {year}:")
     for vintage, rule in by_vintage.items():
         print(f"  {vintage:<22}{rule}")
-    print("market value: day-ahead price weighted by national feed-in (EEG Anlage 1)")
+    # Anlage 1 weights by the TSOs' online extrapolation (Nr. 5.1); the data layer reads
+    # public generation instead, so these values only approximate the statutory ones.
+    print("market value: a proxy, the day-ahead price weighted by public national generation\n"
+          "  (EEG Anlage 1 Nr. 3.3, 4.3); the premium is settled on the TSOs' published values,\n"
+          "  which this project does not load")
     no_premium = []
     for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES:
         table = premiums[label][0]

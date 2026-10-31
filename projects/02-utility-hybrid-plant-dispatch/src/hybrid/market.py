@@ -157,11 +157,11 @@ def market_values(price: pd.Series, feed_in: pd.DataFrame,
     """Technology market values ("Marktwert") per Berlin calendar month or year.
 
     EEG 2023 Anlage 1 Nr. 3.3 (monthly value MW) and Nr. 4.3 (annual value JW): the day-ahead
-    price of each quarter-hour weighted by the technology's national feed-in. The statute
-    weights by the TSOs' online extrapolation (Nr. 5.1), which ignores curtailment; public
-    generation data drops in curtailed, cheap hours, so this proxy runs high. On Energy-Charts
-    data for 2025 it gives 77.27 EUR/MWh for onshore wind and 45.95 for solar, against the
-    published JW of 74.41 and 45.08.
+    price of each quarter-hour weighted by the technology's national feed-in. Built from public
+    generation data, this is a PROXY for the values the TSOs publish, which the premium is
+    settled on. They weight by an online extrapolation that leaves curtailment out (Nr. 5.1);
+    generation data that records curtailed output gives cheap, curtailed hours less weight, so
+    the proxy should run high. No committed data measures the gap yet.
 
     Parameters
     ----------

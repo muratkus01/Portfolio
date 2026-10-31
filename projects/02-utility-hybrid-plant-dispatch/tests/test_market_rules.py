@@ -287,6 +287,21 @@ def test_negprice_note_reports_the_window_not_a_fixed_year(monkeypatch, capsys):
     assert "AW 95.0 (older vintage) none" in out
 
 
+def test_negprice_calls_its_market_values_a_proxy(monkeypatch, capsys):
+    """Regression test: the output presented the computed market values as the statutory ones.
+
+    Anlage 1 weights by the TSOs' online extrapolation, which leaves curtailment out (Nr. 5.1),
+    and the premium is settled on the values they publish. The project weights by public
+    generation data, so its values are a proxy and the output must say so.
+    """
+    monkeypatch.setattr(cli, "load_year", two_months)
+    monkeypatch.setattr(cli, "run_ladder", recording_ladder([]))
+    assert cli.main(["negprice", "--year", "2025", "--days", "2"]) == 0
+    out = capsys.readouterr().out
+    assert "market value: a proxy" in out
+    assert "published values" in out, "what the premium is settled on"
+
+
 # ------------------------------------------------------------------ EEG switch
 def test_effective_price_carries_no_premium_when_eeg_is_off():
     """Regression test: effective_price added the premium with eeg_enabled=False, while
