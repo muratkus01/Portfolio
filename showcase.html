@@ -1573,7 +1573,7 @@
               <p>Sums the installed home-storage fleet of the 16 federal states from the Bundesnetzagentur MaStR register, as exported by Battery-Charts.de; no dispatch or flexibility is scaled:</p>
               <p>&bull; <strong>Fleet Growth Trajectory:</strong> MaStR register, lithium-ion home storage (about 97% of all home storages), installed nameplate on 1 January of each year: 2024 (1,119,240 units, 10.03 GWh, 6.19 GW) &rarr; 2025 (1,670,776 units, 14.90 GWh, 9.46 GW) &rarr; 2026 (2,190,625 units, 19.12 GWh, 12.16 GW). The mean unit gets SMALLER as the fleet grows, from 8.96 kWh to 8.73 kWh, because newly registered home storages are smaller than the installed base. The register export ends 13 January 2026, so 2026 is a January snapshot and not a full year.</p>
               <p>&bull; <strong>Top Federal States by Fleet Size (MaStR home storage, 1 January 2026):</strong> Bayern (435k units, 3.80 GWh), Nordrhein-Westfalen (430k units, 3.76 GWh), Baden-Wuerttemberg (349k units, 3.05 GWh), Niedersachsen (271k units, 2.37 GWh), energy at the Germany-wide mean of 8.73 kWh per unit.</p>
-              <p>&bull; <strong>Fossil Gas (thesis Table 10-13, copied here and not reproduced):</strong> if every extra MWh of battery export replaced gas one to one, the thesis's national hourly shifts would equal up to 97% of gas output in that hour (-5,264.3 MWh on 1 July 2024 at 19:00 CET). This is an accounting estimate with no merit-order or plant model. It is also an upper bound, because per unit it has nearly every home battery at full power in the same hour.</p>
+              <p>&bull; <strong>Fossil Gas (thesis Table 10-13, copied here and not reproduced):</strong> if every MWh of the thesis's national hourly shifts replaced gas one to one, the shifts would equal up to 97% of gas output in that hour (-5,264.3 MWh on 1 July 2024 at 19:00 CET). This is an accounting estimate with no merit-order or plant model. It is also an upper bound, because per unit it has nearly every home battery at full power in the same hour.</p>
             </div>
           </div>
 
@@ -1992,7 +1992,7 @@
               <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.74rem;">Hard-coded thesis values</span>
             </div>
             <p style="font-size: 0.78rem; color: var(--text-sub); line-height: 1.55; padding: 10px 20px 0;">
-              Copied from thesis Table 10-13 (2024 days) into <code>national_impact.REPRESENTATIVE_DAYS</code>; the method and the fleet behind the shifts are not reproduced in this repository. The shift is the optimised minus the rule-based national grid exchange in that hour (negative means more export or less import). The gas share assumes every extra MWh of battery export replaces gas one to one; there is no merit-order or plant model. Against the thesis 2024 fleet (1,116,967 home storages, 6,167 MW), the summer, negative-price and scarcity shifts equal 85 to 94% of every home battery's inverter rating for a full hour: an upper bound that assumes every battery takes part, with perfect foresight. The code gives the hours without a clock; on the thesis clock (CET, no summer time) the summer, scarcity and negative-price hours fall on the day's highest or lowest price, so the table uses CET. Prices are the EPEX day-ahead price of that hour in the public thesis input data.
+              Copied from thesis Table 10-13 (2024 days) into <code>national_impact.REPRESENTATIVE_DAYS</code>; the method and the fleet behind the shifts are not reproduced in this repository. The shift is the optimised minus the rule-based national grid exchange in that hour (negative means more export or less import). The gas share assumes every MWh of a negative shift replaces gas output one to one; there is no merit-order or plant model. Against the thesis 2024 fleet (1,116,967 home storages, 6,167 MW), the summer, negative-price and scarcity shifts equal 85 to 94% of every home battery's inverter rating for a full hour: an upper bound that assumes every battery takes part, with perfect foresight. The code gives the hours without a clock; on the thesis clock (CET, no summer time) the summer, scarcity and negative-price hours fall on the day's highest or lowest price, so the table uses CET. Prices are the EPEX day-ahead price of that hour in the public thesis input data.
             </p>
             <table class="ladder-tbl">
               <thead>
@@ -2014,7 +2014,7 @@
                   <td>166.79 EUR/MWh</td>
                   <td class="emerald" style="font-weight:700;">-5,264.3 MWh</td>
                   <td class="emerald" style="font-family:var(--font-mono); font-weight:700;">97.0%</td>
-                  <td>Extra battery export in the evening price peak</td>
+                  <td>Lower net grid draw (more export or less import) in the evening price peak</td>
                 </tr>
                 <tr>
                   <td><span class="day-preset-tag alert">Winter Scarcity</span></td>
@@ -2023,7 +2023,7 @@
                   <td>936.28 EUR/MWh</td>
                   <td class="emerald" style="font-weight:700;">-5,775.9 MWh</td>
                   <td class="emerald" style="font-family:var(--font-mono); font-weight:700;">30.2%</td>
-                  <td>Extra battery export at the scarcity price peak</td>
+                  <td>Lower net grid draw at the scarcity price peak</td>
                 </tr>
                 <tr>
                   <td><span class="day-preset-tag">Transition Ramp</span></td>
@@ -2032,7 +2032,7 @@
                   <td>68.75 EUR/MWh</td>
                   <td class="cyan" style="font-weight:700;">-2,493.1 MWh</td>
                   <td class="cyan" style="font-family:var(--font-mono); font-weight:700;">19.6%</td>
-                  <td>Extra battery export in the morning ramp</td>
+                  <td>Lower net grid draw in the morning ramp</td>
                 </tr>
                 <tr>
                   <td><span class="day-preset-tag">Winter Base</span></td>
@@ -2041,7 +2041,7 @@
                   <td>138.60 EUR/MWh</td>
                   <td class="cyan" style="font-weight:700;">-692.5 MWh</td>
                   <td class="cyan" style="font-family:var(--font-mono); font-weight:700;">4.5%</td>
-                  <td>Small extra battery export in the morning</td>
+                  <td>Slightly lower net grid draw in the morning</td>
                 </tr>
                 <tr>
                   <td><span class="day-preset-tag danger">Negative Price Crash</span></td>
@@ -2049,8 +2049,8 @@
                   <td>12:00</td>
                   <td>-135.45 EUR/MWh</td>
                   <td class="amber" style="font-weight:700;">+5,448.1 MWh</td>
-                  <td class="amber" style="font-family:var(--font-mono); font-weight:700;">0% (no extra export)</td>
-                  <td>Less export than the rule-based case: export withheld at a negative price</td>
+                  <td class="amber" style="font-family:var(--font-mono); font-weight:700;">0% (positive shift)</td>
+                  <td>Higher net grid draw than the rule-based case at a negative price (export withheld or grid charging)</td>
                 </tr>
               </tbody>
             </table>
