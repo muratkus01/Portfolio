@@ -55,3 +55,27 @@ def test_cli_national_impact_runs(capsys):
     out = capsys.readouterr().out
     assert "Germany-Wide System-Level Impact Analysis" in out
     assert "Marginal Fossil Gas Displaced" in out
+
+
+def test_showcase_demo_01_runs_on_a_fresh_clone_without_the_mastr_download(tmp_path, monkeypatch):
+    """`python showcase.py` is the first thing a reviewer runs, and demo 01 failed there.
+
+    It read the national fleet unconditionally, so on a fresh clone (the MaStR exports are
+    gitignored) the whole demo failed although its battery ladder needs no data at all.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    from prosumer.experiments import national_impact
+
+    monkeypatch.setattr(mastr, "RAW", tmp_path)
+    national_impact.federal_states.cache_clear()
+    path = Path(__file__).resolve().parents[3] / "showcase.py"
+    spec = importlib.util.spec_from_file_location("showcase", path)
+    showcase = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(showcase)
+    try:
+        out = showcase.demo_01(real=False)
+    finally:
+        national_impact.federal_states.cache_clear()
+    assert "absent" in dict(out["rows"])["Fleet on 1 Jan 2026 (MaStR)"]

@@ -82,15 +82,22 @@ def demo_01(real: bool) -> dict:
     c = {k: v["cost"]["net_cost"] for k, v in res.items()}
     b1, b2, b3 = c["B1 rule-based"], c["B2 perfect foresight"], c["B3 rolling MPC"]
     viol = sum(sum(v["violations"].values()) for v in res.values())
-    from prosumer.experiments.national_impact import get_national_totals
-    nat26 = get_national_totals(2026)
+    # The MaStR exports are gitignored, so a fresh clone has none. The ladder above needs no
+    # data, so only the fleet row depends on the download.
+    from prosumer.data import mastr
+    if mastr.available():
+        from prosumer.experiments.national_impact import get_national_totals
+        nat26 = get_national_totals(2026)
+        fleet = f"{nat26['total_bess_units']/1e6:.2f}M units | {nat26['total_capacity_gwh']:.2f} GWh"
+    else:
+        fleet = "MaStR download absent, see data/raw/mastr/SOURCE.md"
 
     return {
         "rows": [("B1 self-consumption rule", f"{b1:8.3f} EUR"),
                  ("B2 perfect foresight", f"{b2:8.3f} EUR"),
                  ("B3 rolling MPC (24 h horizon)", f"{b3:8.3f} EUR"),
                  ("Thesis Optimal Balance (15/8/8)", "7.08% ROCE (-1,476 EUR/yr net)"),
-                 ("National Fleet 2026 Forecast", f"{nat26['total_bess_units']/1e6:.2f}M units | {nat26['total_capacity_gwh']:.2f} GWh")],
+                 ("Fleet on 1 Jan 2026 (MaStR)", fleet)],
         "headline": f"B3 recovers {(b1 - b3) / max(b1 - b2, 1e-9) * 100:.0f}% of the "
                     f"B1-to-B2 headroom; {viol} constraint violations across all rungs",
     }
@@ -122,36 +129,13 @@ def demo_05(real: bool) -> dict:
 
 
 def demo_06(real: bool) -> dict:
-    from f2b.config import RunConfig
-    from f2b.forecast import audit_no_lookahead, build_store, score_store
-    from f2b.policies import (b1_point_intraday, b3_stochastic_mpc, imbalance_cost_asymmetry,
-                              nv_policy, rebap_series, settle)
-
-    run = RunConfig()
-    n = 7 * 96
-    rng = np.random.default_rng(6)
-    h = diurnal(n)
-    truth = np.clip(120 + 60 * np.sin(np.arange(n) / 90)
-                    + 70 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1)
-                    + 8 * rng.standard_normal(n), 0, 290)
-    price = real_prices_eur_mwh(7) if real else synthetic_prices_eur_mwh(n, 6)
-    store = build_store(truth, run.forecast, run.dt, 144, np.random.default_rng(7), 300.0)
-    reb = rebap_series(n, price, np.diff(truth, prepend=truth[0]), run.market,
-                       np.random.default_rng(8))
-    cs, cl = imbalance_cost_asymmetry(reb, price)
-    rows = []
-    for name, (pos, tr) in (("B1 chase the mean forecast", b1_point_intraday(store, n, run)),
-                            ("NV newsvendor quantile", nv_policy(store, n, run, cs, cl)),
-                            ("B3 deadband stochastic MPC",
-                             b3_stochastic_mpc(store, n, run, cs, cl))):
-        s = settle(pos, tr, truth, price, reb, price, run)
-        rows.append((name, f"{s['eur_per_mwh']:6.2f} EUR/MWh, traded {s['traded_mwh']:7,.0f} MWh"))
-    sc = score_store(store, truth, 24)
+    # Project 03 is being rebuilt on real reBAP, a real intraday index and a learned forecast
+    # (HANDOFF, 2026-10-31). The old demo scored synthetic AR(1) noise as forecast skill, and
+    # the f2b API it called is changing, so the showcase computes no P03 number until the
+    # rebuilt results are committed as CSVs under projects/03-*/reports/.
     return {
-        "rows": rows,
-        "headline": f"6 h ahead: CRPS {sc['CRPS']:.1f} MW, calibration error "
-                    f"{sc['calibration_error']:.3f}; look-ahead audit "
-                    f"{audit_no_lookahead(store, n)} violations",
+        "rows": [("Status", "rebuilding on real data, results pending")],
+        "headline": "no P03 number is shown until the rebuilt results are committed",
     }
 
 

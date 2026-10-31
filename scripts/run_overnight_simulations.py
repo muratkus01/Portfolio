@@ -310,71 +310,16 @@ def _p02_run(params: dict) -> dict:
 # P03: Probabilistic Forecast-to-Bid
 # ============================================================
 def _p03_grid(smoke: bool) -> list:
-    tau        = [0.42]       if smoke else [0.15, 0.25, 0.35, 0.42, 0.50, 0.60, 0.70, 0.85]
-    sigma_base = [0.05]       if smoke else [0.02, 0.04, 0.059, 0.075, 0.10]
-    rebap_asym = [42.0]       if smoke else [15.0, 30.0, 42.0, 60.0, 80.0]
-    years      = [2025]       if smoke else [2024, 2025]
-    return [{"tau": t, "sigma_base": s, "rebap_asymmetry": r, "year": y}
-            for t, s, r, y in itertools.product(tau, sigma_base, rebap_asym, years)]
+    # Retired 2026-10-31. This grid swept the synthetic AR(1) forecast noise and a synthetic
+    # reBAP, so its "forecast" results measured the noise parameters, not a forecaster.
+    # Project 03 is being rebuilt on real data and will publish its own CSVs; no P03
+    # scenario is scheduled until the showcase reads those instead.
+    return []
 
 
 def _p03_run(params: dict) -> dict:
-    sys.path.insert(0, str(ROOT / "projects" / "03-probabilistic-forecast-to-bid" / "src"))
-    from f2b.policies import RunConfig, b0_day_ahead_only, b3_stochastic_mpc, settle
-    from f2b.forecast import build_store, ForecastConfig
-
-    year       = params["year"]
-    tau        = params["tau"]
-    sigma_base = params["sigma_base"]
-    rebap_asym = params["rebap_asymmetry"]
-
-    price_da = _load_price(year)
-    n = len(price_da)
-
-    new_forecast = dataclasses.replace(ForecastConfig(), sigma_base=sigma_base)
-    rc = dataclasses.replace(RunConfig(), forecast=new_forecast)
-
-    truth = (_load_wind_profile(year, 200.0) + _load_pv_profile(year, 100.0))[:n]
-    capacity = 300.0
-    rng_fc = np.random.default_rng(42)
-    store = build_store(truth=truth, cfg=rc.forecast, dt=rc.dt,
-                        max_lead=48, rng=rng_fc, capacity=capacity)
-
-    rng = np.random.default_rng(42)
-    rebap = rng.normal(rebap_asym * 0.3, rebap_asym, n)
-    rebap_short = float(np.percentile(rebap, 60))
-    rebap_long  = float(np.percentile(rebap, 40))
-    price_id    = price_da + rng.normal(0, 5, n)
-
-    pos_b0, trades_b0 = b0_day_ahead_only(store, n, rc)
-    r_b0 = settle(pos_b0, trades_b0, truth, price_da, rebap, price_id, rc)
-
-    pos_b3, trades_b3 = b3_stochastic_mpc(
-        store, n, rc,
-        rebap_mean_short=rebap_short,
-        rebap_mean_long=rebap_long,
-        deadband_k=tau,
-    )
-    r_b3 = settle(pos_b3, trades_b3, truth, price_da, rebap, price_id, rc)
-
-    capture_b0 = float(r_b0["eur_per_mwh"])
-    capture_b3 = float(r_b3["eur_per_mwh"])
-    # True net financial gain of B3 over B0 day-ahead baseline scaled to 30 days.
-    # Note: Can be negative when intraday transaction frictions exceed balancing savings,
-    # or when B0's unhedged positions are fortuitously settled at favorable reBAP cashout prices.
-    net_gain   = (float(r_b3["net_revenue"]) - float(r_b0["net_revenue"])) * (30.0 / (n / 96.0))
-    imb_b0     = max(float(r_b0["imbalance_mwh"]), 1.0)
-    imb_b3     = float(r_b3["imbalance_mwh"])
-    vol_red    = float(max(0.0, 1.0 - imb_b3 / imb_b0)) * 100
-
-    return {
-        "eval_days": 366 if year == 2024 else 365,
-        "annualised": False,
-        "capture_price_b0_eur_mwh": capture_b0,
-        "capture_price_b3_eur_mwh": capture_b3,
-        "net_gain_30d_eur": net_gain,
-        "imbalance_volume_reduction_pct": vol_red,
-    }
+    raise RuntimeError("the P03 scenario grid is retired while Project 03 is rebuilt on real "
+                       "data; see HANDOFF.md, 2026-10-31")
 
 
 # ============================================================

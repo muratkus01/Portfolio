@@ -14,7 +14,7 @@ projects live in `projects/`; three earlier ones were archived on 2026-10-09 and
 ## 🚀 Portfolio Projects & Test Suite
 
 The three active projects, all structured packages with full test suites:
-- `projects/01-prosumer-pv-bess-mpc-rl/` (`prosumer`, 88 tests)
+- `projects/01-prosumer-pv-bess-mpc-rl/` (`prosumer`, 174 tests)
 - `projects/02-utility-hybrid-plant-dispatch/` (`hybrid`, 26 tests)
 - `projects/03-probabilistic-forecast-to-bid/` (`f2b`, 18 tests)
 
@@ -23,7 +23,7 @@ Archived, still built and still tested, but not shown in `showcase.html`:
 - `archive/03-smart-ev-charging-14a/` (`evc`, 20 tests)
 - `archive/04-energy-sharing-rec/` (`rec`, 41 tests)
 
-Run everything, active and archived (219 passed, 1 skipped as of 2026-10-09):
+Run everything, active and archived (271 passed, 35 skipped without the gitignored data, as in CI, 2026-10-31):
 ```bash
 pytest -q
 ```
