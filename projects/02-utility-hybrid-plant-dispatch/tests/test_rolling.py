@@ -102,6 +102,24 @@ def test_every_rung_is_settled_on_the_realised_premium():
             np.sum(r["export"]) * 12.0 * run.dt), name
 
 
+def test_b3_plans_on_its_own_premium_and_b2_on_the_settled_one():
+    """The ladder must hand B3 the premium it can know, not the one it is settled on.
+
+    Settled on 20 EUR/MWh, B3 plans on 0. Under the rule "none", exporting through -10 EUR/MWh
+    in the last step is worth +7 EUR/MWh to B2, which plans on the settled premium, and -13 to
+    B3, so B2 exports there and B3 must not. A ladder that planned B3 on the settled premium
+    passed every other test.
+    """
+    run = RunConfig(dt=0.25, horizon_steps=4, forecast_sigma=0.0,
+                    market=MarketConfig(negative_price_rule="none"))
+    n = 8
+    price = np.r_[np.full(n - 1, 50.0), -10.0]
+    res = run_ladder(np.full(n, 10.0), np.zeros(n), price, run, premium_rate=20.0,
+                     b3_premium_rate=0.0)
+    assert res["B2 perfect foresight"]["export"][-1] > 1.0
+    assert res["B3 rolling MPC"]["export"][-1] == pytest.approx(0.0, abs=1e-6)
+
+
 def test_forecasts_do_not_leak_the_truth():
     run = RunConfig()
     wind, pv, price = synth()
