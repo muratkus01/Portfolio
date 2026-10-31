@@ -5,6 +5,7 @@
     python -m hybrid.cli negprice  --year 2025 --days 30   negative-price rule by vintage (RQ4)
     python -m hybrid.cli decompose --year 2025 --days 30   where the battery's value comes from
     python -m hybrid.cli b3-ablation --synthetic-demo      B3: forecast error x terminal value
+    python -m hybrid.cli report                            the published tables, to reports/
 
 A window runs --days days of 24 h from --start (MM-DD, Berlin time, 01-01 by default), or
 the whole Berlin calendar year with --full-year. --out PATH also writes the result as a CSV,
@@ -13,6 +14,7 @@ one row per scenario and rung (`hybrid.tables`).
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import datetime
 
 import numpy as np
@@ -619,11 +621,29 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--out", metavar="PATH",
                         help="also write the result as a CSV, one row per scenario and rung")
         sp.set_defaults(func=fn)
+    rp = sub.add_parser("report", help="run the published experiments into reports/")
+    rp.add_argument("--only", nargs="+", metavar="EXPERIMENT",
+                    help="run only these experiments, e.g. sizing_2024; processes running "
+                         "different ones can work side by side")
+    rp.add_argument("--reports-dir", metavar="PATH",
+                    help="write there instead of the project's reports/ folder")
+    rp.set_defaults(func=_cmd_report)
     return p
 
 
+def _cmd_report(args) -> None:
+    """The report command. `hybrid.report` runs the other commands, so it is imported here,
+    when the command runs, rather than when this module loads."""
+    from .report import cmd_report
+
+    cmd_report(args)
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Run one command; argv defaults to the command line. Returns the exit status, 0."""
+    argv = sys.argv[1:] if argv is None else list(argv)
     args = build_parser().parse_args(argv)
+    args.argv = argv          # the report records how it was started
     args.func(args)
     return 0
 
