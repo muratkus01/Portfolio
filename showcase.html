@@ -2435,10 +2435,10 @@
       <div class="sec-header">
         <h2 class="sec-title"><span class="sec-num-badge">03</span> Probabilistic Forecast-to-Bid for a German Wind and PV Portfolio</h2>
         <p class="sec-summary">
-          A balance responsible party sells the output of a <strong>200 MW wind + 100 MW PV portfolio</strong>, shaped like the German fleet, in the day-ahead auction, may correct the position intraday as forecasts improve, and settles what is left at the German imbalance price, the <strong>reBAP</strong>. A ladder of quantile forecasts, from climatology to <strong>LightGBM</strong> on weather forecasts as they were published at the time, is scored against the forecast the TSOs publish: in pinball loss, and in euros at real <strong>day-ahead, intraday (ID AEP) and reBAP prices</strong>.
+          A balance responsible party sells the output of a <strong>200 MW wind + 100 MW PV portfolio</strong>, shaped like the German fleet, in the day-ahead auction, may correct the position intraday as forecasts improve, and settles what is left at the German imbalance price, the <strong>reBAP</strong>. A ladder of quantile forecasts, from climatology to <strong>LightGBM</strong> on archived weather forecasts from earlier model runs, is scored against the forecast the TSOs publish: in pinball loss, and in euros at real <strong>day-ahead, intraday (ID AEP) and reBAP prices</strong>.
         </p>
         <div class="topology-strip">
-          <span class="topo-node accent">Open-Meteo Previous-Run Weather</span>
+          <span class="topo-node accent">Measured Output &amp; Open-Meteo Previous-Run Weather</span>
           <span class="topo-arrow">&rarr;</span>
           <span class="topo-node amber">Quantiles F0 to F3, TSO Forecast F4</span>
           <span class="topo-arrow">&rarr;</span>
@@ -2510,7 +2510,7 @@
               <div class="formula-box">R = &Sigma;<sub>t</sub> [ &lambda;<sub>t</sub><sup>DA</sup> &middot; Q<sub>t</sub><sup>DA</sup> + &Sigma;<sub>s</sub> ( &lambda;<sub>t</sub><sup>ID</sup> &middot; &Delta;Q<sub>t,s</sub> - (c<sub>s</sub> + 0.02 &middot; |&Delta;Q<sub>t,s</sub>|) &middot; |&Delta;Q<sub>t,s</sub>| ) + reBAP<sub>t</sub> &middot; (Y<sub>t</sub> - Q<sub>t</sub><sup>final</sup>) ] &middot; &Delta;t</div>
               <p>For a day-ahead schedule f, the result against the perfect forecast is exact, with error e = y - f, spread s = reBAP - DA price and H the hours evaluated:</p>
               <div class="formula-box">R(f) - R(y) = &Sigma;<sub>t</sub> e<sub>t</sub> &middot; s<sub>t</sub> &middot; &Delta;t = H &middot; mean(e) &middot; mean(s)  +  H &middot; cov(e, s)</div>
-              <p>The first term, the bias part, pays a long schedule while reBAP averages above the day-ahead price (by 4.42 EUR/MWh in the test window). The second, the alignment part, charges every error that runs with the system's imbalance. This portfolio is the German fleet in miniature, so a good forecast's remaining errors are the system's own errors: in both windows the TSO forecast's error correlates more strongly with the spread than any other rung's. Sources: <code>reports/test/error_alignment.csv</code> and <code>reports/validation/error_alignment.csv</code>.</p>
+              <p>The first term, the bias part, pays a schedule below the output, which leaves the portfolio long, while reBAP averages above the day-ahead price (by 4.42 EUR/MWh in the test window). The second, the alignment part, charges every error that runs with the system's imbalance. This portfolio is the German fleet in miniature, so a good forecast's remaining errors are the system's own errors: in both windows the TSO forecast's error correlates more strongly with the spread than any other rung's. Sources: <code>reports/test/error_alignment.csv</code> and <code>reports/validation/error_alignment.csv</code>.</p>
             </div>
 
             <!-- Tab 2: Regulatory Mechanics -->
@@ -2542,7 +2542,7 @@
               <p><strong>Policies:</strong> B0 schedules the day-ahead median and never corrects. B1 trades to the newest median at every intraday stage. B3 trades only the part of a revision beyond k times the stage's q90 - q10 band (k = 4 for F1 to F3 and 1 for F4, from the validation window):</p>
               <div class="formula-box">&Delta;Q<sub>s</sub> = sign(&delta;<sub>s</sub>) &middot; max( |&delta;<sub>s</sub>| - k &middot; (q90<sub>s</sub> - q10<sub>s</sub>), 0 ),   &delta;<sub>s</sub> = q50<sub>s</sub> - Q<sup>pos</sup></div>
               <p>NV schedules one quantile, 0.533, chosen from the imbalance-cost asymmetry of the training data (an ablation). REF schedules the realised output: the perfect forecast.</p>
-              <p><strong>Intraday result:</strong> following every revision (B1) loses money against scheduling once with every forecast that revises, in both windows, at every half-spread from 0.5 EUR/MWh; with the TSO forecast it loses 87,261 EUR in 2026 even at zero cost. The revisions are public, so by the time they are traded the intraday price already carries them. B3's band, tuned on the validation window, does not transfer: with the TSO forecast it loses 69,112 EUR against B0 in 2026 at a half-spread of 3 EUR/MWh. Sources: <code>reports/test/liquidity.csv</code> and <code>policies.csv</code>, and <code>reports/validation/liquidity.csv</code>.</p>
+              <p><strong>Intraday result:</strong> following every revision (B1) loses money against scheduling once with every forecast that revises, in both windows, at every half-spread from 0.5 EUR/MWh; with the TSO forecast it loses 87,261 EUR in 2026 even at zero cost. A likely reason: the revisions are public, and every trade here clears at the ID AEP, an index of the last trades before delivery, so the price already carries them. B3's band, tuned on the validation window, does not transfer: with the TSO forecast it loses 69,112 EUR against B0 in 2026 at a half-spread of 3 EUR/MWh. Sources: <code>reports/test/liquidity.csv</code> and <code>policies.csv</code>, and <code>reports/validation/liquidity.csv</code>.</p>
             </div>
           </div>
 
