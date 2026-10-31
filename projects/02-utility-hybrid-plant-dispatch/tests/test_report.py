@@ -247,12 +247,13 @@ def test_one_experiment_given_twice_is_refused():
 
 
 def test_the_publish_set_is_the_one_the_readme_needs():
-    """The pinned experiments, named after command and window, and the folder they go to."""
+    """The pinned experiments, named after command, window and options, and the folder they
+    go to."""
     from hybrid import report
 
     assert list(report.experiments()) == [
         "sizing_2024", "sizing_2025", "negprice_2024", "negprice_2025", "decompose_2024",
-        "decompose_2025", "ladder_2025-01-01_30d", "ladder_2025-07-01_30d",
-        "b3_ablation_synthetic_demo"]
+        "decompose_2025", "decompose_2024_conn-30", "decompose_2025_conn-30",
+        "ladder_2025-01-01_30d", "ladder_2025-07-01_30d", "b3_ablation_synthetic_demo"]
     assert report.REPORTS_DIR.parent.name == "02-utility-hybrid-plant-dispatch"
 

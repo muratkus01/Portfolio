@@ -38,6 +38,10 @@ REPORTS_DIR = PROJECT_DIR / "reports"
 # into arbitrage and the connection limit's effect, each over the calendar years 2024 and
 # 2025; B3 at the default plant on 30-day windows from 1 January and 1 July 2025; and the B3
 # ablation on the showcase's synthetic inputs.
+# decompose runs at the default 60 MW and at 30 MW. On national factors the plant's
+# generation never reaches 60 MW in either year, so there the connection limit's effect is 0
+# by construction; 30 MW is the widest connection of the sizing sweep that it exceeds in both,
+# as the B0 rows' forced curtailment shows.
 PUBLISH_SET = (
     "sizing --year 2024 --full-year",
     "sizing --year 2025 --full-year",
@@ -45,6 +49,8 @@ PUBLISH_SET = (
     "negprice --year 2025 --full-year",
     "decompose --year 2024 --full-year",
     "decompose --year 2025 --full-year",
+    "decompose --year 2024 --full-year --conn 30",
+    "decompose --year 2025 --full-year --conn 30",
     "ladder --year 2025 --start 01-01 --days 30",
     "ladder --year 2025 --start 07-01 --days 30",
     "b3-ablation --synthetic-demo",

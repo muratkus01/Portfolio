@@ -8,7 +8,7 @@ ladder B0 → B3 and against a learned policy.**
 ## 0. Implementation status
 
 Ladder B0/B1/B2/B3 implemented and running on **real German 2025 wind, PV and price data**
-(national capacity factors from Energy-Charts via `datakit`). 156 tests pass.
+(national capacity factors from Energy-Charts via `datakit`). 157 tests pass.
 
 ```bash
 pip install -e ".[dev]" && python -m pytest tests/ -q
@@ -22,7 +22,10 @@ python -m hybrid.cli report                            # the publish set, to rep
 
 `--start MM-DD` (Berlin time) and `--full-year` choose a command's window, and `--out PATH`
 also writes its result as a CSV: one row per scenario and rung, with every settlement term,
-the window and the settings used. `report` runs the pinned publish set in
+the window and the settings used. `decompose` splits the battery's value into arbitrage and
+the connection limit's effect at the connection `--conn MW` sets, 60 MW by default, and
+leaves out what curtailing at low prices earns without a battery. `report` runs the pinned
+publish set in
 `src/hybrid/report.py` into `reports/`, with `window_stats.csv` and `run_meta.csv` (commit,
 versions, input hashes and sources) beside the tables. `--only` runs a part of it, so parts
 can run side by side, and `--commands FILE` runs the command lines in a file instead. The

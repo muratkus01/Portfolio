@@ -506,14 +506,15 @@ _UNCONSTRAINED_MW = 200.0
 def cmd_decompose(args) -> None:
     """RQ1: is the battery's value curtailment avoidance, or arbitrage?
 
-    The battery's value is B2 minus "B2 no battery", at the connection as built and at one so
-    wide it never binds. There no spill reaches the battery, so all of its value is arbitrage:
-    the plant's own energy sold at better prices. The difference is the connection limit's
-    effect: the spill the battery stores, net of the discharge the limit holds back. B2 minus
-    B0 is not the battery's value, as it also holds what curtailing at low prices earns.
+    The battery's value is B2 minus "B2 no battery", at the connection as built (--conn, the
+    plant's 60 MW by default) and at one so wide it never binds. There no spill reaches the
+    battery, so all of its value is arbitrage: the plant's own energy sold at better prices.
+    The difference is the connection limit's effect: the spill the battery stores, net of the
+    discharge the limit holds back. B2 minus B0 is not the battery's value, as it also holds
+    what curtailing at low prices earns.
     """
     results = {}
-    for scenario, plant in (("as built", PlantConfig()),
+    for scenario, plant in (("as built", PlantConfig(conn_mw=args.conn)),
                             ("unconstrained connection", PlantConfig(conn_mw=_UNCONSTRAINED_MW))):
         run, index, wind, pv, price, rebap = _setup(args, plant=plant)
         table, prem = _premium(args, run, index, wind, pv)
@@ -663,6 +664,17 @@ def _days(text: str) -> int:
     return days
 
 
+def _megawatts(text: str) -> float:
+    """argparse type of --conn: a connection's export limit in MW, above 0, e.g. "30"."""
+    try:
+        mw = float(text)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"not a number of MW: {text!r}") from err
+    if not mw > 0:
+        raise argparse.ArgumentTypeError(f"a connection needs more than 0 MW, not {text}")
+    return mw
+
+
 def build_parser() -> argparse.ArgumentParser:
     """The command line: one subcommand per experiment, each with its window and settings."""
     p = argparse.ArgumentParser(prog="hybrid", description=__doc__,
@@ -687,6 +699,9 @@ def build_parser() -> argparse.ArgumentParser:
                                  "instead of the window and plant options")
         else:
             sp.add_argument("--fast", action="store_true")
+        if name == "decompose":
+            sp.add_argument("--conn", type=_megawatts, default=PlantConfig().conn_mw,
+                            metavar="MW", help="the connection as built, MW (default: %(default)g)")
         sp.add_argument("--progress", action="store_true")
         sp.add_argument("--out", metavar="PATH",
                         help="also write the result as a CSV, one row per scenario and rung")

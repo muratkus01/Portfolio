@@ -203,6 +203,22 @@ def test_decompose_splits_the_battery_from_curtailing_at_low_prices(monkeypatch,
         np.full(8, effect / battery["as built"]))
 
 
+def test_decompose_splits_at_the_connection_it_is_given(monkeypatch, tmp_path):
+    """Feature test: decompose split the battery's value at the default 60 MW only, which the
+    national data's generation never reaches, so the connection limit's effect was always 0
+    there. --conn sets the connection as built; here 30 MW, where B0 spills."""
+    df = result_table(monkeypatch, tmp_path,
+                      ["decompose", "--year", "2025", "--days", "1", "--conn", "30"])
+
+    assert df.groupby("scenario")["plant_conn_mw"].first().to_dict() == {
+        "as built": 30.0, "unconstrained connection": 200.0}
+    built = df[df["scenario"] == "as built"].set_index("rung")
+    assert built.loc[B0, "forced_curtail_mwh"] > 1.0, "the connection binds"
+    assert abs(built.loc[B0, "connection_limit_effect_eur"]) > 1.0
+    with pytest.raises(SystemExit):
+        cli.main(["decompose", "--conn", "0"])
+
+
 def tiny_demo():
     """Inputs short enough for B3 in a test, in the shape of `synthetic.demo_inputs`: two hours
     of spill at 20 EUR/MWh, then two hours of headroom at 90, behind a 20 MW connection, on a
