@@ -19,7 +19,23 @@ from .market import (market_values, premium_rates, premium_table, rebap_series,
                      vintage_rules)
 
 
+# The default plant, at MarketConfig's applicable values from the 2024/2025 tender ceilings, is
+# commissioned and awarded from 2023 on, so it is paid against its technology's ANNUAL market
+# value (EEG 2023 Anlage 1 Nr. 2), as negprice's recent vintage is. --neg-rule varies the
+# negative-price rule as a sensitivity on this plant; its applicable values and their annual
+# reference stay.
+_DEFAULT_PERIOD = "year"
+
+
 def _setup(args, plant: PlantConfig | None = None, market: MarketConfig | None = None):
+    """Run settings and the evaluated window.
+
+    args: parsed CLI arguments, e.g. year=2024, days=20, horizon=96, neg_rule="new_2025".
+    plant, market: settings to run instead of the defaults.
+    Returns (run, index, wind, pv, price, rebap): the RunConfig, the window's UTC timestamps,
+    and per step the plant's available wind and PV (MW), the day-ahead price and a synthetic
+    reBAP (EUR/MWh).
+    """
     run = RunConfig(dt=0.25, horizon_steps=args.horizon,
                     plant=plant or PlantConfig(),
                     market=market or MarketConfig(negative_price_rule=args.neg_rule))
@@ -27,9 +43,62 @@ def _setup(args, plant: PlantConfig | None = None, market: MarketConfig | None =
     wind, pv, price = to_plant(df, run.plant.wind_mw, run.plant.pv_mw)
     rng = np.random.default_rng(run.seed)
     rebap = rebap_series(len(price), price, run.market, rng)
-    # premium rate: applicable value minus the market value realised over this window
-    premium = max(0.0, run.market.anzulegender_wert_wind - float(np.mean(price)))
-    return run, wind, pv, price, rebap, premium
+    return run, df.index, wind, pv, price, rebap
+
+
+def _national_weights(frame: pd.DataFrame) -> pd.DataFrame:
+    """Per-technology weights of the market-value proxy, from `load_year`'s factors.
+
+    National feed-in over installed capacity: the capacity is one figure within a month, so
+    the factor weights the price as the feed-in does. MW Wind an Land weights by onshore
+    feed-in alone (Anlage 1 Nr. 3.3.2), which `wind_cf` is.
+    """
+    return frame[["wind_cf", "pv_cf"]].set_axis(["wind", "pv"], axis=1)
+
+
+def _realised_premium(year: pd.DataFrame, index: pd.DatetimeIndex, wind: np.ndarray,
+                      pv: np.ndarray, applicable: dict, period: str) -> tuple:
+    """Premium table and per-step rate a plant is settled on: the REALISED market values.
+
+    The premium is paid against the market value of the whole calendar month or year (EEG
+    2023 Anlage 1 Nr. 3.1.1, 4.1.1), so the values come from the full year's data, not from
+    the window alone. Each technology gets max(0, AW - market value), and the plant's rate
+    weights the two by its own generation (`market.premium_table`).
+
+    year: `load_year(year)`, the whole year. index: the window's timestamps.
+    wind, pv: the plant's available generation on the window, MW per step.
+    applicable: anzulegender Wert per technology, EUR/MWh, e.g. {"wind": 73.5, "pv": 68.0}.
+    period: "month" or "year".
+    Returns (premium_table frame, the plant's rate per step as np.ndarray).
+    """
+    values = market_values(year["price_eur_mwh"], _national_weights(year), period)
+    table = premium_table(index, {"wind": wind, "pv": pv}, values, applicable, period)
+    return table, premium_rates(index, table, period)
+
+
+def _applicable(market: MarketConfig) -> dict:
+    """The plant's applicable values per technology, EUR/MWh."""
+    return {"wind": market.anzulegender_wert_wind, "pv": market.anzulegender_wert_pv}
+
+
+def _premium(args, run: RunConfig, index: pd.DatetimeIndex, wind: np.ndarray,
+             pv: np.ndarray) -> tuple:
+    """The default plant's premium on the window: table and per-step rate it is settled on.
+
+    B2 plans on the same rate, as perfect foresight may; B0 and B1 read no prices.
+    Returns (premium_table frame, rate per step in EUR/MWh).
+    """
+    year = load_year(args.year, None, run.dt)
+    return _realised_premium(year, index, wind, pv, _applicable(run.market), _DEFAULT_PERIOD)
+
+
+def _print_premium(table: pd.DataFrame, period: str) -> None:
+    """Print a premium table's premiums per technology and the plant's rate, by period."""
+    print(f"market premium, settled on the realised {'annual' if period == 'year' else 'monthly'}"
+          " market value (a proxy, see negprice), EUR/MWh:")
+    for key, t in table.iterrows():
+        print(f"  {key}: wind {t['premium_wind']:.2f}, PV {t['premium_pv']:.2f}, "
+              f"plant {t['rate']:.2f}")
 
 
 def _report(res: dict, title: str) -> None:
@@ -53,14 +122,15 @@ def _report(res: dict, title: str) -> None:
 
 
 def cmd_ladder(args) -> None:
-    run, wind, pv, price, rebap, prem = _setup(args)
+    run, index, wind, pv, price, rebap = _setup(args)
+    table, prem = _premium(args, run, index, wind, pv)
     print(f"{len(price)} steps | {args.days} days of {args.year} | "
           f"plant {run.plant.wind_mw:.0f} MW wind + {run.plant.pv_mw:.0f} MW PV + "
           f"{run.plant.bess_mw:.0f} MW/{run.plant.bess_mwh:.0f} MWh behind "
           f"{run.plant.conn_mw:.0f} MW (overbuild {run.plant.overbuild_ratio:.2f}x)")
     print(describe(wind, pv, price, run.plant.conn_mw, run.dt))
-    print(f"market premium rate: {prem:.2f} EUR/MWh | "
-          f"negative-price rule: {run.market.negative_price_rule}")
+    print(f"negative-price rule: {run.market.negative_price_rule}")
+    _print_premium(table, _DEFAULT_PERIOD)
     res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=not args.fast,
                      progress=args.progress)
     _report(res, f"Hybrid plant ladder, {args.days} days of {args.year}")
@@ -81,7 +151,8 @@ def cmd_sizing(args) -> None:
     # this project's top acquisition priority.
     for conn in (20.0, 25.0, 30.0, 40.0, 60.0):
         plant = PlantConfig(conn_mw=conn)
-        run, wind, pv, price, rebap, prem = _setup(args, plant=plant)
+        run, index, wind, pv, price, rebap = _setup(args, plant=plant)
+        _, prem = _premium(args, run, index, wind, pv)
         res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False)
         for name in ("B0 no battery", "B2 perfect foresight"):
             c = res[name]["cost"]
@@ -109,7 +180,7 @@ def cmd_sizing(args) -> None:
 # Each entry: wind and PV applicable value (EUR/MWh), label, market-value period. The recent
 # plant is the default plant of every other command, at the values MarketConfig sets and
 # cites. The older vintage's values are a sensitivity, not a sourced award; both are printed.
-_NEGPRICE_VINTAGES = ((73.5, 68.0, "AW 73.5 (recent onshore)", "year"),
+_NEGPRICE_VINTAGES = ((73.5, 68.0, "AW 73.5 (recent onshore)", _DEFAULT_PERIOD),
                       (95.0, 90.0, "AW 95.0 (older vintage)", "month"))
 
 
@@ -119,39 +190,30 @@ def _vintage_market(aw_wind: float, aw_pv: float, rule: str) -> MarketConfig:
                         anzulegender_wert_wind=aw_wind, anzulegender_wert_pv=aw_pv)
 
 
-def _negprice_premiums(args, dt: float, wind: np.ndarray, pv: np.ndarray) -> dict:
+def _negprice_premiums(args, dt: float, index: pd.DatetimeIndex, wind: np.ndarray,
+                       pv: np.ndarray) -> dict:
     """Premium table and per-step plant rate of each negprice vintage on the window.
 
-    The premium is paid against the REALISED market value of the whole calendar month or
-    year (EEG 2023 Anlage 1 Nr. 3.1.1, 4.1.1), so the values come from the full year's data,
-    not from the window alone. B0 and B1 do not read prices; B2 (perfect foresight) may plan
-    on the realised value, and every rung is settled on it, as the law settles. negprice runs
-    no B3, which as a deployable controller could only plan on the previous month's value.
+    Every rung is settled on the realised value (`_realised_premium`), as the law settles. B0
+    and B1 do not read prices; B2 (perfect foresight) may plan on the realised value. negprice
+    runs no B3, which as a deployable controller could only plan on the previous month's.
 
     args: parsed CLI arguments, e.g. year=2024, days=20. dt: step length in hours.
-    wind, pv: the plant's available generation on the window, MW per step.
+    index: the window's timestamps. wind, pv: the plant's available generation on the
+    window, MW per step.
     Returns {vintage label: (premium_table frame, plant rate per step as np.ndarray)}.
     """
     year = load_year(args.year, None, dt)
-    index = load_year(args.year, args.days, dt).index
-    # National feed-in over installed capacity, so the factors weight the price as the
-    # feed-in does while the capacity is one figure over the period. MW Wind an Land weights
-    # by onshore feed-in alone (Anlage 1 Nr. 3.3.2), which `wind_cf` must then be.
-    national = year[["wind_cf", "pv_cf"]].set_axis(["wind", "pv"], axis=1)
-    out = {}
-    for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES:
-        values = market_values(year["price_eur_mwh"], national, period)
-        table = premium_table(index, {"wind": wind, "pv": pv}, values,
-                              {"wind": aw_wind, "pv": aw_pv}, period)
-        out[label] = (table, premium_rates(index, table, period))
-    return out
+    return {label: _realised_premium(year, index, wind, pv, {"wind": aw_wind, "pv": aw_pv},
+                                     period)
+            for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES}
 
 
 def cmd_negprice(args) -> None:
     """RQ4: what does the tightened negative-price rule cost, by plant vintage?"""
     # One window for every scenario; only the market settings differ between them.
-    base, wind, pv, price, rebap, _ = _setup(args)
-    premiums = _negprice_premiums(args, base.dt, wind, pv)
+    base, index, wind, pv, price, rebap = _setup(args)
+    premiums = _negprice_premiums(args, base.dt, index, wind, pv)
     # The rule is fixed by the vintage (commissioning or tender date), and one vintage's
     # threshold also moves with the evaluated year (market.vintage_rules). Columns run from the
     # oldest vintage's rule to the newest, which is from the loosest to the tightest.
@@ -209,14 +271,16 @@ def _print_negprice(year: int, by_vintage: dict, rules: list, premiums: dict,
 
 def cmd_decompose(args) -> None:
     """RQ1: is the battery's value curtailment avoidance, or arbitrage?"""
-    run, wind, pv, price, rebap, prem = _setup(args)
+    run, index, wind, pv, price, rebap = _setup(args)
+    _, prem = _premium(args, run, index, wind, pv)
     base = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False)
     v_full = (base["B2 perfect foresight"]["cost"]["net_revenue"]
               - base["B0 no battery"]["cost"]["net_revenue"])
 
     # remove curtailment risk by making the connection unconstrained
     big = PlantConfig(conn_mw=200.0)
-    run2, w2, p2, pr2, rb2, prem2 = _setup(args, plant=big)
+    run2, idx2, w2, p2, pr2, rb2 = _setup(args, plant=big)
+    _, prem2 = _premium(args, run2, idx2, w2, p2)
     nocurt = run_ladder(w2, p2, pr2, run2, prem2, rb2, include_b3=False)
     v_arbitrage = (nocurt["B2 perfect foresight"]["cost"]["net_revenue"]
                    - nocurt["B0 no battery"]["cost"]["net_revenue"])
