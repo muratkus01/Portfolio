@@ -120,6 +120,20 @@ def test_b3_plans_on_its_own_premium_and_b2_on_the_settled_one():
     assert res["B3 rolling MPC"]["export"][-1] == pytest.approx(0.0, abs=1e-6)
 
 
+def test_a_premium_that_changes_in_the_window_needs_a_planning_premium_for_b3():
+    """Regression test: handed only a per-step premium, B3 planned on it, silently.
+
+    A premium that changes within the window is a realised value, which B3 cannot know when it
+    decides. Planned on it, B3 read the future; and as B3 prices each horizon at its decision
+    step's rate, it did not even plan on the rates it was given.
+    """
+    n = 8
+    rate = np.r_[np.zeros(4), np.full(4, 60.0)]
+    with pytest.raises(ValueError, match="b3_premium_rate"):
+        run_ladder(np.full(n, 10.0), np.zeros(n), np.full(n, 50.0), RunConfig(),
+                   premium_rate=rate)
+
+
 def test_forecasts_do_not_leak_the_truth():
     run = RunConfig()
     wind, pv, price = synth()

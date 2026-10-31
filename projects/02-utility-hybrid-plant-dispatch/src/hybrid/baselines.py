@@ -286,7 +286,10 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         foresight may; B0 and B1 read no prices.
     b3_premium_rate: the premium B3 plans on, one rate or one per step: in each step the rate
         B3 knows when it decides there, e.g. `market.planning_rates`, the previous month's
-        realised rate. None plans B3 on premium_rate as well.
+        realised rate. B3 prices each plan's whole horizon at the rate of the step it decides
+        in. None plans B3 on premium_rate, which B3 is then taken to know: right for an
+        assumed constant rate, a look-ahead for a realised one. A premium_rate that changes
+        within the window is a realised value, so it is refused without b3_premium_rate.
     rebap, schedule: imbalance price in EUR/MWh and the export the plant committed to, in MW,
         both per step. Each rung's deviation from the schedule is settled at reBAP only when
         both are given; no rung commits a schedule of its own, so reBAP alone settles nothing.
@@ -294,9 +297,18 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     export_cap: per-step export limit in MW (a redispatch order), or None for the connection.
     Returns {rung name: dispatch arrays plus "cost" (the settlement) and "violations"}.
     Raises AssertionError when a rung beats perfect foresight B2 on revenue before imbalance,
-    and NotImplementedError when a rung charged grid energy while the market premium is paid.
+    NotImplementedError when a rung charged grid energy while the market premium is paid, and
+    ValueError when B3 runs on a premium_rate that changes within the window and no
+    b3_premium_rate is given.
     """
     from .plant import check_feasible
+
+    # Planned on such a rate, B3 would know realised values before they are published; and as
+    # B3 prices a horizon at its decision step's rate, it would not even plan on them as given.
+    if include_b3 and b3_premium_rate is None and np.ptp(np.atleast_1d(premium_rate)) > 0:
+        raise ValueError("premium_rate changes within the window, so it is a realised value "
+                         "B3 cannot know when it decides; pass b3_premium_rate, the rate B3 "
+                         "knows in each step (e.g. market.planning_rates)")
 
     rng = np.random.default_rng(run.seed)
     # The step length counts the hours of a negative-price run, so planning must use the one
