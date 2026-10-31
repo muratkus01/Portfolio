@@ -77,17 +77,47 @@ def build_dataset(start: str, end: str, run: RunConfig,
     return df
 
 
-def read_netztransparenz(folder: Path) -> pd.DataFrame | None:
-    """reBAP and ID AEP from CSVs downloaded by hand from netztransparenz.de.
+# Value columns of the netztransparenz exports, by the start of their header.
+NTP_COLUMNS = {"ID AEP": "id_aep"}
+UTC_OFFSET_H = {"UTC": 0, "MEZ": 1, "MESZ": 2}
 
-    Placeholder until the first files arrive: the column layout of the site's export is
-    checked against real files before it is parsed, never guessed.
+
+def read_netztransparenz(folder: Path) -> pd.DataFrame | None:
+    """Imbalance and intraday prices from CSVs downloaded by hand from netztransparenz.de.
+
+    The site exports `Datum von;(Uhrzeit) von;Zeitzone;(Uhrzeit) bis;Zeitzone;<value>`,
+    semicolon-separated with decimal commas. Files may overlap; a later file wins. A file
+    whose value column is not recognised raises rather than being skipped.
     """
     files = sorted(Path(folder).glob("*.csv"))
     if not files:
         return None
-    raise NotImplementedError(f"{len(files)} netztransparenz file(s) found; the parser is "
-                              "written against their actual layout")
+    series: dict[str, list[pd.Series]] = {}
+    for path in files:
+        column, values = _read_ntp_csv(path)
+        series.setdefault(column, []).append(values)
+    out = {}
+    for column, parts in series.items():
+        joined = pd.concat(parts)
+        out[column] = joined[~joined.index.duplicated(keep="last")].sort_index()
+    return pd.DataFrame(out)
+
+
+def _read_ntp_csv(path: Path) -> tuple[str, pd.Series]:
+    raw = pd.read_csv(path, sep=";", decimal=",", encoding="utf-8-sig", dtype=str)
+    value_col = raw.columns[-1]
+    column = next((c for key, c in NTP_COLUMNS.items() if value_col.startswith(key)), None)
+    if column is None:
+        raise ValueError(f"{path.name}: unknown value column {value_col!r}")
+    zones = set(raw.iloc[:, 2].unique())
+    if not zones <= set(UTC_OFFSET_H):
+        raise ValueError(f"{path.name}: unexpected time zones {sorted(zones)}")
+    local = pd.to_datetime(raw.iloc[:, 0] + " " + raw.iloc[:, 1], format="%d.%m.%Y %H:%M")
+    offset = pd.to_timedelta(raw.iloc[:, 2].map(UTC_OFFSET_H), unit="h")
+    start = pd.DatetimeIndex(local - offset).tz_localize("UTC")
+    values = pd.to_numeric(raw[value_col].str.replace(".", "", regex=False)
+                           .str.replace(",", ".", regex=False), errors="coerce")
+    return column, pd.Series(values.to_numpy(float), index=start, name=column)
 
 
 def _year(y: int) -> tuple[str, str]:
