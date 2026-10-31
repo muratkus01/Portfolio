@@ -582,79 +582,136 @@ built yet), grid charging (not modelled), the wear cost, and the safety layer on
 
 ## 9. Deliverables
 
-1. An open 15-minute German hybrid-plant environment with correct EEG market-premium
-   mechanics - including the negative-price vintage switch and the monthly market-value
-   coupling, both of which are usually simplified away.
-2. A benchmark-ladder implementation (B0-B3) that is reusable for any co-located plant study.
-3. A distributional RL controller with a connection-capacity safety layer.
-4. The **battery value decomposition** - forecast-error management vs. curtailment avoidance
-   vs. arbitrage - which is the result a developer sizing a hybrid plant actually needs.
-5. A connection-sizing sensitivity study under the current and previous negative-price regimes.
-6. A written report suitable for conference submission.
+1. A 15-minute German hybrid-plant model with the EEG market premium per technology, on
+   monthly or annual market values, and the negative-price rule of every vintage.
+   *Delivered.* The design's monthly market-value coupling is not needed (6.2).
+2. A benchmark ladder B0 to B3 that is reusable for any co-located plant study. *Delivered.*
+3. A distributional RL controller with a connection-capacity safety layer. *Future work.*
+4. The battery value decomposition. *Delivered for arbitrage against the connection limit's
+   effect, and for the battery against curtailing at low prices; forecast-error management
+   needs a schedule.*
+5. A connection-sizing sensitivity under the current and previous negative-price regimes.
+   *Delivered under the rule of the newest plants only.*
+6. A written report suitable for conference submission. *Not written.*
 
 ---
 
 ## 10. Work packages and roadmap
 
-| WP | Content | Depends on | Output |
-|----|---------|-----------|--------|
-| WP1 | Weather-to-power chain: NWP ingestion, wind and PV conversion, bias correction | - | `src/model`, validation vs. aggregate |
-| WP2 | Market data pipeline: DA, ID, reBAP, market values, redispatch, balancing | - | `data/processed` |
-| WP3 | Plant model incl. battery, degradation, point of interconnection | WP1 | `src/model` |
-| WP4 | Settlement module: EEG premium with vintage switch and monthly accumulator, imbalance, redispatch compensation | WP2 | `src/market` |
-| WP5 | B0 + B1 + **validation gate** against aggregate generation | WP1, WP3, WP4 | Validation report - **gate** |
-| WP6 | Probabilistic wind/PV forecast layer with true issue times (shared with Project 06) | WP1 | `src/forecast` |
-| WP7 | MILP B2 + B3 rolling MPC with month-to-date coupling, tuned | WP3, WP4, WP6 | Strong baseline |
-| WP8 | Gymnasium environment + safety layer | WP3, WP6 | `src/envs`, `src/safety` |
-| WP9 | Distributional RL training, seeds | WP8 | Trained policies |
-| WP10 | Evaluation, sizing sweeps, value decomposition, report | WP7, WP9 | `reports/` |
+| WP | Content | Depends on | Output | Status |
+|----|---------|-----------|--------|--------|
+| WP1 | Weather-to-power chain: NWP ingestion, wind and PV conversion, bias correction | none | `src/model`, validation vs. aggregate | Not built; national capacity factors instead |
+| WP2 | Market data pipeline: DA, ID, reBAP, market values, redispatch, balancing | none | `data/processed` | Day-ahead prices and computed market values only |
+| WP3 | Plant model incl. battery, degradation, point of interconnection | WP1 | `src/model` | Built (`plant.py`), with linear wear only |
+| WP4 | Settlement: EEG premium with the vintage switch, imbalance, redispatch compensation | WP2 | `src/market` | Built (`market.py`) without redispatch; imbalance settles a committed schedule, which no rung has |
+| WP5 | B0 + B1 + **validation gate** against aggregate generation | WP1, WP3, WP4 | Validation report, **gate** | B0 and B1 built; no validation gate |
+| WP6 | Probabilistic wind/PV forecast layer with true issue times (shared with Project 03) | WP1 | `src/forecast` | Not built; B3 uses synthetic forecasts |
+| WP7 | LP B2 + B3 rolling MPC | WP3, WP4, WP6 | Strong baseline | Built (`baselines.py`) |
+| WP8 | Gymnasium environment + safety layer | WP3, WP6 | `src/envs`, `src/safety` | Future work |
+| WP9 | Distributional RL training, seeds | WP8 | Trained policies | Future work |
+| WP10 | Evaluation, sizing sweeps, value decomposition, report | WP7, WP9 | `reports/` | Tables in `reports/`; no written report |
 
 ---
 
 ## 11. Assumptions and limitations
 
-| Dimension | Core Assumption | Engineering Justification and Reference | Modeling Limitation and Impact |
-|---|---|---|---|
-| **Physical** | Co-located 40 MW wind, 40 MW PV, and 20 MW / 40 MWh BESS behind a single 40 MW point of connection (POC); linear battery throughput wear (0.015 EUR/kWh). | Represents dominant new utility-scale renewable buildout in Germany; captures structural curtailment from deliberate over-planting. | Omits detailed wake interaction dynamics between wind turbines and temperature-dependent inverter clipping. |
-| **Market** | Price-taker on EPEX Spot Day-Ahead market; negative price subsidy cut rules (EEG Section 51 / Section 51a) applied by vintage. | Reflects standard direct marketing arrangements for German renewable parks without speculative merchant bidding. | Omits continuous intraday trading updates (SIDC) and order-book depth constraints during rapid ramping events. |
-| **Data** | 15-minute German wind and PV generation profiles derived from national aggregate feeds (Energy-Charts / SMARD) scaled to plant rating; 2024-2025 DE-LU spot prices. | Transparent open-data pipeline ensuring 100% independent auditability without proprietary park SCADA exports. | National aggregate profiles are smoother than single-site telemetry; actual on-site curtailment will be higher than modeled. |
-| **Regulatory** | Grid connection capacity hard ceiling (POC limit); EEG Section 51 zero-subsidy rules for consecutive negative hours; Redispatch 2.0 interface. | Fully reflects statutory German Renewable Energy Sources Act (EEG 2021/2023/2025) and EnWG Section 13a dispatch rules. | Note on ancillary service extensions: afrr_enabled is declared for planned balancing market co-optimization extensions and is not yet implemented in the active continuous LP/MILP dispatch model. |
+| Dimension | Assumption, as built | Limitation and impact |
+|---|---|---|
+| **Physical** | 50 MW onshore wind + 30 MWp PV (a DC rating) + a 20 MW / 40 MWh battery behind one 60 MW connection. The battery runs between 5 % and 95 % of its energy at 95 % efficiency each way, starts every window at its minimum, and wears at 3 EUR per MWh of throughput. No grid charging | No power curves, wake losses or inverter clipping: generation is a national factor times the rating. No calendar ageing. Overbuild is (MW wind + MWp PV) / MW connection |
+| **Market** | Price-taker on the DE-LU day-ahead price; the EEG market premium per technology under the negative-price rule of the vintage; a marketing fee of 3 EUR/MWh | No intraday trading and no day-ahead schedule, so no imbalance. No § 51a extension. The market values are computed proxies |
+| **Data** | Energy-Charts national generation over the national fleet of each month, for 2024 and 2025 | National profiles are smoother than one site, so curtailment is understated |
+| **Regulatory** | The connection as a hard export limit; the § 51 thresholds by vintage, cited to the statute in `market.py` | No redispatch. aFRR is not built yet: its settings are inert |
 
-### Operational Risks and Mitigations
+**Limitations, stated plainly:**
+
+1. **The capacity factors are national proxies for one plant.** They are far smoother than a
+   single site, so the 60 MW connection never binds and curtailment is understated. Their
+   level runs low too, because the national fleet mixes older turbines and rooftop PV with
+   new plant. Each month's generation is divided by the fleet at the month's end, so a
+   month's factors run low by about half of that month's fleet growth.
+2. **PV counts self-consumption.** The PV factor is solar generation including
+   self-consumption (Energy-Charts `total_power`) over the DC fleet. Public feed-in leaves
+   the self-consumed rooftop output out, so it would understate a fully exporting plant; the
+   code uses it only as the PV weight of the market-value proxy
+   (`data.market_value_weights`).
+3. **The market values are computed proxies.** The premium is legally settled on the values
+   the TSOs publish, which the project does not load. `market.market_values` expects the
+   proxy to run high, so the premiums computed from it run low; no committed data measures
+   the gap.
+4. **The settlement approximates the law in two ways that favour storage.** One blended
+   premium rate per period misprices every quarter-hour whose wind/PV mix departs from the
+   period's, those the negative-price rule acts on included. And the rule applies at the step
+   of export, so energy charged while the premium is suspended earns it when sold later,
+   whereas § 19 (3) EEG 2023 gives stored energy the claim of the step it was generated in.
+5. **B3's forecasts are synthetic perturbations of the truth.** Wind and PV forecasts are the
+   true values times (1 + σ·AR(1)), with σ = 15 % and ρ = 0.8, clipped at 0. In the ladder
+   tables the price forecast is the effective price plus σ times the standard deviation of
+   the 2024 day-ahead price times AR(1). One error series serves every issue time, so the
+   error does not grow with lead time. B3 knows the current quarter-hour exactly, and its
+   premium mask comes from the true prices.
+6. **The results cover the calendar years 2024 and 2025 only**, and B3 two 30-day windows of
+   2025.
+7. **B2 is perfect foresight**, so its figures, the battery's value included, are upper
+   bounds.
+8. **No cost is modelled** for the connection, the battery, or wear beyond the linear rate, so
+   the sizing tables show revenue, not an optimum.
+
+### Operational risks and mitigations
 
 | Risk | Mitigation |
 |------|-----------|
-| No site-level generation data for validation | Weather-to-power chain validated against national aggregate; plant configuration documented as an assumption and swept |
+| No site-level generation data for validation | None yet: national factors, stated as a limitation; site data is the top acquisition priority |
 | Price-taker assumption | Reasonable at this plant size; stated explicitly |
-| Intraday modelled at index level, not order book | Liquidity and spread modelled parametrically; the sensitivity to that parameterisation is reported |
-| MPC may win | Legitimate outcome; the sizing and value-decomposition results are method-independent and stand regardless |
-| Regulatory vintage rules complex and evolving | Encoded as explicit switches; the comparison across vintages is a headline result rather than a risk |
-| Wake and power-curve modelling error | Bias correction fitted and reported; sensitivity to the wake model included |
+| Market values are proxies | Called a proxy in the CLI output, in `reports/SOURCE.md` and here; loading the TSOs' published values would remove the gap |
+| MPC may win | A legitimate outcome; the sizing and value-decomposition results do not depend on the controller |
+| Regulatory vintage rules are complex and evolving | Encoded as explicit rules with the statute cited in `market.py`, and compared across vintages (0.3) |
 
 ---
 
 ## 12. Repository structure
 
 Follows [`../../templates/project-template/`](../../templates/project-template/); conventions
-in [`../../docs/05-tech-stack.md`](../../docs/05-tech-stack.md). The forecast layer is shared
-with [Project 06](../03-probabilistic-forecast-to-bid/).
+in [`../../docs/05-tech-stack.md`](../../docs/05-tech-stack.md). A probabilistic forecast
+layer would be shared with [Project 03](../03-probabilistic-forecast-to-bid/); B3 does not use
+one yet.
+
+```
+src/hybrid/
+  config.py      plant, market and run settings
+  data.py        Energy-Charts capacity factors and prices, through datakit
+  market.py      market values, premium, negative-price rule, settlement
+  plant.py       plant physics and safety layer
+  baselines.py   B0, B1, B2, B2 no battery and B3; the ladder and its invariant
+  synthetic.py   the portfolio showcase's synthetic demo inputs
+  tables.py      result tables as CSV
+  provenance.py  commit, versions and input hashes of a result
+  report.py      the publish set, into reports/
+  cli.py         the commands
+reports/         the committed result tables and SOURCE.md
+tests/           offline tests, the README's results included
+```
 
 ---
 
 ## 13. References
 
-- EEG 2023 `§§9, 20 ff., 51`; the 2025 Solarspitzengesetz amendments; `§§13a, 14c EnWG`
-  (Redispatch 2.0) - see [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md).
-- Marktstammdatenregister; netztransparenz.de published market values.
-- `pvlib`, open turbine power-curve databases, DWD ICON model documentation.
+- EEG 2023 `§§ 9, 19, 20 ff., 51, 100` and Anlage 1; the 2025 Solarspitzengesetz amendments
+  (BGBl. 2025 I Nr. 51); `§§ 13a, 14c EnWG` (Redispatch 2.0). See
+  [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md);
+  `market.py` cites the statute texts it implements.
+- Energy-Charts (Fraunhofer ISE), <https://api.energy-charts.info>, CC BY 4.0; the day-ahead
+  prices are credited to Bundesnetzagentur | SMARD.de.
+- netztransparenz.de: the TSOs' published market values and reBAP, not loaded yet.
+- For the planned weather-to-power chain: Marktstammdatenregister, `pvlib`, open turbine
+  power-curve databases, DWD ICON model documentation.
 - The hybrid/co-located plant dispatch literature, against which the contribution here is the
-  correct German remuneration mechanics and the battery value decomposition.
+  German remuneration mechanics by vintage and the battery value decomposition.
 
 ---
 
 ## 14. Collaboration
 
 Most valuable contributions: site-level metered generation and schedule/imbalance data from a
-German co-located plant (even historical), which would convert the B1 gate from an aggregate
-check into a true site validation; and a review of the market-premium settlement modelling by
-a direct marketer. Enquiries via the issue tracker.
+German co-located plant, even historical, which would let the model commit and settle a
+schedule and validate its generation; and a review of the market-premium settlement by a
+direct marketer. Enquiries via the issue tracker.
