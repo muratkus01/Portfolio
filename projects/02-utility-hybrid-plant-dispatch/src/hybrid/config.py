@@ -35,8 +35,9 @@ class PlantConfig:
     soc_max_frac: float = 0.95
     # None starts the battery at soc_min_frac, i.e. empty, and that is what the ladder needs.
     # No rung has an end-of-window state-of-charge condition, so energy found in the battery
-    # at the start is sold as revenue nobody paid for: half full, that was 18 MWh, counted as
-    # battery value (B2 minus B0). Starting empty needs no price for stored energy.
+    # at the start is sold as revenue nobody paid for: half full, that was 18 MWh, which every
+    # rung with a battery sold and which counted as the battery's value. Starting empty needs
+    # no price for stored energy.
     soc_init_frac: float | None = None
     eta_c: float = 0.95
     eta_d: float = 0.95
@@ -143,10 +144,9 @@ class MarketConfig:
 class RunConfig:
     dt: float = 0.25
     horizon_steps: int = 96
-    # Off by default, on evidence. With a receding horizon of 12 h or more and re-solving every
-    # step, B3 reached the perfect-foresight ceiling exactly under perfect forecasts (100%)
-    # and 88% of the headroom at 15% forecast error. The linear terminal value turned that
-    # into -179%: it hoarded 34 to 38 MWh in the battery. See `default_terminal_price`.
+    # Off by default, on evidence: with a receding horizon of 12 h or more, re-solved every
+    # step, the linear terminal value makes B3 hoard energy and fall below B1. The
+    # b3-ablation command measures both settings; see `default_terminal_price`.
     terminal_value: bool = False
     terminal_price: float | None = None
     forecast_sigma: float = 0.15

@@ -158,8 +158,10 @@ def default_terminal_price(eff_price: np.ndarray, run: RunConfig) -> float:
     The evidence says otherwise for this plant. On a receding horizon of 12 h or more,
     re-solved every step, the "horizon end" never arrives: only the first action is applied,
     and the drain it would cause is always one re-solve away. Adding this linear term instead
-    made B3 hoard 34 to 38 MWh and fall from 100% of the B1-to-B2 headroom to -138% under
-    perfect forecasts, and from 88% to -179% at 15% forecast error.
+    made B3 hoard energy in the battery and fall below B1 on the showcase's synthetic days,
+    under perfect forecasts and at 15 % forecast error alike. `hybrid.cli b3-ablation
+    --synthetic-demo` measures this, and the report writes the figures to
+    reports/b3_ablation_synthetic_demo.csv, so none are quoted here to go stale.
 
     The deeper reason is structural. A LINEAR terminal value pushes the end-of-horizon state of
     charge to a bound, because its slope is the right marginal value at one SoC level only. If

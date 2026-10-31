@@ -188,8 +188,8 @@ def _b3_planning_premium(args, run: RunConfig, index: pd.DatetimeIndex) -> np.nd
     among estimates known as early. The previous year's annual value is complete when
     December's monthly one is, and the year's months so far are known from February on.
     ladder prints the rates B3 plans on next to the rate it is settled on, so the gap shows.
-    A window starts on 1 January, so its first month needs December of the previous year,
-    which this loads.
+    A window's first month needs the month before it, December of the previous year for a
+    window in January, so this loads both years.
 
     args: parsed CLI arguments, e.g. year=2024. run: the run's settings.
     index: the window's timestamps.
