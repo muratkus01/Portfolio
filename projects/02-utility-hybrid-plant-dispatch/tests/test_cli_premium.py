@@ -124,39 +124,41 @@ def test_b3s_price_error_is_sized_on_the_year_before_the_window(monkeypatch):
 def short_window(year: int, days: int | None = None, dt: float = 0.25,
                  later: float = 50.0) -> pd.DataFrame:
     """`calendar_year` whose first 16 steps are the window: 50 EUR/MWh, -10 in step 2, and
-    `later` in steps 12 to 15. Four hours keep B3's solves few, whatever `days` asks for."""
+    `later` from step 12 to the end of January, so that it moves the realised January and
+    annual values. Four hours keep B3's solves few, whatever `days` asks for."""
     df = calendar_year(year, dt=dt)
     if year == YEAR:
-        window = np.full(16, 50.0)
-        window[2], window[12:] = -10.0, later
-        df.iloc[:16, df.columns.get_loc("price_eur_mwh")] = window
+        january = np.full(31 * 96, 50.0)
+        january[2], january[12:] = -10.0, later
+        df.iloc[:31 * 96, df.columns.get_loc("price_eur_mwh")] = january
     return df if days is None else df.iloc[:16]
 
 
-def perfect_forecast_ladder(results: list):
-    """The real `run_ladder` with perfect forecasts, recording what it returns: with no
-    forecast error the premium is the only way prices beyond B3's horizon could reach it."""
-    def ladder(wind, pv, price, run, *args, **kwargs):
-        res = baselines.run_ladder(wind, pv, price, run.with_(forecast_sigma=0.0), *args,
-                                   **kwargs)
+def recorded_ladder(results: list):
+    """The real `run_ladder`, at the shipped forecast error, recording what it returns."""
+    def ladder(*args, **kwargs):
+        res = baselines.run_ladder(*args, **kwargs)
         results.append(res)
         return res
     return ladder
 
 
 def test_later_prices_do_not_change_b3s_earlier_decisions(monkeypatch):
-    """Regression test: B3's premium was built from the mean of the whole window's prices, so
-    prices it had not seen yet changed what it did before them.
+    """Regression test: prices B3 had not seen yet changed what it did before them. Its premium
+    was built from the mean of the window's prices, and its price-forecast error was sized on
+    their spread.
 
     Under the rule "none" the premium decides whether exporting through -10 EUR/MWh in step 2
-    pays. Raising steps 12 to 15 from 50 to 500 EUR/MWh lies beyond the four-step horizon of
-    steps 0 to 8, so it must not change B3's dispatch there.
+    pays. Raising the rest of January from step 12 on, from 50 to 500 EUR/MWh, moves the
+    realised January and annual values, which B2 plans on, by hundreds of EUR/MWh. It lies
+    beyond the four-step horizon of steps 0 to 8, so it must not change B3's dispatch there,
+    at the shipped forecast error.
     """
     dispatch = {}
     for later in (50.0, 500.0):
         results = []
         monkeypatch.setattr(cli, "load_year", functools.partial(short_window, later=later))
-        monkeypatch.setattr(cli, "run_ladder", perfect_forecast_ladder(results))
+        monkeypatch.setattr(cli, "run_ladder", recorded_ladder(results))
         assert cli.main(["ladder", "--year", str(YEAR), "--days", "1", "--horizon", "4",
                          "--neg-rule", "none"]) == 0
         b3 = results[0]["B3 rolling MPC"]
