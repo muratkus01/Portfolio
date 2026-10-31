@@ -1408,7 +1408,7 @@
       <div class="sec-header">
         <h2 class="sec-title"><span class="sec-num-badge">01</span> Residential PV+BESS Energy Management under Dynamic Spot Tariffs</h2>
         <p class="sec-summary">
-          Behind-the-meter residential flexibility coordinating an <strong>8 kWp solar PV array</strong>, <strong>9.37 kWh battery storage (BESS)</strong>, and <strong>5.63 kW hybrid inverter</strong> under German <strong>§14a / §41a EnWG dynamic retail spot tariffs</strong>. Enforces battery cycling degradation bounds, non-negative inverter conversion limits, and terminal state-of-charge valuation, benchmarked across rolling LP-MPC and rescaled Soft Actor-Critic (SAC) reinforcement learning.
+          Behind-the-meter residential flexibility coordinating an <strong>8 kWp solar PV array</strong>, <strong>9.37 kWh battery storage (BESS)</strong>, and <strong>5.63 kW hybrid inverter</strong> under a German <strong>§41a EnWG dynamic, day-ahead-indexed retail tariff</strong>. Prices battery wear on discharged energy, enforces inverter and state-of-charge limits, and values the energy left at the end of each planning window, benchmarked across rolling LP-MPC and rescaled Soft Actor-Critic (SAC) reinforcement learning.
         </p>
         <div class="topology-strip">
           <span class="topo-node amber">
@@ -1423,7 +1423,7 @@
             9.37 kWh BESS
           </span>
           <span class="topo-arrow">&harr;</span>
-          <span class="topo-node">Home Load & 15-min Spot Grid</span>
+          <span class="topo-node">Home Load & Day-Ahead Spot (hourly until 2025-09-30, 15-min after)</span>
         </div>
       </div>
 
@@ -1523,11 +1523,11 @@
             <!-- Tab 1: Formulation & Physics -->
             <div id="p01-pane-form" class="proj-pane active">
               <h4>Linear Program Formulation & Storage Dynamics</h4>
-              <p>The prosumer energy management system schedules residential flexible storage to minimize total net electricity procurement costs over a rolling prediction horizon H = 96 intervals (24 hours at 15-minute resolution):</p>
-              <div class="formula-box">min &Sigma;<sub>t=1</sub><sup>H</sup> [ &lambda;<sub>t</sub><sup>imp</sup> &middot; P<sub>t</sub><sup>grid,imp</sup> - &lambda;<sub>t</sub><sup>exp</sup> &middot; P<sub>t</sub><sup>grid,exp</sup> + c<sub>deg</sub> &middot; (P<sub>t</sub><sup>ch</sup> + P<sub>t</sub><sup>dis</sup>) ] &Delta;t</div>
-              <p>Export remuneration is purely wholesale-indexed (&lambda;<sub>t</sub><sup>exp</sup> = max(0, (1 + VAT) &middot; &lambda;<sub>t</sub><sup>spot</sup> - Fee)), eliminating statutory EEG feed-in tariffs in accordance with Master thesis methodology. Non-ideal storage dynamics enforce &eta; = 92% round-trip efficiency (&eta;<sub>ch</sub> = 0.96, &eta;<sub>dis</sub> = 0.96) with cycling degradation c<sub>deg</sub> = 0.015 EUR/kWh:</p>
+              <p>The prosumer energy management system schedules residential flexible storage to minimize total net electricity cost over a rolling window that ends at the last published day-ahead price (11 to 35 h; day D+1 prices are known from 13:00 on day D), re-solved every 15 minutes:</p>
+              <div class="formula-box">min &Sigma;<sub>t=1</sub><sup>H</sup> [ &lambda;<sub>t</sub><sup>imp</sup> &middot; P<sub>t</sub><sup>grid,imp</sup> - &lambda;<sub>t</sub><sup>exp</sup> &middot; P<sub>t</sub><sup>grid,exp</sup> + c<sub>deg</sub> &middot; P<sub>t</sub><sup>dis</sup> ] &Delta;t - v<sub>T</sub> &middot; SoC<sub>H</sub> &middot; E<sub>nom</sub></div>
+              <p>Export remuneration in the published results is wholesale-indexed (&lambda;<sub>t</sub><sup>exp</sup> = max(0, (1 + VAT) &middot; &lambda;<sub>t</sub><sup>spot</sup> - 0.01 EUR/kWh)), with no EEG feed-in tariff; import costs &lambda;<sub>t</sub><sup>imp</sup> = (1 + VAT) &middot; &lambda;<sub>t</sub><sup>spot</sup> + 0.1937 EUR/kWh (the thesis tariff). The simulator below still uses a fixed 7.86 ct/kWh feed-in tariff. Non-ideal storage dynamics enforce a round-trip efficiency of 0.894 (&eta;<sub>ch</sub> = &eta;<sub>dis</sub> = 0.945) with wear c<sub>deg</sub> = 0.0544 EUR per kWh discharged. v<sub>T</sub> values the energy left at the window end at a monthly price learned on 2024; B2 runs to the end of the test period and has none:</p>
               <div class="formula-box">SoC<sub>t+1</sub> = SoC<sub>t</sub> + [ &eta;<sub>ch</sub> &middot; P<sub>t</sub><sup>ch</sup> - P<sub>t</sub><sup>dis</sup> / &eta;<sub>dis</sub> ] &middot; (&Delta;t / E<sub>nom</sub>)
-0.10 &le; SoC<sub>t</sub> &le; 0.90,   0 &le; P<sub>t</sub><sup>ch</sup> &le; P<sub>inv</sub>,   0 &le; P<sub>t</sub><sup>dis</sup> &le; P<sub>inv</sub></div>
+0.05 &le; SoC<sub>t</sub> &le; 0.95,   0 &le; P<sub>t</sub><sup>ch</sup>,   0 &le; P<sub>t</sub><sup>dis</sup>,   P<sub>t</sub><sup>ch</sup> + P<sub>t</sub><sup>dis</sup> &le; P<sub>inv</sub></div>
               <p>Inverter conversion bounds enforce instantaneous power balance: P<sub>t</sub><sup>grid,imp</sup> - P<sub>t</sub><sup>grid,exp</sup> + P<sub>t</sub><sup>pv</sup> + P<sub>t</sub><sup>dis</sup> - P<sub>t</sub><sup>ch</sup> = P<sub>t</sub><sup>load</sup>.</p>
             </div>
 
@@ -1536,12 +1536,13 @@
               <h4>German Regulatory Framework: §14a & §41a EnWG</h4>
               <p>Under statutory German energy law (§41a EnWG), large electricity suppliers must offer dynamic spot retail tariffs linked directly to the EPEX SPOT Day-Ahead hourly/quarter-hourly clearing price. This exposes residential consumers to wholesale price volatility, creating economic incentives for automated price arbitrage.</p>
               <p>Under §14a EnWG (effective January 2024), Distribution System Operators (DSOs) possess the legal right to dynamically throttle controllable consumer devices (Steuerbare Verbrauchseinrichtungen - SteuVE) including home batteries and heat pumps down to a 4.2 kW safety ceiling during grid congestion, while granting fixed or volumetric network charge reductions (Module 1-3).</p>
+              <p>No published P01 result applies §14a: the tariff used has no network-charge module and no dimming.</p>
             </div>
 
             <!-- Tab 3: Invariant Guards -->
             <div id="p01-pane-inv" class="proj-pane">
               <h4>Production Invariants & Edge Cases Caught</h4>
-              <p><strong>1. End-of-Horizon Hoarding Defect:</strong> Early receding-horizon formulations applied a linear terminal valuation to stored energy at the horizon boundary (t=96). Because the linear valuation matched the maximum retail import price, the solver aggressively imported high-priced grid power right before the horizon boundary to "hoard" artificial value, causing MPC to lose to simple heuristic rules. Removing linear terminal valuation unlocked unconstrained arbitrage.</p>
+              <p><strong>1. End-of-Horizon Hoarding Defect:</strong> An early receding-horizon formulation valued the energy left in the battery at the horizon boundary (t=96) at the retail import price. The solver then imported grid power right before every boundary to "hoard" value it could never realise, and on a PV-rich summer week the MPC lost to the price-blind rule. The fix values a stored kWh by what it will replace: first a blend of import and export prices, weighted by the share of the window in which the site imports; the deployable B3 now uses a monthly value learned on 2024 from the perfect-foresight LP's shadow prices.</p>
               <p><strong>2. Continuous Action Saturation Clipping:</strong> Initial Soft Actor-Critic (SAC) reinforcement learning policies exhibited an 80% saturation rate against the [-1, 1] output bound. Rescaling policy action bounds to physical battery converter kW limits dropped action clipping to 0.0%.</p>
             </div>
 
