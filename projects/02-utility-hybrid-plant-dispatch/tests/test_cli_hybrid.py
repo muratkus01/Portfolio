@@ -20,9 +20,11 @@ def fake_year(year: int, days: int | None = None, dt: float = 0.25) -> pd.DataFr
     idx = pd.date_range(start, end, freq=f"{int(dt * 60)}min", inclusive="left")
     n = len(idx)
     h = np.arange(n) * dt % 24
+    pv = 0.7 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1)
     df = pd.DataFrame({
         "wind_cf": np.clip(0.4 + 0.3 * np.sin(np.arange(n) / 60), 0, 1),
-        "pv_cf": 0.7 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1),
+        "pv_cf": pv,
+        "pv_feed_in_cf": 0.8 * pv,
         "price_eur_mwh": 80 + 30 * np.sin(2 * np.pi * (h - 18) / 24) - 40 * (h == 13),
     }, index=idx)
     return df if days is None else df.iloc[:int(days * 24 / dt)]

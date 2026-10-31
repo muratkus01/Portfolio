@@ -216,15 +216,17 @@ def two_months(year: int, days: int | None = None, dt: float = 0.25,
     January alternates cheap windy hours (20 EUR/MWh, wind 0.8, PV 0.2) with sunny ones at
     `sunny` EUR/MWh (wind 0.2, PV 0.8). At the default 100 EUR/MWh wind's market value is 36
     and PV's 84 against a mean price of 60. February is flat at 60 EUR/MWh with both factors
-    at 0.5.
+    at 0.5. PV feed-in has the shape of PV generation.
     """
     jan, feb = 31 * 96, 28 * 96
     idx = pd.date_range(f"{year}-01-01", periods=jan + feb, freq="15min",
                         tz="Europe/Berlin").tz_convert("UTC")
     windy = (np.arange(jan) // 4) % 2 == 0
+    pv = np.concatenate([np.where(windy, 0.2, 0.8), np.full(feb, 0.5)])
     df = pd.DataFrame({
         "wind_cf": np.concatenate([np.where(windy, 0.8, 0.2), np.full(feb, 0.5)]),
-        "pv_cf": np.concatenate([np.where(windy, 0.2, 0.8), np.full(feb, 0.5)]),
+        "pv_cf": pv,
+        "pv_feed_in_cf": pv,
         "price_eur_mwh": np.concatenate([np.where(windy, 20.0, sunny), np.full(feb, 60.0)]),
     }, index=idx)
     return df if days is None else df.iloc[:int(days * 24 / dt)]
@@ -320,6 +322,23 @@ def test_negprice_note_reports_the_window_not_a_fixed_year(monkeypatch, capsys):
     assert "2025-01 (31 days): wind 36.00, PV 84.00" in out, "January's market values"
     assert "AW 73.5 (recent onshore) PV in 2025" in out, "the zero premium it gets"
     assert "AW 95.0 (older vintage) none" in out
+
+
+def test_the_solar_market_value_is_weighted_by_public_feed_in(monkeypatch, capsys):
+    """The proxy weights PV by public feed-in (`pv_feed_in_cf`), not by the plant's PV factor,
+    which also counts self-consumption, so switching that factor to total generation does not
+    move the market values. Here January's feed-in is the mirror of its generation: it peaks
+    in the cheap windy hours, so PV's market value falls from 84 to 36 EUR/MWh.
+    """
+    def feed_in_unlike_generation(year: int, days: int | None = None, dt: float = 0.25):
+        df = two_months(year, days, dt)
+        df["pv_feed_in_cf"] = 1.0 - df["pv_cf"]           # 0.8 <-> 0.2 in January, Feb 0.5
+        return df
+
+    monkeypatch.setattr(cli, "load_year", feed_in_unlike_generation)
+    monkeypatch.setattr(cli, "run_ladder", recording_ladder([]))
+    assert cli.main(["negprice", "--year", "2025", "--days", "2"]) == 0
+    assert "2025-01 (31 days): wind 36.00, PV 36.00" in capsys.readouterr().out
 
 
 def test_negprice_calls_its_market_values_a_proxy(monkeypatch, capsys):

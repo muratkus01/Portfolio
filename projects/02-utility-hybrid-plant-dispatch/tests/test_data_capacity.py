@@ -23,6 +23,10 @@ STEPS = 96
 
 # Constant national feed-in, MW, as public_power serves it.
 FEED_IN_MW = {"Wind onshore": 30_000.0, "Wind offshore": 3_000.0, "Solar": 24_000.0}
+# Generation including self-consumption, MW, as total_power serves it. Its solar is larger by
+# the rooftop output used on site; its onshore wind differs here only so that the tests can
+# tell which endpoint a factor was read from.
+TOTAL_MW = {"Wind onshore": 31_000.0, "Wind offshore": 3_000.0, "Solar": 30_000.0}
 
 # Installed capacity as installed_power serves it: one value per month, in GW. December is the
 # year-end fleet, which is roughly what the old single annual figure held.
@@ -51,15 +55,17 @@ def _payloads(capacity: dict, start: pd.Timestamp) -> list[tuple[str, dict]]:
     """Energy-Charts payloads from `start` on, keyed by a URL fragment that names the request."""
     t0 = int(start.timestamp())
     hours = [t0 + 3600 * k for k in range(STEPS // 4)]
-    power = {"unix_seconds": [t0 + 900 * k for k in range(STEPS)],
-             "production_types": [{"name": name, "data": [mw] * STEPS}
-                                  for name, mw in FEED_IN_MW.items()]}
+    def generation(mw_by_type: dict) -> dict:
+        return {"unix_seconds": [t0 + 900 * k for k in range(STEPS)],
+                "production_types": [{"name": name, "data": [mw] * STEPS}
+                                     for name, mw in mw_by_type.items()]}
+
     price = {"unix_seconds": hours, "price": [50.0] * len(hours)}
     installed = {"time": capacity["time"],
                  "production_types": [{"name": name, "data": values}
                                       for name, values in capacity.items() if name != "time"]}
-    return [("/public_power?", power), ("/price?", price),
-            ("/installed_power?country=de&time_step=monthly", installed)]
+    return [("/public_power?", generation(FEED_IN_MW)), ("/total_power?", generation(TOTAL_MW)),
+            ("/price?", price), ("/installed_power?country=de&time_step=monthly", installed)]
 
 
 @pytest.fixture
@@ -88,22 +94,32 @@ def test_wind_factor_is_onshore_feed_in_over_the_months_onshore_fleet(energy_cha
 
     Regression test. The factor used to be onshore plus offshore feed-in over one hand-typed
     annual figure near the year-end fleet. The plant is onshore, and a mid-year month must not
-    be divided by December's fleet.
+    be divided by December's fleet. It stays on public_power's onshore feed-in.
     """
     energy_charts()
     june = load_year(2024).loc[:JULY - pd.Timedelta("15min")]
     assert june["wind_cf"].to_numpy() == pytest.approx(30_000 / 60_000)
 
 
-def test_pv_factor_is_solar_feed_in_over_the_months_dc_fleet(energy_charts):
-    """June PV is solar feed-in over June's DC fleet, not the AC or the year-end figure.
+def test_pv_factor_is_total_solar_generation_over_the_months_dc_fleet(energy_charts):
+    """June PV is total solar generation over June's DC fleet, not feed-in, the AC rating or
+    the year-end figure.
 
-    Regression test. One annual figure near the year-end fleet made January 2024 PV factors
-    14 % too low (99.0 GW where 84.9 GW stood).
+    Regression tests. One annual figure near the year-end fleet made January 2024 PV factors
+    14 % too low (99.0 GW where 84.9 GW stood). And public_power's 'Solar' is feed-in to the
+    public grid only: it leaves out the self-consumed output that the DC fleet still counts,
+    so the factor ran low by that share. total_power's 'Solar' includes it.
     """
     energy_charts()
     june = load_year(2024).loc[:JULY - pd.Timedelta("15min")]
-    assert june["pv_cf"].to_numpy() == pytest.approx(24_000 / 80_000)
+    assert june["pv_cf"].to_numpy() == pytest.approx(30_000 / 80_000)
+
+
+def test_pv_feed_in_factor_is_public_solar_over_the_same_fleet(energy_charts):
+    """The market-value proxy weights PV by public feed-in, so that series stays available."""
+    energy_charts()
+    june = load_year(2024).loc[:JULY - pd.Timedelta("15min")]
+    assert june["pv_feed_in_cf"].to_numpy() == pytest.approx(24_000 / 80_000)
 
 
 def test_each_quarter_hour_takes_the_capacity_of_its_local_month(energy_charts):
@@ -113,9 +129,9 @@ def test_each_quarter_hour_takes_the_capacity_of_its_local_month(energy_charts):
     last_june = df.loc[JULY - pd.Timedelta("15min")]
     first_july = df.loc[JULY]
     assert (last_june["wind_cf"], last_june["pv_cf"]) == pytest.approx(
-        (30_000 / 60_000, 24_000 / 80_000))
+        (30_000 / 60_000, 30_000 / 80_000))
     assert (first_july["wind_cf"], first_july["pv_cf"]) == pytest.approx(
-        (30_000 / 62_500, 24_000 / 96_000))
+        (30_000 / 62_500, 30_000 / 96_000))
 
 
 def test_a_month_missing_from_the_capacity_payload_is_an_error(energy_charts):

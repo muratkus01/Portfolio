@@ -34,7 +34,8 @@ def calendar_year(year: int, days: int | None = None, dt: float = 0.25) -> pd.Da
     idx = pd.date_range(start, end, freq="15min", inclusive="left")
     month = idx.tz_convert("Europe/Berlin").month
     price = np.where(month == 1, JANUARY, np.where(month == 12, DECEMBER, OTHER))
-    df = pd.DataFrame({"wind_cf": WIND_CF, "pv_cf": PV_CF, "price_eur_mwh": price}, index=idx)
+    df = pd.DataFrame({"wind_cf": WIND_CF, "pv_cf": PV_CF, "pv_feed_in_cf": 0.8 * PV_CF,
+                       "price_eur_mwh": price}, index=idx)
     return df if days is None else df.iloc[:int(days * 24 / dt)]
 
 

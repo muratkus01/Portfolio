@@ -12,9 +12,8 @@ and sharper ramps. So this dataset understates both curtailment frequency and fo
 difficulty, and therefore understates the value of storage. Site-level generation data is the
 top acquisition priority for this project, exactly as its README says.
 
-The level runs low as well. The PV feed-in leaves out the self-consumption that the installed
-capacity still counts, and the national fleet mixes older turbines and rooftop PV with new
-plant, so a new, fully exporting plant would produce more than these factors say.
+The level runs low as well: the national fleet mixes older turbines and rooftop PV with new
+plant, so a new plant would produce more than these factors say.
 """
 from __future__ import annotations
 
@@ -31,6 +30,36 @@ if str(_DATAKIT) not in sys.path:
 # Energy-Charts serves installed_power in GW and public_power in MW. The payload names no
 # unit: onshore wind for December 2024 reads 63.589.
 _GW_TO_MW = 1000.0
+
+
+def _total_power(start: str, end: str, country: str = "de") -> pd.DataFrame:
+    """Generation by production type INCLUDING self-consumption, MW, from Energy-Charts.
+
+    public_power counts feed-in to the public grid, so its 'Solar' leaves out the rooftop
+    output used on site, which the installed PV fleet still counts. total_power counts it. A
+    stand-in for datakit.total_power, which another branch adds and which will replace this
+    helper: it calls the same endpoint through datakit's own plumbing with the same cache tag,
+    so the two share one cache file and give the same numbers.
+
+    Args:
+        start, end: dates as Energy-Charts takes them, e.g. "2024-01-01" and "2025-01-01".
+        country: Energy-Charts country code, e.g. "de".
+
+    Returns:
+        Frame on a UTC index, one column per production type, e.g. 'Solar', 'Wind onshore'.
+    """
+    import datakit
+
+    # datakit loads as a package (repo root on the path) or as a module (its folder on the
+    # path), and only the module that defines public_power carries the private _get_json.
+    plumbing = sys.modules[datakit.public_power.__module__]
+    url = f"{datakit.EC}/total_power?country={country}&start={start}&end={end}"
+    p = plumbing._get_json(url, datakit.DEFAULT_CACHE, f"total_power_{country}_{start}_{end}",
+                           "CC BY 4.0 (Energy-Charts)")
+    idx = pd.to_datetime(p["unix_seconds"], unit="s", utc=True)
+    cols = {s["name"] if isinstance(s["name"], str) else s["name"][0]:
+            np.asarray(s["data"], dtype=float) for s in p["production_types"]}
+    return pd.DataFrame(cols, index=pd.DatetimeIndex(idx, name="timestamp")).sort_index()
 
 
 def _capacity_by_month(index: pd.DatetimeIndex) -> pd.DataFrame:
@@ -79,9 +108,9 @@ def load_year(year: int, days: int | None = None,
     Returns:
         Frame on a UTC index that covers `year` in Berlin time (its first `days` when given),
         with `wind_cf` (onshore feed-in over that month's onshore capacity), `pv_cf` (solar
-        feed-in over that month's DC capacity), both clipped to [0, 1], and `price_eur_mwh`.
-        `pv_cf` counts feed-in to the public grid only, so it understates a fully exporting
-        PV plant, most of all in winter.
+        generation, self-consumption included, over that month's DC capacity),
+        `pv_feed_in_cf` (solar feed-in to the public grid over the same capacity, the PV
+        weight of the market-value proxy), all clipped to [0, 1], and `price_eur_mwh`.
 
     Raises:
         ValueError: when the capacity series lacks a month the feed-in covers.
@@ -89,37 +118,43 @@ def load_year(year: int, days: int | None = None,
     import datakit
 
     start, end = f"{year}-01-01", f"{year + 1}-01-01"
-    power = datakit.public_power(start, end)
-    price = datakit.day_ahead_price(start, end)
     # Energy-Charts includes the end date, so the feed-in runs to 23:45 on 1 January of the
     # next year, Berlin time. Cut it at the local New Year: that keeps the calendar year, and
     # keeps next January out of the capacity lookup below.
-    power = power[power.index < pd.Timestamp(end, tz="Europe/Berlin")]
+    new_year = pd.Timestamp(end, tz="Europe/Berlin")
+    power = datakit.public_power(start, end)
+    power = power[power.index < new_year]
+    total = _total_power(start, end)
+    total = total[total.index < new_year]
+    price = datakit.day_ahead_price(start, end)
 
-    def pick(*names) -> pd.Series:
-        for n in names:
-            for c in power.columns:
-                if c.lower() == n.lower():
-                    return power[c]
-        raise KeyError(f"none of {names} in {list(power.columns)}")
+    def pick(frame: pd.DataFrame, name: str) -> pd.Series:
+        for c in frame.columns:
+            if c.lower() == name.lower():
+                return frame[c]
+        raise KeyError(f"{name!r} not in {list(frame.columns)}")
 
     # The plant's wind farm is onshore (its applicable value is the EEG § 36 onshore one), so
     # its factor is onshore feed-in over onshore capacity. Offshore wind runs at a higher
     # capacity factor and would inflate it.
-    wind = pick("Wind onshore")
-    pv = pick("Solar")
+    wind = pick(power, "Wind onshore")
+    # PV is divided by its DC rating, the usual capacity-factor denominator, so `pv_mw` is a
+    # DC (MWp) rating, and the numerator must count what that whole fleet generates. Its
+    # public_power 'Solar' is feed-in to the public grid, which leaves out the self-consumed
+    # rooftop output that the DC fleet still counts, so it understated a fully exporting
+    # plant, most of all in winter; total_power's 'Solar' includes it.
+    pv = pick(total, "Solar")
+    # The market-value proxy keeps public feed-in as its PV weight, the series it has always
+    # been checked with (`market.market_values`); only the plant's PV factor changes.
+    pv_feed_in = pick(power, "Solar")
 
     # Each quarter-hour is divided by its own month's fleet. One annual figure near the
     # year-end fleet made January 2024 PV factors 14 % too low (99.0 GW where 84.9 GW stood).
-    # PV is divided by its DC rating, the usual capacity-factor denominator, so `pv_mw` is a DC
-    # (MWp) rating. The numerator is not the usual one: public_power's 'Solar' is feed-in to
-    # the public grid and leaves out the PV self-consumption that the DC fleet still counts,
-    # so `pv_cf` understates a fully exporting plant, most of all in winter. Energy-Charts'
-    # total_power endpoint includes self-consumption; datakit does not wrap it yet.
     cap = _capacity_by_month(power.index)
     df = pd.DataFrame({
         "wind_cf": (wind / cap["wind_mw"]).clip(0, 1),
         "pv_cf": (pv / cap["pv_mw"]).clip(0, 1),
+        "pv_feed_in_cf": (pv_feed_in / cap["pv_mw"]).clip(0, 1),
     })
 
     # prices are hourly; hold them across the quarter-hours of their product

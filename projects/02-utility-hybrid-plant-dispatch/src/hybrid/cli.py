@@ -51,9 +51,10 @@ def _national_weights(frame: pd.DataFrame) -> pd.DataFrame:
 
     National feed-in over installed capacity: the capacity is one figure within a month, so
     the factor weights the price as the feed-in does. MW Wind an Land weights by onshore
-    feed-in alone (Anlage 1 Nr. 3.3.2), which `wind_cf` is.
+    feed-in alone (Anlage 1 Nr. 3.3.2), which `wind_cf` is. PV weights by `pv_feed_in_cf`,
+    public feed-in, not by the plant factor `pv_cf`, which also counts self-consumption.
     """
-    return frame[["wind_cf", "pv_cf"]].set_axis(["wind", "pv"], axis=1)
+    return frame[["wind_cf", "pv_feed_in_cf"]].set_axis(["wind", "pv"], axis=1)
 
 
 def _realised_premium(year: pd.DataFrame, index: pd.DatetimeIndex, wind: np.ndarray,
