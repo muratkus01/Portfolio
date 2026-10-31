@@ -70,6 +70,24 @@ def test_the_rule_counts_hours_whatever_the_step_length():
     assert not premium_eligible(eight_steps, six_hour, dt=1.0).any(), "eight hours lose it"
 
 
+def test_the_ladder_plans_on_the_hours_it_is_settled_on():
+    """Regression test: run_ladder planned the negative-price rule on quarter-hours whatever
+    the step length, while the settlement counted hours with the run's own.
+
+    At hourly steps four negative prices are a four-hour run, which loses the premium under
+    four_hour. Planned as four quarter-hours, one hour, the run kept a 20 EUR/MWh premium, so
+    B2 and B3 exported through -5 EUR/MWh for money the settlement then withheld.
+    """
+    run = RunConfig(dt=1.0, horizon_steps=4, market=MarketConfig(negative_price_rule="four_hour"))
+    price = np.array([50.0, -5.0, -5.0, -5.0, -5.0, 50.0, 50.0, 50.0])
+    n = len(price)
+
+    res = run_ladder(np.full(n, 30.0), np.zeros(n), price, run, premium_rate=20.0)
+
+    for name in ("B2 perfect foresight", "B3 rolling MPC"):
+        assert res[name]["export"][1:5] == pytest.approx(np.zeros(4), abs=1e-6), name
+
+
 def test_a_step_length_that_does_not_divide_an_hour_is_refused():
     with pytest.raises(ValueError, match="step length"):
         premium_eligible(np.zeros(4), MarketConfig(negative_price_rule="six_hour"), dt=0.4)

@@ -289,7 +289,9 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     from .plant import check_feasible
 
     rng = np.random.default_rng(run.seed)
-    eff = effective_price(price, run.market, premium_rate)
+    # The step length counts the hours of a negative-price run, so planning must use the one
+    # the settlement uses; without it, B2 and B3 planned every step as a quarter-hour.
+    eff = effective_price(price, run.market, premium_rate, run.dt)
     wind_fc, pv_fc, price_fc = make_forecasts(wind, pv, eff, run, rng)
 
     out = {
