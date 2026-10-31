@@ -1,20 +1,22 @@
-"""Issue-time forecast store and probabilistic scoring.
+"""Issue-time forecast store, the synthetic ablation that fills it, and probabilistic scoring.
 
-The architectural centrepiece of this project. Every forecast is materialised ONCE, tagged
-with the issue time at which it would really have been available, and every policy reads from
-the same store. Look-ahead bias therefore becomes structurally impossible rather than a
-matter of care - which is the single most common way an "RL beats MPC" result turns out to be
-false.
+Every forecast is materialised once, tagged with the issue step at which it would really have
+been available. `ForecastStore.at` refuses a target before its issue, and `stages_from_store`
+reads each decision stage at its own decision time (see `stages.py`), so the decision layer
+cannot see a forecast from after its decision.
 
-`audit_no_lookahead` is the automated check that belongs in CI.
+`build_store` is a PARAMETRIC NOISE MODEL, not a forecaster: the realised series plus
+autocorrelated errors whose size is set by hand. It is kept as a labelled ablation only.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import numpy as np
+import pandas as pd
 
-from .config import ForecastConfig
+from .config import ForecastConfig, RunConfig
+from .stages import Stage, gate_closure_steps, intraday_decision_steps
 
 
 def ar_noise(n: int, rng: np.random.Generator, rho: float) -> np.ndarray:
@@ -26,11 +28,11 @@ def ar_noise(n: int, rng: np.random.Generator, rho: float) -> np.ndarray:
 
 @dataclass
 class ForecastStore:
-    """Quantile forecasts keyed by (issue step, target step).
+    """Quantile forecasts keyed by (issue step, lead).
 
-    `mean[i, k]`      predictive mean for target `i + k`, issued at step `i`
+    `mean[i, k]`       predictive mean for target `i + k`, issued at step `i`
     `quantiles[i,k,q]` predictive quantiles, same indexing
-    `levels`          the quantile levels, ascending
+    `levels`           the quantile levels, ascending
     """
     mean: np.ndarray
     quantiles: np.ndarray
@@ -38,112 +40,108 @@ class ForecastStore:
     max_lead: int
 
     def at(self, issue: int, target: int) -> tuple[float, np.ndarray]:
-        """Forecast for `target` as known at `issue`. Raises on a look-ahead request."""
+        """Forecast for `target` as known at `issue`. Raises rather than answer another target."""
         if target < issue:
             raise ValueError(f"target {target} precedes issue {issue}")
         k = target - issue
         if k >= self.max_lead:
-            k = self.max_lead - 1
+            raise ValueError(f"lead {k} steps is beyond the store's {self.max_lead}")
         return float(self.mean[issue, k]), self.quantiles[issue, k]
-
-    def path(self, issue: int, horizon: int) -> np.ndarray:
-        """Predictive means for the next `horizon` steps, as known at `issue`."""
-        h = min(horizon, self.max_lead)
-        return self.mean[issue, :h]
-
-    def spread(self, issue: int, lead: int) -> float:
-        """Interquartile-ish spread - the observable uncertainty signal."""
-        q = self.quantiles[issue, min(lead, self.max_lead - 1)]
-        return float(q[-1] - q[0])
 
 
 def build_store(truth: np.ndarray, cfg: ForecastConfig, dt: float,
                 max_lead: int, rng: np.random.Generator,
-                capacity: float) -> ForecastStore:
-    """Generate a physically-plausible issue-time forecast store from the realised series.
+                capacity: float, latency_steps: int = 4) -> ForecastStore:
+    """Ablation: the realised series plus hand-sized noise, as an issue-time store.
 
-    Error grows with lead time and is autocorrelated along the target axis. When
-    `heteroscedastic` is set, the spread also scales with how variable the recent truth has
-    been - so the predictive spread carries real information about the error magnitude, which
-    is the property that makes a distributional policy worth having.
+    Errors are NESTED across lead times: the error for target t at lead k is the sum of
+    independent increments over leads 0..k, each autocorrelated along t. Moving closer to
+    delivery removes increments, so a revision is information and a later forecast is never
+    worse in expectation, which is how real forecast updates behave. (An earlier version drew
+    an independent error per lead, which made every revision fresh noise and rewarded any
+    policy that averages revisions.)
+
+    With `heteroscedastic`, the error of a target scales with how variable the series was up
+    to that target, and the published spread scales with the variability the forecaster has
+    already OBSERVED at the issue time, `latency_steps` + 1 steps back. The spread therefore
+    carries information without using the future.
     """
     n = len(truth)
     levels = np.linspace(0.1, 0.9, cfg.n_quantiles)
-    mean = np.empty((n, max_lead))
-    quantiles = np.empty((n, max_lead, cfg.n_quantiles))
+    lead_h = np.arange(max_lead) * dt
+    sigma = np.minimum(cfg.sigma_base + cfg.sigma_growth * lead_h, cfg.sigma_max) * capacity
+    increments = np.stack([ar_noise(n, rng, cfg.rho) for _ in range(max_lead)], axis=1)
+    error = np.cumsum(increments * np.sqrt(np.diff(sigma ** 2, prepend=0.0)), axis=1)
 
-    # one autocorrelated error field per lead time
-    err = np.stack([ar_noise(n, rng, cfg.rho) for _ in range(max_lead)], axis=1)
+    if cfg.heteroscedastic:
+        difficulty = 0.5 + 0.5 * _trailing_variability(truth)
+        seen = np.concatenate([np.ones(latency_steps + 1), difficulty])[:n]
+    else:
+        difficulty = seen = np.ones(n)
 
-    # local variability of the truth: a proxy for "is this a hard situation to forecast?"
-    vol = np.abs(np.diff(truth, prepend=truth[0]))
-    vol = np.convolve(vol, np.ones(16) / 16, mode="same")
-    vol = vol / max(vol.mean(), 1e-9)
+    from .scipy_stub import (
+        norm_ppf,  # vendored: this project installs from numpy+pandas alone
+    )
+    z = np.array([norm_ppf(lv) for lv in levels])
 
-    from .scipy_stub import norm_ppf   # vendored: this project installs from numpy+pandas alone
-
-    for k in range(max_lead):
-        lead_h = k * dt
-        sigma_rel = min(cfg.sigma_base + cfg.sigma_growth * lead_h, cfg.sigma_max)
-        scale = sigma_rel * capacity
-        if cfg.heteroscedastic:
-            scale = scale * (0.5 + 0.5 * vol)
-        target = np.roll(truth, -k)
-        target[max(0, n - k):] = truth[-1]
-        m = np.clip(target + scale * err[:, k], 0.0, capacity)
-        mean[:, k] = m
-        for j, lv in enumerate(levels):
-            quantiles[:, k, j] = np.clip(m + norm_ppf(lv) * scale, 0.0, capacity)
-
+    mean = np.full((n, max_lead), np.nan)
+    quantiles = np.full((n, max_lead, len(levels)), np.nan)
+    for k in range(min(max_lead, n)):
+        tgt = np.arange(k, n)                      # targets that exist, issued at tgt - k
+        m = np.clip(truth[tgt] + difficulty[tgt] * error[tgt, k], 0.0, capacity)
+        scale = sigma[k] * seen[tgt - k]
+        mean[:n - k, k] = m
+        quantiles[:n - k, k] = np.clip(m[:, None] + z[None, :] * scale[:, None], 0.0, capacity)
     return ForecastStore(mean=mean, quantiles=quantiles, levels=levels, max_lead=max_lead)
 
 
-def audit_no_lookahead(store: ForecastStore, n: int, sample: int = 500,
-                       rng: np.random.Generator | None = None) -> int:
-    """Assert that no forecast can be read for a target that precedes its issue time.
+def _trailing_variability(truth: np.ndarray, window: int = 16) -> np.ndarray:
+    """Mean absolute step change over the last `window` steps, relative to its own past.
 
-    Returns the number of violations found; belongs in CI, where it must be zero.
+    Both the window and the normalising mean end at each step: normalising by the mean of the
+    whole series would let later data rescale earlier values.
     """
-    rng = rng or np.random.default_rng(0)
-    bad = 0
-    for _ in range(sample):
-        i = int(rng.integers(0, n))
-        t = int(rng.integers(0, n))
-        try:
-            store.at(i, t)
-            if t < i:
-                bad += 1                     # should have raised
-        except ValueError:
-            if t >= i:
-                bad += 1                     # should not have raised
-    return bad
+    vol = np.abs(np.diff(truth, prepend=truth[0]))
+    vol = np.convolve(vol, np.ones(window) / window, mode="full")[:len(truth)]
+    past_mean = np.cumsum(vol) / np.arange(1, len(vol) + 1)
+    return vol / np.maximum(past_mean, 1e-9)
+
+
+def stages_from_store(store: ForecastStore, index: pd.DatetimeIndex,
+                      run: RunConfig) -> list[Stage]:
+    """Day-ahead and intraday stages read from a dense store at their decision times."""
+    decisions = [("DA", gate_closure_steps(index))]
+    decisions += [(f"ID-{h:g}h", intraday_decision_steps(index, h, run.dt))
+                  for h in run.market.id_stages_h]
+    return [_read_stage(store, name, dec) for name, dec in decisions]
+
+
+def _read_stage(store: ForecastStore, name: str, decision: np.ndarray) -> Stage:
+    t = np.arange(len(decision))
+    ok = decision >= 0
+    issue = np.where(ok, decision, 0)
+    lead = t - issue
+    if np.any(ok & (lead >= store.max_lead)):
+        raise ValueError(f"stage {name} needs leads up to {int(lead[ok].max())} steps, "
+                         f"the store holds {store.max_lead}")
+    lead = np.where(ok, lead, 0)
+    mean = np.where(ok, store.mean[issue, lead], np.nan)
+    quantiles = np.where(ok[:, None], store.quantiles[issue, lead], np.nan)
+    return Stage(name=name, issue=np.where(ok, issue, -1), decision=decision,
+                 mean=mean, quantiles=quantiles, levels=store.levels)
 
 
 # --------------------------------------------------------------------- scoring
 def pinball_loss(y: np.ndarray, q: np.ndarray, levels: np.ndarray) -> float:
-    """Mean quantile loss across levels. Lower is better."""
+    """Mean quantile loss across levels. Lower is better.
+
+    With levels 0.1..0.9 this is the quantile score of those nine quantiles. It is NOT the
+    CRPS: the CRPS integrates the loss over every level in (0, 1), and the tails beyond 0.1
+    and 0.9 are not represented here.
+    """
     y = np.asarray(y)[:, None]
     d = y - q
     return float(np.mean(np.maximum(levels * d, (levels - 1) * d)))
-
-
-def crps_from_quantiles(y: np.ndarray, q: np.ndarray, levels: np.ndarray) -> float:
-    """CRPS approximated from a quantile representation.
-
-    Equals twice the average pinball loss over uniformly spaced levels in the limit; the
-    approximation is fine for the 9 levels used here and avoids a SciPy dependency.
-    """
-    return 2.0 * pinball_loss(y, q, levels)
-
-
-def pit_values(y: np.ndarray, q: np.ndarray, levels: np.ndarray) -> np.ndarray:
-    """Probability integral transform: where each realisation falls in its own forecast.
-
-    A calibrated forecast gives a UNIFORM PIT histogram. Sharpness without calibration is
-    worthless, so this is always reported alongside CRPS.
-    """
-    return np.array([float(np.interp(yi, qi, levels, left=0.0, right=1.0))
-                     for yi, qi in zip(y, q)])
 
 
 def calibration_error(y: np.ndarray, q: np.ndarray, levels: np.ndarray) -> float:
@@ -153,17 +151,11 @@ def calibration_error(y: np.ndarray, q: np.ndarray, levels: np.ndarray) -> float
     exactly a fraction tau of the time. This averages the absolute deviation from that.
     0 is perfect; 0.5 is the worst possible.
 
-    **Why not a PIT histogram.** The obvious implementation - bin the probability integral
-    transform and measure deviation from uniform - is biased when the forecast is represented
-    by a finite quantile set covering only part of the unit interval. With levels spanning
-    0.1 to 0.9, about 20 % of realisations necessarily fall outside the represented range and
-    pile up at PIT 0 or 1, so the histogram can never be uniform however well calibrated the
-    forecast is. That version reported ~0.06 for a perfectly calibrated forecast at every lead
-    time, which is how the bias was noticed: the "calibration error" did not vary with lead
-    time at all.
-
-    `pit_values` is kept for plotting reliability diagrams, where the same caveat applies and
-    the endpoints should be read as censored rather than as evidence of miscalibration.
+    **Why not a PIT histogram.** Binning the probability integral transform is biased when
+    the forecast is a finite quantile set covering only part of the unit interval: with
+    levels 0.1 to 0.9, about 20 % of realisations necessarily fall outside the represented
+    range and pile up at PIT 0 or 1. That version reported ~0.06 for a perfectly calibrated
+    forecast at every lead time.
     """
     y = np.asarray(y, dtype=float)
     q = np.asarray(q, dtype=float)
@@ -171,19 +163,19 @@ def calibration_error(y: np.ndarray, q: np.ndarray, levels: np.ndarray) -> float
     return float(np.mean(np.abs(coverage - levels)))
 
 
-def score_store(store: ForecastStore, truth: np.ndarray, lead: int) -> dict[str, float]:
-    """Score the store at a fixed lead time."""
-    n = len(truth)
-    idx = np.arange(0, n - lead)
-    y = truth[idx + lead]
-    q = store.quantiles[idx, min(lead, store.max_lead - 1)]
-    m = store.mean[idx, min(lead, store.max_lead - 1)]
-    return {
-        "lead_steps": float(lead),
+def score_stage(stage: Stage, truth: np.ndarray, mask: np.ndarray, dt: float) -> dict:
+    """Point and probabilistic scores of one decision stage over the masked steps."""
+    t = np.arange(len(truth))[mask]
+    y, m, q = truth[mask], stage.mean[mask], stage.quantiles[mask]
+    row = {
+        "stage": stage.name,
+        "mean_lead_h": float(np.mean(t - stage.issue[mask]) * dt),
         "MAE": float(np.mean(np.abs(y - m))),
         "RMSE": float(np.sqrt(np.mean((y - m) ** 2))),
         "bias": float(np.mean(m - y)),
-        "CRPS": crps_from_quantiles(y, q, store.levels),
-        "pinball": pinball_loss(y, q, store.levels),
-        "calibration_error": calibration_error(y, q, store.levels),
+        "pinball": pinball_loss(y, q, stage.levels),
+        "calibration_error": calibration_error(y, q, stage.levels),
     }
+    for lv, cov in zip(stage.levels, np.mean(y[:, None] <= q, axis=0)):
+        row[f"coverage_q{round(100 * lv):02d}"] = float(cov)
+    return row
