@@ -1,13 +1,13 @@
 # Project 01 · Prosumer PV + Battery Energy Management at 15-Minute Resolution
 
-**Rolling-horizon MILP-MPC and reinforcement learning for a German residential prosumer site with 8 kWp PV and 9.37 kWh battery storage operating under 15-minute dynamic tariffs (`§41a EnWG`) and realistic forecast information sets.**
+**Rolling-horizon LP-MPC and reinforcement learning for a German residential prosumer site with 8 kWp PV and 9.37 kWh battery storage operating under 15-minute dynamic tariffs (`§41a EnWG`) and realistic forecast information sets.**
 
 | | |
 |---|---|
 | **Status** | **Implemented and evaluated** on 2025/2026 out-of-sample data, 73 measured households |
 | **Type** | Extension of the author's M.Sc. thesis ([`muratkus01/optimization`](https://github.com/muratkus01/optimization), tag `thesis-v1.0`) |
 | **Method** | Rolling-horizon LP-MPC on a realistic information set · Soft Actor-Critic with a safety layer |
-| **Asset** | 8 kWp PV, 9.37 kWh battery (5 to 95 % usable), 5.63 kW inverter: the thesis household (`thesis.THESIS_SITE`), which every experiment below uses through `scenarios.EXTENSION_RUN`. The MaStR mean German home storage of January 2024 is close to it (8.96 kWh / 5.53 kW) and is what `SiteConfig()` defaults to, but no result below uses those defaults. |
+| **Asset** | 8 kWp PV, 9.37 kWh battery (5 to 95 % usable), 5.63 kW inverter: the thesis household (`thesis.THESIS_SITE`). Gate 0 runs it in the thesis configuration; every dispatch result of the thesis extension runs it through `scenarios.EXTENSION_RUN`. Only section 0 (earlier results on four measured weeks) ran on the `SiteConfig()` defaults instead: 8.9 kWh, 5.51 kW, 0.95 efficiency each way, close to the MaStR mean German home storage of January 2024 (8.96 kWh / 5.53 kW). |
 | **Resolution** | **15 min**, including the quarter-hour day-ahead market since 2025-10-01 |
 | **Horizon** | Until the last published price: 11 to 35 h (re-solved every 15 min) |
 
@@ -63,7 +63,7 @@ Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kW
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
 | **B0** | PV only (no battery baseline) | +90.56 € | +52.89 € | 0.0 % (ref) | 0.0 | 0 | - | - | - |
 | **B1** | Rule-based self-consumption | -324.98 € | -189.80 € | 0.0 % (B1 ref) | 168.9 | 0 | < 1 ms | 17.9 yr | 5.6 % |
-| **B2** | Perfect foresight MILP | -716.68 € | -418.57 € | 100.0 % | 298.2 | 0 | 4.2 s (yr) | 9.2 yr | 10.8 % |
+| **B2** | Perfect foresight LP | -716.68 € | -418.57 € | 100.0 % | 298.2 | 0 | 4.2 s (yr) | 9.2 yr | 10.8 % |
 | **B3** | Deployable rolling MPC (realistic) | -675.27 € | -394.38 € | **89.4 %** | 287.5 | 0 | 5.9 ms ¹ | **9.7 yr** | **10.3 %** |
 | **RL** | Overhauled SAC (rescaled action, diff reward), median of 3 seeds | -451.82 € | -263.88 € | **32.4 %** | 267.8 | 0 | 1.2 ms | **13.7 yr** | **7.3 %** |
 
@@ -410,7 +410,7 @@ Full detail: [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-
 
 ### In scope
 
-- A 15-minute, rolling-horizon MILP-MPC energy management system for a German prosumer site with 8 kWp PV and 8.9 kWh battery storage.
+- A 15-minute, rolling-horizon LP-MPC energy management system for a German prosumer site with 8 kWp PV, 9.37 kWh battery storage and a 5.63 kW inverter (the thesis household).
 - An SAC / PPO reinforcement learning controller on an identical physical and economic model, with a safety layer.
 - A **quantified resolution study**: 60 min vs. 15 min, same site, same year, same method: isolating the bias introduced by hourly modelling.
 - A **horizon study**: published day-ahead price horizon (11-35 h) with shadow terminal valuation.
@@ -467,7 +467,7 @@ flowchart TB
 
     subgraph SITE["Site model"]
         PV["PV array (8 kWp)"]
-        BAT["Battery (8.9 kWh)"]
+        BAT["Battery (9.37 kWh)"]
         LOAD["Household load (HTW H28)"]
         GCP["Grid connection point"]
     end
@@ -489,27 +489,27 @@ flowchart TB
 
 ## 6. Problem formulation
 
-### 6.1 Rolling-horizon LP/MILP (B2 / B3)
+### 6.1 Rolling-horizon LP (B2 / B3)
 
-Sets and indices: `t in T` quarter-hours over horizon `H`; `dt = 0.25 h`.
+Sets and indices: `t in T` quarter-hours over horizon `H`; `dt = 0.25 h`. B2 and every B3 window solve this LP with HiGHS (`baselines/lp_fast.py`), without binaries.
 
-**Decision variables:** battery charge/discharge power `p_ch(t), p_dis(t) >= 0`; state of charge `E(t)`; grid import and export `p_imp(t), p_exp(t) >= 0`; curtailment `p_curt(t)`.
+**Decision variables:** battery charge/discharge power `p_ch(t), p_dis(t) >= 0`; state of charge `E(t)`; grid import and export `p_imp(t), p_exp(t) >= 0`.
 
 **Objective:** minimise net cost over the horizon minus terminal storage value:
 
 ```
-min  sum_t [ c_imp(t)*p_imp(t)*dt  -  c_exp(t)*p_exp(t)*dt  +  c_deg*(p_ch(t)+p_dis(t))*dt ]  -  V_T(E(T))
+min  sum_t [ c_imp(t)*p_imp(t)*dt  -  c_exp(t)*p_exp(t)*dt  +  c_deg*p_dis(t)*dt ]  -  v_T*E(T)
 ```
 
-where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export revenue, `c_deg` prices battery degradation throughput, and `V_T` is the fitted shadow price terminal value function.
+where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export revenue, `c_deg` prices battery wear at 0.0544 EUR per kWh discharged (the thesis C_MBCC; charging carries no wear), and `v_T` is the price of energy left in the battery: for the deployable B3 a monthly price learned on 2024 from the perfect-foresight LP's shadow prices, 0 for B2.
 
 **Constraints:**
 - Battery energy balance: `E(t+1) = E(t) + (eta_ch * p_ch(t) - p_dis(t) / eta_dis) * dt`
 - State of charge bounds: `E_min <= E(t) <= E_max`
 - Power ratings: `0 <= p_ch(t) <= P_ch_max`, `0 <= p_dis(t) <= P_dis_max`
 - Inverter combined limit: `p_ch(t) + p_dis(t) <= P_inv_max`
-- Connection point power balance: `p_imp(t) - p_exp(t) = load(t) - pv(t) + p_ch(t) - p_dis(t) + p_curt(t)`
-- Connection capacity limits: `0 <= p_imp(t) <= P_grid_max`, `0 <= p_exp(t) <= P_grid_max`
+- Connection point power balance: `p_imp(t) - p_exp(t) = load(t) - pv(t) + p_ch(t) - p_dis(t)`
+- Connection capacity limits: `0 <= p_imp(t) <= P_grid_max`, `0 <= p_exp(t) <= P_grid_max` (the thesis household has no connection limit, so `P_grid_max` is 1e6 kW)
 
 ### 6.2 MDP formulation (RL)
 
@@ -518,7 +518,7 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 | **State** | Battery SoC, time features (quarter-hour, day of week, month), rolling price window (past + published forward prices), PV and load forecasts over the next 96 steps |
 | **Action** | Continuous normalized battery setpoint $a \in [-1, 1]$, mapped via feasible action rescaling |
 | **Transition** | 15-minute simulation environment with round-trip efficiency losses and real profile realisations |
-| **Reward** | Differential reward: $r_t = \text{Cost}_{no-battery}(t) - \text{Cost}_{with-battery}(t) - c_{deg} \cdot |p_{bat}(t)| \Delta t$ |
+| **Reward** | Differential reward: $r_t = \text{Cost}_{no-battery}(t) - \text{Cost}_{with-battery}(t)$, where the with-battery cost includes the wear price $c_{deg} \cdot p_{dis}(t) \Delta t$ |
 | **Safety layer** | Projection onto feasible power bounds; zero violations by construction |
 | **Algorithm** | Soft Actor-Critic (SAC) and Proximal Policy Optimization (PPO) |
 
@@ -533,7 +533,7 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 | PV generation | Site generation | pvlib on Open-Meteo 15-min weather, calibrated to Munich site | 15 min | Complete, committed |
 | NWP forecasts | Day-ahead PV forecast | Open-Meteo previous runs | 15 min | Complete, committed |
 | Day-ahead prices | Dynamic retail tariff base | EPEX Spot DE-LU (hourly -> 15-min from Oct 2025) | 15 min | Complete, committed |
-| Battery parameters | Storage physics and degradation | Datasheet values (8.9 kWh, 5.51 kW, 95 % efficiency) | - | Complete, committed |
+| Battery parameters | Storage physics and degradation | Thesis household (`thesis.THESIS_SITE`): 9.37 kWh (5 to 95 % usable), 5.63 kW, one-way efficiency sqrt(0.95) x 0.97 = 0.945, wear 0.0544 EUR per kWh discharged | - | In code |
 
 ---
 
@@ -551,8 +551,8 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 
 | Dimension | Core Assumption | Engineering Justification and Reference | Modeling Limitation and Impact |
 |---|---|---|---|
-| **Physical** | Constant 95% round-trip efficiency, linear degradation cost (0.03 EUR/kWh throughput), ambient temperature invariant. | Aligns with standard residential LFP battery datasheets; maintains strict linearity for deterministic convex LP/MILP solvability. | Omits thermal derating, calendar aging acceleration at high state-of-charge, and non-linear degradation knee effects. |
+| **Physical** | Constant one-way efficiency of 0.945 (0.894 round trip) and a linear wear cost of 0.0544 EUR per discharged kWh (the thesis C_MBCC), ambient temperature invariant. | Aligns with standard residential LFP battery datasheets; maintains strict linearity for deterministic convex LP/MILP solvability. | Omits thermal derating, calendar aging acceleration at high state-of-charge, and non-linear degradation knee effects. |
 | **Market** | Price-taker status; dynamic retail import tariff reflects EPEX Spot hourly/15-min price plus static statutory adders and taxes. | Residential household consumption (~3,221 kWh/a) exerts zero market power on the DE-LU wholesale market. | Omits retailer-specific risk hedging collars, monthly fixed base fees, and dynamic grid fee variations. |
 | **Data** | 73 HTW Berlin empirical residential load profiles; Munich PV generation synthesized via pvlib using Open-Meteo NWP forecasts. | High-fidelity open benchmark dataset (1-min metered data downsampled to 15 min); transparent reproducibility without NDA data. | NWP irradiance forecast errors exhibit different auto-correlation structures than real-time on-site sky-camera or pyranometer telemetry. |
-| **Regulatory** | EnWG Section 41a dynamic tariff pass-through; EEG statutory export remuneration (fixed 7.86 ct/kWh reference or market export). | Enforces current German legislative framework (EnWG Section 41a, EEG 2023/2024 direct marketing rules). | Assumes fully operational intelligent metering system (iMSys smart meter gateway) without communication loss or latency. |
+| **Regulatory** | EnWG Section 41a dynamic tariff pass-through; export remunerated at max(0, 1.19 x day-ahead spot - 0.01) EUR/kWh (the thesis EP_sell), so zero when the spot is negative; the fixed EEG rate (7.86 ct/kWh) is used only by the superseded section 0. | Enforces current German legislative framework (EnWG Section 41a, EEG 2023/2024 direct marketing rules). | Assumes fully operational intelligent metering system (iMSys smart meter gateway) without communication loss or latency. |
 
