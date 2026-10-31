@@ -5,6 +5,8 @@ Every case is checked against the statute's own wording; `hybrid.market` cites t
 """
 from __future__ import annotations
 
+import functools
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -172,12 +174,14 @@ def test_the_ladder_runs_on_a_premium_that_changes_by_month():
 
 
 # ------------------------------------------------------------------ negprice
-def two_months(year: int, days: int | None = None, dt: float = 0.25) -> pd.DataFrame:
+def two_months(year: int, days: int | None = None, dt: float = 0.25,
+               sunny: float = 100.0) -> pd.DataFrame:
     """January and February of `year` from Berlin midnight, cut as `load_year` cuts its frame.
 
-    January alternates cheap windy hours (20 EUR/MWh, wind 0.8, PV 0.2) with dear sunny ones
-    (100 EUR/MWh, wind 0.2, PV 0.8), so wind's market value is 36 and PV's 84 against a mean
-    price of 60. February is flat at 60 EUR/MWh with both factors at 0.5.
+    January alternates cheap windy hours (20 EUR/MWh, wind 0.8, PV 0.2) with sunny ones at
+    `sunny` EUR/MWh (wind 0.2, PV 0.8). At the default 100 EUR/MWh wind's market value is 36
+    and PV's 84 against a mean price of 60. February is flat at 60 EUR/MWh with both factors
+    at 0.5.
     """
     jan, feb = 31 * 96, 28 * 96
     idx = pd.date_range(f"{year}-01-01", periods=jan + feb, freq="15min",
@@ -186,7 +190,7 @@ def two_months(year: int, days: int | None = None, dt: float = 0.25) -> pd.DataF
     df = pd.DataFrame({
         "wind_cf": np.concatenate([np.where(windy, 0.8, 0.2), np.full(feb, 0.5)]),
         "pv_cf": np.concatenate([np.where(windy, 0.2, 0.8), np.full(feb, 0.5)]),
-        "price_eur_mwh": np.concatenate([np.where(windy, 20.0, 100.0), np.full(feb, 60.0)]),
+        "price_eur_mwh": np.concatenate([np.where(windy, 20.0, sunny), np.full(feb, 60.0)]),
     }, index=idx)
     return df if days is None else df.iloc[:int(days * 24 / dt)]
 
@@ -214,10 +218,35 @@ def test_negprice_pays_each_vintage_against_its_realised_market_value(monkeypatc
     assert cli.main(["negprice", "--year", "2025", "--days", "2"]) == 0
     jw_wind = (1488 * 36 + 2688 * 30) / (1488 + 1344)          # January and February
     expected = {95.0: 0.625 * (95.0 - 36.0) + 0.375 * (90.0 - 84.0),
-                73.5: 0.625 * (73.5 - jw_wind)}                 # PV: 68.5 - 72.6 -> zero
+                73.5: 0.625 * (73.5 - jw_wind)}                 # PV: 68.0 - 72.6 -> zero
     assert {aw for aw, _, _ in calls} == set(expected)
     for aw, rule, rate in calls:
         assert rate == pytest.approx(np.full(192, expected[aw])), (aw, rule)
+
+
+def test_negprice_pays_the_recent_vintage_at_the_default_applicable_values(monkeypatch,
+                                                                         capsys):
+    """Regression test: the recent vintage's PV applicable value was its wind value minus 5,
+    68.5 EUR/MWh, a number with no source and above the 68.0 that MarketConfig sets and cites
+    as the BNetzA ceiling. The recent vintage is the default plant, as in every other command.
+
+    With January's sunny hours at 50 EUR/MWh, PV's annual market value falls below 68, so the
+    plant's rate shows which PV applicable value was paid.
+    """
+    calls = []
+    monkeypatch.setattr(cli, "load_year", functools.partial(two_months, sunny=50.0))
+    monkeypatch.setattr(cli, "run_ladder", recording_ladder(calls))
+    assert cli.main(["negprice", "--year", "2025", "--days", "2"]) == 0
+    default = MarketConfig()
+    jw_wind = (1488 * 26 + 1344 * 60) / (1488 + 1344)          # January 26, February 60
+    jw_pv = (1488 * 44 + 1344 * 60) / (1488 + 1344)            # January 44, February 60
+    expected = (0.625 * (default.anzulegender_wert_wind - jw_wind)
+                + 0.375 * (default.anzulegender_wert_pv - jw_pv))
+    recent = [rate for aw, _, rate in calls if aw == default.anzulegender_wert_wind]
+    assert recent, "the recent vintage ran"
+    for rate in recent:
+        assert rate == pytest.approx(np.full(192, expected))
+    assert "applicable value wind 73.5, PV 68.0" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("year, eeg_2023, rules", [

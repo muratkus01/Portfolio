@@ -105,14 +105,17 @@ def cmd_sizing(args) -> None:
 # Where a plant gets no premium the negative-price rule is economically irrelevant, because
 # there is no premium to suspend. That contrast is the point of the table; the note under it
 # says which vintage got none in the evaluated window.
-_NEGPRICE_VINTAGES = ((73.5, "AW 73.5 (recent onshore)", "year"),
-                      (95.0, "AW 95.0 (older vintage)", "month"))
+# Each entry: wind and PV applicable value (EUR/MWh), label, market-value period. The recent
+# plant is the default plant of every other command, at the values MarketConfig sets and
+# cites. The older vintage's values are a sensitivity, not a sourced award; both are printed.
+_NEGPRICE_VINTAGES = ((73.5, 68.0, "AW 73.5 (recent onshore)", "year"),
+                      (95.0, 90.0, "AW 95.0 (older vintage)", "month"))
 
 
-def _vintage_market(aw: float, rule: str) -> MarketConfig:
-    """Market settings of a negprice vintage: wind at `aw`, PV 5 EUR/MWh below it."""
+def _vintage_market(aw_wind: float, aw_pv: float, rule: str) -> MarketConfig:
+    """Market settings of a negprice vintage: its applicable values under rule `rule`."""
     return MarketConfig(negative_price_rule=rule,
-                        anzulegender_wert_wind=aw, anzulegender_wert_pv=aw - 5)
+                        anzulegender_wert_wind=aw_wind, anzulegender_wert_pv=aw_pv)
 
 
 def _negprice_premiums(args, dt: float, wind: np.ndarray, pv: np.ndarray) -> dict:
@@ -135,12 +138,10 @@ def _negprice_premiums(args, dt: float, wind: np.ndarray, pv: np.ndarray) -> dic
     # by onshore feed-in alone (Anlage 1 Nr. 3.3.2), which `wind_cf` must then be.
     national = year[["wind_cf", "pv_cf"]].set_axis(["wind", "pv"], axis=1)
     out = {}
-    for aw, label, period in _NEGPRICE_VINTAGES:
-        mk = _vintage_market(aw, "none")
+    for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES:
         values = market_values(year["price_eur_mwh"], national, period)
         table = premium_table(index, {"wind": wind, "pv": pv}, values,
-                              {"wind": mk.anzulegender_wert_wind,
-                               "pv": mk.anzulegender_wert_pv}, period)
+                              {"wind": aw_wind, "pv": aw_pv}, period)
         out[label] = (table, premium_rates(index, table, period))
     return out
 
@@ -156,9 +157,9 @@ def cmd_negprice(args) -> None:
     by_vintage = vintage_rules(args.year)
     rules = list(dict.fromkeys(by_vintage.values()))
     rows = []
-    for aw, label, _ in _NEGPRICE_VINTAGES:
+    for aw_wind, aw_pv, label, _ in _NEGPRICE_VINTAGES:
         for rule in rules:
-            run = base.with_(market=_vintage_market(aw, rule))
+            run = base.with_(market=_vintage_market(aw_wind, aw_pv, rule))
             res = run_ladder(wind, pv, price, run, premiums[label][1], rebap, include_b3=False)
             for name, r in res.items():
                 rows.append({"vintage": label, "rule": rule, "controller": name,
@@ -176,10 +177,11 @@ def _print_negprice(year: int, by_vintage: dict, rules: list, premiums: dict,
         print(f"  {vintage:<22}{rule}")
     print("market value: day-ahead price weighted by national feed-in (EEG Anlage 1)")
     no_premium = []
-    for _, label, period in _NEGPRICE_VINTAGES:
+    for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES:
         table = premiums[label][0]
-        print(f"\n{label} - {'annual' if period == 'year' else 'monthly'} market value and "
-              "premium, EUR/MWh:")
+        print(f"\n{label} - applicable value wind {aw_wind:.1f}, PV {aw_pv:.1f} EUR/MWh")
+        print(f"{'annual' if period == 'year' else 'monthly'} market value and premium, "
+              "EUR/MWh:")
         for key, t in table.iterrows():
             print(f"  {key} ({t['days']:.0f} days): wind {t['mw_wind']:.2f}, "
                   f"PV {t['mw_pv']:.2f} -> premium wind {t['premium_wind']:.2f}, "
