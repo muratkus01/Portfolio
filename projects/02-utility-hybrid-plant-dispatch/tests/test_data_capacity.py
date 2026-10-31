@@ -1,4 +1,5 @@
-"""Capacity normalisation in the data layer, offline on synthetic Energy-Charts payloads.
+"""Capacity normalisation and the year's window in the data layer, offline on synthetic
+Energy-Charts payloads.
 
 The fixture replaces datakit's one network call with a stub that serves small payloads in the
 API's own shape, so datakit's real parsers run and no test touches the network. The last test
@@ -33,10 +34,22 @@ CAPACITY_GW = {
     "Solar AC": [71.0, 75.0, 90.0, 110.0],
 }
 
+# One day across New Year: 23:00 UTC on 31 December 2024 is midnight in Berlin. Energy-Charts
+# includes the end date, so the payload it serves for 2024 runs on into 1 January 2025.
+NEW_YEAR = pd.Timestamp("2024-12-31 23:00", tz="UTC")
+# The same table with January 2025 added, so that a frame running into 2025 can be built.
+CAPACITY_GW_TO_JAN_2025 = {
+    "time": CAPACITY_GW["time"] + ["01.2025"],
+    "Wind onshore": CAPACITY_GW["Wind onshore"] + [75.5],
+    "Wind offshore": CAPACITY_GW["Wind offshore"] + [9.0],
+    "Solar DC": CAPACITY_GW["Solar DC"] + [121.5],
+    "Solar AC": CAPACITY_GW["Solar AC"] + [111.5],
+}
 
-def _payloads(capacity: dict) -> list[tuple[str, dict]]:
-    """Energy-Charts payloads keyed by a URL fragment that identifies the request."""
-    t0 = int(START.timestamp())
+
+def _payloads(capacity: dict, start: pd.Timestamp) -> list[tuple[str, dict]]:
+    """Energy-Charts payloads from `start` on, keyed by a URL fragment that names the request."""
+    t0 = int(start.timestamp())
     hours = [t0 + 3600 * k for k in range(STEPS // 4)]
     power = {"unix_seconds": [t0 + 900 * k for k in range(STEPS)],
              "production_types": [{"name": name, "data": [mw] * STEPS}
@@ -51,11 +64,12 @@ def _payloads(capacity: dict) -> list[tuple[str, dict]]:
 
 @pytest.fixture
 def energy_charts(monkeypatch):
-    """Return a function that makes datakit serve the synthetic payloads for one capacity table."""
+    """Return a function that makes datakit serve the synthetic payloads for one capacity table
+    and one start time."""
     module = sys.modules[datakit.public_power.__module__]
 
-    def serve(capacity: dict = CAPACITY_GW) -> None:
-        routes = _payloads(capacity)
+    def serve(capacity: dict = CAPACITY_GW, start: pd.Timestamp = START) -> None:
+        routes = _payloads(capacity, start)
 
         def fake_get_json(url: str, *_args) -> dict:
             for fragment, payload in routes:
@@ -113,6 +127,26 @@ def test_a_month_missing_from_the_capacity_payload_is_an_error(energy_charts):
     energy_charts({key: [values[i] for i in keep] for key, values in CAPACITY_GW.items()})
     with pytest.raises(ValueError, match="07.2024"):
         load_year(2024)
+
+
+# ------------------------------------------------------------------ the year's window
+def test_the_year_ends_at_midnight_on_new_year_in_berlin(energy_charts):
+    """The API serves 1 January 2025 with the 2024 payload; load_year(2024) must drop it.
+
+    Regression test. The extra day used to stay in, so a whole year ran one day long and any
+    per-month figure got a thirteenth month.
+    """
+    energy_charts(CAPACITY_GW_TO_JAN_2025, start=NEW_YEAR - pd.Timedelta("3h"))
+    assert load_year(2024).index[-1] == NEW_YEAR - pd.Timedelta("15min")
+
+
+def test_the_year_needs_no_capacity_from_the_next_january(energy_charts):
+    """A capacity payload fetched in December has no January yet, and the year must not need it.
+
+    Regression test. With the extra day in, load_year(2024) raised ValueError for 01.2025.
+    """
+    energy_charts(start=NEW_YEAR - pd.Timedelta("3h"))
+    assert load_year(2024).index[-1] == NEW_YEAR - pd.Timedelta("15min")
 
 
 # ------------------------------------------------------------------ dependency pin

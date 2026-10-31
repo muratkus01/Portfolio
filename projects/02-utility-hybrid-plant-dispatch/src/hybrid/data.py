@@ -70,9 +70,9 @@ def load_year(year: int, days: int | None = None,
         dt: step length in hours, e.g. 0.25 for quarter-hours.
 
     Returns:
-        Frame on a UTC index with `wind_cf` (onshore feed-in over that month's onshore
-        capacity), `pv_cf` (solar feed-in over that month's DC capacity), both clipped to
-        [0, 1], and `price_eur_mwh`.
+        Frame on a UTC index that covers `year` in Berlin time (its first `days` when given),
+        with `wind_cf` (onshore feed-in over that month's onshore capacity), `pv_cf` (solar
+        feed-in over that month's DC capacity), both clipped to [0, 1], and `price_eur_mwh`.
 
     Raises:
         ValueError: when the capacity series lacks a month the feed-in covers.
@@ -82,6 +82,10 @@ def load_year(year: int, days: int | None = None,
     start, end = f"{year}-01-01", f"{year + 1}-01-01"
     power = datakit.public_power(start, end)
     price = datakit.day_ahead_price(start, end)
+    # Energy-Charts includes the end date, so the feed-in runs to 23:45 on 1 January of the
+    # next year, Berlin time. Cut it at the local New Year: that keeps the calendar year, and
+    # keeps next January out of the capacity lookup below.
+    power = power[power.index < pd.Timestamp(end, tz="Europe/Berlin")]
 
     def pick(*names) -> pd.Series:
         for n in names:
