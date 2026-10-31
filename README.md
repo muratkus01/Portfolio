@@ -86,13 +86,13 @@ charging under §14a EnWG, and cooperative energy sharing in renewable energy co
 
 ## 🛡️ Bugs the Invariants Caught
 
-Every project checks structural physical, electrical, and market invariants, at runtime or in its tests. Each invariant caught a real defect that would otherwise have produced plausible but invalid results:
+Every project checks structural physical, electrical, and market invariants, at runtime or in its tests. Each invariant caught, or now guards against, a real defect that would otherwise have produced plausible but invalid results:
 
 | Project | Invariant | What It Caught |
 |:---:|---|---|
 | **01** | B2 <= B3 <= B1; zero violations under random actions | Linear terminal storage valuation priced stored energy at full retail import, driving MPC to buy from the grid at every horizon boundary. Continuous action clipping truncated policy outputs at 80% (resolved via action rescaling). |
 | **02** | B3 >= B1; every rung <= perfect foresight | B3 applied a planned curtailment fraction from forecast generation to actual generation, discarding deliverable energy. Voluntarily gating curtailment to negative prices lifted B3 to +5.4% over the unhybridized plant. |
-| **03** | No forecast read after its decision time (an audit that can fail); features unchanged when everything outside their information set is corrupted | Day-ahead positions read forecasts issued after the 12:00 gate closure for every quarter-hour delivered after noon; the old audit only re-checked the store's own guard; a PV feature wrapped around to the end of the series on the first day. The rebuild also found that the old model set the intraday price equal to the day-ahead price. |
+| **03** | No forecast read after its decision time (an audit that can fail); features unchanged when everything outside their information set is corrupted | The information-set test caught a PV feature that wrapped around to the end of the series on the first day. Found during the rebuild and now guarded by the audit and its tests: day-ahead positions read forecasts issued after the 12:00 gate closure for every quarter-hour delivered after noon, and the old audit only re-checked the store's own guard, so it could not fail. The rebuild also found that the old model set the intraday price equal to the day-ahead price. |
 
 The archived projects ([`archive/README.md`](archive/README.md)) carry the number of their folder, prefixed with A:
 
