@@ -200,7 +200,15 @@ def test_the_b3_ablation_reports_recovery_and_b3s_end_state(monkeypatch, tmp_pat
     terminal value and writes each case's ladder, B3's recovery and its end state of charge."""
     from hybrid import synthetic
 
+    ends = {}
+
+    def b3_end_recorded(wind, pv, price, run, *args, **kwargs):
+        res = baselines.run_ladder(wind, pv, price, run, *args, **kwargs)
+        ends[(run.forecast_sigma, run.terminal_value)] = float(res[B3]["soc"][-1])
+        return res
+
     monkeypatch.setattr(synthetic, "demo_inputs", tiny_demo)
+    monkeypatch.setattr(cli, "run_ladder", b3_end_recorded)
     df = result_table(monkeypatch, tmp_path, ["b3-ablation", "--synthetic-demo"])
 
     assert set(COMMON + ["forecast_sigma", "terminal_value", "recovery",
@@ -214,7 +222,12 @@ def test_the_b3_ablation_reports_recovery_and_b3s_end_state(monkeypatch, tmp_pat
         assert net[B2] - net[B1] > 1.0, f"{case}: B2 leaves B1 headroom"
         expected = (net[B3] - net[B1]) / (net[B2] - net[B1])
         assert g["recovery"].to_numpy() == pytest.approx(np.full(4, expected)), case
-        assert g.set_index("rung").loc[B3, "final_soc_mwh"] >= 2.0 - 1e-6, "B3's end state"
+        end = g.set_index("rung").loc[B3, "final_soc_mwh"]
+        assert end == pytest.approx(ends[case]), f"{case}: B3's stored energy after its last step"
+    for sigma in (0.0, 0.15):
+        # the linear terminal value makes B3 hoard (`default_terminal_price`), so a column that
+        # held the start, 2 MWh in every case, could not pass the check above
+        assert ends[(sigma, True)] > ends[(sigma, False)] + 1.0, sigma
     assert (df["inputs"] == "synthetic (showcase demo_05)").all()
     assert df["window_start_utc"].isna().all(), "the demo has no dates"
     assert (df["premium_rate_mean_eur_mwh"] == 8.0).all()
