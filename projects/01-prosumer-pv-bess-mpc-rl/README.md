@@ -18,9 +18,9 @@
 The thesis optimised one household over 2024 at hourly resolution with perfect foresight.
 This extension asks what a controller that could actually be deployed achieves, and what the
 switch of the EPEX day-ahead market to quarter-hour products on 1 October 2025 is worth.
-Every result below comes from a committed script and a committed CSV in `reports/` (for
-Gate 0, a committed test and its reference CSV). Solve times and a few supporting checks
-come from one-off runs, and those checks are marked.
+The main results below come from committed scripts and committed CSVs in `reports/` (for
+Gate 0, a committed test and its reference CSV). Solve times, the example-day numbers and a
+few supporting checks come from one-off runs; the checks are marked.
 
 ```bash
 pip install -e ".[rl,data,dev]"
