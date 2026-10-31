@@ -54,8 +54,7 @@ in neither, so **an unbiased per-state mean size cannot be derived**; only Germa
 can. State energy divided by state home count is biased high where large-scale batteries sit:
 14.8 kWh for Bremen and 11.3 kWh for Bavaria in January 2024, against the national mean of
 8.96 kWh (`mastr.mean_size_by_state`). The national analysis therefore uses the Germany-wide
-mean for every state. Distributing the Germany-wide home-storage count by each state's
-lithium-ion energy share is an assumption, and has to be labelled as one wherever it is used.
+mean for every state.
 
 ## Reference values, verified 2026-10-26
 
@@ -81,7 +80,8 @@ count. Mixing the two understates the fleet by just enough to pass unnoticed.
 The mean size **falls** after 2024: newly registered home storages are smaller than the
 installed base, not larger. Any extrapolation that assumes a rising average is wrong in sign.
 
-Growth of the count is large, +49.0 % from 1 January 2024 to 1 January 2025 and +30.8 % to
-1 January 2026, while the mean size moves by about 2 % at most (8.96, 8.92, 8.73 kWh above).
+Growth of the count is large, +49.0 % from 1 January 2024 to 1 January 2025 and +30.8 % from
+then to 1 January 2026, while the mean size moves by about 2 % at most (8.96, 8.92, 8.73 kWh
+above).
 For a national aggregate the monthly count series matters; for a single household one size
 per year is enough.
