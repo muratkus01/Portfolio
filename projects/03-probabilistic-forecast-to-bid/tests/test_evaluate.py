@@ -36,3 +36,48 @@ def test_a_cached_ladder_round_trips_exactly(tmp_path):
     np.testing.assert_array_equal(a.quantiles, b.quantiles)
     np.testing.assert_array_equal(a.issue, b.issue)
     np.testing.assert_array_equal(a.decision, b.decision)
+
+
+def market_frame(n: int = 400, seed: int = 1) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    index = pd.date_range("2025-07-01", periods=n, freq="15min", tz="UTC")
+    da = 80 + 20 * rng.standard_normal(n)
+    return pd.DataFrame({"truth_mw": 100 + 30 * rng.random(n), "price_da": da,
+                         "rebap": da + 60 * rng.standard_normal(n), "rebap_long": np.nan,
+                         "id_aep": da + 5 * rng.standard_normal(n)}, index=index)
+
+
+def test_error_alignment_splits_b0_against_ref_exactly():
+    from f2b.analysis import error_alignment
+    from f2b.config import RunConfig
+    from f2b.evaluate import Ladder, _stage, daily_net
+    from f2b.models import LEVELS
+
+    df = market_frame()
+    n = len(df)
+    rng = np.random.default_rng(2)
+    median = df["truth_mw"].to_numpy() + 8 + 10 * rng.standard_normal(n)
+    q = median[:, None] + np.linspace(-10, 10, len(LEVELS))[None, :]
+    rows = np.arange(n)
+    ladder = Ladder({"F9 test": [_stage("DA", rows, rows, q, n)]}, {})
+    mask = np.ones(n, dtype=bool)
+    run = RunConfig()
+    row = error_alignment(ladder, df, mask, run).iloc[0]
+    assert row["bias_part_eur"] + row["alignment_part_eur"] == pytest.approx(
+        row["b0_minus_ref_eur"])
+    totals, _ = daily_net(ladder, df, mask, run, {"F9 test": 0.25}, 0.5)
+    net = totals.set_index(["rung", "policy"])["net_revenue"]
+    assert net[("F9 test", "B0 day-ahead only")] - net[("perfect", "REF zero imbalance")] == (
+        pytest.approx(row["b0_minus_ref_eur"]))
+
+
+def test_quality_vs_value_is_plus_one_when_better_forecasts_earn_more():
+    from f2b.analysis import quality_vs_value
+
+    scores = pd.DataFrame({"rung": ["F0", "F1", "F3 seed 0", "F3 seed 1"],
+                           "stage": "DA", "pinball": [8.0, 5.0, 2.0, 2.1]})
+    totals = pd.DataFrame({"rung": ["F0", "F1", "F3 seed 0", "F3 seed 1"],
+                           "policy": "B0", "net_revenue": [1.0, 2.0, 3.0, 0.0]})
+    row = quality_vs_value(scores, totals).iloc[0]
+    assert row["rungs"] == 3                       # the second seed does not vote
+    assert row["spearman_skill_vs_eur"] == pytest.approx(1.0)

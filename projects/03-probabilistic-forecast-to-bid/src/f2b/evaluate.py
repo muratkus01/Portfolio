@@ -54,7 +54,7 @@ from .stages import (
 
 STAGE_TSO = {"DA": "tso_da_mw", "ID-12h": "tso_id_mw", "ID-6h": "tso_id_mw",
              "ID-2h": "tso_cur_mw", "ID-0.5h": "tso_cur_mw"}
-DEADBAND_GRID = (0.0, 0.1, 0.25, 0.5, 1.0)
+DEADBAND_GRID = (0.0, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0)
 
 
 @dataclass

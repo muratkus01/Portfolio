@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .analysis import error_alignment, liquidity_sweep, quality_vs_value
 from .config import MarketConfig, RunConfig
 from .data import build_dataset
 from .evaluate import (
@@ -121,7 +122,7 @@ def cmd_backtest(args) -> None:
     print(scores.pivot(index="rung", columns="stage", values="pinball")
           .to_string(float_format=lambda x: f"{x:.3f}"))
 
-    market = _market_value(ladder, df, mask, run, args.phase, frozen, out)
+    market = _market_value(ladder, df, mask, run, args.phase, frozen, out, scores)
     meta = _run_meta(args, int(mask.sum()), market)
     meta.update(forecasts_made_by=made_by["git_commit"], f3_iterations=made_by["f3_iterations"])
     (out / "run_meta.json").write_text(json.dumps(meta, indent=2, default=str))
@@ -151,7 +152,7 @@ def _forecasts(args, df: pd.DataFrame, weather_q: pd.DataFrame, run: RunConfig):
 
 
 def _market_value(ladder, df: pd.DataFrame, mask: np.ndarray, run: RunConfig, phase: str,
-                  frozen: dict | None, out: Path) -> dict | None:
+                  frozen: dict | None, out: Path, scores: pd.DataFrame) -> dict | None:
     """Settle every rung and policy at the real prices; skipped until reBAP is present."""
     priced = mask & df["rebap"].notna().to_numpy()
     if not priced.any():
@@ -166,6 +167,11 @@ def _market_value(ladder, df: pd.DataFrame, mask: np.ndarray, run: RunConfig, ph
     flat.columns = [f"{r} | {p}" for r, p in daily.columns]
     flat.round(2).to_csv(out / "daily_net.csv", index_label="delivery_day")
     value_of_forecast(daily).round(4).to_csv(out / "value_of_forecast.csv", index=False)
+    error_alignment(ladder, df, priced, run).round(4).to_csv(out / "error_alignment.csv",
+                                                             index=False)
+    quality_vs_value(scores, totals).round(4).to_csv(out / "quality_vs_value.csv", index=False)
+    liquidity_sweep(ladder, df, priced, run, k, tau).round(2).to_csv(out / "liquidity.csv",
+                                                                     index=False)
     print("\n" + totals.pivot(index="rung", columns="policy", values="net_revenue")
           .to_string(float_format=lambda x: f"{x:,.0f}"))
     fallback = market_prices(df)["id_aep_missing"] & priced
