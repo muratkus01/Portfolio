@@ -217,10 +217,12 @@ def premium_table(index: pd.DatetimeIndex, generation: dict[str, np.ndarray],
     law pays each technology on its own energy, and stored energy keeps the claim it would
     have had without the storage (§ 19 (3) EEG 2023). The model has one export and one
     battery for both, so it pays one rate per period: the premiums weighted by the plant's own
-    available generation of each technology in the period. That is an approximation, exact
-    only when the mix is the same in every step. It misprices every step whose mix departs
-    from the period's, the steps the negative-price rule acts on included, so it can misstate
-    what the rule removes; and the optimiser cannot curtail one technology and keep the other.
+    available generation of each technology in the steps of `index` that fall in the period,
+    so the rate depends on the evaluated window as well as on the period. That is an
+    approximation, exact only when the mix is the same in every step. It misprices every step
+    whose mix departs from the period's, the steps the negative-price rule acts on included,
+    so it can misstate what the rule removes; and the optimiser cannot curtail one technology
+    and keep the other.
     A per-step share would be no better behind a battery: it would pay discharged energy the
     mix of its discharge step and let the optimiser shift energy into the hours of the higher
     premium. Exact settlement needs each technology's export and a store that tracks whose

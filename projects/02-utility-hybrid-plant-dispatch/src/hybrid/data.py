@@ -181,10 +181,18 @@ def to_plant(df: pd.DataFrame, wind_mw: float, pv_mw: float) -> tuple:
 
 def describe(wind: np.ndarray, pv: np.ndarray, price: np.ndarray,
              conn_mw: float, dt: float) -> str:
+    """One line on the window: generation, how much of it lies above the connection, prices.
+
+    The energy above the connection is what the plant must curtail or store; the battery can
+    take part of it, so none of it is unstorable as such.
+    wind, pv: available generation per step, MW. price: day-ahead price per step, EUR/MWh.
+    conn_mw: the connection's export limit, MW. dt: step length in hours.
+    Returns the line.
+    """
     gen = wind + pv
     over = (gen > conn_mw).mean() * 100
     spill = np.sum(np.clip(gen - conn_mw, 0, None)) * dt
     return (f"mean gen {gen.mean():5.1f} MW | peak {gen.max():5.1f} MW | "
-            f"over connection in {over:4.1f}% of steps ({spill:,.0f} MWh unstorable) | "
+            f"over connection in {over:4.1f}% of steps ({spill:,.0f} MWh above it) | "
             f"price mean {price.mean():5.1f} EUR/MWh, negative in "
             f"{(price < 0).mean() * 100:.1f}% of steps")

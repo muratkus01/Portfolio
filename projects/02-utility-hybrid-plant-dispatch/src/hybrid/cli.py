@@ -155,25 +155,28 @@ def _b3_price_scale(args, run: RunConfig) -> float:
 
 
 def _print_premium(table: pd.DataFrame, period: str) -> None:
-    """Print a premium table's premiums per technology and the plant's rate, by period."""
+    """Print a premium table by period: its days of market data, each technology's premium,
+    and the plant's rate, a blend weighted by this window's own wind/PV mix."""
     print(f"market premium, settled on the realised {'annual' if period == 'year' else 'monthly'}"
           " market value (a proxy, see negprice), EUR/MWh:")
     for key, t in table.iterrows():
-        print(f"  {key}: wind {t['premium_wind']:.2f}, PV {t['premium_pv']:.2f}, "
-              f"plant {t['rate']:.2f}")
+        print(f"  {key} ({t['days']:.0f} days): wind {t['premium_wind']:.2f}, "
+              f"PV {t['premium_pv']:.2f}, plant on this window's wind/PV mix {t['rate']:.2f}")
 
 
 def _report(res: dict, title: str) -> None:
+    """Print each rung's settlement: net revenue, export, curtailment chosen and forced by the
+    connection, and constraint violations, then each rung's gain over B0."""
     print(f"\n{title}")
     print("=" * len(title))
     hdr = (f"{'controller':<26}{'net EUR':>12}{'export MWh':>12}"
-           f"{'curt chosen':>12}{'curt forced':>12}{'viol.':>7}")
+           f"{'curt chosen MWh':>17}{'curt forced MWh':>17}{'viol.':>7}")
     print(hdr)
     print("-" * len(hdr))
     for name, r in res.items():
         c = r["cost"]
         print(f"{name:<26}{c['net_revenue']:>12,.0f}{c['export_mwh']:>12,.0f}"
-              f"{c['chosen_curtail_mwh']:>12,.0f}{c['forced_curtail_mwh']:>12,.0f}"
+              f"{c['chosen_curtail_mwh']:>17,.0f}{c['forced_curtail_mwh']:>17,.0f}"
               f"{sum(r['violations'].values()):>7d}")
     if "B0 no battery" in res:
         b0 = res["B0 no battery"]["cost"]["net_revenue"]
@@ -237,7 +240,8 @@ def cmd_sizing(args) -> None:
     # generation and installed ratings are the same at every connection size
     installed = run.plant.installed_mw
     peak = float(np.max(wind + pv))
-    print(f"\nConnection-capacity sweep ({installed:.0f} MW wind + MWp PV installed)")
+    print(f"\nConnection-capacity sweep ({run.plant.wind_mw:.0f} MW wind + "
+          f"{run.plant.pv_mw:.0f} MWp PV installed)")
     print(f"peak combined output in the window: {peak:.1f} MW, {peak / installed:.3f} of "
           "installed (national Energy-Charts factors)")
     print(df.to_string(index=False, float_format=lambda x: f"{x:,.2f}"))
@@ -332,7 +336,7 @@ def _print_negprice(year: int, by_vintage: dict, rules: list, premiums: dict,
         for key, t in table.iterrows():
             print(f"  {key} ({t['days']:.0f} days): wind {t['mw_wind']:.2f}, "
                   f"PV {t['mw_pv']:.2f} -> premium wind {t['premium_wind']:.2f}, "
-                  f"PV {t['premium_pv']:.2f}, plant {t['rate']:.2f}")
+                  f"PV {t['premium_pv']:.2f}, plant on this window's mix {t['rate']:.2f}")
         g = df[df["vintage"] == label]
         print(g.pivot(index="controller", columns="rule", values="net_EUR")[rules]
               .to_string(float_format=lambda x: f"{x:,.0f}"))

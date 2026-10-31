@@ -42,15 +42,33 @@ def test_cli_command_runs(monkeypatch, capsys, argv, expect):
     assert expect in capsys.readouterr().out
 
 
-def test_sizing_prints_the_peak_of_the_data_it_loads(monkeypatch, capsys):
+def test_sizing_prints_the_plant_and_the_peak_of_the_data_it_loads(monkeypatch, capsys):
     """The sweep's reason, how far the window's peak sits below nameplate, is printed from the
-    loaded factors rather than quoted in the code, where it went stale when the data changed."""
+    loaded factors rather than quoted in the code, where it went stale when the data changed.
+
+    Regression test as well: the header read "80 MW wind + MWp PV installed", as if all 80
+    were wind.
+    """
     monkeypatch.setattr(cli, "load_year", fake_year)
     assert cli.main(["sizing", "--days", "2"]) == 0
     df = fake_year(2025, 2)
     peak = float((50.0 * df["wind_cf"] + 30.0 * df["pv_cf"]).max())
+    out = capsys.readouterr().out
+    assert "Connection-capacity sweep (50 MW wind + 30 MWp PV installed)" in out
     assert (f"peak combined output in the window: {peak:.1f} MW, {peak / 80.0:.3f} of installed"
-            in capsys.readouterr().out)
+            in out)
+
+
+def test_ladder_names_the_units_and_basis_of_what_it_prints(monkeypatch, capsys):
+    """Regression test: the energy above the connection was called unstorable, though the
+    battery stores part of it; the curtailment columns had no unit; and the plant's premium
+    rate, a blend on the window's own wind/PV mix, read as the plant's rate for the year."""
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    assert cli.main(["ladder", "--fast", "--days", "2"]) == 0
+    out = capsys.readouterr().out
+    assert "unstorable" not in out and "MWh above it" in out
+    assert "curt chosen MWh" in out and "curt forced MWh" in out
+    assert "2025 (365 days): wind" in out and "plant on this window's wind/PV mix" in out
 
 
 @pytest.mark.parametrize("rule", NEGATIVE_PRICE_RULES)
