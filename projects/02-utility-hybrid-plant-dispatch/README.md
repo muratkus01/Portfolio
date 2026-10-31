@@ -8,7 +8,7 @@ ladder B0 → B3 and against a learned policy.**
 ## 0. Implementation status
 
 Ladder B0/B1/B2/B3 implemented and running on **real German 2025 wind, PV and price data**
-(national capacity factors from Energy-Charts via `datakit`). 148 tests pass.
+(national capacity factors from Energy-Charts via `datakit`). 149 tests pass.
 
 ```bash
 pip install -e ".[dev]" && python -m pytest tests/ -q

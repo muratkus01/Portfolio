@@ -107,6 +107,14 @@ def test_a_window_outside_its_year_is_refused(monkeypatch, argv):
         window(["ladder", "--year", "2025", *argv])
 
 
+def test_the_command_refuses_a_window_past_the_end_of_its_year(monkeypatch):
+    """Regression test through main() alone, the interface every version has: --days 366 on
+    2025 ran the 35,040 steps of 2025's 365 days and called them "366 days of 2025"."""
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    with pytest.raises(ValueError, match="run past the end of 2025"):
+        cli.main(["ladder", "--fast", "--year", "2025", "--days", "366"])
+
+
 @pytest.mark.parametrize("rule", NEGATIVE_PRICE_RULES)
 def test_every_negative_price_rule_can_be_chosen(monkeypatch, capsys, rule):
     """Regression test: --neg-rule offered only none, six_hour and new_2025, so the four-hour
