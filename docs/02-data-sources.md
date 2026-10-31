@@ -139,9 +139,10 @@ All projects follow the same conventions so pipelines and evaluation code are po
 - **Versioning.** No DVC and no data snapshot hash per result. Each Project 03
   `run_meta.json` names the commits that made and valued its forecasts, and Project 01's
   aggregate load fit records the SHA-256 of its HTW input (`reports/aggregate_load/fit_meta.csv`).
-- **Provenance.** The data folders carry committed `SOURCE.md` files with URL and licence
-  (the HTW profiles are documented in `prosumer/data/htw.py` instead), and `datakit` appends
-  endpoint, retrieval time and licence to its cache's `SOURCE.md` on every download.
+- **Provenance.** The data folders carry committed `SOURCE.md` files that say where their
+  files come from (Project 01's price `SOURCE.md` records only the last fetch; the HTW
+  profiles are documented in `prosumer/data/htw.py`), and `datakit` appends endpoint,
+  retrieval time and licence to its cache's `SOURCE.md` on every download.
 - **No raw data in git.** `.gitignore` excludes `/data/` and everything under
   `projects/*/data/` except the `SOURCE.md` files. `prosumer build-data` and
   `python -m f2b.cli build-data` rebuild the datasets from the public APIs; the HTW profiles,
