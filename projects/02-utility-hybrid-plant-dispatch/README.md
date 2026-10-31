@@ -11,7 +11,7 @@ Ladder B0/B1/B2/B3 implemented and running on **real German 2025 wind, PV and pr
 (national capacity factors from Energy-Charts via `datakit`). 26 tests pass.
 
 ```bash
-pip install -e ".[rl,dev]" && python -m pytest tests/ -q
+pip install -e ".[dev]" && python -m pytest tests/ -q
 python -m hybrid.cli ladder    --year 2025 --days 30
 python -m hybrid.cli sizing    --year 2025 --days 20   # RQ2 connection-ratio sweep
 python -m hybrid.cli negprice  --year 2025 --days 20   # RQ4 negative-price rule by vintage
