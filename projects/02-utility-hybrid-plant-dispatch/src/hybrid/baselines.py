@@ -12,9 +12,22 @@ import time
 import numpy as np
 import pulp
 
-from .config import RunConfig
+from .config import MarketConfig, RunConfig
 from .market import effective_price, premium_eligible, settle
 from .plant import battery_interval, simulate
+
+# Tolerance of the ladder invariant. PuLP reads CBC's solution with about eight significant
+# digits, so a rung that re-solves every step (B3) can beat the single plan of B2 by rounding
+# alone under perfect forecasts: by a few 1e-9 of the objective, as a test in
+# tests/test_ladder_accounting.py shows. The tolerance therefore scales with the objective;
+# the floor covers objectives near zero.
+_INVARIANT_REL_TOL = 1e-6
+_INVARIANT_ABS_TOL = 1e-3          # EUR
+# Share of the charged energy that may come from the grid before it counts as bought. With
+# grid charging allowed, LP rounding alone imports a tiny share of the charged energy, at any
+# window length and plant size; an absolute threshold would refuse that residue on a long
+# enough window or a large enough plant.
+_GRID_SHARE_TOL = 1e-6
 
 
 # ------------------------------------------------------------------ B0 / B1
@@ -28,8 +41,10 @@ def b0_no_battery(wind: np.ndarray, pv: np.ndarray, run: RunConfig,
     n = len(wind)
     cfg_nobess = run.plant.__class__(**{**run.plant.__dict__, "bess_mw": 0.0,
                                         "bess_mwh": 1e-6})
+    # Start the 1e-6 MWh stand-in at its own minimum: from 0, below that minimum, the safety
+    # layer forced it to charge, which drew a few 1e-8 MWh from the grid.
     return simulate(wind, pv, np.zeros(n), np.zeros(n), run.dt, cfg_nobess,
-                    soc0=0.0, export_cap=export_cap)
+                    soc0=cfg_nobess.soc_min, export_cap=export_cap)
 
 
 def b1_curtailment_avoidance(wind: np.ndarray, pv: np.ndarray, run: RunConfig,
@@ -208,9 +223,69 @@ def make_forecasts(wind, pv, eff_price, run: RunConfig, rng):
             eff_price + s * np.std(eff_price) * ar_noise(n, rng, r))
 
 
+def _with_import_cost(cost: dict[str, float], imports: np.ndarray, price: np.ndarray,
+                      dt: float) -> dict[str, float]:
+    """Charge grid imports to a settlement; `settle` prices exported energy only.
+
+    With `grid_charging_allowed` the battery may charge from the grid. That energy is bought
+    on the day-ahead market the export is sold on, and the market module has no other price
+    for it, so imports pay the day-ahead price. Grid fees and levies are not modelled. Sold
+    again, that energy must not earn the market premium; `_refuse_premium_on_grid_energy`
+    stops such a run.
+
+    cost: a settlement from `market.settle`. imports: grid import per step in MW.
+    price: day-ahead price per step in EUR/MWh. dt: step length in hours.
+    Returns a copy of `cost` with `import_cost` (EUR) added and taken off `net_revenue`.
+    """
+    import_cost = float(np.sum(np.asarray(imports) * np.asarray(price, dtype=float)) * dt)
+    return {**cost, "import_cost": import_cost,
+            "net_revenue": cost["net_revenue"] - import_cost}
+
+
+def _refuse_premium_on_grid_energy(name: str, res: dict[str, np.ndarray],
+                                   premium_rate: float | np.ndarray, market: MarketConfig,
+                                   dt: float) -> None:
+    """Stop the run when a rung charged grid energy while the market premium is paid.
+
+    The premium follows renewable energy into the battery (§ 19 (3) EEG 2023); energy bought
+    from the grid carries none when it is sold again. `settle` pays the premium on all
+    eligible export, and the ladder does not track which part of the stored energy came from
+    the grid, so a rung that buys, stores and resells would be paid the premium on energy it
+    never generated. No shipped rung buys grid energy; this guards a controller that would.
+
+    name: rung name, for the message. res: the rung's dispatch, with "import" and "p_ch"
+    per step in MW (the plant imports only to charge, so import <= p_ch).
+    premium_rate: market premium in EUR/MWh, one rate or one per step.
+    market: the run's market settings. dt: step length in hours.
+    Raises NotImplementedError when more than _GRID_SHARE_TOL of the charged energy came
+    from the grid while a premium is paid.
+    """
+    bought = float(np.sum(res["import"]) * dt)
+    charged = float(np.sum(res["p_ch"]) * dt)
+    premium_paid = market.eeg_enabled and bool(np.any(np.asarray(premium_rate) > 0.0))
+    if premium_paid and bought > _GRID_SHARE_TOL * charged:
+        raise NotImplementedError(
+            f"{name} charged {charged:,.2f} MWh, {bought:,.2f} MWh of it from the grid, while "
+            "the market premium is paid; the premium is due on renewable energy only, and the "
+            "ladder cannot tell grid energy from renewable energy in the battery")
+
+
 def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
                rebap=None, export_cap=None, include_b3=True,
-               progress=False) -> dict[str, dict]:
+               progress=False, schedule=None) -> dict[str, dict]:
+    """Run every rung on the same window, settle it, and check the ladder invariant.
+
+    wind, pv: available generation per step in MW, e.g. np.array([31.2, 29.8, ...]).
+    price: day-ahead price per step in EUR/MWh. premium_rate: market premium in EUR/MWh.
+    rebap, schedule: imbalance price in EUR/MWh and the export the plant committed to, in MW,
+        both per step. Each rung's deviation from the schedule is settled at reBAP only when
+        both are given; no rung commits a schedule of its own, so reBAP alone settles nothing.
+        The settlement's imbalance_cost is the deviation priced at reBAP minus spot.
+    export_cap: per-step export limit in MW (a redispatch order), or None for the connection.
+    Returns {rung name: dispatch arrays plus "cost" (the settlement) and "violations"}.
+    Raises AssertionError when a rung beats perfect foresight B2 on revenue before imbalance,
+    and NotImplementedError when a rung charged grid energy while the market premium is paid.
+    """
     from .plant import check_feasible
 
     rng = np.random.default_rng(run.seed)
@@ -226,10 +301,17 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         out["B3 rolling MPC"] = b3_rolling(wind, pv, eff, wind_fc, pv_fc, price_fc, run,
                                            export_cap, progress=progress)
 
+    # Single-price settlement pays spot on the committed schedule and reBAP on the deviation.
+    # settle() pays spot on the whole export, so it must price the deviation at the spread,
+    # reBAP minus spot; handed reBAP itself, it paid the deviation twice.
+    spread = None if rebap is None else (np.asarray(rebap, dtype=float)
+                                         - np.asarray(price, dtype=float))
     for name, r in out.items():
-        sched = r["export"] if rebap is None else None
-        r["cost"] = settle(r, price, run.dt, run.plant, run.market,
-                           rebap=rebap, schedule=sched, premium_rate=premium_rate)
+        _refuse_premium_on_grid_energy(name, r, premium_rate, run.market, run.dt)
+        r["cost"] = _with_import_cost(
+            settle(r, price, run.dt, run.plant, run.market,
+                   rebap=spread, schedule=schedule, premium_rate=premium_rate),
+            r["import"], price, run.dt)
         r["violations"] = check_feasible(
             r, run.plant if "no battery" not in name
             else run.plant.__class__(**{**run.plant.__dict__, "bess_mw": 0.0,
@@ -237,10 +319,16 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
 
     # Perfect foresight cannot lose to ANY other rung. Checking only B3 would have missed the
     # premium-feedback bug, which showed up as B2 scoring below the do-nothing baseline.
-    b2 = out["B2 perfect foresight"]["cost"]["net_revenue"]
-    for name, r in out.items():
-        if name != "B2 perfect foresight" and r["cost"]["net_revenue"] > b2 + 1e-3:
+    # B2 is the ceiling of what it optimises, and imbalance lies outside that: the committed
+    # schedule and reBAP are not in its objective, so a rung that deviates the lucky way can
+    # out-earn it there. The check therefore compares revenue before imbalance.
+    before = {name: r["cost"]["net_revenue"] + r["cost"]["imbalance_cost"]
+              for name, r in out.items()}
+    b2 = before["B2 perfect foresight"]
+    tol = max(_INVARIANT_ABS_TOL, _INVARIANT_REL_TOL * abs(b2))
+    for name, rev in before.items():
+        if name != "B2 perfect foresight" and rev > b2 + tol:
             raise AssertionError(
-                f"ladder invariant violated: {name} ({r['cost']['net_revenue']:,.0f}) beats "
-                f"perfect foresight B2 ({b2:,.0f}) - impossible, so something is wrong")
+                f"ladder invariant violated: {name} ({rev:,.0f}) beats perfect foresight "
+                f"B2 ({b2:,.0f}) before imbalance - impossible, so something is wrong")
     return out

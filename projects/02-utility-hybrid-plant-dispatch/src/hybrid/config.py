@@ -31,7 +31,11 @@ class PlantConfig:
 
     soc_min_frac: float = 0.05
     soc_max_frac: float = 0.95
-    soc_init_frac: float = 0.50
+    # None starts the battery at soc_min_frac, i.e. empty, and that is what the ladder needs.
+    # No rung has an end-of-window state-of-charge condition, so energy found in the battery
+    # at the start is sold as revenue nobody paid for: half full, that was 18 MWh, counted as
+    # battery value (B2 minus B0). Starting empty needs no price for stored energy.
+    soc_init_frac: float | None = None
     eta_c: float = 0.95
     eta_d: float = 0.95
     c_deg_eur_mwh: float = 3.0       # EUR per MWh of throughput
@@ -42,6 +46,15 @@ class PlantConfig:
     grid_charging_allowed: bool = False
 
     ramp_mw_per_step: float | None = None   # None = unlimited (inverter-coupled plant)
+
+    def __post_init__(self) -> None:
+        # A start outside the limits is a state the plant cannot be in, and the safety layer
+        # forces the battery back: from below it charged, from the grid even where grid
+        # charging is forbidden; from above it sold energy nobody paid for.
+        if self.soc_init_frac is not None and not (
+                self.soc_min_frac <= self.soc_init_frac <= self.soc_max_frac):
+            raise ValueError(f"soc_init_frac {self.soc_init_frac} lies outside [soc_min_frac "
+                             f"{self.soc_min_frac}, soc_max_frac {self.soc_max_frac}]")
 
     @property
     def installed_mw(self) -> float:
@@ -62,7 +75,8 @@ class PlantConfig:
 
     @property
     def soc_init(self) -> float:
-        return self.bess_mwh * self.soc_init_frac
+        frac = self.soc_min_frac if self.soc_init_frac is None else self.soc_init_frac
+        return self.bess_mwh * frac
 
 
 # Negative-price rules the settlement implements, oldest vintage first.
