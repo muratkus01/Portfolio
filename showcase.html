@@ -1432,11 +1432,11 @@
           <div class="metrics-strip">
             <div class="mini-metric">
               <div class="mini-lbl">B3 Headroom Rec.</div>
-              <div class="mini-val emerald" id="p01-metric-b3">56.0% Rec</div>
+              <div class="mini-val emerald" id="p01-metric-b3">89.4% Rec</div>
             </div>
             <div class="mini-metric">
               <div class="mini-lbl">RL Headroom Rec.</div>
-              <div class="mini-val cyan" id="p01-metric-rl">27.0% Rec</div>
+              <div class="mini-val cyan" id="p01-metric-rl">32.4% Rec</div>
             </div>
             <div class="mini-metric">
               <div class="mini-lbl">RL Action Clipping</div>
@@ -1450,17 +1450,17 @@
 
           <div class="table-card">
             <div class="table-title">
-              <span>Benchmark Ladder Comparison (2-Day Rolling Horizon)</span>
-              <span id="p01-table-sub" style="font-family: var(--font-mono); color: var(--text-muted);">2025 DE-LU Data</span>
+              <span>Benchmark Ladder Comparison (window to the last published day-ahead price, 11 to 35 h)</span>
+              <span id="p01-table-sub" style="font-family: var(--font-mono); color: var(--text-muted);">Household H28, test 2025-01-01 to 2026-09-17</span>
             </div>
             <table class="ladder-tbl">
               <thead>
-                <tr><th>Controller Rung</th><th>Net Daily Cost</th><th>Headroom Rec.</th><th>Physical Violations</th></tr>
+                <tr><th>Controller Rung</th><th>Net Cost, 625 Days</th><th>Headroom Rec.</th><th>Physical Violations</th></tr>
               </thead>
               <tbody>
                 <tr>
                   <td>B1 Self-Consumption Rule</td>
-                  <td id="p01-b1-cost">-2.417 EUR</td>
+                  <td id="p01-b1-cost">-324.98 EUR</td>
                   <td>
                     <div class="ladder-bar-wrap">
                       <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 4%;"></div></div>
@@ -1470,8 +1470,8 @@
                   <td>0 Violations</td>
                 </tr>
                 <tr>
-                  <td>B2 Perfect Foresight MILP</td>
-                  <td id="p01-b2-cost">-2.613 EUR</td>
+                  <td>B2 Perfect Foresight LP</td>
+                  <td id="p01-b2-cost">-716.68 EUR</td>
                   <td>
                     <div class="ladder-bar-wrap">
                       <div class="ladder-bar-track"><div class="ladder-bar-fill cyan" style="width: 100%;"></div></div>
@@ -1481,29 +1481,32 @@
                   <td>0 Violations</td>
                 </tr>
                 <tr>
-                  <td>B3 Rolling-Horizon MPC (24h)</td>
-                  <td id="p01-b3-cost">-2.526 EUR</td>
+                  <td>B3 Rolling-Horizon MPC (11 to 35 h)</td>
+                  <td id="p01-b3-cost">-675.27 EUR</td>
                   <td>
                     <div class="ladder-bar-wrap">
-                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" id="p01-b3-bar" style="width: 56%;"></div></div>
-                      <span class="highlight" id="p01-b3-rec">56.0% Recovery</span>
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" id="p01-b3-bar" style="width: 89%;"></div></div>
+                      <span class="highlight" id="p01-b3-rec">89.4% Recovery</span>
                     </div>
                   </td>
                   <td>0 Violations</td>
                 </tr>
                 <tr>
-                  <td>RL Rescaled SAC Policy</td>
-                  <td id="p01-rl-cost">-2.470 EUR</td>
+                  <td>RL Rescaled SAC Policy (median of 3 seeds)</td>
+                  <td id="p01-rl-cost">-451.82 EUR</td>
                   <td>
                     <div class="ladder-bar-wrap">
-                      <div class="ladder-bar-track"><div class="ladder-bar-fill purple" id="p01-rl-bar" style="width: 27%;"></div></div>
-                      <span id="p01-rl-rec">27.0% Recovery</span>
+                      <div class="ladder-bar-track"><div class="ladder-bar-fill purple" id="p01-rl-bar" style="width: 32%;"></div></div>
+                      <span id="p01-rl-rec">32.4% Recovery</span>
                     </div>
                   </td>
                   <td>0 Violations</td>
                 </tr>
               </tbody>
             </table>
+            <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; padding: 10px 20px 12px;">
+              Negative cost is net revenue. The same numbers show for every year button: the project has one test period, not one result per year. Sources in the P01 folder: <code>reports/rolling_eval_htw_H28/rolling_eval_summary.csv</code> (B1, B2, B3) and <code>reports/rl_eval_H28/rl_summary.csv</code> (RL); violations from that CSV and <code>reports/rl_eval_H28/rl_seeds.csv</code>.
+            </p>
           </div>
 
           <!-- Detailed Engineering Analysis Workbench -->
@@ -1544,12 +1547,12 @@
 
             <!-- Tab 4: Algorithmic Ladder -->
             <div id="p01-pane-arch" class="proj-pane">
-              <h4>Benchmarking Progression & Solve Performance</h4>
+              <h4>Benchmarking Progression</h4>
               <p>The project benchmarks four controller rungs to quantify exact value capture:</p>
               <p>&bull; <strong>B1 Self-Consumption Rule:</strong> Greedy heuristic that charges the battery whenever rooftop PV exceeds home demand, and discharges whenever load exceeds PV (Baseline 0% headroom recovery).</p>
-              <p>&bull; <strong>B2 Perfect Foresight MILP:</strong> Global theoretical ceiling solved via HiGHS with perfect 48h lookahead (100% ceiling).</p>
-              <p>&bull; <strong>B3 Rolling MPC:</strong> Receding 24h horizon with autoregressive price forecasting, executed every 15 minutes in 1.1 ms solve time (Captures 56.0% of available headroom).</p>
-              <p>&bull; <strong>Learned RL (Rescaled SAC):</strong> Neural policy evaluated over 500,000 training steps (Recovers 27.0% headroom with 0.4 ms sub-millisecond inference latency).</p>
+              <p>&bull; <strong>B2 Perfect Foresight LP:</strong> one LP over the whole 625-day test period with exact knowledge of load, PV and prices, solved by HiGHS (100% ceiling).</p>
+              <p>&bull; <strong>B3 Rolling MPC:</strong> re-solved every 15 minutes over a window that ends at the last published day-ahead price (11 to 35 h), using the published prices, a day-ahead NWP PV forecast and the BDEW H0 load profile (captures 89.4% of the B1-to-B2 headroom for household H28).</p>
+              <p>&bull; <strong>Learned RL (Rescaled SAC):</strong> Soft Actor-Critic trained for 500,000 steps on 2024 with the same information as B3, rescaled actions and a differential reward (recovers 32.4% of the headroom, median of 3 seeds).</p>
             </div>
 
             <!-- Tab 5: Master Thesis Sensitivity Analysis -->
@@ -1573,7 +1576,7 @@
           </div>
 
           <div class="cli-box">
-            <span id="p01-cli-text">prosumer rolling-eval --days 14 --year 2025</span>
+            <span id="p01-cli-text">prosumer rolling-eval --data data/processed/site_2024_2026_htw_H28.parquet --out reports/rolling_eval_htw_H28</span>
             <button class="btn-copy" onclick="copyDynamicText('p01-cli-text')">Copy Command</button>
           </div>
         </div>
@@ -1581,7 +1584,7 @@
         <div class="visual-col">
           <div class="visual-gallery">
             <div class="gallery-nav">
-              <span class="gallery-tag"><span class="pulse-dot"></span>Multi-Horizon Telemetry & Visual Benchmark (300 DPI)</span>
+              <span class="gallery-tag"><span class="pulse-dot"></span>Illustrative Dispatch & Benchmark Figures</span>
               <div class="gallery-btn-group">
                 <button class="gallery-btn" id="p01-galbtn-2026" onclick="switchVisual('p01', '2026')">2026 (YTD)</button>
                 <button class="gallery-btn active" id="p01-galbtn-2025" onclick="switchVisual('p01', '2025')">2025 Dispatch</button>
@@ -1590,7 +1593,7 @@
               </div>
             </div>
             <div class="plot-container" onclick="openModal(document.getElementById('p01-active-img').src)">
-              <div class="plot-overlay-badge">Click to Enlarge (300 DPI)</div>
+              <div class="plot-overlay-badge">Click to Enlarge</div>
               <img id="p01-active-img" class="plot-img" src="projects/01-prosumer-pv-bess-mpc-rl/docs/figures/p01_dispatch_2025.png" alt="Residential PV+BESS Dispatch Benchmark">
             </div>
             <div class="plot-caption" id="p01-caption">
@@ -2862,8 +2865,8 @@
           caption: '<strong>Figure 1 (2024):</strong> 72-hour continuous operational episode (May 01 to May 03, 288 x 15-minute MTUs) under 2024 DE-LU dynamic tariffs showing spot price volatility (-120 EUR/MWh), empirical rooftop solar PV, BESS active arbitrage, and state-of-charge trajectory.'
         },
         'bench': {
-          src: 'projects/01-prosumer-pv-bess-mpc-rl/docs/figures/p01_ladder_benchmark.png',
-          caption: '<strong>Figure 1 (Benchmark):</strong> Benchmark ladder headroom recovery progression (B1 Rule 0% to SAC RL 27.0% to B3 Rolling MPC 56.0% to B2 Ceiling 100%).'
+          src: 'projects/01-prosumer-pv-bess-mpc-rl/docs/figures/capture_ladder.png',
+          caption: '<strong>Figure 1 (Benchmark):</strong> Share of the perfect-foresight gain each controller captures, household H28, January 2025 to September 2026, trained on 2024: B2 perfect foresight 100% (ceiling), B3 with perfect PV and load forecasts 98.3%, B3 with the H0 standard-profile load forecast 92.3%, deployable B3 (adding the day-ahead PV forecast) 89.4%, RL SAC with the same information 32.4% (median of 3 seeds), B1 rule-based 0%. Built by <code>prosumer.reporting.figures</code> from <code>reports/rolling_eval_htw_H28</code> and <code>reports/rl_eval_H28</code>.'
         }
       },
       p02: {
@@ -2919,6 +2922,23 @@
       });
     }
 
+    // P01 has one test period (2025-01-01 to 2026-09-17, trained on 2024), not one result per
+    // year, so every year button shows the same numbers. B1, B2 and B3 come from
+    // projects/01-prosumer-pv-bess-mpc-rl/reports/rolling_eval_htw_H28/rolling_eval_summary.csv,
+    // RL (median of 3 seeds) from reports/rl_eval_H28/rl_summary.csv in the same folder.
+    const P01_TEST_RESULTS = {
+      b3Metric: '89.4% Rec',
+      rlMetric: '32.4% Rec',
+      tableSub: 'Household H28, test 2025-01-01 to 2026-09-17',
+      b1Cost: '-324.98 EUR',
+      b2Cost: '-716.68 EUR',
+      b3Cost: '-675.27 EUR',
+      b3Rec: '89.4% Recovery',
+      rlCost: '-451.82 EUR',
+      rlRec: '32.4% Recovery',
+      cli: 'prosumer rolling-eval --data data/processed/site_2024_2026_htw_H28.parquet --out reports/rolling_eval_htw_H28'
+    };
+
     // Global Evaluation Year Configuration & Reactive Engine
     const YEAR_CONFIG = {
       '2024': {
@@ -2934,18 +2954,7 @@
         afrrSub: 'Symmetric balancing reserve (FCR/aFRR)',
         regEnv: 'Redispatch 2.0 & EnWG §14a Intro',
         regSub: 'Static §14a baseline & §118(6) exemption',
-        p01: {
-          b3Metric: '56.2% Rec',
-          rlMetric: '27.2% Rec',
-          tableSub: 'Benchmark Ladder Comparison (365 Days, 2024 EPEX Spot)',
-          b1Cost: '-2.180 EUR',
-          b2Cost: '-2.342 EUR',
-          b3Cost: '-2.271 EUR',
-          b3Rec: '56.2%',
-          rlCost: '-2.224 EUR',
-          rlRec: '27.2%',
-          cli: 'python -m prosumer.cli ladder --year 2024'
-        },
+        p01: P01_TEST_RESULTS,
         p02: {
           b3Metric: '91.7% B2 Capture',
           netMetric: '832,180 EUR',
@@ -3027,18 +3036,7 @@
         afrrSub: 'Symmetric balancing reserve (FCR/aFRR)',
         regEnv: '§14a EnWG Mandatory (Active)',
         regSub: 'Dynamic curtailment modules 1-3 active',
-        p01: {
-          b3Metric: '56.0% Rec',
-          rlMetric: '27.0% Rec',
-          tableSub: 'Benchmark Ladder Comparison (365 Days, 2025 EPEX Spot)',
-          b1Cost: '-2.417 EUR',
-          b2Cost: '-2.613 EUR',
-          b3Cost: '-2.526 EUR',
-          b3Rec: '56.0%',
-          rlCost: '-2.470 EUR',
-          rlRec: '27.0%',
-          cli: 'python -m prosumer.cli ladder --year 2025'
-        },
+        p01: P01_TEST_RESULTS,
         p02: {
           b3Metric: '91.8% B2 Capture',
           netMetric: '959,666 EUR',
@@ -3120,18 +3118,7 @@
         afrrSub: 'Symmetric balancing reserve (FCR/aFRR)',
         regEnv: '§14a EnWG Dynamic Dimming Enforced',
         regSub: 'Automated SteuVE dimming & §41a dynamic tariffs',
-        p01: {
-          b3Metric: '56.5% Rec',
-          rlMetric: '26.9% Rec',
-          tableSub: 'Benchmark Ladder Comparison (Jan-Aug, 2026 EPEX Spot)',
-          b1Cost: '-2.295 EUR',
-          b2Cost: '-2.488 EUR',
-          b3Cost: '-2.404 EUR',
-          b3Rec: '56.5%',
-          rlCost: '-2.347 EUR',
-          rlRec: '26.9%',
-          cli: 'python -m prosumer.cli ladder --year 2026'
-        },
+        p01: P01_TEST_RESULTS,
         p02: {
           b3Metric: '91.7% B2 Capture',
           netMetric: '891,200 EUR',
