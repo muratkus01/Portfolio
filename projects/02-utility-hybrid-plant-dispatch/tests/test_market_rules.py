@@ -55,11 +55,17 @@ def test_quarter_hour_prices_count_an_hour_by_its_mean():
 
 
 def test_the_rule_counts_hours_whatever_the_step_length():
-    """Six hourly steps are six hours; the same six steps as quarter-hours are only 1.5 h."""
-    price = np.array([5.0] + [-1.0] * 6 + [5.0])
+    """Six negative hourly steps are a six-hour run; eight quarter-hours are only two hours.
+
+    The eight steps are all negative, so as quarter-hours they make two negative hours, a run
+    that keeps the premium, and as hourly steps an eight-hour run that loses it.
+    """
     six_hour = MarketConfig(negative_price_rule="six_hour")
-    assert list(premium_eligible(price, six_hour, dt=1.0)) == [True] + [False] * 6 + [True]
-    assert premium_eligible(price, six_hour, dt=0.25).all()
+    hourly = np.array([5.0] + [-1.0] * 6 + [5.0])
+    assert list(premium_eligible(hourly, six_hour, dt=1.0)) == [True] + [False] * 6 + [True]
+    eight_steps = np.full(8, -1.0)
+    assert premium_eligible(eight_steps, six_hour, dt=0.25).all(), "two hours keep it"
+    assert not premium_eligible(eight_steps, six_hour, dt=1.0).any(), "eight hours lose it"
 
 
 def test_a_step_length_that_does_not_divide_an_hour_is_refused():
