@@ -331,35 +331,38 @@ as chosen, including what the connection forced.
 ## 1. Background and motivation
 
 Co-location is the dominant new build pattern in Germany: wind and PV behind a shared grid
-connection point, increasingly with a battery. The economics are driven by a fact that
-single-technology analyses cannot capture - the connection capacity is deliberately
-**undersized** relative to the sum of the nameplate ratings, because wind and PV peaks rarely
-coincide. That undersizing is the source of both the value and the difficulty.
+connection point, increasingly with a battery. The connection is deliberately **undersized**
+against the sum of the nameplate ratings, because wind and PV peaks rarely coincide. That
+undersizing is the source of both the value and the difficulty.
 
-The resulting control problem has four interacting features:
+The control problem has four interacting features. This project models the first two; the
+other two are motivation for future work.
 
-**A shared, binding connection constraint.** When wind and PV do peak together, something must
+**A shared, binding connection constraint.** When wind and PV peak together, something must
 give: curtail, or charge the battery. The choice depends on price, state of charge, forecast
-and remuneration regime - and it recurs thousands of times a year.
+and remuneration regime. *Modelled; on national profiles the connection binds only below
+60 MW (section 0).*
 
 **A discontinuous revenue function.** Under EEG direct marketing the plant earns the market
-price plus the market premium - except during negative prices, where the premium is suspended
-under `§51 EEG` as tightened by the 2025 Solarspitzengesetz for new plants. The optimal action
-in a negative-price quarter-hour is qualitatively different from the optimum a minute earlier,
-and depends on the plant's commissioning vintage.
+price plus the market premium, except during negative prices, when `§ 51 EEG` removes the
+premium. How long prices must stay negative before it goes depends on the plant's vintage;
+the 2025 Solarspitzengesetz removes it in every negative period for new plants. The best
+action in a negative-price quarter-hour can differ completely from the one a quarter-hour
+earlier. *Modelled, for every vintage (0.3).*
 
-**Forecast error is the dominant risk.** The plant commits a quarter-hourly schedule day-ahead
-and is exposed to reBAP on the deviation. With ~80 MW of weather-driven capacity, forecast
-error, not arbitrage skill, sets the variance of the result. This is where the battery earns
-much of its keep - and where a distributional policy should beat a point-forecast MPC.
+**Forecast error.** A real plant commits a quarter-hourly schedule day-ahead and pays or earns
+reBAP on the deviation. With 80 MW of weather-driven capacity, forecast error, not arbitrage
+skill, would then set the variance of the result, and a distributional policy might beat a
+point-forecast MPC. *Not modelled: no rung commits a schedule, so imbalance is 0 in every
+table.*
 
-**The schedule can be overridden.** Under Redispatch 2.0 the plant is subject to
-network-operator instruction. The controller must distinguish ordered from self-chosen
-curtailment because they settle differently, and must remain feasible after an override.
+**Overrides.** Under Redispatch 2.0 the network operator can order the plant down, and
+ordered curtailment settles differently from chosen curtailment. *Not modelled: no command
+applies an order.*
 
-**Relationship to the author's other work.** This project is the *generic, public-data*
-utility-scale counterpart to the applied industrial thesis work; it uses no company data and
-is designed so every result is publishable and reproducible from open sources.
+**Relationship to the author's other work.** This project is the public-data, utility-scale
+counterpart to the applied industrial thesis work. It uses no company data, so every result is
+publishable and reproducible from open sources.
 
 ---
 
@@ -367,117 +370,117 @@ is designed so every result is publishable and reproducible from open sources.
 
 | Instrument | How it enters the model |
 |-----------|-------------------------|
-| **EEG direct marketing** (`§§20 ff. EEG`) | Revenue = market price + market premium (applicable value − monthly market value). The premium's monthly reference makes the objective non-separable across the month - a detail the MILP must handle correctly |
-| **Negative-price rule** (`§51 EEG`, tightened by the 2025 Solarspitzengesetz for new plants) | Premium suspended in negative-price periods; for new plants, per negative quarter-hour, with the remuneration period extended instead. **A vintage switch in the model**, and the reason curtailment becomes rational rather than merely tolerated |
-| **Remote controllability** (`§9 EEG`) | Network operator can reduce feed-in and read actual output - the technical basis of the override channel |
-| **Redispatch 2.0** (`§§13a, 14c EnWG`) | Plants ≥ 100 kW are subject to redispatch; planning data and forecasts are a regulatory obligation. Ordered curtailment is compensated and accounted separately from self-chosen curtailment |
-| **Grid connection capacity** | The hard constraint that defines the co-location problem. Flexible connection agreements (capping feed-in in exchange for faster/cheaper connection) are modelled as a configuration variant |
-| **Imbalance settlement / reBAP** | The dominant risk term for a weather-driven portfolio |
-| **Balancing markets** | Optional aFRR participation by the battery, subject to prequalification and to reserving headroom that then cannot be used for curtailment avoidance. **Not built yet:** the aFRR settings in `MarketConfig` are inert, and no command reads them |
-| **Storage regulatory treatment** | Whether the battery may charge from the grid or only from co-located generation materially changes both the optimisation and the EEG treatment. **A switchable configuration**, because the answer determines the business case |
+| **EEG direct marketing** (`§§ 20 ff. EEG`) | Revenue = day-ahead price + market premium - marketing fee (3 EUR/MWh). Per technology, premium = max(0, applicable value - market value): the monthly market value for plants commissioned or awarded before 2023, the annual value from 2023 on (Anlage 1 Nr. 2 EEG 2023). The market value is a national figure, so the objective stays separable in time. It is computed as a proxy (0.3) |
+| **Negative-price rule** (`§ 51 EEG`, tightened by the 2025 Solarspitzengesetz) | Implemented per vintage: none before 2016; six hours (2016-2020) or four hours (2021-2022) of negative prices remove the premium for the whole run; the threshold of the vintage from 2023 to 24 February 2025 falls from four hours in 2023 to one from 2027; from 25 February 2025, every negative period. **Not modelled:** the § 51a extension of the support period and the § 51 (2) small-plant exemptions |
+| **Remote controllability** (`§ 9 EEG`) | The technical basis of an override channel. **Not modelled** |
+| **Redispatch 2.0** (`§§ 13a, 14c EnWG`) | **Not modelled:** no command applies an order; its settings in `MarketConfig` are inert |
+| **Grid connection capacity** | The plant's export limit (`PlantConfig.conn_mw`, 60 MW), enforced in every quarter-hour; `sizing` sweeps it from 20 to 60 MW |
+| **Imbalance settlement / reBAP** | `market.settle` prices a deviation from a committed schedule at reBAP, but no rung commits a schedule, so imbalance is 0 in every table. The reBAP series is synthetic |
+| **Balancing markets** | aFRR participation by the battery is **not built yet**: its settings in `MarketConfig` are inert, and no command reads them |
+| **Storage regulatory treatment** | `PlantConfig.grid_charging_allowed` is off in every table. With it on, the LP still cannot buy from the grid, because its export stays at or above 0, and `run_ladder` refuses a run in which a rung charged grid energy while a premium is paid. **Not modelled** |
 
 ---
 
 ## 3. Scope and objectives
 
-### In scope
+### In scope, as built
 
-- A 15-minute co-located hybrid plant model: wind turbines with power curves and wake losses,
-  PV with an inverter model, a battery with efficiency and degradation, and a shared
-  connection point.
-- Full benchmark ladder: B0 historical, B1 rule-based, B2 perfect foresight, B3 rolling MPC,
-  plus a learned policy.
-- Day-ahead scheduling, intraday correction and imbalance exposure, with the EEG market
-  premium correctly modelled including its monthly reference.
-- Curtailment decisions distinguishing self-chosen from ordered.
-- Battery sizing and connection-capacity sizing sensitivity - the design question a developer
-  actually asks.
-- Optional aFRR participation and its opportunity cost against curtailment avoidance (not built yet; its settings are inert).
+- A 15-minute co-located plant: national capacity factors scaled to 50 MW of wind and 30 MWp
+  of PV, a battery with efficiency, state-of-charge limits and linear throughput wear, and a
+  shared connection point.
+- The benchmark ladder B0 to B3, and B2 without a battery.
+- Settlement on the day-ahead price and the EEG market premium per technology, with the
+  negative-price rule of each vintage.
+- Curtailment split by cause: chosen, an economic decision, and forced by the connection.
+- A connection-capacity sweep at a fixed battery.
+
+### Not built
+
+- A learned policy (future work; see the note at the top).
+- Wind power curves, a wake model, and a PV and inverter model such as `pvlib`: generation is
+  a national capacity factor times the rating.
+- A day-ahead schedule, intraday trading and imbalance exposure.
+- Redispatch orders, and aFRR participation, whose settings are inert.
+- A battery size sweep.
 
 ### Out of scope
 
-- Wake-steering and turbine-level control (backlog item **B3**).
+- Wake steering and turbine-level control (item B3 of the
+  [idea backlog](../../docs/06-idea-backlog.md), not the ladder rung).
 - Grid connection studies and detailed power quality.
 - PPA structuring and hedging strategy (a natural extension, noted).
-- Long-term investment appraisal beyond the sizing sensitivity above.
+- Long-term investment appraisal.
 
 ### Objectives
 
 1. Quantify the value of co-location plus storage against separate operation of the same
-   assets, under German rules.
+   assets, under German rules. *Done: B0 against B2 (0.1).*
 2. Determine the optimal degree of connection undersizing, and how it shifts with battery size
-   and with the negative-price regime.
-3. Establish how much of the battery's value comes from **forecast-error management** versus
-   **arbitrage** versus **curtailment avoidance** - a decomposition rarely reported, and the
-   one that matters for sizing.
+   and with the negative-price regime. *Revenue by connection size for one battery under the
+   rule of the newest plants (0.1); no cost is modelled, so there is no optimum.*
+3. Establish how much of the battery's value comes from forecast-error management, arbitrage
+   and curtailment avoidance. *Arbitrage against the connection limit's effect (0.2);
+   forecast-error management needs a schedule.*
 4. Test whether a distributional learned policy beats a tuned MPC where the imbalance tail
-   dominates.
-5. Quantify the economic effect of the negative-price rule tightening, by plant vintage.
+   dominates. *Future work.*
+5. Quantify the economic effect of the negative-price rule's tightening, by plant vintage.
+   *Done (0.3).*
 
 ---
 
 ## 4. Research questions and hypotheses
 
-| # | Research question | Hypothesis |
-|---|-------------------|-----------|
-| RQ1 | Where does the battery's value in a hybrid plant actually come from? | H1: Forecast-error management and curtailment avoidance dominate pure arbitrage at realistic German connection ratios; the ordering reverses only at high connection headroom |
-| RQ2 | What is the optimal connection-capacity ratio? | H2: Well below the sum of nameplates, with the optimum shifting **upward** as the negative-price rule tightens (curtailment becomes cheap, so firm export capacity is worth less) |
-| RQ3 | Does a learned policy beat rolling MPC? | H3: Yes, modestly, and specifically in high-forecast-error periods, by managing imbalance-tail risk that a point-forecast MPC ignores |
-| RQ4 | What does the tightened negative-price rule cost a new plant relative to an old one? | H4: Material, and partly recoverable by storage - quantifying "partly" is the deliverable |
-| RQ5 | Is aFRR participation worth it for the battery? | H5: Only when the connection is not the binding constraint; where curtailment risk is high, reserved headroom is too expensive. Not testable yet: aFRR is not built |
+| # | Research question | Hypothesis | Status |
+|---|-------------------|-----------|--------|
+| RQ1 | Where does the battery's value in a hybrid plant actually come from? | H1: Forecast-error management and curtailment avoidance dominate pure arbitrage at realistic German connection ratios; the ordering reverses only at high connection headroom | Not supported on national profiles: the battery's value is arbitrage, and a tight connection lowers it (0.2). Forecast-error management cannot be measured without a schedule |
+| RQ2 | What is the optimal connection-capacity ratio? | H2: Well below the sum of nameplates, with the optimum shifting **upward** as the negative-price rule tightens (curtailment becomes cheap, so firm export capacity is worth less) | Not tested: revenue rises with the connection at every step (0.1), but no cost is modelled, and the sweep runs under one rule only |
+| RQ3 | Does a learned policy beat rolling MPC? | H3: Yes, modestly, and specifically in high-forecast-error periods, by managing imbalance-tail risk that a point-forecast MPC ignores | Future work, once every rung commits a day-ahead schedule settled at reBAP (note at the top) |
+| RQ4 | What does the tightened negative-price rule cost a new plant relative to an old one? | H4: Material, and partly recoverable by storage; quantifying "partly" is the deliverable | Measured by vintage (0.3). B2 loses less than B0, but the settlement overstates what storage recovers, and curtailing is not split from the battery |
+| RQ5 | Is aFRR participation worth it for the battery? | H5: Only when the connection is not the binding constraint; where curtailment risk is high, reserved headroom is too expensive | Not testable: aFRR is not built yet, and its settings are inert |
 
 ---
 
-## 5. System architecture
+## 5. System architecture, as built
 
 ```mermaid
 flowchart TB
-    subgraph EXO["Exogenous (15-min)"]
-        NWP["NWP: wind speed, irradiance<br/>DWD ICON-D2 (+ EPS)"]
-        DA["Day-ahead prices (15-min MTU)"]
-        IDP["Intraday prices"]
-        RBP["reBAP imbalance price"]
-        RDO["Redispatch orders §13a"]
-        MMW["Monthly market value<br/>→ market premium"]
+    subgraph EC["Energy-Charts via datakit, 15 min"]
+        GEN["National onshore wind and solar generation"]
+        CAP["Installed fleet of each month"]
+        DA["Day-ahead price DE-LU"]
     end
 
-    subgraph FCL["Forecast layer"]
-        FW["Wind power forecast<br/>quantiles / ensemble"]
-        FP["PV power forecast<br/>quantiles"]
-        FPR["Price scenarios<br/>DA · ID · reBAP"]
+    CF["Capacity factors x plant ratings<br/>50 MW wind, 30 MWp PV"]
+    MV["Market value per technology<br/>monthly or annual proxy"]
+    PREM["Market premium per technology<br/>max(0, AW - market value)"]
+    RULE["Negative-price rule of the vintage<br/>EEG § 51"]
+
+    subgraph LAD["Benchmark ladder"]
+        B0["B0 no battery"]
+        B1["B1 rule: store spill"]
+        B2["B2 perfect-foresight LP"]
+        B3["B3 rolling LP-MPC<br/>on synthetic forecasts"]
     end
 
-    subgraph STG["Decision stages"]
-        S1["D-1 · day-ahead schedule<br/>(+ aFRR bid, not built yet)"]
-        S2["Intraday · correction"]
-        S3["Real time · dispatch<br/>curtail vs. charge"]
-    end
+    POI["Plant and safety layer<br/>60 MW connection, SoC limits"]
+    SET["Settlement<br/>spot + premium - fee - wear"]
 
-    SAFE["Safety layer<br/>connection capacity · SoC bounds<br/>ramp limits · aFRR headroom (not built yet)"]
-
-    subgraph PLANT["Hybrid plant"]
-        WT["Wind farm<br/>power curve + wake"]
-        PVA["PV array + inverter"]
-        BESS["Battery + degradation"]
-        POI["Point of interconnection<br/>shared capacity limit"]
-    end
-
-    SET["Settlement<br/>DA · ID · imbalance · EEG market premium<br/>(negative-price rule by vintage) · redispatch compensation"]
-
-    NWP --> FCL
-    DA --> FCL
-    IDP --> FCL
-    RBP --> FCL
-    FCL --> STG
-    MMW --> SET
-    STG --> SAFE --> PLANT
-    RDO --> SAFE
-    WT --> POI
-    PVA --> POI
-    BESS --> POI
-    POI --> SET
-    PLANT -->|state| STG
+    GEN --> CF
+    CAP --> CF
+    GEN --> MV
+    DA --> MV
+    MV --> PREM
+    CF --> LAD
+    DA --> LAD
+    PREM --> LAD
+    RULE --> LAD
+    LAD --> POI --> SET
+    PREM --> SET
+    RULE --> SET
 ```
+
+Not built: NWP-driven generation, a forecast layer, intraday prices, a day-ahead schedule and
+reBAP, redispatch orders, aFRR (its settings are inert) and a learned policy.
 
 ---
 
@@ -485,95 +488,95 @@ flowchart TB
 
 ### 6.1 Plant model
 
-Wind: turbine power curve with air-density correction and a wake model at farm level,
-driven by NWP wind speed with a fitted bias correction. PV: plane-of-array irradiance,
-temperature-dependent module model and inverter clipping (`pvlib`). Battery: charge/discharge
-efficiency, SoC bounds, C-rate limits, and throughput-plus-rainflow degradation priced at a
-configurable €/kWh. Point of interconnection: a hard export limit and, where relevant, an
-import limit governing whether the battery may charge from the grid.
+Wind and PV: the national capacity factor of each quarter-hour times the rating (50 MW,
+30 MWp), with no power curve, wake model, irradiance model or inverter clipping. Battery:
+20 MW / 40 MWh, used between 5 % and 95 % of its energy, 95 % efficient each way, starting at
+its minimum, with linear wear of 3 EUR per MWh charged or discharged; no calendar ageing or
+rainflow counting. Point of interconnection: a hard export limit of 60 MW. Grid charging is
+off.
 
-### 6.2 MILP (B2 / B3)
+### 6.2 Linear program (B2 / B3)
 
-**Objective** - maximise
+An LP with no binary variables: with wear priced, charging and discharging at once never pays.
+
 ```
-Σ_t [ π_DA(t)·s_DA(t)·Δt                       day-ahead schedule revenue
-      + π_ID(t)·s_ID(t)·Δt                     intraday adjustment
-      − π_reBAP(t)·(g(t) − s(t))·Δt            imbalance settlement (signed)
-      + MP(t)·g_EEG(t)·Δt                      market premium, suspended when π_DA(t) < 0
-                                               per the applicable vintage rule
-      − c_deg·(p_ch(t)+p_dis(t))·Δt ]          degradation
+maximise   Σ_t [ p(t)·e(t) − c_w·(ch(t) + dis(t)) ]·Δt  +  V·soc(T)
+
+p(t) = π_DA(t) + MP(t)·1[premium payable in t] − fee          effective price
+subject to, in every quarter-hour t:
+  g(t) ≤ ĝ_wind(t) + ĝ_pv(t)                 generation used; the rest is curtailed
+  e(t) = g(t) + dis(t) − ch(t),   0 ≤ e(t) ≤ conn
+  ch(t) ≤ g(t)                                no grid charging
+  soc(t) = soc(t−1) + (η_c·ch(t) − dis(t)/η_d)·Δt,   soc_min ≤ soc(t) ≤ soc_max
+  0 ≤ ch(t), dis(t) ≤ P_bat
 ```
-subject to: generation availability `g_wind(t) ≤ ĝ_wind(t)`, `g_pv(t) ≤ ĝ_pv(t)` with explicit
-curtailment variables; battery energy balance and mutual exclusion of charge/discharge; **the
-point-of-interconnection export limit**; ramp limits; reserved headroom where aFRR capacity is
-sold (aFRR is not built yet); and a terminal value function on SoC.
 
-The market premium's dependence on the **monthly** market value couples the whole month, so
-the rolling-horizon formulation carries a month-to-date accumulator as a state variable rather
-than treating each horizon independently - a correctness detail that a naive B3 would get
-wrong, weakening the baseline.
+V is 0 unless the terminal value is switched on (0.5). B2 solves this once over the whole
+window on the realised premium. B3 solves it every quarter-hour over the next 96
+quarter-hours (48 on the synthetic days), with forecasts in place of the future and the
+previous month's realised premium, and applies the first step. The settlement (`market.settle`) then pays spot on the
+export and the premium on the export where it is payable, and charges the marketing fee and
+the wear; imbalance and grid imports are 0 in every table.
 
-### 6.3 MDP formulation (RL)
+**Not implemented: a month-to-date premium accumulator.** It is not needed: the market value
+is a national figure one plant cannot move, so nothing couples the month inside the
+optimisation. A controller must still estimate the value before its period ends; B3 takes the
+previous month's realised rate.
 
-| Element | Definition |
-|---------|-----------|
-| **State** | Battery SoC; committed schedule for the remaining horizon; realised generation; wind/PV forecast quantiles over the horizon (and their spread - the uncertainty signal); price forecasts for DA/ID/reBAP; month-to-date market-value accumulator; redispatch state; calendar features |
-| **Action** | Battery power setpoint; curtailment level per technology; intraday trade volume; optional aFRR capacity offer at the bid gate, once aFRR is built |
-| **Reward** | Step economic result including the correct premium treatment, minus degradation. **No hard-constraint penalties** |
-| **Risk** | Distributional critic; CVaR option on the daily result - the imbalance tail is the whole point |
-| **Safety layer** | Projection enforcing the export limit, SoC bounds, ramp limits, aFRR headroom reservation (once aFRR is built) and any active redispatch order. Violations impossible by construction |
-| **Episode** | 14-30 days, so the monthly premium coupling is visible within an episode |
-| **Algorithm** | SAC for continuous dispatch; PPO where the aFRR bid decision is discretised, once aFRR is built |
+### 6.3 RL formulation: not implemented
+
+The RL work packages are future work (note at the top). They need a day-ahead schedule per
+rung, settled at reBAP on real reBAP data. Only then does the imbalance tail, which a
+distributional critic or a CVaR objective would target, exist in the model.
 
 ---
 
-## 7. Data requirements
+## 7. Data
 
-| Data | Purpose | Source | Resolution | Status |
-|------|---------|--------|-----------|--------|
-| Wind speed & direction (NWP + reanalysis) | Wind generation and its forecast | **DWD ICON-D2 / ICON-EU**, ICON-D2-EPS for quantiles; ERA5 for long history | 15 min - 1 h | Open |
-| Irradiance & temperature | PV generation | DWD; PVGIS; ERA5 | 15 min - 1 h | Open |
-| Turbine power curves | Wind conversion | Manufacturer curves / open turbine databases | - | Open |
-| Reference plant configuration | Asset definition | **MaStR** (real German co-located sites, capacities, locations, vintages) | - | Open |
-| Day-ahead & intraday prices | Revenue | SMARD / ENTSO-E / Energy-Charts | 15 min | Open |
-| reBAP | Imbalance settlement | netztransparenz.de | 15 min | Open |
-| Monthly market values & applicable values | EEG market premium | netztransparenz.de / BNetzA published values | Monthly | Open |
-| Redispatch measures | Override channel calibration | netztransparenz.de | Per measure | Open |
-| Balancing capacity prices | Optional aFRR revenue (aFRR not built yet) | `regelleistung.net` | Per 4-h product | Open |
-| Battery parameters | Storage model | Manufacturer data + published ageing models | - | Open |
-| Realised plant generation | B0/B1 validation | ENTSO-E / SMARD aggregate by technology; site-level only with an operator partner | 15 min | Aggregate open; **site-level is the gap** |
+| Data | Purpose | Source | Resolution |
+|------|---------|--------|-----------|
+| National onshore wind feed-in | Wind capacity factor, numerator | Energy-Charts `public_power` | 15 min |
+| National solar generation, self-consumption included | PV capacity factor, numerator | Energy-Charts `total_power` | 15 min |
+| National solar feed-in to the public grid | PV weight of the market-value proxy | Energy-Charts `public_power` | 15 min |
+| Installed onshore wind and Solar DC fleet | Capacity factors, denominators | Energy-Charts `installed_power` | One value per month |
+| DE-LU day-ahead price | Revenue and market values | Energy-Charts `price` (Bundesnetzagentur, SMARD.de) | Hourly; 15 min from 1 October 2025 |
 
-**Validation strategy without site data.** With no site-level metered generation, the B1
-validation gate is run against *aggregate* German wind and PV generation: the modelled fleet,
-driven by the same NWP, must reproduce the national aggregate profile within stated tolerance.
-This validates the weather-to-power chain, which is the dominant error source, while the
-plant-specific configuration remains a documented assumption.
+All are under CC BY 4.0 and read through the repository's `datakit`.
+[`reports/SOURCE.md`](reports/SOURCE.md) gives the requests, the credits and a check for
+upstream revisions.
+
+**Not used yet:** NWP and reanalysis (DWD ICON-D2/EU, ERA5), turbine power curves, MaStR plant
+data, intraday prices, real reBAP and the TSOs' published market values (both on
+netztransparenz.de), redispatch measures, balancing capacity prices (aFRR is not built yet)
+and site-level metered generation.
+
+**Validation against aggregate generation: not implemented.** The capacity factors are the
+national aggregate, so there is nothing independent to validate them against until a
+weather-to-power chain exists.
 
 ---
 
 ## 8. Baselines and evaluation
 
-| Rung | Instantiation |
+| Rung | As built |
 |------|--------------|
-| **B0** | Realised operation of an equivalent unhybridised portfolio: wind and PV marketed separately with no storage, at the same site and year |
-| **B1** | Standard commercial practice: day-ahead schedule from a point forecast, battery on a simple curtailment-avoidance rule, no intraday optimisation. **Validation gate** |
-| **B2** | Perfect-foresight MILP over the evaluation period |
-| **B3** | Rolling-horizon MILP-MPC with month-to-date premium accumulator, realistic issue-time forecasts, re-solved every 15 min, tuned |
-| **RL** | Distributional SAC/PPO with safety layer, identical forecasts |
+| **B0** | The same generation without a battery. Curtails only what the connection forces, and sells through negative prices |
+| **B1** | Stores what the connection would spill and discharges into headroom; reads no prices. Equals B0 wherever the connection never binds |
+| **B2** | Perfect-foresight LP over the whole window, on the realised premium: the ceiling of the ladder |
+| **B2 no battery** | B2 with the battery taken out: perfect foresight that can only curtail. Splits B2's gain over B0 into the battery and curtailing at low prices |
+| **B3** | Rolling LP-MPC: a 24-hour horizon re-solved every quarter-hour on synthetic forecasts, planning on the previous month's realised premium, with no terminal value |
+| **RL** | Not implemented (future work) |
 
-**Primary KPI:** annual net revenue (€/a), with mean, 5 %-quantile and CVaR₅ of the daily
-distribution. **Headline:** B3-gap closure. **Secondary:** revenue decomposition (DA / ID /
-imbalance / premium / aFRR once built), curtailed energy split into self-chosen and ordered, imbalance
-volume and cost, battery equivalent full cycles, connection-limit violations (must be 0).
+**KPIs, as built:** net revenue over the window, split into spot revenue, premium, marketing
+fee, wear, imbalance and grid imports (EUR); export and curtailment, chosen and forced (MWh);
+constraint violations, 0 in every row; and B3's share of the gain from B1 to B2. **Not
+implemented:** daily distributions, quantiles and CVaR, intraday and aFRR terms, and
+equivalent full cycles.
 
-Ablations: connection capacity ratio sweep (the sizing question); battery size sweep;
-negative-price rule by vintage; forecast quality (perfect / realistic / degraded / ensemble
-vs. point - this is the H3 test); aFRR participation on/off once aFRR is built; grid-charging permitted or not;
-storage degradation cost; safety layer on/off.
-
-The **value decomposition** (RQ1) is obtained by re-running the optimal policy with individual
-value sources disabled - no imbalance exposure, no curtailment risk, no arbitrage - and
-attributing the differences.
+**Ablations run:** the connection sweep (0.1), the connection limit's effect (0.2), the
+negative-price rule by vintage (0.3), and B3's forecast error against a terminal value on
+synthetic inputs (0.5). **Not run:** battery size, forecast quality on real data, aFRR (not
+built yet), grid charging (not modelled), the wear cost, and the safety layer on or off.
 
 ---
 
