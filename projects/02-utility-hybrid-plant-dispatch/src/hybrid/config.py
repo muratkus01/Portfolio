@@ -65,6 +65,11 @@ class PlantConfig:
         return self.bess_mwh * self.soc_init_frac
 
 
+# Negative-price rules the settlement implements, oldest vintage first.
+NEGATIVE_PRICE_RULES = ("none", "six_hour", "four_hour", "three_hour", "two_hour",
+                        "one_hour", "new_2025")
+
+
 @dataclass(frozen=True)
 class MarketConfig:
     """EEG direct marketing, the negative-price rule, and imbalance settlement.
@@ -78,9 +83,10 @@ class MarketConfig:
     """
 
     # --- EEG market premium ---
-    # Revenue = market price + premium, where premium = anzulegender Wert - monthly market
-    # value. The MONTHLY reference is what makes the objective non-separable across the month;
-    # the rolling-horizon controller carries a month-to-date accumulator for this reason.
+    # Revenue = market price + premium, where premium = anzulegender Wert - the technology's
+    # national market value of the calendar month, or of the calendar year for plants
+    # commissioned from 2023 on and, if tendered, awarded from 2023 on (EEG 2023 Anlage 1
+    # Nr. 2; market.market_values, market.premium_table).
     eeg_enabled: bool = True
     # EEG 2023 § 36 onshore wind statutory reference ceiling (source: BNetzA Festlegung 2024/2025)
     anzulegender_wert_wind: float = 73.5     # EUR/MWh
@@ -88,10 +94,13 @@ class MarketConfig:
     anzulegender_wert_pv: float = 68.0       # EUR/MWh
     direct_marketing_fee: float = 3.0        # EUR/MWh standard trader management fee (2024/2025)
 
-    # --- negative-price rule (EEG § 51, tightened by the 2025 Solarspitzengesetz) ---
-    # "none"     : premium always paid (older vintages)
-    # "six_hour" : premium suspended after 6 consecutive hours of negative prices (pre-2025)
-    # "new_2025" : premium suspended in ANY quarter-hour with a negative price (Solarspitzengesetz 2025)
+    # --- negative-price rule (EEG § 51 by vintage: commissioning or tender date, market.py) ---
+    # "none"       : commissioned before 2016, premium always paid
+    # "six_hour"   : 2016-2020, no premium for the WHOLE run once negative prices last 6 hours
+    # "four_hour"  : 2021-2022, the same with 4 hours
+    # "three_hour", "two_hour", "one_hour" : the 2023 to 24 Feb 2025 vintage, whose threshold
+    #                falls by calendar year (market.vintage_rules)
+    # "new_2025"   : from 25 Feb 2025 (Solarspitzengesetz), no premium in ANY negative period
     negative_price_rule: str = "new_2025"
 
     # --- imbalance ---
@@ -108,7 +117,7 @@ class MarketConfig:
     redispatch_depth: float = 0.5            # fraction of export capacity ordered away
 
     def __post_init__(self) -> None:
-        if self.negative_price_rule not in {"none", "six_hour", "new_2025"}:
+        if self.negative_price_rule not in NEGATIVE_PRICE_RULES:
             raise ValueError(f"unknown negative_price_rule {self.negative_price_rule!r}")
 
 
