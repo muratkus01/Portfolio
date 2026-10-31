@@ -1615,10 +1615,10 @@
             <span class="pulse-dot"></span>
             <span>Interactive Sizing Sweep Lookup & Illustrative 24 h Dispatch</span>
           </div>
-          <span class="sim-card-badge">Scenario sweep lookup, not the README pipeline</span> <span class="sim-card-badge emerald" id="p01-grid-match">(sweep grid point)</span>
+          <span class="sim-card-badge">Old sizing sweep, not the model behind the results above</span> <span class="sim-card-badge emerald" id="p01-grid-match">(sweep grid point)</span>
         </div>
         <p style="font-size: 0.8rem; color: var(--text-sub); line-height: 1.6; margin: 12px 0 18px;">
-          What this panel is: a lookup into a scenario sweep (<code>scripts/run_overnight_simulations.py</code>, 432 runs at commit 0585dab, stored in <code>simulations/results/p01_scenarios.parquet</code>), not the pipeline behind the results above. The sweep uses a synthetic household load of about 15 MWh/a, German national solar output scaled to the PV size, the older B1/B2/B3 controllers (B3 re-plans every hour over 24 h and treats all prices in that window as known), a fixed 7.86 ct/kWh feed-in tariff, and only 91 days (2024) or 161 days (2025): it reads each hourly price as one quarter-hour, so prices run four times faster than load and PV. The 2026 year button shows the 2025 sweep. Use it to compare sizes within the sweep only.
+          What this panel is: a lookup into an older sizing sweep, not the model behind the results above. It holds 432 runs of <code>scripts/run_overnight_simulations.py</code>, committed on 21 September 2026 (e78f144 and eedeacf) in <code>simulations/results/p01_scenarios.parquet</code>; that file's git_commit column was later overwritten with 0585dab. The sweep uses a synthetic household load of about 15 MWh/a, German national solar output scaled to the PV size, the older B1/B2/B3 controllers (B3 re-plans every hour over 24 h and treats all prices in that window as known) and a fixed 7.86 ct/kWh feed-in tariff. Its prices are out of step with load and PV, because it reads every price row as a quarter-hour. In 2024 all prices are hourly, so the whole year of prices passes in about 91 days of load and PV, and the run ends there. In 2025 the hourly prices up to 30 September pass in the first 68 days; from 10 March of the load and PV, the October to December quarter-hour prices follow at the right speed but in the wrong season, and the run ends after about 161 days. The 2026 year button shows the 2025 sweep. These numbers are not sizing advice.
         </p>
         <div class="sim-controls-grid">
           <div class="sim-control-item">
@@ -1659,7 +1659,7 @@
           </div>
           <div class="sim-res-box">
             <div class="sim-res-lbl">B3 Share of the B1-to-B2 Gap (sweep)</div>
-            <div class="sim-res-val emerald" id="p01-res-rec">48.3% Rec</div>
+            <div class="sim-res-val emerald" id="p01-res-rec">48.3%</div>
           </div>
           <div class="sim-res-box">
             <div class="sim-res-lbl">PV/Inverter Ratio (rule of thumb; not modelled)</div>
@@ -4815,8 +4815,13 @@
     // IN-CARD PROJECT INTERACTIVE PHYSICS SIMULATORS
     // =========================================================================
 
-    // Days each P01 sweep run covers: out_eval_days in simulations/results/p01_scenarios.parquet.
-    // The run length depends only on the year's input files, so it is the same for every cell.
+    // Days each P01 sweep run covers, as n // 96 whole days (a run is up to a day longer).
+    // Only the 96 cells with 2.0 or 3.5 kWh record it (out_eval_days in
+    // simulations/results/p01_scenarios.parquet). The eval_days column of the other 336 cells
+    // is a 366/365 stamp from scripts/migrate_scenario_schemas.py, not a measurement. The run
+    // length n = min(len(price), len(pv), len(load)) depends only on the year's input files,
+    // so every cell covers the same days. 2025 prices are quarter-hourly from row 6,551
+    // (2025-10-01) on, which the sweep meets at the load and PV of 2025-03-10.
     const P01_SWEEP_DAYS = { '2024': 91, '2025': 161 };
 
     // Project 01: lookup into the sizing sweep of scripts/run_overnight_simulations.py
@@ -4871,7 +4876,7 @@
           recEl.innerText = '0.0% (No BESS)';
           recEl.className = 'sim-res-val';
         } else {
-          recEl.innerText = (gapClosure * 100).toFixed(1) + '% Rec';
+          recEl.innerText = (gapClosure * 100).toFixed(1) + '%';
           recEl.className = 'sim-res-val emerald';
         }
       } else {
