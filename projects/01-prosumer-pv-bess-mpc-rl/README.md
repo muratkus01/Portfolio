@@ -165,8 +165,8 @@ To resolve these defects, two principled formulations were engineered and integr
 - **Feasible Action Rescaling (`action_mode="rescale"`):** At each step $t$, the environment computes the exact feasible continuous power interval $[P_{min, feasible}(t), P_{max, feasible}(t)]$ based on current SoC, inverter limits, and grid connection constraints:
   $$P_{min, feasible}(t) = \max\left( -P_{ch, max}, \frac{E(t) - E_{max}}{\eta_{ch} \Delta t} \right)$$
   $$P_{max, feasible}(t) = \min\left( P_{dis, max}, \frac{(E(t) - E_{min})\eta_{dis}}{\Delta t} \right)$$
-  The agent's action $a \in [-1, 1]$ is linearly mapped onto this feasible interval:
-  $$p_{bat} = \frac{a + 1}{2} P_{max, feasible} + \frac{1 - a}{2} P_{min, feasible}$$
+  The agent's action $a \in [-1, 1]$ is mapped onto this interval in two linear pieces, so that $a = 0$ leaves the battery idle:
+  $$p_{bat} = a \cdot P_{max, feasible}(t) \;\text{for}\; a \ge 0, \qquad p_{bat} = -a \cdot P_{min, feasible}(t) \;\text{for}\; a < 0$$
   This guarantees that every proposed action is physically executable, reducing action clipping from 77 to 82 % down to **0 %**.
 - **Differential Step Reward (`reward_mode="differential"`):** The reward function is reformulated to isolate the marginal economic value of battery dispatch:
   $$r_t = \text{Cost}_{no-battery}(t) - \text{Cost}_{with-battery}(t)$$
@@ -429,7 +429,7 @@ Full detail: [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-
 |---|---|
 | **`§41a EnWG`** (from 1 Jan 2025) | Every supplier must offer a **dynamic tariff**. The tariff is the spot price plus supplier margin, taxes, levies and network charges: the price signal the controller optimises against |
 | **EEG 2023 feed-in / direct marketing** | Feed-in remuneration for surplus export, with the **negative-price rule** (`§51 EEG`, tightened by the 2025 Solarspitzengesetz for new plants) as a vintage-dependent switch |
-| **Feed-in limitation for new small PV** | Without intelligent metering, new small PV faces a 60 %-of-capacity export cap: a direct driver of battery value, and a modelled scenario |
+| **Feed-in limitation for new small PV** | Without intelligent metering, new small PV faces a 60 %-of-capacity export cap: a direct driver of battery value. Not modelled here: no result applies an export cap, and the thesis household has no export limit |
 | **MsbG / iMSys / SMGW** | Defines the actuation path: control at 15-minute granularity through the smart meter gateway's CLS channel, not continuous-time actuation |
 | **Network charges, levies, VAT** | Determine the retail-vs-export spread that the battery arbitrages |
 
@@ -440,7 +440,7 @@ Full detail: [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-
 ### In scope
 
 - A 15-minute, rolling-horizon LP-MPC energy management system for a German prosumer site with 8 kWp PV, 9.37 kWh battery storage and a 5.63 kW inverter (the thesis household).
-- An SAC / PPO reinforcement learning controller on an identical physical and economic model, with a safety layer.
+- A Soft Actor-Critic (SAC) reinforcement learning controller on an identical physical and economic model, with a safety layer.
 - A **quantified resolution study**: 60 min vs. 15 min, same site, same year, same method: isolating the bias introduced by hourly modelling.
 - A **horizon study**: published day-ahead price horizon (11-35 h) with shadow terminal valuation.
 - Comprehensive **asset sizing analysis**: battery capacity (5 to 15 kWh) and inverter power (3 to 7.5 kW) evaluating CAPEX, payback, and ROCE.
@@ -489,7 +489,7 @@ flowchart TB
     subgraph CTRL["Controller (one of)"]
         B1["B1 · self-consumption rule"]
         B3["B3 · rolling LP-MPC<br/>H = 11-35 h, dt = 15 min"]
-        RL["RL · SAC / PPO policy"]
+        RL["RL · SAC policy"]
     end
 
     SAFE["Safety layer<br/>SoC · connection limit · feasible action rescaling"]
@@ -549,7 +549,7 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 | **Transition** | 15-minute simulation environment with round-trip efficiency losses and real profile realisations |
 | **Reward** | Differential reward: $r_t = \text{Cost}_{no-battery}(t) - \text{Cost}_{with-battery}(t)$, where the with-battery cost includes the wear price $c_{deg} \cdot p_{dis}(t) \Delta t$ |
 | **Safety layer** | Projection onto feasible power bounds; zero violations by construction |
-| **Algorithm** | Soft Actor-Critic (SAC) and Proximal Policy Optimization (PPO) |
+| **Algorithm** | Soft Actor-Critic (SAC) from stable-baselines3 |
 
 ---
 
@@ -569,7 +569,7 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 ## 8. Deliverables
 
 1. Open, reproducible 15-minute German prosumer simulation environment (Gymnasium environment) with German dynamic tariff accounting.
-2. Fast LP-MPC baseline solving with HiGHS in under 6 ms per 24-h decision window.
+2. Fast LP-MPC baseline: HiGHS solves each decision window of 11 to 35 h in milliseconds (19.5 ms on average in the committed H28 rerun, [summary](reports/rolling_eval_htw_H28/rolling_eval_summary.csv)).
 3. Quantified resolution study isolating the economic bias of hourly modelling.
 4. Comprehensive battery and inverter sizing grid evaluating CAPEX, payback, and ROCE across 20 system configurations.
 5. Systematic RL diagnostic with differential rewards and feasible action rescaling.
