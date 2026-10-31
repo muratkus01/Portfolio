@@ -262,6 +262,39 @@ def premium_rates(index: pd.DatetimeIndex, table: pd.DataFrame,
     return table["rate"].reindex(_period_labels(index, period)).to_numpy()
 
 
+def planning_rates(index: pd.DatetimeIndex, monthly: pd.DataFrame) -> np.ndarray:
+    """The plant's premium rate a controller can know in each step: the realised rate of the
+    Berlin calendar month before the step's month.
+
+    A market value is the actual mean of its whole period (Anlage 1 Nr. 3.3, 4.3), so it is
+    known only once the period is over. A controller deciding inside a month therefore knows
+    at best the previous month's, and that is its estimate of the premium, also for a plant
+    paid against the annual value, which is known only after December. B2 may plan on the
+    realised value; B3, a deployable controller, plans on this.
+
+    Parameters
+    ----------
+    index : tz-aware timestamps of the steps, e.g. a window from 1 January 2024.
+    monthly : `premium_table(..., period="month")` over data that covers the month before
+        each step's month, e.g. December 2023 for a window in January 2024.
+
+    Returns
+    -------
+    np.ndarray, EUR/MWh per step: the "rate" of the month before the step's month.
+
+    Raises
+    ------
+    ValueError when `monthly` lacks the month before one of the steps' months.
+    """
+    previous = (pd.PeriodIndex(_period_labels(index, "month"), freq="M") - 1).astype(str)
+    rates = monthly["rate"].reindex(previous)
+    missing = sorted(set(previous[rates.isna().to_numpy()]))
+    if missing:
+        raise ValueError(f"no realised premium rate for {missing}; the month before each "
+                         "step's month must be in the table")
+    return rates.to_numpy(dtype=float)
+
+
 def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
            plant: PlantConfig, market: MarketConfig,
            rebap: np.ndarray | None = None,

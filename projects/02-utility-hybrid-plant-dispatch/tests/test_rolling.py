@@ -68,6 +68,37 @@ def test_rolling_mpc_is_feasible_and_timed(ladder):
     assert len(b3["solve_time_s"]) > 0
 
 
+def test_b3_plans_its_whole_horizon_on_the_premium_it_knows_now():
+    """A plan made late in a month must not price next month's steps at next month's rate.
+
+    That rate is the realised value of the month the plan is made in, which B3 cannot know
+    until the month is over. The last four steps here belong to the next month: raising
+    their planning rate from 0 to 60 EUR/MWh must not change what B3 does before them. Priced
+    step by step instead, the plan charged ahead of them.
+    """
+    run = RunConfig(dt=0.25, horizon_steps=4, forecast_sigma=0.0,
+                    market=MarketConfig(negative_price_rule="none"))
+    n = 12
+    wind, pv, price = np.full(n, 10.0), np.zeros(n), np.full(n, 50.0)
+    before_next_month = {}
+    for next_rate in (0.0, 60.0):
+        plan = np.r_[np.zeros(8), np.full(4, next_rate)]
+        res = run_ladder(wind, pv, price, run, premium_rate=0.0, b3_premium_rate=plan)
+        before_next_month[next_rate] = res["B3 rolling MPC"]["p_bat"][:8]
+    assert before_next_month[60.0] == pytest.approx(before_next_month[0.0], abs=1e-9)
+
+
+def test_every_rung_is_settled_on_the_realised_premium():
+    """B3 plans on the premium it can know, and is paid the one the law pays."""
+    run = RunConfig(dt=0.25, horizon_steps=4, market=MarketConfig(negative_price_rule="none"))
+    n = 8
+    res = run_ladder(np.full(n, 30.0), np.zeros(n), np.full(n, 50.0), run, premium_rate=12.0,
+                     b3_premium_rate=3.0)
+    for name, r in res.items():
+        assert r["cost"]["premium_revenue"] == pytest.approx(
+            np.sum(r["export"]) * 12.0 * run.dt), name
+
+
 def test_forecasts_do_not_leak_the_truth():
     run = RunConfig()
     wind, pv, price = synth()

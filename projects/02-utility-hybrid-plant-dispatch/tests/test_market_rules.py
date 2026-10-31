@@ -162,6 +162,22 @@ def test_premium_is_the_applicable_value_above_the_market_value_per_technology()
     assert market.premium_rates(idx, table, "month") == pytest.approx(np.full(4, 0.75 * 13.5))
 
 
+def test_the_planning_rate_is_the_realised_rate_of_the_month_before():
+    """A market value is known only once its month is over, so a controller deciding in a
+    month knows the previous month's at best: December's in January, January's in February."""
+    monthly = pd.DataFrame({"rate": [12.0, 7.0, 3.0]}, index=["2023-12", "2024-01", "2024-02"])
+    steps = pd.DatetimeIndex(["2024-01-01 00:00", "2024-01-31 23:45", "2024-02-01 00:00"],
+                             tz="Europe/Berlin").tz_convert("UTC")
+    assert market.planning_rates(steps, monthly) == pytest.approx([12.0, 12.0, 7.0])
+
+
+def test_a_planning_rate_without_its_previous_month_is_refused():
+    monthly = pd.DataFrame({"rate": [7.0]}, index=["2024-01"])
+    steps = pd.DatetimeIndex(["2024-01-10 12:00"], tz="UTC")
+    with pytest.raises(ValueError, match="2023-12"):
+        market.planning_rates(steps, monthly)
+
+
 def test_settle_takes_one_premium_rate_per_step():
     """A window that spans two months carries two premium rates."""
     run = RunConfig()

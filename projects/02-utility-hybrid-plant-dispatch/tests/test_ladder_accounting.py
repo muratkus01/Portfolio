@@ -57,7 +57,7 @@ def test_a_rounding_size_gain_over_b2_does_not_trip_the_ladder_invariant(monkeyp
     wind, pv, price = window(48, seed=1)
 
     def b2_with_a_little_more_export(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run,
-                                     export_cap=None, progress=False):
+                                     export_cap=None, progress=False, premium=None):
         res = baselines.b2_perfect(wind, pv, eff_price, run, export_cap)
         return {**res, "export": res["export"] * (1 + 1e-8)}
 

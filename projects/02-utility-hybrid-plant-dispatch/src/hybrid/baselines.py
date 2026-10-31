@@ -156,8 +156,18 @@ def b2_perfect(wind, pv, eff_price, run: RunConfig,
 
 def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
                export_cap=None, resolve_every: int = 1,
-               progress: bool = False) -> dict[str, np.ndarray]:
-    """Rolling-horizon MPC on forecast generation and prices."""
+               progress: bool = False, premium=None) -> dict[str, np.ndarray]:
+    """Rolling-horizon MPC on forecast generation and prices.
+
+    wind, pv: available generation per step in MW. eff_price: effective price per step in
+    EUR/MWh, and price_fc its forecast (`make_forecasts`). wind_fc, pv_fc: generation forecasts.
+    premium: None, or (rate, eligible) per step: the market premium B3 knows when it decides in
+        that step (EUR/MWh, e.g. `market.planning_rates`) and whether the premium is payable
+        there. eff_price and price_fc then carry each step's own rate. A plan made in step t
+        prices its whole horizon at rate[t]: a later step's rate can be one B3 cannot know yet
+        at t, such as the realised value of the month t lies in, which sets next month's rate.
+    Returns the dispatch arrays of `plant.simulate`, plus "solve_time_s" per re-solve.
+    """
     cfg = run.plant
     n = len(wind)
     soc = cfg.soc_init
@@ -173,6 +183,9 @@ def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
             w = np.concatenate([[wind[t]], wind_fc[t + 1:t + h]])
             s = np.concatenate([[pv[t]], pv_fc[t + 1:t + h]])
             pr = np.concatenate([[eff_price[t]], price_fc[t + 1:t + h]])
+            if premium is not None:
+                rate, eligible = premium
+                pr = pr + np.where(eligible[t:t + h], rate[t] - rate[t:t + h], 0.0)
             ec = None if export_cap is None else export_cap[t:t + h]
             t0 = time.perf_counter()
             sol = solve_window(w, s, pr, run.dt, run, soc,
@@ -253,11 +266,17 @@ def _refuse_premium_on_grid_energy(name: str, res: dict[str, np.ndarray],
 
 def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
                rebap=None, export_cap=None, include_b3=True,
-               progress=False, schedule=None) -> dict[str, dict]:
+               progress=False, schedule=None, b3_premium_rate=None) -> dict[str, dict]:
     """Run every rung on the same window, settle it, and check the ladder invariant.
 
     wind, pv: available generation per step in MW, e.g. np.array([31.2, 29.8, ...]).
-    price: day-ahead price per step in EUR/MWh. premium_rate: market premium in EUR/MWh.
+    price: day-ahead price per step in EUR/MWh.
+    premium_rate: the market premium every rung is settled on, EUR/MWh, one rate or one per
+        step: the realised value (`market.premium_rates`). B2 plans on it, as perfect
+        foresight may; B0 and B1 read no prices.
+    b3_premium_rate: the premium B3 plans on, one rate or one per step: in each step the rate
+        B3 knows when it decides there, e.g. `market.planning_rates`, the previous month's
+        realised rate. None plans B3 on premium_rate as well.
     rebap, schedule: imbalance price in EUR/MWh and the export the plant committed to, in MW,
         both per step. Each rung's deviation from the schedule is settled at reBAP only when
         both are given; no rung commits a schedule of its own, so reBAP alone settles nothing.
@@ -273,7 +292,6 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     # The step length counts the hours of a negative-price run, so planning must use the one
     # the settlement uses; without it, B2 and B3 planned every step as a quarter-hour.
     eff = effective_price(price, run.market, premium_rate, run.dt)
-    wind_fc, pv_fc, price_fc = make_forecasts(wind, pv, eff, run, rng)
 
     out = {
         "B0 no battery": b0_no_battery(wind, pv, run, export_cap),
@@ -281,8 +299,17 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         "B2 perfect foresight": b2_perfect(wind, pv, eff, run, export_cap),
     }
     if include_b3:
-        out["B3 rolling MPC"] = b3_rolling(wind, pv, eff, wind_fc, pv_fc, price_fc, run,
-                                           export_cap, progress=progress)
+        # B3 plans on the premium it can know, not on the realised value it is settled on: a
+        # month's market value is known only once the month is over.
+        plan = premium_rate if b3_premium_rate is None else b3_premium_rate
+        eff_b3 = effective_price(price, run.market, plan, run.dt)
+        wind_fc, pv_fc, price_fc = make_forecasts(wind, pv, eff_b3, run, rng)
+        eligible = (premium_eligible(price, run.market, run.dt) if run.market.eeg_enabled
+                    else np.zeros(len(price), dtype=bool))
+        rate = np.broadcast_to(np.asarray(plan, dtype=float), (len(price),))
+        out["B3 rolling MPC"] = b3_rolling(wind, pv, eff_b3, wind_fc, pv_fc, price_fc, run,
+                                           export_cap, progress=progress,
+                                           premium=(rate, eligible))
 
     # Single-price settlement pays spot on the committed schedule and reBAP on the deviation.
     # settle() pays spot on the whole export, so it must price the deviation at the spread,
