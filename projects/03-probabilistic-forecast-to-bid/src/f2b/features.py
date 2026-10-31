@@ -21,11 +21,13 @@ CENTRE = (51.0, 10.0)             # sun geometry is taken at the middle of Germa
 WIND_CUT_IN, WIND_RATED = 3.0, 12.0
 
 # Chronological split by TARGET time. Weather vintages start in January/February 2024
-# (wind at 100 m from 2024-02-16), hence the training start.
+# (wind at 100 m from 2024-02-16), hence the training start. The test window ends with
+# 14 October 2026: on 31 October the quality-assured reBAP was published up to the 19th,
+# with the 15th, 16th and 18th still missing.
 SPLITS = {
     "train": ("2024-02-18", "2025-06-30"),
     "validation": ("2025-07-02", "2025-12-30"),
-    "test": ("2026-01-01", "2026-10-31"),
+    "test": ("2026-01-01", "2026-10-15"),
 }
 EMBARGO_H = 36.0
 # The last days of every training window are held out: the learned rungs stop early and

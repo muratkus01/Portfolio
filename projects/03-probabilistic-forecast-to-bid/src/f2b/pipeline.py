@@ -109,6 +109,10 @@ def cmd_backtest(args) -> None:
     ladder = fit_ladder(df, weather_q, run, args.phase, tuple(args.seeds))
     truth = df["truth_mw"].to_numpy(float)
     mask = common_mask(ladder, truth)
+    priced = df["rebap"].notna().to_numpy() & df["price_da"].notna().to_numpy()
+    if (mask & priced).any():
+        # one set of steps for every table: forecasts are scored where they are also valued
+        mask &= priced
     out.mkdir(parents=True, exist_ok=True)
     scores = score_ladder(ladder, truth, mask, run.dt)
     scores.round(4).to_csv(out / "forecast_by_stage.csv", index=False)
@@ -127,7 +131,7 @@ def cmd_backtest(args) -> None:
 def _market_value(ladder, df: pd.DataFrame, mask: np.ndarray, run: RunConfig, phase: str,
                   frozen: dict | None, out: Path) -> dict | None:
     """Settle every rung and policy at the real prices; skipped until reBAP is present."""
-    priced = mask & df["rebap"].notna().to_numpy() & df["price_da"].notna().to_numpy()
+    priced = mask & df["rebap"].notna().to_numpy()
     if not priced.any():
         print("\nNo reBAP in the dataset yet: market value skipped, forecast scores written.")
         return None
