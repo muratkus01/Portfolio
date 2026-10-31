@@ -1,32 +1,33 @@
 # Technical Stack & Engineering Conventions
 
-A single stack across the portfolio, so components (market model, forecast store, safety
-layer, evaluation harness) are shared rather than rewritten per project.
+What the code of each project imports, checked against the source. The projects share this
+small stack, and Projects 02 and 03 share the `datakit` data module; each project keeps its
+own market model, safety checks and evaluation code.
 
 ---
 
 ## Layers
 
-| Layer | Choice | Rationale |
-|-------|--------|-----------|
-| Language | Python 3.11+ | Domain standard; solver and RL ecosystems both live here |
-| Numerics | NumPy, pandas, xarray | `xarray` for NWP grids and ensemble dimensions |
-| Optimisation modelling | **PuLP** (primary, MILP/LP), `linopy` (large LP) | PuLP with CBC/HiGHS for reproducible mixed-integer plant models |
-| Solvers | **HiGHS** (open, default), Gurobi (academic licence, benchmarking) | Every model must solve with HiGHS so results are reproducible without a commercial licence |
-| Power system | **pandapower** (LV/MV power flow), **PyPSA** (system-level), SimBench networks | Needed where grid constraints bind (Projects 03, 04) |
-| Energy system modelling | oemof.solph (cross-checking) | Independent implementation to validate MILP formulations |
-| RL environments | **Gymnasium**, PettingZoo (multi-agent, Project 04) | Standard APIs keep environments reusable |
-| RL algorithms | **Stable-Baselines3** (PPO, SAC), CleanRL for custom variants | SB3 for trustworthy reference implementations; CleanRL where the algorithm is modified |
-| Deep learning | PyTorch | Forecasting models and custom policies |
-| Forecasting | statsmodels, scikit-learn, PyTorch (DeepAR/TFT-style, quantile & distributional heads), `properscoring` | Probabilistic first — CRPS and pinball loss, not just RMSE |
-| Experiment tracking | **MLflow** | Runs, params, metrics, artefacts |
-| Config | **Hydra** + OmegaConf | Config-driven runs; no magic numbers |
-| Data versioning | **DVC** | Data snapshot hashes tied to results |
-| Testing | pytest, hypothesis | Property tests on energy balance and constraint feasibility |
-| Quality | ruff, black, mypy, pre-commit | Enforced in CI |
-| CI | GitHub Actions | Lint, type-check, unit tests, a fast end-to-end smoke run |
-| Docs | MkDocs Material, Mermaid diagrams | Diagrams live in Markdown, render natively on GitHub |
-| Packaging | `uv` / `pyproject.toml`, Docker | Reproducible environments |
+| Layer | Choice | Where it is used |
+|-------|--------|------------------|
+| Language | Python 3.10+ (`requires-python`); CI tests 3.11 and 3.12 | Every project |
+| Numerics and data | NumPy, pandas; PyArrow for the Parquet caches | Every project |
+| Linear programming | SciPy `linprog` with the **HiGHS** solver | Project 01: the perfect-foresight LP (B2) and every rolling-MPC window (B3), `baselines/lp_fast.py` |
+| Optimisation models | **PuLP** with the **CBC** solver | Project 01's thesis MILP (Gates 0 and 1, `baselines/milp.py`); Project 02's dispatch models; the archived pumped-storage plant |
+| PV model | pvlib | Project 01: PV output and PV forecast from Open-Meteo weather |
+| RL environment | **Gymnasium** | Project 01 (`envs/`); the archived pumped-storage plant |
+| RL algorithm | **Stable-Baselines3** SAC on **PyTorch** | Project 01's RL agent (`experiments/rl_eval.py`, `train_rl.py`); the archived pumped-storage plant used PPO |
+| Forecasting | **LightGBM** quantile regression (F3) and linear quantile regression fitted with SciPy's L-BFGS (F2), both in the optional `[forecast]` extra; CI does not install LightGBM, so the F3 test skips there | Project 03 (`models.py`) |
+| Data access | `datakit`: Energy-Charts over standard-library HTTP, no API key; Open-Meteo through the weather modules of Projects 01 and 03 | Projects 02 and 03 import `datakit`; Project 01 has its own loaders |
+| Figures | Matplotlib | Project 01's figures; `scripts/make_f2b_figure.py` |
+| Testing | pytest | Every project; the root `pyproject.toml` collects all six suites |
+| CI | GitHub Actions | The full test suite on Python 3.11 and 3.12; a second workflow publishes `index.html` and `showcase.html` on GitHub Pages |
+| Lint | ruff | Declared as a dev dependency, not run in CI |
+| Packaging | One `pyproject.toml` per project (setuptools), installed with `pip install -e` | Every project |
+| Docs | Markdown with Mermaid diagrams, rendered by GitHub | READMEs and `docs/` |
+
+No project uses a commercial solver, a deep-learning forecaster, an experiment tracker, a
+config framework or a data-versioning tool.
 
 ---
 
