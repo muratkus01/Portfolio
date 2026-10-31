@@ -8,7 +8,7 @@ programs solved with PuLP and CBC, on Energy-Charts data for the calendar years 
 
 | | |
 |---|---|
-| **Status** | Ladder B0 to B3 implemented and evaluated; the project stops at B3, on purpose (below). 161 tests, all offline |
+| **Status** | Ladder B0 to B3 implemented and evaluated; the project stops at B3, on purpose (below). 175 tests, all offline |
 | **Method** | B0 no battery · B1 rule-based storage · B2 perfect-foresight LP · B3 rolling LP-MPC on synthetic forecasts |
 | **Asset** | 50 MW onshore wind + 30 MWp PV + a 20 MW / 40 MWh battery behind a 60 MW connection; not a real site |
 | **Markets** | Day-ahead price and the EEG market premium per technology. Not modelled: intraday trading, a day-ahead schedule settled at reBAP, redispatch. aFRR is not built yet: its settings in `MarketConfig` are inert |
@@ -42,7 +42,8 @@ programs solved with PuLP and CBC, on Energy-Charts data for the calendar years 
 
 ## 0. Results
 
-Every result in this section comes from a committed CSV in [`reports/`](reports/).
+Every result in this section comes from a committed CSV in [`reports/`](reports/), and
+`tests/test_readme_results.py` checks the tables and key results below against them.
 [`reports/SOURCE.md`](reports/SOURCE.md) says how the set was run, on which data and under
 which licence.
 
@@ -70,7 +71,7 @@ B2 knows prices and generation in advance, so its figures are upper bounds.
 ### Reproduce
 
 ```bash
-pip install -e ".[dev]" && python -m pytest tests/ -q   # 161 tests, offline
+pip install -e ".[dev]" && python -m pytest tests/ -q   # 175 tests, offline
 python -m hybrid.cli report                     # every table below, in series: about an hour
 python -m hybrid.cli report --only sizing_2024  # one table, by the name of its CSV
 ```
