@@ -96,6 +96,38 @@ def _capacity_by_month(index: pd.DatetimeIndex) -> pd.DataFrame:
     return out
 
 
+def monthly_capacity(index: pd.DatetimeIndex) -> pd.DataFrame:
+    """The installed capacity `load_year` divides by, one row per Berlin month of `index`.
+
+    Args:
+        index: tz-aware timestamps, e.g. the index of a `load_year` frame.
+
+    Returns:
+        Frame indexed by month, e.g. "2024-01", with `wind_mw` (onshore) and `pv_mw` (DC), MW.
+    """
+    months = index.tz_convert("Europe/Berlin").strftime("%Y-%m")
+    return _capacity_by_month(index).groupby(months).first()
+
+
+def source_urls(year: int) -> dict[str, str]:
+    """The Energy-Charts requests `load_year(year)` makes, by dataset; datakit caches each
+    response under its request, so these name the bytes a result was computed from.
+
+    Args:
+        year: calendar year, e.g. 2024.
+
+    Returns:
+        {"public_power": url, "total_power": url, "price": url, "installed_power": url}.
+    """
+    import datakit
+
+    span = f"start={year}-01-01&end={year + 1}-01-01"
+    return {"public_power": f"{datakit.EC}/public_power?country=de&{span}",
+            "total_power": f"{datakit.EC}/total_power?country=de&{span}",
+            "price": f"{datakit.EC}/price?bzn=DE-LU&{span}",
+            "installed_power": f"{datakit.EC}/installed_power?country=de&time_step=monthly"}
+
+
 def load_year(year: int, days: int | None = None,
               dt: float = 0.25) -> pd.DataFrame:
     """Return national per-unit wind and PV capacity factors and the day-ahead price.

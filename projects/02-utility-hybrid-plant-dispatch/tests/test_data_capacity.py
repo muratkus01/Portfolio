@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 
 import datakit
-from hybrid.data import load_year
+from hybrid.data import load_year, monthly_capacity, source_urls
 
 # One day around a month change: 22:00 UTC on 30 June 2024 is midnight on 1 July in Berlin.
 START = pd.Timestamp("2024-06-30 12:00", tz="UTC")
@@ -143,6 +143,24 @@ def test_each_quarter_hour_takes_the_capacity_of_its_local_month(energy_charts):
         (30_000 / 60_000, 30_000 / 80_000))
     assert (first_july["wind_cf"], first_july["pv_cf"]) == pytest.approx(
         (30_000 / 62_500, 30_000 / 96_000))
+
+
+def test_monthly_capacity_is_what_load_year_divides_by(energy_charts):
+    """The capacities a report records must be the ones the factors were divided by: one row
+    per Berlin month of the frame, in MW."""
+    energy_charts()
+    cap = monthly_capacity(load_year(2024).index)
+    assert list(cap.index) == ["2024-06", "2024-07"]
+    assert cap.loc["2024-06"].to_dict() == {"wind_mw": 60_000.0, "pv_mw": 80_000.0}
+    assert cap.loc["2024-07"].to_dict() == {"wind_mw": 62_500.0, "pv_mw": 96_000.0}
+
+
+def test_source_urls_are_the_requests_load_year_makes(energy_charts):
+    """A report records where its data came from; that list must not drift from the requests
+    load_year actually makes."""
+    requests = energy_charts()
+    load_year(2024)
+    assert {url for url, _ in requests} == set(source_urls(2024).values())
 
 
 def test_a_month_missing_from_the_capacity_payload_is_an_error(energy_charts):
