@@ -14,6 +14,12 @@ def main():
     
     # Validate json
     cubes_data = json.loads(cubes_json)
+    # Project 03 publishes its results as CSVs under projects/03-*/reports/. Its old scenario grid
+    # swept synthetic forecast noise and is retired, so no P03 cube goes into the page, even if
+    # an older lookup_cubes.json still carries one. Same separators as the file, so the other
+    # cubes are embedded unchanged.
+    cubes_data.pop("p03", None)
+    cubes_json = json.dumps(cubes_data, separators=(",", ":"))
     print(f"Loaded {len(cubes_data)} project cubes.")
 
     with open(HTML_PATH, "r", encoding="utf-8") as f:
@@ -81,23 +87,6 @@ def main():
         html
     )
 
-    # P03
-    html = re.sub(
-        r'<input type="range" id="p03-slider-dim"[^>]+>',
-        '<input type="range" id="p03-slider-dim" min="40" max="220" step="20" value="100" oninput="simP03()">',
-        html
-    )
-    html = re.sub(
-        r'<input type="range" id="p03-slider-sessions"[^>]+>',
-        '<input type="range" id="p03-slider-sessions" min="24" max="72" step="12" value="48" oninput="simP03()">',
-        html
-    )
-    html = re.sub(
-        r'<input type="range" id="p03-slider-buffer"[^>]+>',
-        '<input type="range" id="p03-slider-buffer" min="0" max="0" step="1" value="0" oninput="simP03()">',
-        html
-    )
-
     # P04
     html = re.sub(
         r'<input type="range" id="p04-slider-charge"[^>]+>',
@@ -132,25 +121,8 @@ def main():
         html
     )
 
-    # P03
-    html = re.sub(
-        r'<input type="range" id="p03-slider-risk"[^>]+>',
-        '<input type="range" id="p03-slider-risk" min="0.15" max="0.85" step="0.05" value="0.42" oninput="simP03()">',
-        html
-    )
-    html = re.sub(
-        r'<input type="range" id="p03-slider-mae"[^>]+>',
-        '<input type="range" id="p03-slider-mae" min="2.0" max="10.0" step="0.5" value="5.9" oninput="simP03()">',
-        html
-    )
-    html = re.sub(
-        r'<input type="range" id="p03-slider-spread"[^>]+>',
-        '<input type="range" id="p03-slider-spread" min="15" max="80" step="5" value="42" oninput="simP03()">',
-        html
-    )
-
     # 3. Add match status indicators and illustrative dispatch canvas labels
-    for pid in ["p01", "p02", "p03", "p04", "p02", "p03"]:
+    for pid in ["p01", "p02", "p04", "p02"]:
         badge_orig = f'<span class="sim-card-badge">{pid.upper()} Live Physics Model</span>'
         badge_new = f'<span class="sim-card-badge">{pid.upper()} Live Physics Model</span> <span class="sim-card-badge emerald" id="{pid}-grid-match">(Exact Grid Match)</span>'
         if badge_orig in html:
@@ -215,11 +187,6 @@ def main():
         res: [1200.0, 2400.0, 3600.0],
         wear: [0, 50, 100, 150, 200, 300]
       }},
-      p03: {{
-        dim: [40.0, 60.0, 80.0, 100.0, 140.0, 180.0, 220.0],
-        sessions: [24, 36, 48, 64, 72],
-        buffer: [0.0]
-      }},
       p04: {{
         charge: [0.000, 0.010, 0.020, 0.030, 0.050, 0.070, 0.090, 0.100, 0.110, 0.120, 0.140],
         members: [6, 10, 15, 20, 25, 30],
@@ -229,11 +196,6 @@ def main():
         poc: [25.0, 30.0, 40.0, 50.0, 60.0],
         pv: [20.0, 30.0, 40.0, 50.0, 60.0],
         bess: [0.0, 10.0, 20.0, 30.0, 40.0]
-      }},
-      p03: {{
-        tau: [0.15, 0.25, 0.35, 0.42, 0.50, 0.60, 0.70, 0.85],
-        sigma: [0.02, 0.04, 0.059, 0.075, 0.10],
-        spread: [15.0, 30.0, 42.0, 60.0, 80.0]
       }}
     }};
 
@@ -262,7 +224,7 @@ def main():
             print("ERROR: Could not find DAY_REGIMES_MULTIYEAR anchor!")
             return
 
-    # 5. Replace simP01 to simP03 functions with SCENARIO_CUBES lookup
+    # 5. Replace the simulator functions (simP01 to the hybrid-plant simP02) with SCENARIO_CUBES lookups
     new_sim_funcs = """
     // Project 01: Residential PV+BESS Sizing & 24h Dynamic Dispatch
     function simP01() {
@@ -397,56 +359,6 @@ def main():
       updateHudP02(scrubberIdxP02);
     }
 
-    // Project 03: §14a EnWG Fleet Charging Dimming
-    function simP03() {
-      const dimEl = document.getElementById('p03-slider-dim');
-      const sessionsEl = document.getElementById('p03-slider-sessions');
-      const bufferEl = document.getElementById('p03-slider-buffer');
-      if (!dimEl || !sessionsEl || !bufferEl) return;
-
-      const dimRaw = parseFloat(dimEl.value);
-      const sessionsRaw = parseFloat(sessionsEl.value);
-      const bufferRaw = parseFloat(bufferEl.value);
-
-      const p3Grid = GRID_PARAMS.p03;
-      const dim = snapToGrid(dimRaw, p3Grid.dim);
-      const sessions = snapToGrid(sessionsRaw, p3Grid.sessions);
-      const isExact = (Math.abs(dimRaw - dim) < 0.1 && Math.abs(sessionsRaw - sessions) < 0.1);
-
-      document.getElementById('p03-val-dim').innerText = Math.round(dim) + ' kW';
-      document.getElementById('p03-val-sessions').innerText = Math.round(sessions) + ' Sessions';
-      document.getElementById('p03-val-buffer').innerText = '0 kWh (DSO Direct)';
-
-      const matchEl = document.getElementById('p03-grid-match');
-      if (matchEl) {
-        matchEl.innerText = isExact ? '(Exact Grid Match)' : `(Nearest: ${dim}kW/${sessions}sess)`;
-        matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
-      }
-
-      const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
-      const cubeKey = `${dim.toFixed(1)}|${Math.round(sessions)}|0.0|${yr}`;
-      const cell = SCENARIO_CUBES.p03 && SCENARIO_CUBES.p03.data ? SCENARIO_CUBES.p03.data[cubeKey] : null;
-
-      if (cell) {
-        // [cost_b0_eur, cost_b3_eur, savings_pct, departure_fulfillment_frac, curtail_kwh]
-        const costB3 = cell[1];
-        const savingsPct = cell[2];
-        const punctFrac = cell[3];
-
-        document.getElementById('p03-res-peak').innerText = dim.toFixed(1) + ' kW';
-        document.getElementById('p03-res-cost').innerText = costB3.toFixed(2) + ' EUR (14d)';
-        document.getElementById('p03-res-rebate').innerText = savingsPct.toFixed(1) + '% Cost Cut';
-        
-        const punctEl = document.getElementById('p03-res-punct');
-        punctEl.innerText = (punctFrac * 100).toFixed(1) + '% On-Time';
-        punctEl.className = 'sim-res-val ' + (punctFrac >= 0.999 ? 'emerald' : 'amber');
-      }
-
-      recomputeDispatchP03(dim, sessions, 0.0);
-      drawDispatchCanvasP03();
-      updateHudP03(scrubberIdxP03);
-    }
-
     // Project 04: REC P2P Sharing & Core Stability
     function simP04() {
       const chargeEl = document.getElementById('p04-slider-charge');
@@ -552,74 +464,15 @@ def main():
       drawDispatchCanvasP02();
       updateHudP02(scrubberIdxP02);
     }
-
-    // Project 03: Forecast-to-Bid Quantile reBAP Imbalance
-    function simP03() {
-      const riskEl = document.getElementById('p03-slider-risk');
-      const maeEl = document.getElementById('p03-slider-mae');
-      const spreadEl = document.getElementById('p03-slider-spread');
-      if (!riskEl || !maeEl || !spreadEl) return;
-
-      const riskRaw = parseFloat(riskEl.value);
-      const maeRaw = parseFloat(maeEl.value);
-      const spreadRaw = parseFloat(spreadEl.value);
-
-      const p6Grid = GRID_PARAMS.p03;
-      const risk = snapToGrid(riskRaw, p6Grid.tau);
-      const sigmaMap = [0.02, 0.04, 0.059, 0.075, 0.10];
-      const sigma = snapToGrid(maeRaw / 100.0, sigmaMap);
-      const spread = snapToGrid(spreadRaw, p6Grid.spread);
-
-      const isExact = (Math.abs(riskRaw - risk) < 0.01 && Math.abs((maeRaw / 100.0) - sigma) < 0.005 && Math.abs(spreadRaw - spread) < 0.1);
-
-      const qLabel = 'q' + Math.round(risk * 100);
-      document.getElementById('p03-val-risk').innerText = qLabel + ' (Tau ' + risk.toFixed(2) + ')';
-      document.getElementById('p03-val-mae').innerText = (sigma * 100).toFixed(1) + '%';
-      document.getElementById('p03-val-spread').innerText = spread.toFixed(1) + ' EUR/MWh';
-
-      const matchEl = document.getElementById('p03-grid-match');
-      if (matchEl) {
-        matchEl.innerText = isExact ? '(Exact Grid Match)' : `(Nearest: Tau ${risk.toFixed(2)}/Sigma ${sigma}/Spread ${spread})`;
-        matchEl.className = 'sim-card-badge ' + (isExact ? 'emerald' : 'cyan');
-      }
-
-      const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
-      const sigmaStr = (sigma === 0.059) ? '0.059' : (sigma === 0.075 ? '0.075' : sigma.toFixed(2));
-      const cubeKey = `${risk.toFixed(2)}|${sigmaStr}|${spread.toFixed(1)}|${yr}`;
-      const cell = SCENARIO_CUBES.p03 && SCENARIO_CUBES.p03.data ? SCENARIO_CUBES.p03.data[cubeKey] : null;
-
-      if (cell) {
-        // [capture_price_b3_eur_mwh, net_gain_30d_eur, imbalance_volume_reduction_pct]
-        const capPrice = cell[0];
-        const netGain = cell[1];
-        const volRed = cell[2];
-
-        document.getElementById('p03-res-price').innerText = capPrice.toFixed(2) + ' EUR/MWh';
-        document.getElementById('p03-res-vol').innerText = '15,785 MWh (Optimal Bid)';
-        const gainSign = netGain >= 0 ? '+' : '';
-        const gainEl = document.getElementById('p03-res-gain');
-        if (gainEl) {
-          gainEl.innerText = gainSign + Math.round(netGain).toLocaleString() + ' EUR (30d)';
-          gainEl.className = 'sim-res-val ' + (netGain >= 0 ? 'emerald' : 'amber');
-        }
-        const volEl = document.getElementById('p03-res-riskred');
-        if (volEl) {
-          volEl.innerText = '-' + volRed.toFixed(1) + '% Vol';
-        }
-      }
-
-      recomputeDispatchP03(risk, maeRaw, spread);
-      drawDispatchCanvasP03();
-      updateHudP03(scrubberIdxP03);
-    }
 """
-    # Replace the existing simP01 - simP03 functions
-    sim_regex = r'// Project 01: Residential PV\+BESS Sizing & 24h Dynamic Dispatch\s+function simP01\(\) \{[\s\S]+?updateHudP03\(scrubberIdxP03\);\s+\}'
+    # Replace the existing simulator functions, from simP01 to the hybrid-plant simP02. The block
+    # used to end at simP03; Project 03 has no simulator any more (its grid is retired).
+    sim_regex = r'// Project 01: Residential PV\+BESS Sizing & 24h Dynamic Dispatch\s+function simP01\(\) \{[\s\S]+?recomputeDispatchP02\(poc, pv, bess\);\s+drawDispatchCanvasP02\(\);\s+updateHudP02\(scrubberIdxP02\);\s+\}'
     if re.search(sim_regex, html):
         html = re.sub(sim_regex, new_sim_funcs.strip(), html)
-        print("Replaced simP01-simP03 functions with SCENARIO_CUBES lookups.")
+        print("Replaced the simulator functions with SCENARIO_CUBES lookups.")
     else:
-        print("ERROR: Could not find simP01-simP03 functions block!")
+        print("ERROR: Could not find the simulator functions block!")
         return
 
     # Write output

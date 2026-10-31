@@ -35,14 +35,8 @@ def migrate():
         df.to_parquet(p02_path, index=False)
         print("Migrated P02: renamed extrapolated columns, eval_days=14, annualised=True. Rows:", len(df))
 
-    # P03
-    p03_path = RESULTS / "p03_scenarios.parquet"
-    if p03_path.exists():
-        df = pd.read_parquet(p03_path)
-        df["eval_days"] = 14
-        df["annualised"] = False
-        df.to_parquet(p03_path, index=False)
-        print("Migrated P03: eval_days=14, annualised=False. Rows:", len(df))
+    # P03 has no scenario table: its grid swept synthetic forecast noise and is retired, and the
+    # project publishes its results as CSVs under projects/03-probabilistic-forecast-to-bid/reports/.
 
     # P04
     p04_path = RESULTS / "p04_scenarios.parquet"
@@ -72,15 +66,6 @@ def migrate():
                 df.drop(columns=[old], inplace=True)
         df.to_parquet(p02_path, index=False)
         print("Migrated P02: renamed extrapolated columns, eval_days=14, annualised=True. Rows:", len(df))
-
-    # P03
-    p03_path = RESULTS / "p03_scenarios.parquet"
-    if p03_path.exists():
-        df = pd.read_parquet(p03_path)
-        df["eval_days"] = df["year"].apply(lambda y: 366 if y == 2024 else 365)
-        df["annualised"] = False
-        df.to_parquet(p03_path, index=False)
-        print("Migrated P03: eval_days, annualised added. Rows:", len(df))
 
 if __name__ == "__main__":
     migrate()
