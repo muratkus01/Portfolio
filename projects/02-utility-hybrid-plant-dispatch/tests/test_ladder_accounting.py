@@ -236,8 +236,8 @@ def test_no_rung_earns_from_energy_it_never_bought():
     res = run_ladder(nothing, nothing, np.full(n, 60.0), run, premium_rate=0.0,
                      include_b3=True)
 
-    for name, r in res.items():
-        assert r["cost"]["net_revenue"] == pytest.approx(0.0, abs=1e-6), name
+    nets = {name: r["cost"]["net_revenue"] for name, r in res.items()}
+    assert nets == pytest.approx(dict.fromkeys(nets, 0.0), abs=1e-6)
 
 
 def test_the_battery_starts_at_its_minimum_whatever_the_minimum():
