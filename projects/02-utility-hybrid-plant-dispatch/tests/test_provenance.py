@@ -68,6 +68,69 @@ def test_the_dirty_flag_ignores_the_folder_being_written(tmp_path):
     assert git_state(tmp_path, tmp_path / "reports")["git_dirty"] == "True"
 
 
+def calendar_year(year: int, days: int | None = None, dt: float = 0.25) -> pd.DataFrame:
+    """A synthetic Berlin calendar year of quarter-hours, cut to its first `days` days."""
+    start = pd.Timestamp(f"{year}-01-01", tz="Europe/Berlin").tz_convert("UTC")
+    end = pd.Timestamp(f"{year + 1}-01-01", tz="Europe/Berlin").tz_convert("UTC")
+    idx = pd.date_range(start, end, freq="15min", inclusive="left")
+    pv = np.clip(np.sin(np.pi * (np.arange(len(idx)) * 0.25 % 24 - 6) / 12), 0, 1)
+    df = pd.DataFrame({"wind_cf": 0.4, "pv_cf": pv, "pv_feed_in_cf": 0.8 * pv,
+                       "price_eur_mwh": 50 + 30 * pv}, index=idx)
+    return df if days is None else df.iloc[:int(days * 24 / dt)]
+
+
+def b2_instead_of_b3(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run, export_cap=None,
+                     progress=False, premium=None):
+    """Stand-in for B3, so that nothing but B2 is solved."""
+    import hybrid.baselines as baselines
+
+    return {**baselines.b2_perfect(wind, pv, eff_price, run, export_cap),
+            "solve_time_s": np.array([0.1])}
+
+
+def test_a_command_notes_every_frame_it_loads(monkeypatch):
+    """A report hashes what a command loaded: for the ladder with B3, the window, its year,
+    and the year before, which B3's planning premium and price-forecast error come from."""
+    import hybrid.baselines as baselines
+    import hybrid.cli as cli
+    from hybrid.provenance import frame_sha256
+
+    monkeypatch.setattr(cli, "load_year", calendar_year)
+    monkeypatch.setattr(baselines, "b3_rolling", b2_instead_of_b3)
+    args = cli.build_parser().parse_args(["ladder", "--year", "2025", "--days", "1"])
+    args.inputs = {}
+    args.func(args)
+
+    assert {label: (rec["year"], rec["days"]) for label, rec in args.inputs.items()} == {
+        "load_year(2025, days=1, dt=0.25)": (2025, 1),
+        "load_year(2025, days=None, dt=0.25)": (2025, None),
+        "load_year(2024, days=None, dt=0.25)": (2024, None)}
+    for rec in args.inputs.values():
+        assert frame_sha256(rec["frame"]) == frame_sha256(calendar_year(rec["year"], rec["days"]))
+
+
+def test_the_synthetic_demo_notes_its_inputs(monkeypatch):
+    import hybrid.baselines as baselines
+    import hybrid.cli as cli
+    from hybrid import synthetic
+    from hybrid.config import PlantConfig, RunConfig
+
+    def eight_steps():
+        run = RunConfig(horizon_steps=2, plant=PlantConfig(conn_mw=20.0))
+        return synthetic.DemoInputs(np.full(8, 30.0), np.zeros(8), np.full(8, 40.0), run, 8.0)
+
+    monkeypatch.setattr(synthetic, "demo_inputs", eight_steps)
+    monkeypatch.setattr(baselines, "b3_rolling", b2_instead_of_b3)
+    args = cli.build_parser().parse_args(["b3-ablation", "--synthetic-demo"])
+    args.inputs = {}
+    args.func(args)
+
+    (label, rec), = args.inputs.items()
+    assert (label, rec["year"]) == ("synthetic.demo_inputs()", None)
+    assert rec["frame"].to_dict("list") == {"wind_mw": [30.0] * 8, "pv_mw": [0.0] * 8,
+                                            "price_eur_mwh": [40.0] * 8}
+
+
 def test_the_environment_names_the_versions_and_the_solver():
     import pulp
 

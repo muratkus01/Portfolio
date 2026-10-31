@@ -96,6 +96,37 @@ def rung_rows(res: dict, run: RunConfig, window: dict, premium: dict,
     return rows
 
 
+def window_stats(label: str, wind: np.ndarray, pv: np.ndarray, price: np.ndarray,
+                 run: RunConfig, window: dict) -> dict:
+    """What the README's statements about a window rest on, for one plant.
+
+    label: the window's name, e.g. "2024". wind, pv: the plant's available generation per
+    step, MW. price: day-ahead price per step, EUR/MWh.
+    run: the plant, its marketing fee and the step length. window: `window_columns(...)`.
+    Returns {"window", the window columns, the mean price, the quarter-hours with a negative
+    price and with a price below the marketing fee (negative ones included, as exporting
+    there without a premium loses money), the peak generation, the largest combined capacity
+    factor (peak over MW wind plus MWp PV), the connection, the steps whose generation
+    exceeds it and whether it binds at all}.
+    """
+    gen = np.asarray(wind) + np.asarray(pv)
+    price = np.asarray(price)
+    over = gen > run.plant.conn_mw
+    fee = run.market.direct_marketing_fee
+    per_step = run.dt / 0.25                      # quarter-hours in a step
+    return {"window": label, **window,
+            "mean_price_eur_mwh": float(np.mean(price)),
+            "negative_price_quarter_hours": float(np.sum(price < 0) * per_step),
+            "below_fee_quarter_hours": float(np.sum(price < fee) * per_step),
+            "fee_eur_mwh": fee,
+            "installed_mw": run.plant.installed_mw,
+            "peak_generation_mw": float(gen.max()),
+            "max_combined_cf": float(gen.max() / run.plant.installed_mw),
+            "connection_mw": run.plant.conn_mw,
+            "steps_over_connection": int(over.sum()),
+            "connection_binds": bool(over.any())}
+
+
 def write_csv(rows: list[dict], path: str | Path) -> Path:
     """Write tidy rows to a CSV at `path`, creating its folder. Returns the path."""
     path = Path(path)

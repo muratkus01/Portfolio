@@ -21,7 +21,7 @@ import pandas as pd
 from . import synthetic, tables
 from .baselines import ladder_tolerance, run_ladder
 from .config import NEGATIVE_PRICE_RULES, MarketConfig, PlantConfig, RunConfig
-from .data import describe, load_year, to_plant
+from .data import describe, load_year, market_value_weights, to_plant
 from .market import (market_values, planning_rates, premium_rates, premium_table,
                      rebap_series, vintage_rules)
 
@@ -67,14 +67,14 @@ def load_window(args, dt: float) -> pd.DataFrame:
     if args.days is None:
         if args.start != "01-01":
             raise ValueError(f"--full-year covers {args.year} from 01-01, not from {args.start}")
-        return load_year(args.year, None, dt)
+        return _load(args, args.year, None, dt)
     end = begin + pd.Timedelta(days=args.days)
     if end > pd.Timestamp(f"{args.year + 1}-01-01", tz="Europe/Berlin"):
         raise ValueError(f"{args.days} days from {args.start} run past the end of {args.year}")
     if args.start == "01-01":
         # load_year cuts the year's first days itself, as every window was cut before --start
-        return load_year(args.year, args.days, dt)
-    year = load_year(args.year, None, dt)
+        return _load(args, args.year, args.days, dt)
+    year = _load(args, args.year, None, dt)
     return year[(year.index >= begin) & (year.index < end)]
 
 
@@ -98,15 +98,23 @@ def _window_text(args) -> str:
     return text if args.start == "01-01" else f"{text} from {args.start}"
 
 
-def _national_weights(frame: pd.DataFrame) -> pd.DataFrame:
-    """Per-technology weights of the market-value proxy, from `load_year`'s factors.
+def _load(args, year: int, days: int | None, dt: float) -> pd.DataFrame:
+    """`load_year`, noted in `args.inputs` where a report records what each run loaded."""
+    frame = load_year(year, days, dt)
+    _note_input(args, f"load_year({year}, days={days}, dt={dt})", frame, year, days)
+    return frame
 
-    National feed-in over installed capacity: the capacity is one figure within a month, so
-    the factor weights the price as the feed-in does. MW Wind an Land weights by onshore
-    feed-in alone (Anlage 1 Nr. 3.3.2), which `wind_cf` is. PV weights by `pv_feed_in_cf`,
-    public feed-in, not by the plant factor `pv_cf`, which also counts self-consumption.
+
+def _note_input(args, label: str, frame: pd.DataFrame, year: int | None = None,
+                days: int | None = None) -> None:
+    """Record an input frame in `args.inputs`, if the report asked for it (`hybrid.report`).
+
+    label: what loaded it, e.g. "load_year(2024, days=None, dt=0.25)".
+    year, days: the calendar year and window length it covers, None where it has no dates.
     """
-    return frame[["wind_cf", "pv_feed_in_cf"]].set_axis(["wind", "pv"], axis=1)
+    inputs = getattr(args, "inputs", None)
+    if inputs is not None:
+        inputs[label] = {"year": year, "days": days, "frame": frame}
 
 
 def _realised_premium(year: pd.DataFrame, index: pd.DatetimeIndex, wind: np.ndarray,
@@ -124,7 +132,7 @@ def _realised_premium(year: pd.DataFrame, index: pd.DatetimeIndex, wind: np.ndar
     period: "month" or "year".
     Returns (premium_table frame, the plant's rate per step as np.ndarray).
     """
-    values = market_values(year["price_eur_mwh"], _national_weights(year), period)
+    values = market_values(year["price_eur_mwh"], market_value_weights(year), period)
     table = premium_table(index, {"wind": wind, "pv": pv}, values, applicable, period)
     _refuse_unrealised(values.loc[table.index], period)
     return table, premium_rates(index, table, period)
@@ -164,7 +172,7 @@ def _premium(args, run: RunConfig, index: pd.DatetimeIndex, wind: np.ndarray,
     B2 plans on the same rate, as perfect foresight may; B0 and B1 read no prices.
     Returns (premium_table frame, rate per step in EUR/MWh).
     """
-    year = load_year(args.year, None, run.dt)
+    year = _load(args, args.year, None, run.dt)
     return _realised_premium(year, index, wind, pv, _applicable(run.market), _DEFAULT_PERIOD)
 
 
@@ -184,10 +192,10 @@ def _b3_planning_premium(args, run: RunConfig, index: pd.DatetimeIndex) -> np.nd
     index: the window's timestamps.
     Returns B3's rate per step, EUR/MWh.
     """
-    frame = pd.concat([load_year(args.year - 1, None, run.dt),
-                       load_year(args.year, None, run.dt)])
+    frame = pd.concat([_load(args, args.year - 1, None, run.dt),
+                       _load(args, args.year, None, run.dt)])
     wind, pv, _ = to_plant(frame, run.plant.wind_mw, run.plant.pv_mw)
-    values = market_values(frame["price_eur_mwh"], _national_weights(frame), "month")
+    values = market_values(frame["price_eur_mwh"], market_value_weights(frame), "month")
     monthly = premium_table(frame.index, {"wind": wind, "pv": pv}, values,
                             _applicable(run.market), "month")
     return planning_rates(index, monthly)
@@ -203,7 +211,7 @@ def _b3_price_scale(args, run: RunConfig) -> float:
     args: parsed CLI arguments, e.g. year=2024. run: the run's settings.
     Returns the standard deviation in EUR/MWh.
     """
-    return float(np.std(load_year(args.year - 1, None, run.dt)["price_eur_mwh"].to_numpy()))
+    return float(np.std(_load(args, args.year - 1, None, run.dt)["price_eur_mwh"].to_numpy()))
 
 
 def _print_premium(table: pd.DataFrame, period: str) -> None:
@@ -389,7 +397,7 @@ def _negprice_premiums(args, dt: float, index: pd.DatetimeIndex, wind: np.ndarra
     window, MW per step.
     Returns {vintage label: (premium_table frame, plant rate per step as np.ndarray)}.
     """
-    year = load_year(args.year, None, dt)
+    year = _load(args, args.year, None, dt)
     return {label: _realised_premium(year, index, wind, pv, {"wind": aw_wind, "pv": aw_pv},
                                      period)
             for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES}
@@ -520,6 +528,8 @@ def _ablation_inputs(args) -> tuple:
     """
     if args.synthetic_demo:
         demo = synthetic.demo_inputs()
+        _note_input(args, "synthetic.demo_inputs()", pd.DataFrame(
+            {"wind_mw": demo.wind, "pv_mw": demo.pv, "price_eur_mwh": demo.price}))
         window = tables.window_columns("synthetic (showcase demo_05)", None, len(demo.price),
                                        demo.run.dt)
         premium = {"premium_period": "fixed", "premium_wind_mean_eur_mwh": None,

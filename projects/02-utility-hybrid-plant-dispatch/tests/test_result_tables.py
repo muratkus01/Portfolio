@@ -275,6 +275,22 @@ def test_the_demo_inputs_are_those_of_showcase_demo_05(monkeypatch):
     assert (premium_rate, kwargs) == (demo.premium_rate, {})
 
 
+def test_window_stats_count_what_the_readme_cites():
+    """The caveats name negative and below-fee quarter-hours, the peak, the largest combined
+    capacity factor and whether the connection binds; each must come from a table."""
+    from hybrid import tables
+
+    run = RunConfig()          # 50 MW wind + 30 MWp PV behind 60 MW, a 3 EUR/MWh fee
+    row = tables.window_stats("w", np.array([10.0, 40.0, 45.0, 20.0]),
+                              np.array([0.0, 25.0, 20.0, 0.0]),
+                              np.array([-5.0, 2.0, 50.0, 3.0]), run, {"days": 1 / 24})
+    assert (row["window"], row["days"], row["mean_price_eur_mwh"]) == ("w", 1 / 24, 12.5)
+    assert (row["negative_price_quarter_hours"], row["below_fee_quarter_hours"]) == (1, 2)
+    assert (row["peak_generation_mw"], row["max_combined_cf"]) == (65.0, 65.0 / 80.0)
+    assert (row["connection_mw"], row["steps_over_connection"], row["connection_binds"]) == (
+        60.0, 2, True)
+
+
 def test_every_setting_is_recorded_or_named_inert():
     """A setting a table leaves out must be one no command reads, or a row could not be
     re-run from what it records; a new setting has to be put on one of the lists."""

@@ -204,6 +204,23 @@ def load_year(year: int, days: int | None = None,
     return df.dropna()
 
 
+def market_value_weights(frame: pd.DataFrame) -> pd.DataFrame:
+    """Per-technology weights of the market-value proxy, from `load_year`'s factors.
+
+    National feed-in over installed capacity: the capacity is one figure within a month, so
+    the factor weights the price as the feed-in does. MW Wind an Land weights by onshore
+    feed-in alone (Anlage 1 Nr. 3.3.2), which `wind_cf` is. PV weights by `pv_feed_in_cf`,
+    public feed-in, not by the plant factor `pv_cf`, which also counts self-consumption.
+
+    Args:
+        frame: a `load_year` frame.
+
+    Returns:
+        Frame on the same index with columns "wind" and "pv", for `market.market_values`.
+    """
+    return frame[["wind_cf", "pv_feed_in_cf"]].set_axis(["wind", "pv"], axis=1)
+
+
 def to_plant(df: pd.DataFrame, wind_mw: float, pv_mw: float) -> tuple:
     """Scale per-unit capacity factors to a specific plant's ratings."""
     return (df["wind_cf"].to_numpy() * wind_mw,
