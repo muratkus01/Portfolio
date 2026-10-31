@@ -150,12 +150,10 @@ code are portable:
   profiles are documented in `prosumer/data/htw.py`; the four thesis weeks in
   `data/raw/legacy/` have none), and `datakit` appends endpoint, retrieval time and licence
   to its cache's `SOURCE.md` on every download.
-- **Raw data stays out of git, with one exception.** `.gitignore` excludes `/data/` and
-  everything under `projects/*/data/` except the `SOURCE.md` files. The exception is a
-  four-day Open-Meteo cache for Munich from June 2025 (two CSVs and a `SOURCE.md` naming
-  the provider and its CC BY 4.0 licence) under
-  `projects/01-prosumer-pv-bess-mpc-rl/src/data/raw/weather/`. That path is outside the
-  ignore rule because `prosumer/data/weather.py` caches relative to the working directory.
+- **Raw data stays out of git.** `.gitignore` excludes `/data/`, everything under
+  `projects/*/data/` except the `SOURCE.md` files, and `projects/*/src/data/`, where
+  `prosumer/data/weather.py` writes its cache when a script runs from `src/` (it caches
+  relative to the working directory).
   `prosumer build-data` and `python -m f2b.cli build-data` rebuild the datasets from the
   public APIs; the HTW profiles, the MaStR exports and the netztransparenz files have to be
   downloaded by hand.

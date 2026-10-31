@@ -10,6 +10,9 @@
 /projects/*/data/**
 !/projects/*/data/**/
 !/projects/*/data/**/SOURCE.md
+# prosumer.data.weather caches relative to the working directory, so a script run from src/
+# writes data there. That is data, not code.
+/projects/*/src/data/
 *.parquet
 !simulations/results/*.parquet
 *.nc
