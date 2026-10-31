@@ -64,13 +64,13 @@ project/
 │   ├── agents/             Policies and training loops
 │   └── eval/               Metrics, statistics, plots, report generation
 ├── tests/
-├── notebooks/              Exploration only — never a source of reported results
+├── notebooks/              Exploration only, never a source of reported results
 └── reports/                Generated figures and tables
 ```
 
 **Rule:** the `model/`, `market/` and `safety/` modules are shared by *all* rungs of the
 benchmark ladder. B3 and the RL agent must be physically incapable of seeing different
-physics or different fees — that identity is enforced by construction, not by discipline.
+physics or different fees: that identity is enforced by construction, not by discipline.
 
 ---
 

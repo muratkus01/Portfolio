@@ -6,8 +6,8 @@ that no active project uses. Each project's README documents its own inputs in d
 
 **Principle:** every project must be reproducible from **openly licensed data** in at least
 one configuration. Where a project would ideally use proprietary asset data (SCADA, metering,
-trading records), the design specifies a *public-data fallback* — a synthetic or
-publicly-derived substitute — so the method can be demonstrated and reviewed without an
+trading records), the design specifies a *public-data fallback* (a synthetic or
+publicly-derived substitute), so the method can be demonstrated and reviewed without an
 NDA. Proprietary data, where obtained, improves fidelity but is never a precondition.
 
 ---
@@ -47,7 +47,7 @@ the CSVs behind their main results under their `reports/` folders.
 | **regelleistung.net** | FCR/aFRR/mFRR capacity & energy auction results, demand, prequalification rules | Per 4-h product | Web download + API | Free reuse, attribution |
 | **Energy-Charts** (Fraunhofer ISE) | Curated German/European electricity data: day-ahead prices, public generation by type and load, monthly installed capacity, the TSOs' generation forecasts | 15 min / 1 h | Public JSON API, no key (`datakit`) | CC BY 4.0 |
 | **Open Power System Data** | Harmonised historical time series, plant registers, weather-derived capacity factors | 15 min / 1 h | Static packaged CSV | Mostly CC BY 4.0 (per-package) |
-| **EPEX SPOT** | Authoritative order-book-level DA/ID data | Tick / 15 min | Commercial | Licence required — **not** a dependency of any project |
+| **EPEX SPOT** | Authoritative order-book-level DA/ID data | Tick / 15 min | Commercial | Licence required; **not** a dependency of any project |
 | **aWATTar / Tibber APIs** | Forward-looking dynamic retail tariff prices (`§41a EnWG`) | 1 h / 15 min | Public / customer API | Per provider terms. No project reads them: Project 01 builds its tariff from the day-ahead price, with adders and 19 % VAT (`market/tariff.py`) |
 
 **Pitfall:** the day-ahead price changed native granularity on 1 October 2025, when SDAC
@@ -63,11 +63,11 @@ holds each hourly price over its four quarter-hours.
 
 | Source | Content | Resolution | Access | Licence |
 |--------|---------|-----------|--------|---------|
-| **DWD Open Data** | ICON-D2 / ICON-EU NWP fields, MOSMIX station forecasts, observation archive (CDC) | 15 min – 3 h, hourly grid | Open FTP/HTTPS | Free (GeoNutzV), attribution |
+| **DWD Open Data** | ICON-D2 / ICON-EU NWP fields, MOSMIX station forecasts, observation archive (CDC) | 15 min to 3 h, hourly grid | Open FTP/HTTPS | Free (GeoNutzV), attribution |
 | **DWD ICON-D2-EPS** | Ensemble NWP. Not used: no public archive to backtest against (Project 03 README, section 5) | 1 h, 20 members | Open FTP/HTTPS, recent runs only | Free (GeoNutzV) |
 | **Open-Meteo** | Previous-runs archive (what a weather model forecast one or more days earlier), historical-forecast archive, ERA5 reanalysis | Hourly; 15 min in the historical-forecast archive | Public JSON API, no key | CC BY 4.0 |
 | **PVGIS** (JRC) | PV yield, irradiance climatology, typical meteorological years | Hourly | Web + API | Free reuse, attribution |
-| **Renewables.ninja** | Wind & PV capacity factor time series from MERRA-2/SARAH | Hourly | Web + API | CC BY-NC 4.0 — **non-commercial**, check before reuse |
+| **Renewables.ninja** | Wind & PV capacity factor time series from MERRA-2/SARAH | Hourly | Web + API | CC BY-NC 4.0: **non-commercial**, check before reuse |
 | **ERA5 / CDS** (Copernicus) | Reanalysis wind, irradiance, temperature | Hourly | API | Copernicus licence, free with attribution |
 | **FINO 1/2/3** | Offshore met-mast measurements | 10 min | Registration | Research use, attribution |
 
@@ -84,7 +84,7 @@ previous-runs archive.
 |--------|---------|--------|---------|
 | **Marktstammdatenregister (MaStR)** | Every registered generation/storage unit in Germany: technology, capacity, commissioning date, location, network operator | Bulk download + API | Free reuse (BNetzA terms) |
 | **netztransparenz EEG plant data** | EEG-remunerated plants and payments | Download | Free reuse |
-| **OpenStreetMap / OpenInfraMap** | Grid topology approximation, substation and line geometry | API / extracts | ODbL — share-alike, attribution |
+| **OpenStreetMap / OpenInfraMap** | Grid topology approximation, substation and line geometry | API / extracts | ODbL: share-alike, attribution |
 | **SimBench / pandapower networks** | Realistic synthetic German LV/MV/HV benchmark networks | Python package | Open (per package) |
 
 ---
@@ -93,12 +93,12 @@ previous-runs archive.
 
 | Source | Content | Resolution | Notes |
 |--------|---------|-----------|-------|
-| **BDEW standard load profiles (SLP)** | H0 (household), G0–G6 (commercial), L0–L2 (agriculture) | 15 min | The regulatory default for non-interval-metered customers; the *reference*, not ground truth |
+| **BDEW standard load profiles (SLP)** | H0 (household), G0 to G6 (commercial), L0 to L2 (agriculture) | 15 min | The regulatory default for non-interval-metered customers; the *reference*, not ground truth |
 | **HTW Berlin representative household profiles** | 74 German household load profiles, measured in 2010 | 15-minute smart-meter data, published refined to 1 s and 1 min | Free for research, not redistributed here; the standard benchmark for German BTM storage studies |
 | **VDI 4655** | Reference load profiles for heat and electricity in residential buildings | Hourly | Standard, purchase required |
-| **ElaadNL open datasets** | Measured EV charging transactions and profiles (NL) | Per session | Open; NL behaviour — requires re-weighting for DE |
+| **ElaadNL open datasets** | Measured EV charging transactions and profiles (NL) | Per session | Open; NL behaviour, requires re-weighting for DE |
 | **ACN-Data (Caltech)** | ~50k real workplace/campus EV charging sessions with arrival, departure, energy | Per session | Free for research |
-| **MiD / MOP** (German mobility surveys) | Trip chains, dwell times, vehicle usage in Germany | Trip level | Scientific-use files on request — the right way to synthesise German EV availability |
+| **MiD / MOP** (German mobility surveys) | Trip chains, dwell times, vehicle usage in Germany | Trip level | Scientific-use files on request; the right way to synthesise German EV availability |
 | **When2Heat** | Heat demand and heat-pump COP time series for European countries | Hourly | CC BY 4.0 |
 
 **Pitfall:** using Dutch or Californian charging behaviour to represent a German depot is
