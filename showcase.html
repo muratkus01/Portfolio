@@ -4839,7 +4839,9 @@
       // No 2026 sweep exists, so the 2026 button shows the 2025 sweep (the panel note says so).
       const yr = (currentGlobalYear === '2024') ? '2024' : '2025';
       const bessStr = (bess === 9.37) ? '9.37' : bess.toFixed(1);
-      const cubeKey = `${pv.toFixed(1)}|${bessStr}|${inv}|${yr}`;
+      // The keys were written by Python, which prints whole floats as "8.0"; JS prints "8".
+      const invStr = Number.isInteger(inv) ? inv.toFixed(1) : String(inv);
+      const cubeKey = `${pv.toFixed(1)}|${bessStr}|${invStr}|${yr}`;
       const cell = SCENARIO_CUBES.p01 && SCENARIO_CUBES.p01.data ? SCENARIO_CUBES.p01.data[cubeKey] : null;
 
       if (cell) {
@@ -4862,6 +4864,13 @@
           recEl.innerText = (gapClosure * 100).toFixed(1) + '% Rec';
           recEl.className = 'sim-res-val emerald';
         }
+      } else {
+        // Never leave the previous cell's numbers on screen for a key the sweep lacks.
+        ['p01-res-cost', 'p01-res-sc', 'p01-res-rec'].forEach(id => {
+          const el = document.getElementById(id);
+          el.innerText = 'no sweep cell';
+          el.className = 'sim-res-val';
+        });
       }
 
       // Peak export and PV/inverter ratio are rules of thumb, not sweep outputs: the sweep
