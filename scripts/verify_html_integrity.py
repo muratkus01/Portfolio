@@ -43,17 +43,14 @@ def verify():
         assert f'id="{btn_id}"' in html, f"Missing {btn_id}"
         print(f"Gallery button OK: {btn_id}")
 
-    # 5. Check 2026 figures exist on disk
+    # 5. Check every image the page can show exists on disk: the <img> tags and the gallery
+    #    entries in PROJECT_VISUALS (src: '...'), which switchVisual swaps in
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent
-    figures = [
-        root / 'projects' / '01-prosumer-pv-bess-mpc-rl' / 'docs' / 'figures' / 'p01_dispatch_2026.png',
-        root / 'projects' / '02-utility-hybrid-plant-dispatch' / 'docs' / 'figures' / 'p02_dispatch_2026.png',
-        root / 'projects' / '03-probabilistic-forecast-to-bid' / 'docs' / 'figures' / 'p03_forecast_fan_2026.png',
-    ]
-    for fig in figures:
-        assert fig.exists(), f"Missing figure file: {fig}"
-        print(f"Figure file OK: {fig.name}")
+    images = set(re.findall(r'<img[^>]+src="([^"]+)"', html)) | set(re.findall(r"src: '([^']+)'", html))
+    for rel in sorted(images):
+        assert (root / rel).is_file(), f"Missing figure file: {rel}"
+        print(f"Figure file OK: {rel}")
 
     # 6. Check all onclick handlers call valid functions
     onclick_matches = re.findall(r'onclick="([^"]+)"', html)

@@ -359,65 +359,9 @@ def gen_p02():
     plt.close(fig)
 
 
-# ==============================================================================
-# PROJECT 03: Probabilistic Forecast-to-Bid
-# ==============================================================================
-def gen_p03():
-    print("Generating Project 03 figures...")
-    out = ROOT / "projects" / "03-probabilistic-forecast-to-bid" / "docs" / "figures"
-    out.mkdir(parents=True, exist_ok=True)
-
-    for year in (2024, 2025, 2026):
-        n = 96  # 24 hours
-        t = np.arange(n) * 0.25
-        actual = 140.0 + 80.0 * np.sin(t * np.pi / 12) + 20.0 * np.cos(t * np.pi / 6) + 12.0 * np.sin(t * np.pi / 3)
-        actual = np.maximum(15.0, actual)
-
-        q50 = actual + 8.0 * np.sin(t * np.pi / 4)
-        q10 = q50 - 32.0 - 5.0 * np.sin(t * np.pi / 6)
-        q20 = q50 - 22.0
-        q30 = q50 - 14.0
-        q40 = q50 - 7.0
-        q60 = q50 + 7.0
-        q70 = q50 + 15.0
-        q80 = q50 + 24.0
-        q90 = q50 + 36.0 + 6.0 * np.cos(t * np.pi / 8)
-
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 7.5), sharex=True, dpi=300)
-        # 1. Fan chart
-        ax1.fill_between(t, q10, q90, color=CYAN, alpha=0.15, label="10% to 90% Forecast Quantile Range")
-        ax1.fill_between(t, q20, q80, color=CYAN, alpha=0.25, label="20% to 80% Quantile Range")
-        ax1.fill_between(t, q30, q70, color=CYAN, alpha=0.35, label="30% to 70% Quantile Range")
-        ax1.fill_between(t, q40, q60, color=CYAN, alpha=0.45, label="40% to 60% Quantile Range")
-        ax1.plot(t, q50, color=CYAN, lw=2.0, label="Median Forecast (q50)")
-        ax1.plot(t, actual, color=AMBER, lw=2.2, label="Realized Actual Generation (MW)")
-        ax1.set_ylabel("Generation (MW)")
-        ax1.set_title(f"Project 03: Probabilistic Renewable Generation Fan Chart ({year} Weather Anchor)", weight="bold")
-        ax1.legend(loc="upper left", ncol=2, framealpha=0.4, fontsize=9)
-        ax1.grid(True)
-
-        # 2. Asymmetric Imbalance Cashout & Traded Volumes
-        rebap = get_prices(year, n, start_step=800)
-        imbalance = actual - q50
-        cashout = imbalance * rebap / 1000.0  # kEUR
-        ax2.bar(t, cashout, width=0.22, color=np.where(cashout >= 0, EMERALD, ROSE), alpha=0.85, label="Quarter-Hour Imbalance Cashout (kEUR)")
-        ax2.axhline(0, color="#64748b", lw=0.8)
-        ax2.set_ylabel("Imbalance Cashout (kEUR)")
-        ax2.set_xlabel("Forecast Horizon (Hours)")
-        ax2.legend(loc="upper left", framealpha=0.4)
-        ax2.grid(True)
-
-        plt.tight_layout()
-        fig_path = out / f"p03_forecast_fan_{year}.png"
-        fig.savefig(fig_path, dpi=300, bbox_inches="tight")
-        plt.close(fig)
-        print(f"  Saved {fig_path.name}")
-
-
 if __name__ == "__main__":
     print("Starting generation of multi-year benchmark figures...")
     gen_p01()
     gen_p02()
-    gen_p03()
     gen_p04()
     print("All figures successfully generated at 300 DPI!")
