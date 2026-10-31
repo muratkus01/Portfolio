@@ -18,8 +18,9 @@ from .plant import battery_interval, simulate
 
 # Tolerance of the ladder invariant. PuLP reads CBC's solution with about eight significant
 # digits, so a rung that re-solves every step (B3) can beat the single plan of B2 by rounding
-# alone: 0.0013 EUR on a 210,894 EUR week under perfect forecasts. Such gaps are a few 1e-9 of
-# the objective, so the tolerance scales with it; the floor covers objectives near zero.
+# alone under perfect forecasts: by a few 1e-9 of the objective, as a test in
+# tests/test_ladder_accounting.py shows. The tolerance therefore scales with the objective;
+# the floor covers objectives near zero.
 _INVARIANT_REL_TOL = 1e-6
 _INVARIANT_ABS_TOL = 1e-3          # EUR
 # Share of the charged energy that may come from the grid before it counts as bought. With

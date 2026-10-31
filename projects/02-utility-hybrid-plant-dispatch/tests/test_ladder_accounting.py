@@ -27,9 +27,9 @@ def test_perfect_forecasts_do_not_trip_the_ladder_invariant():
 
     PuLP reads CBC's solution with about eight significant digits. B2 executes one plan, so
     its rounding residue stays in the result; B3 re-solves from the true state every step and
-    does not. The gap is a few 1e-9 of the objective (0.0013 EUR on a 210,894 EUR week of 2024
-    data), which passed the old absolute 1e-3 EUR tolerance once the objective was large. The
-    plant is scaled 20x so that half a day earns what a published 20-day window earns.
+    does not. The gap is a few 1e-9 of the objective, which exceeded the old absolute 1e-3 EUR
+    tolerance once the objective was large. The plant is scaled 20x so that half a day earns
+    about as much as a published 20-day window.
     """
     k = 20.0
     plant = PlantConfig(wind_mw=50 * k, pv_mw=30 * k, bess_mw=20 * k, bess_mwh=40 * k,
