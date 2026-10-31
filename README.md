@@ -44,9 +44,9 @@ Each project is a fully structured Python package with clean modular `src/`, rep
 
 ```mermaid
 flowchart TB
-    subgraph FOUND["Shared Foundations"]
+    subgraph FOUND["Common Principles"]
         F1["Benchmark ladders: every method against simpler rungs and a perfect-information bound"]
-        F2["15-Min MTU Market Model (DA, ID, aFRR, reBAP)"]
+        F2["15-minute settlement at DE-LU prices (DA, ID, reBAP), modelled in each project"]
         F3["German Regulatory Constraint Layer (§41a, §51, reBAP)"]
         F4["Issue-time forecasts with an information-set test"]
     end
