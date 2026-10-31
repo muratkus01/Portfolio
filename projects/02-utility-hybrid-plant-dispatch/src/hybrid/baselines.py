@@ -208,7 +208,8 @@ def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
         there. eff_price and price_fc then carry each step's own rate. A plan made in step t
         prices its whole horizon at rate[t]: a later step's rate can be one B3 cannot know yet
         at t, such as the realised value of the month t lies in, which sets next month's rate.
-    Returns the dispatch arrays of `plant.simulate`, plus "solve_time_s" per re-solve.
+    Returns the dispatch arrays of `plant.simulate`, plus per re-solve "solve_time_s" and
+    "terminal_price_eur_mwh", the value the plan put on stored energy (0 without one).
     """
     cfg = run.plant
     n = len(wind)
@@ -216,6 +217,7 @@ def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
     p_applied = np.zeros(n)
     curt_applied = np.zeros(n)
     solve_times: list[float] = []
+    terminal_prices: list[float] = []
     plan = None
     offset = 0
 
@@ -229,10 +231,10 @@ def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
                 rate, eligible = premium
                 pr = pr + np.where(eligible[t:t + h], rate[t] - rate[t:t + h], 0.0)
             ec = None if export_cap is None else export_cap[t:t + h]
+            terminal_prices.append(default_terminal_price(pr, run))
             t0 = time.perf_counter()
             sol = solve_window(w, s, pr, run.dt, run, soc,
-                               terminal_price=default_terminal_price(pr, run),
-                               export_cap=ec)
+                               terminal_price=terminal_prices[-1], export_cap=ec)
             solve_times.append(time.perf_counter() - t0)
             plan = sol if sol is not None else (np.zeros(h), np.zeros(h))
             offset = t
@@ -259,6 +261,7 @@ def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
 
     res = simulate(wind, pv, p_applied, curt_applied, run.dt, cfg, export_cap=export_cap)
     res["solve_time_s"] = np.array(solve_times)
+    res["terminal_price_eur_mwh"] = np.array(terminal_prices)
     return res
 
 
@@ -268,6 +271,18 @@ def ar_noise(n, rng, rho):
     for i in range(1, n):
         z[i] = rho * z[i - 1] + np.sqrt(1 - rho ** 2) * z[i]
     return z
+
+
+def price_error_scale(eff_price: np.ndarray, run: RunConfig) -> float:
+    """What B3's price-forecast error is sized on, EUR/MWh: its standard deviation is
+    run.forecast_sigma times this. It is run.forecast_price_scale, or where that is None the
+    standard deviation of the effective price over the first planning horizon.
+
+    eff_price: effective price per step, EUR/MWh. run: the run's settings.
+    """
+    if run.forecast_price_scale is not None:
+        return run.forecast_price_scale
+    return float(np.std(eff_price[:run.horizon_steps]))
 
 
 def make_forecasts(wind, pv, eff_price, run: RunConfig, rng):
@@ -289,8 +304,7 @@ def make_forecasts(wind, pv, eff_price, run: RunConfig, rng):
     """
     n = len(wind)
     s, r = run.forecast_sigma, run.forecast_rho
-    scale = (run.forecast_price_scale if run.forecast_price_scale is not None
-             else float(np.std(eff_price[:run.horizon_steps])))
+    scale = price_error_scale(eff_price, run)
     wind_rng, pv_rng, price_rng = (np.random.default_rng(seed)
                                    for seed in rng.integers(2 ** 63, size=3))
     return (np.clip(wind * (1 + s * ar_noise(n, wind_rng, r)), 0, None),
@@ -394,6 +408,7 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         out["B3 rolling MPC"] = b3_rolling(wind, pv, eff_b3, wind_fc, pv_fc, price_fc, run,
                                            export_cap, progress=progress,
                                            premium=(rate, eligible))
+        out["B3 rolling MPC"]["price_error_scale_eur_mwh"] = price_error_scale(eff_b3, run)
 
     # Single-price settlement pays spot on the committed schedule and reBAP on the deviation.
     # settle() pays spot on the whole export, so it must price the deviation at the spread,

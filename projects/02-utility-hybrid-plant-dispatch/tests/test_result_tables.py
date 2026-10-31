@@ -286,6 +286,37 @@ def test_the_b3_ablation_reports_recovery_and_b3s_end_state(monkeypatch, tmp_pat
     assert (df["premium_rate_mean_eur_mwh"] == 8.0).all()
 
 
+def test_a_row_records_the_values_its_settings_leave_to_the_run():
+    """Feature test: where a setting is None, the rows recorded only the switch. B3 sized its
+    price error on the first horizon's effective price, valued stored energy at each plan's
+    upper quartile times eta_d, and None in soc_init_frac starts the battery at its minimum.
+    The rows now hold each of these values, and the ladder's tolerance, within which B3 may
+    sit above B2 by the solver's rounding."""
+    from hybrid import tables
+    from hybrid.market import effective_price
+
+    demo = tiny_demo()
+    price = demo.price + np.tile([0.0, 4.0], 8)          # a spread within the first horizon
+    window = tables.window_columns("test", None, len(price), demo.run.dt)
+    for terminal in (False, True):
+        run = demo.run.with_(forecast_sigma=0.0, terminal_value=terminal)
+        res = baselines.run_ladder(demo.wind, demo.pv, price, run, demo.premium_rate)
+        rows = {row["rung"]: row for row in tables.rung_rows(res, run, window, {})}
+
+        eff = effective_price(price, run.market, demo.premium_rate, run.dt)
+        assert rows[B3]["b3_price_error_scale_eur_mwh"] == pytest.approx(np.std(eff[:2]))
+        # without forecast error each plan prices the true effective prices of its horizon
+        plans = [eff[t:t + run.horizon_steps] for t in range(len(price))]
+        upper = np.mean([np.percentile(plan, 75) * run.plant.eta_d for plan in plans])
+        assert rows[B3]["b3_terminal_price_mean_eur_mwh"] == pytest.approx(
+            upper if terminal else 0.0)
+        assert rows[B1]["b3_terminal_price_mean_eur_mwh"] is None, "B3's alone"
+        assert rows[B2]["plant_soc_init_mwh"] == 2.0, "5 % of 40 MWh"
+        assert rows[B0]["plant_soc_init_mwh"] == pytest.approx(5e-8), "the stand-in's minimum"
+        tolerance = max(1e-3, 1e-6 * abs(res[B2]["cost"]["net_revenue"]))
+        assert {row["ladder_tolerance_eur"] for row in rows.values()} == {tolerance}
+
+
 def test_the_b3_ablation_runs_on_a_window_of_data_as_the_ladder_does(monkeypatch, tmp_path):
     """On --year/--days the ablation settles every rung as ladder does and plans B3 on the
     month before's rate; B3 is replaced by B2's dispatch so that nothing but B2 is solved."""

@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .baselines import rung_plant
+from .baselines import ladder_tolerance, rung_plant
 from .config import PlantConfig, RunConfig
 
 B3 = "B3 rolling MPC"
@@ -73,6 +73,8 @@ def settings(run: RunConfig, with_b3: bool, plant: PlantConfig | None = None) ->
     """
     plant = run.plant if plant is None else plant
     cols = {f"plant_{name}": getattr(plant, name) for name in PLANT_SETTINGS}
+    # the start soc_init_frac stands for, in MWh: None starts the battery at its minimum
+    cols["plant_soc_init_mwh"] = plant.soc_init
     cols.update({f"market_{name}": getattr(run.market, name) for name in MARKET_SETTINGS})
     if with_b3:
         cols.update({f"b3_{name}": getattr(run, name) for name in B3_SETTINGS})
@@ -90,24 +92,42 @@ def rung_rows(res: dict, run: RunConfig, window: dict, premium: dict,
         rungs, e.g. battery_value_eur=21_841.0; they repeat on every rung's row.
     Returns one dict per rung, in the ladder's order: the scenario columns, "rung", every
     settlement term of `market.settle` (EUR terms end in _eur), the number of constraint
-    violations, the energy stored after the last step (MWh), B3's mean and maximum solve time
-    where B3 ran (on its own row; empty on the others), the premium, the window and the
-    settings, with the plant the rung ran on: B0 and B2 no battery ran without the battery.
+    violations, the ladder's tolerance (`baselines.ladder_tolerance`), the energy stored after
+    the last step (MWh); where B3 ran, on B3's row and empty on the others, its mean and
+    maximum solve time and the values it ran on where its settings leave them to the run: the
+    price error's scale and the mean terminal price of its plans; then the premium, the window
+    and the settings, with the plant the rung ran on: B0 and B2 no battery ran without the
+    battery.
     """
     with_b3 = B3 in res
+    b2 = res["B2 perfect foresight"]["cost"]
+    # the bound run_ladder held every rung to, on B2's revenue before imbalance: rungs closer
+    # than this differ by the solver's rounding, and B3 may sit above B2 by as much
+    tolerance = ladder_tolerance(b2["net_revenue"] + b2["imbalance_cost"])
     rows = []
     for rung, r in res.items():
         row = {**scenario, "rung": rung}
         row.update({k if k.endswith("_mwh") else f"{k}_eur": v for k, v in r["cost"].items()})
         row["violations"] = int(sum(r["violations"].values()))
+        row["ladder_tolerance_eur"] = tolerance
         row["final_soc_mwh"] = float(r["soc"][-1])
         if with_b3:
-            times = r.get("solve_time_s") if rung == B3 else None
-            row["b3_solve_time_mean_s"] = None if times is None else float(np.mean(times))
-            row["b3_solve_time_max_s"] = None if times is None else float(np.max(times))
+            row.update(_b3_columns(r if rung == B3 else {}))
         rows.append({**row, **premium, **window,
                      **settings(run, with_b3, rung_plant(rung, run.plant))})
     return rows
+
+
+def _b3_columns(r: dict) -> dict:
+    """B3's measured values as columns, from its dispatch `r`: the mean and maximum solve time
+    (s), the scale its price error was sized on and its plans' mean terminal price (EUR/MWh).
+    Each is None where `r` lacks it, as on the other rungs' rows (r = {})."""
+    times = r.get("solve_time_s")
+    prices = r.get("terminal_price_eur_mwh")
+    return {"b3_solve_time_mean_s": None if times is None else float(np.mean(times)),
+            "b3_solve_time_max_s": None if times is None else float(np.max(times)),
+            "b3_price_error_scale_eur_mwh": r.get("price_error_scale_eur_mwh"),
+            "b3_terminal_price_mean_eur_mwh": None if prices is None else float(np.mean(prices))}
 
 
 def window_stats(label: str, wind: np.ndarray, pv: np.ndarray, price: np.ndarray,
