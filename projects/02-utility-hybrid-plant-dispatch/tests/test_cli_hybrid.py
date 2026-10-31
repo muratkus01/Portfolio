@@ -71,6 +71,42 @@ def test_ladder_names_the_units_and_basis_of_what_it_prints(monkeypatch, capsys)
     assert "2025 (365 days): wind" in out and "plant on this window's wind/PV mix" in out
 
 
+def window(argv: list[str]) -> tuple:
+    """The window a command line evaluates, on fake_year, and its label."""
+    args = cli.build_parser().parse_args(argv)
+    return cli.load_window(args, 0.25), cli.window_label(args)
+
+
+def test_a_window_can_start_later_in_the_year(monkeypatch, capsys):
+    """Every window used to start on 1 January, so a summer window could not be run. --start
+    names the first day in Berlin time, and the window runs on for --days days of 24 h."""
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    frame, label = window(["ladder", "--year", "2025", "--start", "07-01", "--days", "2"])
+    assert frame.index[0] == pd.Timestamp("2025-07-01", tz="Europe/Berlin")
+    assert frame.index[-1] == pd.Timestamp("2025-07-02 23:45", tz="Europe/Berlin")
+    assert label == "2025-07-01_2d"
+    assert cli.main(["ladder", "--fast", "--start", "07-01", "--days", "2"]) == 0
+    assert "Hybrid plant ladder, 2 days of 2025 from 07-01" in capsys.readouterr().out
+
+
+def test_full_year_is_the_berlin_calendar_year(monkeypatch):
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    frame, label = window(["sizing", "--year", "2024", "--full-year"])
+    assert frame.index[0] == pd.Timestamp("2024-01-01", tz="Europe/Berlin")
+    assert frame.index[-1] == pd.Timestamp("2024-12-31 23:45", tz="Europe/Berlin")
+    assert label == "2024"
+
+
+@pytest.mark.parametrize("argv", [["--start", "12-31", "--days", "2"], ["--days", "366"],
+                                  ["--start", "07-01", "--full-year"]],
+                         ids=["runs into next year", "longer than the year", "half a year"])
+def test_a_window_outside_its_year_is_refused(monkeypatch, argv):
+    """load_year returns one calendar year, so a longer window was cut short without a word."""
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    with pytest.raises(ValueError, match="2025"):
+        window(["ladder", "--year", "2025", *argv])
+
+
 @pytest.mark.parametrize("rule", NEGATIVE_PRICE_RULES)
 def test_every_negative_price_rule_can_be_chosen(monkeypatch, capsys, rule):
     """Regression test: --neg-rule offered only none, six_hour and new_2025, so the four-hour

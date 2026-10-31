@@ -4,10 +4,14 @@
     python -m hybrid.cli sizing    --year 2025 --days 30   connection-ratio sweep (RQ2)
     python -m hybrid.cli negprice  --year 2025 --days 30   negative-price rule by vintage (RQ4)
     python -m hybrid.cli decompose --year 2025 --days 30   where the battery's value comes from
+
+A window runs --days days of 24 h from --start (MM-DD, Berlin time, 01-01 by default), or
+the whole Berlin calendar year with --full-year.
 """
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -39,11 +43,51 @@ def _setup(args, plant: PlantConfig | None = None, market: MarketConfig | None =
     run = RunConfig(dt=0.25, horizon_steps=args.horizon,
                     plant=plant or PlantConfig(),
                     market=market or MarketConfig(negative_price_rule=args.neg_rule))
-    df = load_year(args.year, args.days, run.dt)
+    df = load_window(args, run.dt)
     wind, pv, price = to_plant(df, run.plant.wind_mw, run.plant.pv_mw)
     rng = np.random.default_rng(run.seed)
     rebap = rebap_series(len(price), price, run.market, rng)
     return run, df.index, wind, pv, price, rebap
+
+
+def load_window(args, dt: float) -> pd.DataFrame:
+    """The evaluated window: `args.days` days of 24 h from `args.start` (MM-DD, Berlin time) in
+    `args.year`, or the whole Berlin calendar year when `args.days` is None.
+
+    args: parsed CLI arguments, e.g. year=2025, start="07-01", days=30.
+    dt: step length in hours, e.g. 0.25.
+    Returns the window's rows of `load_year(args.year)`.
+    Raises ValueError when the window does not lie inside its calendar year: load_year loads
+    one year, so a longer window would be cut short without a word.
+    """
+    begin = pd.Timestamp(f"{args.year}-{args.start}", tz="Europe/Berlin")
+    if args.days is None:
+        if args.start != "01-01":
+            raise ValueError(f"--full-year covers {args.year} from 01-01, not from {args.start}")
+        return load_year(args.year, None, dt)
+    end = begin + pd.Timedelta(days=args.days)
+    if end > pd.Timestamp(f"{args.year + 1}-01-01", tz="Europe/Berlin"):
+        raise ValueError(f"{args.days} days from {args.start} run past the end of {args.year}")
+    if args.start == "01-01":
+        # load_year cuts the year's first days itself, as every window was cut before --start
+        return load_year(args.year, args.days, dt)
+    year = load_year(args.year, None, dt)
+    return year[(year.index >= begin) & (year.index < end)]
+
+
+def window_label(args) -> str:
+    """The window's name in file names: "2024" for a whole year, else e.g. "2025-07-01_30d"."""
+    if args.days is None:
+        return str(args.year)
+    return f"{args.year}-{args.start}_{args.days}d"
+
+
+def _window_text(args) -> str:
+    """The window as the output names it, e.g. "30 days of 2025" or "2024 (whole year)"."""
+    if args.days is None:
+        return f"{args.year} (whole year)"
+    text = f"{args.days} days of {args.year}"
+    return text if args.start == "01-01" else f"{text} from {args.start}"
 
 
 def _national_weights(frame: pd.DataFrame) -> pd.DataFrame:
@@ -189,7 +233,7 @@ def _report(res: dict, title: str) -> None:
 def cmd_ladder(args) -> None:
     run, index, wind, pv, price, rebap = _setup(args)
     table, prem = _premium(args, run, index, wind, pv)
-    print(f"{len(price)} steps | {args.days} days of {args.year} | "
+    print(f"{len(price)} steps | {_window_text(args)} | "
           f"plant {run.plant.wind_mw:.0f} MW wind + {run.plant.pv_mw:.0f} MWp PV + "
           f"{run.plant.bess_mw:.0f} MW/{run.plant.bess_mwh:.0f} MWh behind "
           f"{run.plant.conn_mw:.0f} MW (overbuild {run.plant.overbuild_ratio:.2f}x)")
@@ -208,7 +252,7 @@ def cmd_ladder(args) -> None:
               f"deviation in {args.year - 1}")
     res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=not args.fast,
                      progress=args.progress, b3_premium_rate=plan)
-    _report(res, f"Hybrid plant ladder, {args.days} days of {args.year}")
+    _report(res, f"Hybrid plant ladder, {_window_text(args)}")
     if "B3 rolling MPC" in res and "solve_time_s" in res["B3 rolling MPC"]:
         st = res["B3 rolling MPC"]["solve_time_s"]
         print(f"\nB3 solve time: mean {st.mean() * 1000:.0f} ms, max {st.max() * 1000:.0f} ms")
@@ -376,7 +420,17 @@ def cmd_decompose(args) -> None:
         print(f"  curtailment share: {(v_full - v_arbitrage) / v_full * 100:5.1f}%")
 
 
-def main(argv: list[str] | None = None) -> int:
+def _month_day(text: str) -> str:
+    """argparse type of --start: a calendar day as MM-DD, e.g. "07-01"."""
+    try:
+        day = datetime.strptime(f"2000-{text}", "%Y-%m-%d")     # a leap year admits 02-29
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"not a day as MM-DD: {text!r}") from err
+    return f"{day.month:02d}-{day.day:02d}"
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """The command line: one subcommand per experiment, each with its window and settings."""
     p = argparse.ArgumentParser(prog="hybrid", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -384,13 +438,22 @@ def main(argv: list[str] | None = None) -> int:
                      ("negprice", cmd_negprice), ("decompose", cmd_decompose)):
         sp = sub.add_parser(name)
         sp.add_argument("--year", type=int, default=2025)
-        sp.add_argument("--days", type=int, default=30)
+        span = sp.add_mutually_exclusive_group()
+        span.add_argument("--days", type=int, default=30, help="window length in days of 24 h")
+        span.add_argument("--full-year", dest="days", action="store_const", const=None,
+                          help="the whole calendar year in Berlin time")
+        sp.add_argument("--start", type=_month_day, default="01-01",
+                        help="first day of the window, MM-DD in Berlin time")
         sp.add_argument("--horizon", type=int, default=96)
         sp.add_argument("--neg-rule", default="new_2025", choices=NEGATIVE_PRICE_RULES)
         sp.add_argument("--fast", action="store_true")
         sp.add_argument("--progress", action="store_true")
         sp.set_defaults(func=fn)
-    args = p.parse_args(argv)
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     args.func(args)
     return 0
 
