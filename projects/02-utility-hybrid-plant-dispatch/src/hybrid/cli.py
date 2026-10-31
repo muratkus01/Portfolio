@@ -319,6 +319,15 @@ def cmd_ladder(args) -> None:
                                       _premium_columns(index, table, _DEFAULT_PERIOD, plan)))
 
 
+def _value_split(res: dict) -> dict:
+    """What perfect foresight adds over B0 in one `run_ladder` result, in two parts, EUR: the
+    battery's own value (B2 - B2 no battery) and that of curtailing at low prices, which needs
+    no battery (B2 no battery - B0). They add up to B2 - B0."""
+    net = {name: r["cost"]["net_revenue"] for name, r in res.items()}
+    return {"battery_value_eur": net["B2 perfect foresight"] - net["B2 no battery"],
+            "chosen_curtailment_value_eur": net["B2 no battery"] - net["B0 no battery"]}
+
+
 # The rungs sizing prints. B2 minus B0 counts what curtailing at low prices earns as well, which
 # needs no battery; "B2 no battery" splits the two.
 _SIZING_RUNGS = ("B0 no battery", "B2 no battery", "B2 perfect foresight")
@@ -348,13 +357,10 @@ def cmd_sizing(args) -> None:
                          "controller": name, "net_EUR": c["net_revenue"],
                          "forced_curt_MWh": c["forced_curtail_mwh"]})
         if args.out:
-            net = {name: r["cost"]["net_revenue"] for name, r in res.items()}
             out += tables.rung_rows(
                 res, run, _window_columns(args, index, run.dt),
                 _premium_columns(index, table, _DEFAULT_PERIOD), conn_mw=conn,
-                overbuild=plant.overbuild_ratio,
-                battery_value_eur=net["B2 perfect foresight"] - net["B2 no battery"],
-                chosen_curtailment_value_eur=net["B2 no battery"] - net["B0 no battery"])
+                overbuild=plant.overbuild_ratio, **_value_split(res))
     df = pd.DataFrame(rows)
     # generation and installed ratings are the same at every connection size
     installed = run.plant.installed_mw
@@ -492,41 +498,76 @@ def _print_negprice(year: int, by_vintage: dict, rules: list, premiums: dict,
           f"No premium in this window ({year}): {'; '.join(no_premium)}.")
 
 
+# A connection that neither the plant's 80 MW of generation nor its 20 MW battery can reach, so
+# that nothing is curtailed or held back because of it.
+_UNCONSTRAINED_MW = 200.0
+
+
 def cmd_decompose(args) -> None:
-    """RQ1: is the battery's value curtailment avoidance, or arbitrage?"""
-    run, index, wind, pv, price, rebap = _setup(args)
-    table, prem = _premium(args, run, index, wind, pv)
-    base = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False)
-    v_full = (base["B2 perfect foresight"]["cost"]["net_revenue"]
-              - base["B0 no battery"]["cost"]["net_revenue"])
+    """RQ1: is the battery's value curtailment avoidance, or arbitrage?
 
-    # remove curtailment risk by making the connection unconstrained
-    big = PlantConfig(conn_mw=200.0)
-    run2, idx2, w2, p2, pr2, rb2 = _setup(args, plant=big)
-    _, prem2 = _premium(args, run2, idx2, w2, p2)
-    nocurt = run_ladder(w2, p2, pr2, run2, prem2, rb2, include_b3=False)
-    v_arbitrage = (nocurt["B2 perfect foresight"]["cost"]["net_revenue"]
-                   - nocurt["B0 no battery"]["cost"]["net_revenue"])
-
-    print("\nWhere the battery's value comes from")
-    print(f"  total value (as built)          {v_full:>12,.0f} EUR")
-    print(f"  value with an unconstrained POI {v_arbitrage:>12,.0f} EUR   <- pure arbitrage")
-    print(f"  attributable to curtailment     {v_full - v_arbitrage:>12,.0f} EUR")
-    share = (v_full - v_arbitrage) / v_full if abs(v_full) > 1e-9 else None
-    if share is not None:
-        print(f"  curtailment share: {share * 100:5.1f}%")
+    The battery's value is B2 minus "B2 no battery", at the connection as built and at one so
+    wide it never binds. There no spill reaches the battery, so all of its value is arbitrage:
+    the plant's own energy sold at better prices. The difference is the connection limit's
+    effect: the spill the battery stores, net of the discharge the limit holds back. B2 minus
+    B0 is not the battery's value, as it also holds what curtailing at low prices earns.
+    """
+    results = {}
+    for scenario, plant in (("as built", PlantConfig()),
+                            ("unconstrained connection", PlantConfig(conn_mw=_UNCONSTRAINED_MW))):
+        run, index, wind, pv, price, rebap = _setup(args, plant=plant)
+        table, prem = _premium(args, run, index, wind, pv)
+        res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False,
+                         include_b2_no_battery=True)
+        results[scenario] = {"run": run, "index": index, "table": table, "res": res,
+                             "split": _value_split(res),
+                             "b2": res["B2 perfect foresight"]["cost"]["net_revenue"]}
+    built = results["as built"]
+    effect = (built["split"]["battery_value_eur"]
+              - results["unconstrained connection"]["split"]["battery_value_eur"])
+    share = (None if abs(built["split"]["battery_value_eur"]) <= ladder_tolerance(built["b2"])
+             else effect / built["split"]["battery_value_eur"])
+    _print_decompose(results, effect)
     if args.out:
-        # the split is a result of both connections, so it repeats on every row
-        split = {"value_as_built_eur": v_full, "value_unconstrained_eur": v_arbitrage,
-                 "attributable_to_curtailment_eur": v_full - v_arbitrage,
-                 "curtailment_share": share}
-        window = _window_columns(args, index, run.dt)
-        # both connections see the same generation, so they are settled on the same premium
-        premium = _premium_columns(index, table, _DEFAULT_PERIOD)
-        _write(args, [row for scenario, r, res in (("as built", run, base),
-                                                   ("unconstrained connection", run2, nocurt))
-                      for row in tables.rung_rows(res, r, window, premium, scenario=scenario,
-                                                  **split)])
+        # both scenarios run on one window and its generation, so on one premium as well
+        window = _window_columns(args, built["index"], built["run"].dt)
+        premium = _premium_columns(built["index"], built["table"], _DEFAULT_PERIOD)
+        # the connection limit's effect is a result of both scenarios, so it repeats on each row
+        _write(args, [row for scenario, r in results.items()
+                      for row in tables.rung_rows(r["res"], r["run"], window, premium,
+                                                  scenario=scenario, **r["split"],
+                                                  connection_limit_effect_eur=effect,
+                                                  connection_limit_share=share)])
+
+
+def _print_decompose(results: dict, effect: float) -> None:
+    """Print decompose's split, EUR: per scenario B2 - B0 and its two parts, then the
+    battery's value without a connection limit and the limit's effect on it.
+
+    results: as `cmd_decompose` builds it, {scenario: {"run": its RunConfig, "split":
+        `_value_split(...)`, "b2": B2's net revenue in EUR, and more}}.
+    effect: the battery's value as built minus its value at the unconstrained connection.
+    """
+    table = {}
+    for scenario, r in results.items():
+        battery = r["split"]["battery_value_eur"]
+        chosen = r["split"]["chosen_curtailment_value_eur"]
+        table[f"{scenario}, {r['run'].plant.conn_mw:.0f} MW"] = {
+            "B2 - B0": _shown(battery + chosen, r["b2"]),
+            "  curtailing at low prices (B2 no battery - B0)": _shown(chosen, r["b2"]),
+            "  the battery (B2 - B2 no battery)": _shown(battery, r["b2"])}
+    print("\nWhere the battery's value comes from (B2, perfect foresight), EUR:")
+    print(pd.DataFrame(table).to_string(float_format=lambda x: f"{x:,.0f}"))
+    built, wide = results["as built"], results["unconstrained connection"]
+    arbitrage = _shown(wide["split"]["battery_value_eur"], wide["b2"])
+    battery = _shown(built["split"]["battery_value_eur"], built["b2"])
+    shown = _shown(effect, built["b2"])
+    print(f"the battery's value where no connection limit binds, which is arbitrage: "
+          f"{arbitrage:,.0f}")
+    print(f"the connection limit's effect on it (spill stored, net of discharge held back): "
+          f"{shown:,.0f}" + (f", {shown / battery:.1%} of the battery's value as built"
+                             if battery else ""))
+    print("(a difference within the solver's rounding prints as 0; --out keeps it as solved)")
 
 
 # The B3 settings the ablation crosses: perfect forecasts and a forecast error of 15 %, each

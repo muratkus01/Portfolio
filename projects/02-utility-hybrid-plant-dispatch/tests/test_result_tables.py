@@ -166,20 +166,41 @@ def test_the_negprice_table_names_the_year_its_note_is_about(monkeypatch, tmp_pa
     assert (df["premium_rate_mean_eur_mwh"] == 0.0).all()
 
 
-def test_the_decompose_table_holds_both_connections_and_the_split(monkeypatch, tmp_path):
+def test_decompose_splits_the_battery_from_curtailing_at_low_prices(monkeypatch, tmp_path,
+                                                                   capsys):
+    """Regression test: decompose called B2 minus B0 the battery's value and, at a connection
+    that never binds, "pure arbitrage". Both held what curtailing at low prices earns, which
+    needs no battery and which sizing already splits off with "B2 no battery".
+
+    The synthetic price dips below zero once a day, so that part is worth something here in
+    both scenarios, and the 60 MW connection binds, so the connection limit is too.
+    """
     df = result_table(monkeypatch, tmp_path, ["decompose", "--year", "2025", "--days", "1"])
 
-    assert set(COMMON) <= set(df.columns)
+    assert "pure arbitrage" not in capsys.readouterr().out
+    split = ["battery_value_eur", "chosen_curtailment_value_eur", "connection_limit_effect_eur",
+             "connection_limit_share"]
+    assert set(COMMON + ["scenario", *split]) <= set(df.columns)
+    assert not {"value_as_built_eur", "value_unconstrained_eur",
+                "attributable_to_curtailment_eur", "curtailment_share"} & set(df.columns)
     assert_terms_add_up(df)
-    net = df.set_index(["scenario", "rung"])["net_revenue_eur"]
-    as_built = net["as built", B2] - net["as built", B0]
-    unconstrained = net["unconstrained connection", B2] - net["unconstrained connection", B0]
     assert df.groupby("scenario")["plant_conn_mw"].first().to_dict() == {
         "as built": 60.0, "unconstrained connection": 200.0}
-    assert df["value_as_built_eur"].to_numpy() == pytest.approx(np.full(6, as_built))
-    assert df["value_unconstrained_eur"].to_numpy() == pytest.approx(np.full(6, unconstrained))
-    assert df["attributable_to_curtailment_eur"].to_numpy() == pytest.approx(
-        np.full(6, as_built - unconstrained))
+    battery = {}
+    for scenario, g in df.groupby("scenario"):
+        net = g.set_index("rung")["net_revenue_eur"]
+        assert set(net.index) == {B0, B1, B2, B2NB}, scenario
+        battery[scenario] = net[B2] - net[B2NB]
+        chosen = net[B2NB] - net[B0]
+        assert chosen > 0, f"{scenario}: curtailing below zero pays, battery or not"
+        assert g["battery_value_eur"].to_numpy() == pytest.approx(np.full(4, battery[scenario]))
+        assert g["chosen_curtailment_value_eur"].to_numpy() == pytest.approx(np.full(4, chosen))
+        assert net[B2] - net[B0] == pytest.approx(battery[scenario] + chosen), scenario
+    effect = battery["as built"] - battery["unconstrained connection"]
+    assert abs(effect) > 1.0, "the 60 MW connection binds on this synthetic day"
+    assert df["connection_limit_effect_eur"].to_numpy() == pytest.approx(np.full(8, effect))
+    assert df["connection_limit_share"].to_numpy() == pytest.approx(
+        np.full(8, effect / battery["as built"]))
 
 
 def tiny_demo():

@@ -32,9 +32,10 @@ PROJECT_DIR = Path(__file__).resolve().parents[2]
 REPORTS_DIR = PROJECT_DIR / "reports"
 
 # The experiments behind the README, as hybrid.cli command lines: B0 to B2 and "B2 no battery"
-# over five connections, the negative-price rule by vintage and the battery's value split,
-# each over the calendar years 2024 and 2025; B3 at the default plant on 30-day windows from
-# 1 January and 1 July 2025; and the B3 ablation on the showcase's synthetic inputs.
+# over five connections, the negative-price rule by vintage, and the battery's value split
+# into arbitrage and the connection limit's effect, each over the calendar years 2024 and
+# 2025; B3 at the default plant on 30-day windows from 1 January and 1 July 2025; and the B3
+# ablation on the showcase's synthetic inputs.
 PUBLISH_SET = (
     "sizing --year 2024 --full-year",
     "sizing --year 2025 --full-year",
