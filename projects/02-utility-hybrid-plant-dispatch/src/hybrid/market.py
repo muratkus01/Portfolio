@@ -200,13 +200,18 @@ def premium_table(index: pd.DatetimeIndex, generation: dict[str, np.ndarray],
     """Market premium per technology, and the plant's rate, for each period `index` touches.
 
     Per technology the premium is max(0, AW - MW) (Anlage 1 Nr. 3.1.2; Nr. 4.1.2 with JW). The
-    plant exports through one meter behind its battery, so its rate is the premiums weighted
-    by the plant's own available generation of each technology in the period. Stored energy
-    keeps the claim it would have had without the storage (§ 19 (3) EEG 2023): the premium
-    follows the generating technology, not the hour of discharge. A per-step share would let
-    the optimiser move PV energy into wind-premium hours through the battery and earn a
-    premium the law does not pay. Available rather than exported generation keeps the rate
-    exogenous to the dispatch, as `settle` requires.
+    law pays each technology on its own energy, and stored energy keeps the claim it would
+    have had without the storage (§ 19 (3) EEG 2023). The model has one export and one
+    battery for both, so it pays one rate per period: the premiums weighted by the plant's own
+    available generation of each technology in the period. That is an approximation, exact
+    only when the mix is the same in every step. It misprices every step whose mix departs
+    from the period's, the steps the negative-price rule acts on included, so it can misstate
+    what the rule removes; and the optimiser cannot curtail one technology and keep the other.
+    A per-step share would be no better behind a battery: it would pay discharged energy the
+    mix of its discharge step and let the optimiser shift energy into the hours of the higher
+    premium. Exact settlement needs each technology's export and a store that tracks whose
+    energy it holds. Available rather than exported generation keeps the rate exogenous to
+    the dispatch, as `settle` requires.
 
     Parameters
     ----------
@@ -278,6 +283,14 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
     Passing the rate in keeps the objective the optimiser maximises and the settlement that
     scores it consistent. How the plant's export splits between its two technologies for the
     premium is settled in `premium_table`.
+
+    The negative-price rule is applied at the step of export, while § 19 (3) EEG 2023 gives
+    stored energy the claim of the step it was generated in; the settlement does not track
+    energy through the battery. Energy charged while the premium is suspended therefore earns
+    it here when it is discharged in an eligible step, where the law pays none, and energy
+    stored in an eligible step earns none here when it is discharged during a suspension. For
+    the usual pattern, charging during a suspension and selling later, this overstates what
+    a battery recovers from the rule.
     """
     price = np.asarray(price, dtype=float)
     export = res["export"]
