@@ -78,7 +78,8 @@ def get_prices(year: int, n_steps: int = 288, start_step: int = 4000) -> np.ndar
 # ==============================================================================
 def gen_p04():
     print("Generating Project 04 figures...")
-    out = ROOT / "projects" / "04-energy-sharing-rec" / "docs" / "figures"
+    # the project moved to archive/ on 2026-10-09 (archive/README.md)
+    out = ROOT / "archive" / "04-energy-sharing-rec" / "docs" / "figures"
     out.mkdir(parents=True, exist_ok=True)
 
     for year in (2024, 2025, 2026):
