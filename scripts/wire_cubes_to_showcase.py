@@ -1,6 +1,7 @@
 """Wire scenario cubes from lookup_cubes.json into showcase.html."""
 import json
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -217,8 +218,7 @@ def main():
             html = html.replace(anchor, sc_code + "\n" + anchor)
             print("Inlined SCENARIO_CUBES and GRID_PARAMS successfully.")
         else:
-            print("ERROR: Could not find DAY_REGIMES_MULTIYEAR anchor!")
-            return
+            sys.exit("ERROR: Could not find DAY_REGIMES_MULTIYEAR anchor!")
 
     # 5. Replace the simulator functions (simP01 to the hybrid-plant simP02) with SCENARIO_CUBES lookups
     new_sim_funcs = """
@@ -468,8 +468,7 @@ def main():
         html = re.sub(sim_regex, new_sim_funcs.strip(), html)
         print("Replaced the simulator functions with SCENARIO_CUBES lookups.")
     else:
-        print("ERROR: Could not find the simulator functions block!")
-        return
+        sys.exit("ERROR: Could not find the simulator functions block!")
 
     # Write output
     with open(HTML_PATH, "w", encoding="utf-8") as f:
