@@ -291,6 +291,37 @@ def test_window_stats_count_what_the_readme_cites():
         60.0, 2, True)
 
 
+def test_merged_rows_replace_their_own_and_keep_the_others(tmp_path):
+    """A shared table must gather the rows of parts run apart, replace a part's rows when it
+    reruns, keep the other parts' rows as written, and sort by the key whatever came first."""
+    from hybrid import tables
+
+    path = tmp_path / "meta" / "run_meta.csv"
+    tables.merge_csv(path, [{"experiment": "b", "item": "x", "value": 0.1}], "experiment")
+    tables.merge_csv(path, [{"experiment": "a", "item": "x", "value": 1.0},
+                            {"experiment": "a", "item": "y", "value": 2.0}], "experiment")
+    tables.merge_csv(path, [{"experiment": "a", "item": "x", "value": 3.0}], "experiment")
+
+    assert path.read_text() == "experiment,item,value\na,x,3.0\nb,x,0.1\n"
+
+
+def test_processes_side_by_side_lose_no_rows(tmp_path):
+    """Two processes merge into one table at the same time; the lock keeps every row."""
+    import os
+    import subprocess
+    import sys
+
+    path = tmp_path / "run_meta.csv"
+    script = ("import sys; from pathlib import Path; from hybrid import tables\n"
+              "for i in range(20):\n"
+              "    tables.merge_csv(Path(sys.argv[1]), [{'part': sys.argv[2] + str(i)}], 'part')\n")
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
+    procs = [subprocess.Popen([sys.executable, "-c", script, str(path), part], env=env)
+             for part in ("a", "b")]
+    assert [p.wait(timeout=120) for p in procs] == [0, 0]
+    assert len(pd.read_csv(path)) == 40
+
+
 def test_every_setting_is_recorded_or_named_inert():
     """A setting a table leaves out must be one no command reads, or a row could not be
     re-run from what it records; a new setting has to be put on one of the lists."""

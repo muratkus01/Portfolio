@@ -2,10 +2,16 @@
 
 A row carries what its numbers depend on: every settlement term, the window, the premium it
 was settled on and the settings it ran with. A figure quoted from a row therefore needs no
-other file to be read or re-run.
+other file to be read or re-run. `merge_csv` adds rows to a table that several processes
+share, as the report's run metadata is.
 """
 from __future__ import annotations
 
+import contextlib
+import hashlib
+import os
+import tempfile
+import time
 from pathlib import Path
 
 import numpy as np
@@ -134,3 +140,51 @@ def write_csv(rows: list[dict], path: str | Path) -> Path:
     # one line ending on every system, so that a rerun elsewhere diffs only where numbers moved
     pd.DataFrame(rows).to_csv(path, index=False, lineterminator="\n")
     return path
+
+
+def merge_csv(path: Path, rows: list[dict], key: str) -> None:
+    """Put `rows` into the CSV at `path`: they replace the rows that share their `key`, the
+    others stay, and the file is sorted by `key`, so its order does not depend on the order
+    the rows came in. A lock lets processes that run side by side merge into one file.
+
+    path: the CSV, created with its folder if missing. rows: the new rows, as dicts.
+    key: the column that names what a row belongs to, e.g. "experiment".
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    new = pd.DataFrame(rows)
+    with _lock(path):
+        if path.exists():
+            # read as text, so the rows that stay are written back exactly as they were
+            old = pd.read_csv(path, dtype=str, keep_default_na=False)
+            new = pd.concat([old[~old[key].isin(new[key].astype(str))], new],
+                            ignore_index=True)
+        partial = path.with_name(f"{path.name}.partial")
+        new.sort_values(key, kind="stable").to_csv(partial, index=False, lineterminator="\n")
+        os.replace(partial, path)           # one step, so no reader sees half a file
+
+
+@contextlib.contextmanager
+def _lock(path: Path, timeout_s: float = 300.0):
+    """Hold a lock on `path` across processes: a file in the temp folder that only one
+    process can create at a time.
+
+    Raises TimeoutError when another process has held it for `timeout_s` seconds.
+    """
+    # in the temp folder, so that a lock left by a crash never lands among the tables
+    digest = hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:16]
+    lock = Path(tempfile.gettempdir()) / f"hybrid-table-{digest}.lock"
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            handle = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            if time.monotonic() > deadline:
+                raise TimeoutError(f"{lock} has been held for {timeout_s:.0f} s; if no "
+                                   f"process is writing {path}, delete it") from None
+            time.sleep(0.05)
+    try:
+        yield
+    finally:
+        os.close(handle)
+        os.remove(lock)
