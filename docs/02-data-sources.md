@@ -126,16 +126,21 @@ confidential operator data, so the entire study is publishable and reproducible.
 
 ## 6. Data engineering conventions
 
-All projects follow the same conventions so pipelines and evaluation code are portable:
+The projects follow these conventions, with the exceptions named, so pipelines and evaluation
+code are portable:
 
 - **Time.** Everything stored in **UTC** with an explicit `tz`; local wall-clock
-  (`Europe/Berlin`) only at presentation. DST transitions are tested explicitly, because the
+  (`Europe/Berlin`) only at presentation. One exception: Project 01's HTW 15-minute cache
+  stores the file's legal-local-time labels read as UTC+1, so its index is not true UTC in
+  summer (`prosumer/data/htw.py`). DST transitions are tested explicitly, because the
   duplicated and missing hours in October and March are a classic silent corruption of German
   energy datasets: Projects 01 and 03 have unit tests for both.
 - **Indexing.** Left-closed, left-labelled 15-minute intervals (`[t, t+15min)`), matching
   market MTU conventions.
 - **Layout.** `data/raw/` (as downloaded, never edited) → `data/processed/` (analysis-ready
-  Parquet). Only `data/processed` is consumed by models.
+  Parquet). Project 03's backtest and Project 01's main evaluations read `data/processed`;
+  other Project 01 commands read `data/raw/` directly (the four thesis weeks, the MaStR
+  exports, the weather and H0 caches).
 - **Versioning.** No DVC and no data snapshot hash per result. Each Project 03
   `run_meta.json` names the commits that made and valued its forecasts, and Project 01's
   aggregate load fit records the SHA-256 of its HTW input (`reports/aggregate_load/fit_meta.csv`).
