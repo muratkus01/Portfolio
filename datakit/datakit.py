@@ -92,6 +92,25 @@ def public_power(start: str, end: str, country: str = "de",
     return pd.DataFrame(cols, index=pd.DatetimeIndex(idx, name="timestamp")).sort_index()
 
 
+def total_power(start: str, end: str, country: str = "de",
+                cache_dir: Path = DEFAULT_CACHE) -> pd.DataFrame:
+    """Generation by production type INCLUDING self-consumption, MW, shaped like public_power.
+
+    `public_power` counts what is fed into the public grid, so its 'Solar' misses rooftop
+    output used on site. Here 'Solar' is total generation, and the load column is
+    'Load (incl. self-consumption)'. Use it as the numerator of a capacity factor against
+    installed capacity; use public_power where grid feed-in is meant, as forecasts of
+    feed-in are.
+    """
+    url = f"{EC}/total_power?country={country}&start={start}&end={end}"
+    p = _get_json(url, cache_dir, f"total_power_{country}_{start}_{end}",
+                  "CC BY 4.0 (Energy-Charts)")
+    idx = pd.to_datetime(p["unix_seconds"], unit="s", utc=True)
+    cols = {s["name"] if isinstance(s["name"], str) else s["name"][0]:
+            np.asarray(s["data"], dtype=float) for s in p["production_types"]}
+    return pd.DataFrame(cols, index=pd.DatetimeIndex(idx, name="timestamp")).sort_index()
+
+
 def installed_power(country: str = "de", time_step: str = "yearly",
                     cache_dir: Path = DEFAULT_CACHE) -> pd.DataFrame:
     """Installed capacity by technology, in GW as served, indexed by Energy-Charts' time labels.
