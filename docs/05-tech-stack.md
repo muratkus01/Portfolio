@@ -104,8 +104,8 @@ plus discharged in the `SiteConfig` defaults; it has no rainflow ageing model. H
 |--------|-----------|
 | Observation | Physical state + calendar features + forecast vectors (with their own uncertainty where available) + market state. Normalised with train-set statistics only. |
 | Action | Continuous power setpoints in [-1, 1], rescaled into the feasible range (Project 01, SAC); the archived pumped-storage plant used PPO, also on continuous actions |
-| Reward | Economic result of the step, plus soft terms (degradation, comfort). **Never** hard-constraint penalties |
-| Episode | Typically 1–7 days at 15 min; terminal storage state valued via a fitted terminal value function to avoid horizon-end drain |
+| Reward | Cost saved in the step against the same step without a battery, wear cost included (Project 01's default, `differential`; `net_cost` is an ablation). **Never** hard-constraint penalties |
+| Episode | Seven days at 15 min in training (Project 01); the energy stored at the end is valued with the monthly terminal values that B3 uses, fitted on the training year, to avoid horizon-end drain |
 | Exploration | Random 7-day episode starts within the 2024 training year (Project 01); no domain randomisation over forecast errors or price regimes |
 | Evaluation | One deterministic rollout over the whole test period, three seeds, reported as median and range, never the best run (Project 01) |
 
