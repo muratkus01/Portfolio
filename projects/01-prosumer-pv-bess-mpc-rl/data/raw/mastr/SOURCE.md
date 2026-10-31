@@ -44,14 +44,18 @@ a month boundary, so **2026 contains exactly one full month**. Any result labell
 this download is a January 2026 snapshot. For a date later in 2026, re-export with a later
 range. `mastr.coverage()` prints this.
 
-## 4. The per-state files are all lithium-ion, not home storage
+## 4. The per-state energy and power files cover all lithium-ion segments, not home storage
 
 `battery_*_by_state_lithium_ion.csv` includes large-scale and industrial batteries. Home
 storage is 83.9 % of installed energy in January 2024 and 80.1 % in January 2026, so the
-non-home share grows. Per-state **home-storage counts are not in this download at all**, which
-means a per-state mean size cannot be derived from these files; only Germany-wide means can.
-Distributing the Germany-wide home-storage count by each state's lithium-ion energy share is an
-assumption, and has to be labelled as one wherever it is used.
+non-home share grows. These two files have no home-storage split. Per-state home-storage
+counts come only from `state_counts/` (above), and per-state home-storage energy and power are
+in neither, so **an unbiased per-state mean size cannot be derived**; only Germany-wide means
+can. State energy divided by state home count is biased high where large-scale batteries sit:
+14.8 kWh for Bremen and 11.3 kWh for Bavaria in January 2024, against the national mean of
+8.96 kWh (`mastr.mean_size_by_state`). The national analysis therefore uses the Germany-wide
+mean for every state. Distributing the Germany-wide home-storage count by each state's
+lithium-ion energy share is an assumption, and has to be labelled as one wherever it is used.
 
 ## Reference values, verified 2026-10-26
 
@@ -77,6 +81,7 @@ count. Mixing the two understates the fleet by just enough to pass unnoticed.
 The mean size **falls** after 2024: newly registered home storages are smaller than the
 installed base, not larger. Any extrapolation that assumes a rising average is wrong in sign.
 
-Within-year growth of the count is large, +45.7 % across 2024 and +29.2 % across 2025, while
-the mean size moves by under 2 %. For a national aggregate the monthly count series matters;
-for a single household one size per year is enough.
+Growth of the count is large, +49.0 % from 1 January 2024 to 1 January 2025 and +30.8 % to
+1 January 2026, while the mean size moves by about 2 % at most (8.96, 8.92, 8.73 kWh above).
+For a national aggregate the monthly count series matters; for a single household one size
+per year is enough.

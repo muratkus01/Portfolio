@@ -15,7 +15,7 @@ It needs the gitignored HTW 15-minute parquet (`data/processed/htw_74_15min_2010
 | 73 household load profiles, 2010, 15-minute metered | Tjaden et al. (2015), "Representative electrical load profiles of residential buildings in Germany", HTW Berlin, DOI 10.13140/RG.2.1.5112.0080/1; measured by IZES in the field test "Moderne Energiesparsysteme im Haushalt". Household H49 is excluded (PV behind the meter, `../htw_pv_screen.csv`). | CC BY-NC 4.0 |
 | Daily mean 2 m temperature, 1991 to 2026, at the 16 state sites of `pv_states.STATE_SITES` | ERA5 via the Open-Meteo archive API (`models=era5`, local dates Europe/Berlin). Contains modified Copernicus Climate Change Service information. | CC BY 4.0 |
 | Public holidays per state | `prosumer.data.slp.state_holidays`, statutory rules | n/a |
-| Fleet counts (state summary only) | MaStR via battery-charts.de, see `../../data/raw/mastr/SOURCE.md` | public |
+| Fleet counts (state summary only) | MaStR via battery-charts.de, see `../../data/raw/mastr/SOURCE.md`. The column `n_households_1jan` holds the lithium-ion home storages per state on 1 January (`state_counts/`), about 3 % below the count for all chemistries, and counts each storage as one household. | public |
 
 ## What is derived from the HTW data
 
