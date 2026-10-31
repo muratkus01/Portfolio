@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hybrid import config, market
+from hybrid import cli, config, market
 from hybrid.baselines import run_ladder
 from hybrid.config import MarketConfig, RunConfig
 from hybrid.market import premium_eligible, settle
@@ -164,3 +164,63 @@ def test_the_ladder_runs_on_a_premium_that_changes_by_month():
     assert res["B0 no battery"]["cost"]["premium_revenue"] == pytest.approx(
         30.0 * (24 * 10.0 + 24 * 30.0) * 0.25)
 
+
+# ------------------------------------------------------------------ negprice
+def two_months(year: int, days: int | None = None, dt: float = 0.25) -> pd.DataFrame:
+    """January and February of `year` from Berlin midnight, cut as `load_year` cuts its frame.
+
+    January alternates cheap windy hours (20 EUR/MWh, wind 0.8, PV 0.2) with dear sunny ones
+    (100 EUR/MWh, wind 0.2, PV 0.8), so wind's market value is 36 and PV's 84 against a mean
+    price of 60. February is flat at 60 EUR/MWh with both factors at 0.5.
+    """
+    jan, feb = 31 * 96, 28 * 96
+    idx = pd.date_range(f"{year}-01-01", periods=jan + feb, freq="15min",
+                        tz="Europe/Berlin").tz_convert("UTC")
+    windy = (np.arange(jan) // 4) % 2 == 0
+    df = pd.DataFrame({
+        "wind_cf": np.concatenate([np.where(windy, 0.8, 0.2), np.full(feb, 0.5)]),
+        "pv_cf": np.concatenate([np.where(windy, 0.2, 0.8), np.full(feb, 0.5)]),
+        "price_eur_mwh": np.concatenate([np.where(windy, 20.0, 100.0), np.full(feb, 60.0)]),
+    }, index=idx)
+    return df if days is None else df.iloc[:int(days * 24 / dt)]
+
+
+def recording_ladder(calls: list):
+    """Stand-in for `run_ladder` that records the premium it is handed and solves nothing."""
+    def ladder(wind, pv, price, run, premium_rate, rebap=None, **kwargs):
+        rate = np.broadcast_to(np.asarray(premium_rate, dtype=float), (len(price),)).copy()
+        calls.append((run.market.anzulegender_wert_wind, run.market.negative_price_rule, rate))
+        cost = {"net_revenue": 0.0, "chosen_curtail_mwh": 0.0}
+        return {name: {"cost": cost} for name in
+                ("B0 no battery", "B1 curtailment avoidance", "B2 perfect foresight")}
+    return ladder
+
+
+def test_negprice_pays_each_vintage_against_its_realised_market_value(monkeypatch):
+    """Regression test. negprice paid max(0, AW - mean window price), one rate for both
+    technologies. Per Anlage 1 Nr. 2 the older vintage is paid against January's monthly
+    values (wind 36, PV 84) and the recent one against the annual values; the plant's rate
+    weights the two premiums by its own generation (wind is 5/8 of it in this window).
+    """
+    calls = []
+    monkeypatch.setattr(cli, "load_year", two_months)
+    monkeypatch.setattr(cli, "run_ladder", recording_ladder(calls))
+    assert cli.main(["negprice", "--year", "2025", "--days", "2"]) == 0
+    jw_wind = (1488 * 36 + 2688 * 30) / (1488 + 1344)          # January and February
+    expected = {95.0: 0.625 * (95.0 - 36.0) + 0.375 * (90.0 - 84.0),
+                73.5: 0.625 * (73.5 - jw_wind)}                 # PV: 68.5 - 72.6 -> zero
+    assert {aw for aw, _, _ in calls} == set(expected)
+    for aw, rule, rate in calls:
+        assert rate == pytest.approx(np.full(192, expected[aw])), (aw, rule)
+
+
+def test_negprice_note_reports_the_window_not_a_fixed_year(monkeypatch, capsys):
+    """Regression test: the note said "In 2024 ..." whatever year was run."""
+    monkeypatch.setattr(cli, "load_year", two_months)
+    monkeypatch.setattr(cli, "run_ladder", recording_ladder([]))
+    assert cli.main(["negprice", "--year", "2025", "--days", "2"]) == 0
+    out = capsys.readouterr().out
+    assert "In 2024" not in out
+    assert "2025-01 (31 days): wind 36.00, PV 84.00" in out, "January's market values"
+    assert "AW 73.5 (recent onshore) PV in 2025" in out, "the zero premium it gets"
+    assert "AW 95.0 (older vintage) none" in out
