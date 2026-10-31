@@ -30,6 +30,16 @@ _INVARIANT_ABS_TOL = 1e-3          # EUR
 _GRID_SHARE_TOL = 1e-6
 
 
+def ladder_tolerance(b2_revenue: float) -> float:
+    """How far a rung may out-earn B2 before the ladder invariant counts it as a defect.
+
+    b2_revenue: B2's revenue before imbalance, EUR, e.g. 250_000.0.
+    Returns the tolerance in EUR: _INVARIANT_REL_TOL of |b2_revenue|, and at least
+    _INVARIANT_ABS_TOL.
+    """
+    return max(_INVARIANT_ABS_TOL, _INVARIANT_REL_TOL * abs(b2_revenue))
+
+
 # ------------------------------------------------------------------ B0 / B1
 def b0_no_battery(wind: np.ndarray, pv: np.ndarray, run: RunConfig,
                   export_cap: np.ndarray | None = None) -> dict[str, np.ndarray]:
@@ -333,7 +343,7 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     before = {name: r["cost"]["net_revenue"] + r["cost"]["imbalance_cost"]
               for name, r in out.items()}
     b2 = before["B2 perfect foresight"]
-    tol = max(_INVARIANT_ABS_TOL, _INVARIANT_REL_TOL * abs(b2))
+    tol = ladder_tolerance(b2)
     for name, rev in before.items():
         if name != "B2 perfect foresight" and rev > b2 + tol:
             raise AssertionError(

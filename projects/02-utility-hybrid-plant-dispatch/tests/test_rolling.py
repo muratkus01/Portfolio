@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hybrid.baselines import make_forecasts, run_ladder
+from hybrid.baselines import ladder_tolerance, make_forecasts, run_ladder
 from hybrid.config import MarketConfig, PlantConfig, RunConfig
 from hybrid.data import describe, to_plant
 from hybrid.market import (effective_price, monthly_market_value, premium_eligible,
@@ -30,10 +30,13 @@ def ladder():
 
 
 def test_rolling_mpc_respects_the_ceiling(ladder):
+    """Checked as run_ladder checks it: revenue before imbalance, within its tolerance."""
     _, res = ladder
-    b2 = res["B2 perfect foresight"]["cost"]["net_revenue"]
-    for name, r in res.items():
-        assert r["cost"]["net_revenue"] <= b2 + 1e-3, name
+    before = {name: r["cost"]["net_revenue"] + r["cost"]["imbalance_cost"]
+              for name, r in res.items()}
+    b2 = before["B2 perfect foresight"]
+    for name, revenue in before.items():
+        assert revenue <= b2 + ladder_tolerance(b2), name
 
 
 def test_rolling_mpc_beats_the_rule_based_baseline(ladder):
