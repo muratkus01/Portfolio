@@ -101,10 +101,11 @@ previous-runs archive.
 | **When2Heat** | Heat demand and heat-pump COP time series for European countries | Hourly | CC BY 4.0 |
 
 **Pitfall:** using Dutch or Californian charging behaviour to represent a German depot is
-a validity threat, not a detail. Project 03 uses ACN-Data/ElaadNL to fit *session-level
-structure* (energy per session, dwell-time distributions, arrival clustering) and re-weights
-arrival/departure distributions with German mobility statistics; the substitution and its
-effect are reported as an explicit limitation.
+a validity threat, not a detail. The archived EV charging project
+(`archive/03-smart-ev-charging-14a/`) planned to fit *session-level structure* (energy per
+session, dwell-time distributions, arrival clustering) from ACN-Data/ElaadNL and re-weight
+the arrival and departure distributions with German mobility statistics. That fit was never
+built: its sessions are synthesised from archetype parameters.
 
 ---
 
@@ -117,8 +118,9 @@ effect are reported as an explicit limitation.
 | **ENTSO-E Transparency** | Aggregated hydro filling rates, generation and pumping per bidding zone | Weekly filling, hourly generation |
 | **Operator technical publications** | Head, volume, unit ratings, efficiency curves for named plants | Public disclosures / literature |
 
-Project 02 builds a **publicly-derived reference plant** from these sources rather than using
-any confidential operator data, so the entire study is publishable and reproducible.
+The archived pumped-storage project (`archive/02-pumped-storage-rl-multimarket/`) uses a
+**publicly derived reference plant**, with parameters set in `psw/config.py`, rather than any
+confidential operator data, so the entire study is publishable and reproducible.
 
 ---
 
@@ -127,19 +129,23 @@ any confidential operator data, so the entire study is publishable and reproduci
 All projects follow the same conventions so pipelines and evaluation code are portable:
 
 - **Time.** Everything stored in **UTC** with an explicit `tz`; local wall-clock
-  (`Europe/Berlin`) only at presentation. DST transitions are tested explicitly — the
-  duplicated and missing hours in October/March are a classic silent corruption of German
-  energy datasets, and both are covered by unit tests in the project template.
+  (`Europe/Berlin`) only at presentation. DST transitions are tested explicitly, because the
+  duplicated and missing hours in October and March are a classic silent corruption of German
+  energy datasets: Projects 01 and 03 have unit tests for both.
 - **Indexing.** Left-closed, left-labelled 15-minute intervals (`[t, t+15min)`), matching
   market MTU conventions.
-- **Layout.** `data/raw/` (immutable, never edited) → `data/interim/` → `data/processed/`
-  (analysis-ready Parquet). Only `data/processed` is consumed by models.
-- **Versioning.** DVC or a manifest with content hashes; every result records the data
-  snapshot hash it was produced from.
-- **Provenance.** Every dataset ships a `SOURCE.md` recording URL, retrieval timestamp,
-  licence and any transformation applied.
-- **No raw data in git.** `.gitignore` excludes `data/`; a `make data` target and a
-  documented manifest reconstruct it.
+- **Layout.** `data/raw/` (as downloaded, never edited) → `data/processed/` (analysis-ready
+  Parquet). Only `data/processed` is consumed by models.
+- **Versioning.** No DVC and no data snapshot hash per result. Each Project 03
+  `run_meta.json` names the commits that made and valued its forecasts, and Project 01's
+  aggregate load fit records the SHA-256 of its HTW input (`reports/aggregate_load/fit_meta.csv`).
+- **Provenance.** The data folders carry committed `SOURCE.md` files with URL and licence
+  (the HTW profiles are documented in `prosumer/data/htw.py` instead), and `datakit` appends
+  endpoint, retrieval time and licence to its cache's `SOURCE.md` on every download.
+- **No raw data in git.** `.gitignore` excludes `/data/` and everything under
+  `projects/*/data/` except the `SOURCE.md` files. `prosumer build-data` and
+  `python -m f2b.cli build-data` rebuild the datasets from the public APIs; the HTW profiles,
+  the MaStR exports and the netztransparenz files have to be downloaded by hand.
 
 ---
 
