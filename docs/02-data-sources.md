@@ -24,6 +24,7 @@ NDA. Proprietary data, where obtained, improves fidelity but is never a precondi
 | 01 | Daily mean temperature (aggregate load model) | ERA5 through the Open-Meteo archive API, at the state capitals | daily | fetched and cached, not committed |
 | 01 | Home-storage fleet (national analysis) | MaStR battery register as monthly series from battery-charts.de | monthly | downloaded by hand, not committed ([SOURCE](../projects/01-prosumer-pv-bess-mpc-rl/data/raw/mastr/SOURCE.md)) |
 | 01 | Thesis input year 2024 (Gate 0) | the thesis repository, tag `thesis-v1.0` | hourly | fetched, not committed |
+| 01 | Four measured weeks of the thesis household (Gate 1, the README's superseded section 0, `train_rl.py`) | the M.Sc. thesis | hourly | not redistributed, no `SOURCE.md` (`data/raw/legacy/`) |
 | 03 | Portfolio output | Energy-Charts public feed-in of wind (onshore + offshore) and solar, divided by the month's installed capacity (also Energy-Charts) and scaled to 200 MW wind + 100 MW PV | 15 min | fetched and cached by `python -m f2b.cli build-data`, not committed |
 | 03 | TSO forecasts (the F4 benchmark) | Energy-Charts: the transparency-platform day-ahead, intraday and current forecasts of the same fleet, scaled the same way | 15 min | fetched and cached, not committed |
 | 03 | Weather forecasts | Open-Meteo previous-runs archive at the 16 state capitals and two offshore clusters, as forecast one and two days earlier | hourly | fetched and cached, not committed ([SOURCE](../projects/03-probabilistic-forecast-to-bid/data/raw/open_meteo/SOURCE.md)) |
@@ -146,8 +147,9 @@ code are portable:
   aggregate load fit records the SHA-256 of its HTW input (`reports/aggregate_load/fit_meta.csv`).
 - **Provenance.** The data folders carry committed `SOURCE.md` files that say where their
   files come from (Project 01's price `SOURCE.md` records only the last fetch; the HTW
-  profiles are documented in `prosumer/data/htw.py`), and `datakit` appends endpoint,
-  retrieval time and licence to its cache's `SOURCE.md` on every download.
+  profiles are documented in `prosumer/data/htw.py`; the four thesis weeks in
+  `data/raw/legacy/` have none), and `datakit` appends endpoint, retrieval time and licence
+  to its cache's `SOURCE.md` on every download.
 - **Raw data stays out of git, with one exception.** `.gitignore` excludes `/data/` and
   everything under `projects/*/data/` except the `SOURCE.md` files. The exception is a
   four-day Open-Meteo cache for Munich from June 2025 (two CSVs and a `SOURCE.md` naming
