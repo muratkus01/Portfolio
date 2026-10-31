@@ -46,12 +46,15 @@ def plant_rate(market_value: float) -> float:
 
 
 def recording_ladder(calls: list):
-    """Stand-in for `run_ladder` that records the premiums it is handed and solves nothing."""
+    """Stand-in for `run_ladder` that records the premiums and B3's price-forecast error scale
+    it is handed, and solves nothing."""
     def ladder(wind, pv, price, run, premium_rate, rebap=None, **kwargs):
         n = len(price)
         b3 = kwargs.get("b3_premium_rate")
         calls.append({"settle": np.broadcast_to(np.asarray(premium_rate, dtype=float), (n,)),
-                      "b3": None if b3 is None else np.asarray(b3, dtype=float)})
+                      "b3": None if b3 is None else np.asarray(b3, dtype=float),
+                      # read with a default so that code without the field fails on behaviour
+                      "price_scale": getattr(run, "forecast_price_scale", None)})
         cost = {"net_revenue": 1.0, "export_mwh": 0.0, "chosen_curtail_mwh": 0.0,
                 "forced_curtail_mwh": 0.0}
         return {name: {"cost": cost, "violations": {}} for name in
@@ -101,6 +104,21 @@ def test_b3_plans_each_month_on_the_realised_rate_of_the_month_before(monkeypatc
     january = 31 * 96
     assert call["b3"][:january] == pytest.approx(np.full(january, plant_rate(DECEMBER)))
     assert call["b3"][january:] == pytest.approx(np.full(9 * 96, plant_rate(JANUARY)))
+
+
+def test_b3s_price_error_is_sized_on_the_year_before_the_window(monkeypatch):
+    """Regression test: B3's price-forecast error was sized on the spread of the window's own
+    prices, later ones included. It is sized now on the day-ahead prices of the year before,
+    which B3 has seen when the window starts."""
+    calls = []
+    monkeypatch.setattr(cli, "load_year", calendar_year)
+    monkeypatch.setattr(cli, "run_ladder", recording_ladder(calls))
+
+    assert cli.main(["ladder", "--year", str(YEAR), "--days", "2"]) == 0
+
+    (call,) = calls
+    assert call["price_scale"] is not None, "sized on the window's own prices"
+    assert call["price_scale"] == pytest.approx(np.std(calendar_year(YEAR - 1)["price_eur_mwh"]))
 
 
 def short_window(year: int, days: int | None = None, dt: float = 0.25,

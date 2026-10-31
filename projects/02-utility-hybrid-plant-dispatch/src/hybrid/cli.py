@@ -115,6 +115,19 @@ def _b3_planning_premium(args, run: RunConfig, index: pd.DatetimeIndex) -> np.nd
     return planning_rates(index, monthly)
 
 
+def _b3_price_scale(args, run: RunConfig) -> float:
+    """What B3's price-forecast error is sized on: the day-ahead price's standard deviation
+    over the calendar year before the window, EUR/MWh (`RunConfig.forecast_price_scale`).
+
+    A forecaster sizes its error on prices it has seen, so the window's own must not set it.
+    A whole year is steadier than a single month, whose spread a few scarce hours can dominate.
+
+    args: parsed CLI arguments, e.g. year=2024. run: the run's settings.
+    Returns the standard deviation in EUR/MWh.
+    """
+    return float(np.std(load_year(args.year - 1, None, run.dt)["price_eur_mwh"].to_numpy()))
+
+
 def _print_premium(table: pd.DataFrame, period: str) -> None:
     """Print a premium table's premiums per technology and the plant's rate, by period."""
     print(f"market premium, settled on the realised {'annual' if period == 'year' else 'monthly'}"
@@ -157,9 +170,13 @@ def cmd_ladder(args) -> None:
     plan = None
     if not args.fast:
         plan = _b3_planning_premium(args, run, index)
+        run = run.with_(forecast_price_scale=_b3_price_scale(args, run))
         by_month = pd.Series(plan, index=index.tz_convert("Europe/Berlin").strftime("%Y-%m"))
         print("B3 plans each month on the realised monthly rate of the month before, EUR/MWh: "
               + ", ".join(f"{m} {r:.2f}" for m, r in by_month.groupby(level=0).first().items()))
+        print(f"B3's price-forecast error: standard deviation {run.forecast_sigma:.0%} of "
+              f"{run.forecast_price_scale:.2f} EUR/MWh, the day-ahead price's standard "
+              f"deviation in {args.year - 1}")
     res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=not args.fast,
                      progress=args.progress, b3_premium_rate=plan)
     _report(res, f"Hybrid plant ladder, {args.days} days of {args.year}")
