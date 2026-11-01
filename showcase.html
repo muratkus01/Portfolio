@@ -2171,7 +2171,7 @@
               <p><strong>2. No redispatch.</strong> <code>market.redispatch_series</code> exists, but no command calls it, and <code>tables.INERT_SETTINGS</code> names its settings as unused.</p>
               <p><strong>3. The connection does not bind on national profiles.</strong> At 60 MW, <code>steps_over_connection</code> is 0 in every Energy-Charts window of <code>reports/window_stats.csv</code>: the plant's peak generation is 42.5 MW in 2024 and 38.3 MW in 2025.</p>
               <p><strong>4. The premium is deterministic.</strong> It is a fixed function of the period's prices and national generation. B3 plans on an estimate of it, the previous month's realised rate; in July 2025 that estimate, 27.34 EUR/MWh, lies far above the 8.74 EUR/MWh B3 is settled on. Narrowing that gap needs a better estimate of the market value, a forecasting task, not a learned policy.</p>
-              <p>Reinforcement learning is shown in Project 01, on a household PV battery: a soft actor-critic agent reaches 32.4% of the gain from B1 to B2 (median of three seeds), against 89.4% for its rolling MPC. Here it is future work, worth doing once every rung commits a day-ahead schedule that is settled at reBAP.</p>
+              <p>Reinforcement learning is shown in Project 01, on a household PV battery: a soft actor-critic agent reaches 32.4% of the gain from B1 to B2 (median of three seeds), against 89.4% for its rolling MPC (<code>reports/rl_eval_H28/rl_summary.csv</code> in the P01 folder). Here it is future work, worth doing once every rung commits a day-ahead schedule that is settled at reBAP.</p>
             </div>
           </div>
 
@@ -2229,7 +2229,7 @@
             <button class="btn-copy" onclick="copyDynamicText('p02-cli-text')">Copy Command</button>
           </div>
           <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; margin-top: 8px;">
-            Prints the connection sweep of 2024: the battery's own value and the value of curtailing at low prices by connection size, as in <code>reports/sizing_2024.csv</code>; add <code>--out PATH</code> to write the CSV. Install the project first, with <code>pip install -e ".[dev]"</code> in its folder. The data come from Energy-Charts through the repository's <code>datakit</code>, which caches every response; no key is needed. <code>python -m hybrid.cli report</code> reruns every published table into <code>reports/</code>, in series in about an hour.
+            Prints the connection sweep of 2024: the battery's own value and the value of curtailing at low prices by connection size, as in <code>reports/sizing_2024.csv</code>; add <code>--out PATH</code> to write the CSV. Install the project first, with <code>pip install -e ".[dev]"</code> in its folder. The data come from Energy-Charts through the repository's <code>datakit</code>, which caches every response; no key is needed, but on a fresh clone the first run downloads the year's data. The run takes minutes: <code>reports/run_meta.csv</code> records 526 s for it, on a 4-core laptop shared with three other runs. <code>python -m hybrid.cli report</code> reruns every published table into <code>reports/</code>, in series in about an hour.
           </p>
         </div>
       </div>
