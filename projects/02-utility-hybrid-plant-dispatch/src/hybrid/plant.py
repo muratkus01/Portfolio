@@ -75,10 +75,10 @@ def dispatch_step(wind_avail: float, pv_avail: float, soc: float, p_bat_proposed
 
     # Classify curtailment by CAUSE, not by who asked for it. Whatever the connection would
     # have forced anyway, given the battery power actually applied, is forced; only the rest
-    # is a genuine economic choice. Labelling every requested curtailment as "chosen" made a
-    # perfect-foresight plan report 622 MWh of chosen curtailment over a period with two
-    # negative-price quarter-hours, and the split matters because ordered and self-chosen
-    # curtailment settle differently under Redispatch 2.0.
+    # is a genuine economic choice. Labelling every requested curtailment as "chosen" counted
+    # what the connection forced as a choice (test_curtailment_is_classified_by_cause), and
+    # the split matters because ordered and self-chosen curtailment settle differently under
+    # Redispatch 2.0.
     total_curt = gen_avail - gen
     forced_curt = min(total_curt, max(0.0, gen_avail + p_bat - cap))
     chosen_curt = total_curt - forced_curt

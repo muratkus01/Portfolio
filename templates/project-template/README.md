@@ -1,8 +1,20 @@
 # Project Template
 
-The standard layout every project implementation in this portfolio follows. Copy this
-directory when starting a project's code, so that the shared evaluation harness, forecast
-store and safety-layer conventions transfer without adaptation.
+A proposed layout for a project in this portfolio. No project follows it in full, and the
+projects share no evaluation harness or forecast store: each one settles, forecasts and
+evaluates in its own code ([`docs/05-tech-stack.md`](../../docs/05-tech-stack.md)). This
+directory holds only this README, so there are no skeleton files to copy yet.
+
+## How closely the projects follow it
+
+| Project | Code layout | Dossier checklist (below) |
+|---|---|---|
+| 01 prosumer | Closest: `data/`, `model/`, `market/`, `baselines/` and `envs/` packages, a `safety.py` module, `reporting/` for evaluation, and a Makefile with targets of its own. Configuration is dataclasses in `config.py`; there is no `forecast/` package and no `agents/`: the reported agent is trained in `experiments/rl_eval.py` (`prosumer rl-eval`), and `train_rl.py` trains on legacy weeks that are not in the repository | Items 1 to 8, 10 and 12; no sections on baselines and evaluation, work packages, repository structure, references or collaboration |
+| 02 hybrid | One module per concern in `src/hybrid/`: `plant.py` (the plant and its safety layer), `market.py`, `baselines.py`, `data.py`, and dataclasses in `config.py`. No Makefile: `python -m hybrid.cli report` regenerates `reports/`. No `data/` folder, because datakit caches the inputs; no forecast store, because B3's forecasts are synthetic; no environment or agents, because it stops at B3 | All fifteen items, after a results section |
+| 03 f2b | One module per concern in `src/f2b/`. Every forecast of the backtest is tagged with its issue step (`stages.Stage`), and an audit checks each decision's information set (`stages.audit_stages`); the issue-time store `forecast.ForecastStore` serves only the parametric-noise ablation. Dataclasses in `config.py`; `data/raw/` with a `SOURCE.md` for Open-Meteo and for netztransparenz, while the Energy-Charts data come through `datakit`; no Makefile | An order of its own: results, setup, errors found, limits, what is not built, reproduce, data and licences, files |
+
+No project has `conf/` (Hydra), `.env.example`, `notebooks/` or the test files the layout
+names.
 
 ## Layout
 
@@ -43,7 +55,7 @@ store and safety-layer conventions transfer without adaptation.
 └── reports/                  Generated figures, tables, and the written report
 ```
 
-## Non-negotiable structural rules
+## Structural rules it proposes
 
 1. **`model/`, `market/` and `safety/` are shared by every rung of the benchmark ladder.**
    B3 and the RL agent must be physically unable to see different physics or different fees.
@@ -57,9 +69,20 @@ store and safety-layer conventions transfer without adaptation.
 5. **`data/` is never committed.** `SOURCE.md` per raw dataset records URL, retrieval
    timestamp, licence and transformations.
 
+Projects 01 and 02 keep rules 1 and 3 in their own module layout: every rung of their ladder
+runs through the same plant, safety and market code. Rule 2 holds in part in Project 03: its
+backtest tags every forecast with its issue step and audits each decision against it, but
+nothing makes the forecasts immutable. Project 02 has no forecast store. Rule 4 holds in
+part. Project 02 regenerates `reports/` with `python -m hybrid.cli report` and records input
+hashes in `run_meta.csv`, but its `docs/figures/` holds showcase illustrations drawn from
+synthetic shapes and fixed numbers, outside `reports/`. Project 03 writes its reports with
+`python -m f2b.cli backtest` and records the commit and package versions of each run but no
+input hashes, and its reBAP and ID AEP are downloaded by hand. Project 01 marks the few
+numbers that come from one-off runs. None of the three commits its data (rule 5).
+
 ## Dossier section checklist
 
-Every project README covers, in this order:
+A project README would cover, in this order:
 
 1. Title and summary table (status, method, asset, resolution)
 2. Background and motivation — why this problem, why now
@@ -78,6 +101,8 @@ Every project README covers, in this order:
 15. Collaboration — what help would most improve the work
 
 ## Makefile targets
+
+Proposed; only Project 01 has a Makefile, and its targets differ from these.
 
 | Target | Does |
 |--------|------|

@@ -3,7 +3,16 @@
 **Purpose.** Every project in this portfolio treats the German regulatory framework as part
 of the *environment specification*, not as a compliance footnote. This document is the
 shared reference: it defines the market products, the legal constraints and the settlement
-mechanics that the optimisation models and RL environments must reproduce.
+mechanics the projects model. It also covers products and rules that no project implements
+yet: each section names the projects that implement its subject, and marks the main items
+that none implements as **not implemented**.
+
+> **Project numbers.** 01 is the prosumer PV and battery project, 02 the utility hybrid plant
+> and 03 the forecast-to-bid pipeline. A2, A3 and A4 are the archived pumped-storage,
+> EV-charging and energy-sharing projects ([`archive/README.md`](../archive/README.md)): they
+> still build and their tests still run, but they are no longer part of the portfolio. Older
+> texts use the numbers of the six-project portfolio, in which the hybrid plant was 05 and
+> forecast-to-bid 06.
 
 > **Currency of information.** Energy law in Germany changes frequently. Each statement
 > below carries the instrument it derives from so it can be re-verified against the current
@@ -46,8 +55,13 @@ this portfolio therefore uses **Δt = 15 min** as the native resolution.
 ```
 
 A dispatch policy that optimises one of these stages in isolation leaves money on the table
-and, worse, can create commitments it cannot honour later. Projects 02 and 03 explicitly
-model the **sequential, nested** nature of this decision problem.
+and, worse, can create commitments it cannot honour later. Project 03 models part of this
+**sequential, nested** decision problem: a day-ahead position, intraday trades at the ID AEP
+index and imbalance settled at reBAP. **Not implemented in any active project:** the
+balancing capacity auctions, balancing energy activation and the intraday auctions. The
+archived pumped-storage project (A2) reserved aFRR capacity against its day-ahead dispatch:
+its benchmark ladder ran on a static offer of 15 % of the rating in every block, and its RL
+environment lets the agent choose the capacity per four-hour block.
 
 ### 1.3 Balancing (Regelleistung) products
 
@@ -64,10 +78,15 @@ Key modelling points:
 - Capacity and energy are **separately priced**; aFRR/mFRR energy is called from a common
   European merit order, so activation is *stochastic from the bidder's perspective*.
 - Offering capacity **removes headroom** from the energy markets - the opportunity cost
-  coupling is the entire optimisation problem for storage (Projects 02, 05).
+  coupling is the entire optimisation problem for storage. The archived pumped-storage
+  project (A2) modelled it for aFRR; for the battery of Project 02 it is planned, not built.
 - **Prequalification** (*Präqualifikation*) per the TSO Prequalification Conditions is a hard
   gate: minimum bid size, measurement, remote control and proof of availability. A pooled
   bid requires an aggregator's prequalified pool.
+
+**Not implemented in any active project:** FCR, aFRR and mFRR. Project 02 declares aFRR
+settings (`MarketConfig.afrr_*`) that no command reads; aFRR for its battery is planned,
+not built.
 
 ### 1.4 Imbalance settlement and the balancing group
 
@@ -79,8 +98,10 @@ price per quarter-hour, published by the TSOs on `netztransparenz.de`.
 reBAP is *signed and volatile* - it can exceed several hundred €/MWh and can also be
 negative, meaning an imbalance in the system-helping direction is remunerated. This creates
 a genuine sequential decision problem: closing a forecast error via intraday trading costs a
-known spread now; leaving it open exposes the portfolio to an unknown reBAP later. Project 06
-is built around exactly this trade-off.
+known spread now; leaving it open exposes the portfolio to an unknown reBAP later. Project 03
+is built around exactly this trade-off, on real reBAP and ID AEP prices. Project 02 can
+settle a deviation from a committed schedule at reBAP, on a synthetic reBAP series, but no
+rung commits a schedule, so its imbalance is 0 in every table.
 
 ---
 
@@ -90,23 +111,56 @@ is built around exactly this trade-off.
 
 Plants above the small-scale thresholds must sell their electricity through **direct
 marketing** (*Direktvermarktung*, EEG 2023 §§ 20 ff.) and receive a **market premium**
-(*Marktprämie*) equal to the difference between the applicable value (*anzulegender Wert*)
-and the monthly market value (*Monatsmarktwert*) of the technology. The plant is therefore
-exposed to the *shape* of its own generation against prices - an incentive to shift, curtail
-or store, not merely to maximise kWh.
+(*Marktprämie*): the applicable value (*anzulegender Wert*) minus the technology's market
+value, and nothing where the market value is higher. Plants commissioned or awarded before
+2023 are paid against the monthly market value (*Monatsmarktwert*); plants commissioned and,
+if tendered, awarded from 2023 on, against the annual market value (*Jahresmarktwert*)
+(EEG 2023 Anlage 1 Nr. 2). The market value is the day-ahead price weighted by the
+technology's national feed-in, a national figure that one plant cannot move. The plant is
+therefore exposed to the *shape* of its own generation against prices - an incentive to
+shift, curtail or store, not merely to maximise kWh.
+
+Project 02 implements both periods, per technology. Its market values are proxies computed
+from public generation data, not the values the TSOs publish, and it pays the plant one
+blended premium rate per period ([its README](../projects/02-utility-hybrid-plant-dispatch/README.md),
+section 0.3).
 
 ### 2.2 The negative-price rule
 
-Under EEG 2023 § 51, market-premium payments are suspended during extended periods of
-negative day-ahead prices. The threshold was progressively tightened, and the 2025
-*Solarspitzengesetz* (the act addressing PV feed-in peaks) removed remuneration for **new**
-plants in **any** quarter-hour with a negative day-ahead price, compensating operators by
-extending the remuneration period rather than by paying during those hours.
+§ 51 EEG removes the market premium during negative day-ahead prices, by a rule that
+depends on the plant's vintage: its commissioning date or, for a tendered plant, the bid
+date (*Gebotstermin*) of the tender that set its applicable value, where § 100 says so
+(§ 100 (1) EEG 2021; § 100 (1) and (46) EEG 2023). A plant tendered in 2020 and
+commissioned in 2022 keeps the six-hour rule; one tendered in 2024 and commissioned in 2026
+keeps the rule of the vintage from 2023 to 24 February 2025.
+
+Project 02 implements the rule of every vintage, as below. The statutes are those
+`hybrid/market.py` cites; the rule names are `MarketConfig.negative_price_rule`.
+
+| Vintage | The premium is removed | Statute | Rule in Project 02 |
+|---|---|---|---|
+| Before 2016 | never | § 24 (3) Nr. 1 EEG 2014; § 100 (1) EEG 2017 | `none` |
+| 2016 to 2020 | for the whole run of negative prices, once it lasts six hours | § 24 (1) EEG 2014 and § 51 (1) EEG 2017, kept by § 100 (2) Nr. 13 EEG 2021 | `six_hour` |
+| 2021 to 2022 | for the whole run, once it lasts four hours | § 51 (1) as in force on 31 December 2022, kept by § 100 (1) EEG 2023 | `four_hour` |
+| 1 January 2023 to 24 February 2025 | for the whole run, once it lasts a threshold that depends on the calendar year of the prices: four hours in 2023, three in 2024 and 2025, two in 2026, one from 2027 | § 51 (1) as in force on 24 February 2025, kept by § 100 (46) EEG 2023 | `four_hour` to `one_hour`, by year (`market.vintage_rules`) |
+| From 25 February 2025 | in every period with a negative price, whatever the run length | § 51 (1) as amended by the *Solarspitzengesetz* (BGBl. 2025 I Nr. 51) | `new_2025` |
+
+**The whole run.** Every rule with a threshold zeroes the applicable value "für den gesamten
+Zeitraum" of uninterrupted negative prices: once a run reaches the threshold, every hour of
+it loses the premium, not only the hours after the threshold. Runs are counted in calendar
+hours. From 1 October 2025, when the day-ahead products are quarter-hours, an hour counts as
+negative when the mean of its quarter-hour prices is negative (§ 100 (45) sentence 2
+EEG 2023).
+
+**Not implemented in any project:** the § 51a extension of the support period by the
+periods without a premium, and the small-plant exemptions of § 51 (2).
 
 **Consequence for modelling:** the revenue function is discontinuous in price and depends on
 plant vintage. Curtailment and storage charging become *rational* in negative-price
-quarter-hours rather than merely tolerated. Projects 01 and 05 model this switch explicitly,
-parameterised by commissioning date.
+quarter-hours rather than merely tolerated. Project 02 models the rule of every vintage, and
+runs each rule on the same prices as a sensitivity; a rule run on prices from before its
+vintage existed is a counterfactual. Project 01 has a two-way switch, no rule or the rule
+from 25 February 2025, off by default.
 
 ### 2.3 Remote controllability and feed-in management
 
@@ -114,7 +168,10 @@ EEG 2023 § 9 requires technical equipment allowing the network operator to redu
 remotely and to retrieve the actual feed-in power, above defined size thresholds. New small
 PV systems without a smart-meter gateway face a **feed-in limitation** (the 60 %-of-installed-
 capacity cap introduced by the 2025 Solarspitzengesetz) until intelligent metering is in
-place - a direct, quantifiable incentive for the storage sizing questions in Project 01.
+place - a direct incentive for storage sizing.
+
+**Not implemented in any project:** remote control under § 9 and the 60 % feed-in cap.
+Project 01 applies no export cap in any result.
 
 ### 2.4 Redispatch 2.0
 
@@ -128,7 +185,10 @@ are compensated financially. For a hybrid plant or storage asset this means:
 - the controller must distinguish *self-chosen* curtailment from *ordered* curtailment
   because the compensation regimes differ.
 
-Projects 05 and 02 include a redispatch-order channel in the environment for this reason.
+**Not implemented in any project:** redispatch orders and their compensation. Project 02
+carries the channel in code, an export cap below the connection (`market.redispatch_series`,
+`plant.dispatch_step`), but no command applies an order, so no result contains redispatch.
+Its curtailment split is chosen against forced by the connection, not against ordered.
 
 ---
 
@@ -152,12 +212,15 @@ customer receives a **reduced network charge** in return, choosing between:
 | **Module 2** | Percentage reduction on the energy component (*Arbeitspreis*) of the network charge |
 | **Module 3** | Time-variable network charges (*zeitvariable Netzentgelte*), selectable in addition to Module 1, phased in from 2025 |
 
-**Consequence for modelling:** in Projects 01 and 03 the control problem is *not* the
-textbook "minimise cost under a fixed tariff". The agent chooses a network-charge module
-(a slow, annual decision), then operates under a stochastic dimming signal it does not
-control, and must remain feasible and comfortable when it arrives. This is a constrained,
-partially observable control problem with an exogenous safety-critical interrupt - a much
-better-posed RL problem than the usual formulation.
+**Consequence for modelling:** the control problem is *not* the textbook "minimise cost
+under a fixed tariff". The site chooses a network-charge module (a slow, annual decision),
+then operates under a stochastic dimming signal it does not control, and must remain
+feasible when it arrives. This is a constrained, partially observable control problem with
+an exogenous safety-critical interrupt - a much better-posed RL problem than the usual
+formulation. Project 01 has the module as a setting and the dimming signal as a synthetic
+process, because no public data on realised dimming events exists; its safety layer caps
+battery charging during an event. The archived EV-charging project (A3) built its depot
+problem around both.
 
 ### 3.2 `§41a EnWG` - dynamic tariffs
 
@@ -165,8 +228,9 @@ Since **1 January 2025**, all electricity suppliers must offer a **dynamic tarif
 (*dynamischer Stromtarif*) linked to the spot market price. Combined with the mandatory
 metering rollout, this makes the household or small commercial site a price-responsive
 agent with quarter-hourly granularity. Commercial implementations (aWATTar, Tibber and
-others) publish forward-looking hourly/quarter-hourly prices via public APIs, which is what
-makes Project 01 tractable on open data.
+others) publish forward-looking hourly/quarter-hourly prices via public APIs. No project
+reads them: Project 01 builds its dynamic tariff from the day-ahead price, which it reads
+from the Energy-Charts API.
 
 ### 3.3 Metering: MsbG, iMSys and the smart meter gateway
 
@@ -176,9 +240,10 @@ digitalisation of the energy transition (GNDEW) accelerated the rollout and the 
 the **CLS channel** (controllable local system) used to steer devices under `§14a EnWG`.
 
 **Consequence for modelling:** the *actuation path* has real latency, limited bandwidth and
-a defined command vocabulary. Projects 01 and 03 assume control at 15-minute granularity
-through this channel rather than continuous-time actuation, and Project 03 models
-OCPP 2.0.1 / EEBUS semantics on the device side.
+a defined command vocabulary. Project 01 assumes control at 15-minute granularity through
+this channel rather than continuous-time actuation, as did the archived EV-charging project
+(A3). **Not implemented in any project:** OCPP 2.0.1 and EEBUS semantics on the device side;
+A3 names them as its target interface, but its code does not implement them.
 
 ### 3.4 Network charges and other levies
 
@@ -187,7 +252,13 @@ arbitrages: energy procurement, network charges (*Netzentgelte*, per DSO and per
 concession fee (*Konzessionsabgabe*), electricity tax (*Stromsteuer*), offshore network levy,
 `§19 StromNEV` levy, CHP levy (KWKG) and VAT. For industrial sites, `§19(2) StromNEV`
 individual network charges (peak-load-based, *atypische Netznutzung*) create an explicit
-peak-shaving incentive modelled in Project 03.
+peak-shaving incentive, which the archived EV-charging project (A3) modelled as a charge on
+the billing period's highest quarter-hour.
+
+Project 01 builds the household's import price from the spot price, a supplier margin, the
+network charge's energy component, the levies as one figure and electricity tax, with VAT on
+the total (`prosumer.config.TariffConfig`). **Not implemented in any project:** the concession fee, and
+network charges per DSO and grid level.
 
 ---
 
@@ -202,26 +273,34 @@ peak-shaving incentive modelled in Project 03.
 
 **Status note.** Building-level collective supply (`§42b EnWG`) is in force. Broader
 **energy sharing across the public grid** has been the subject of successive EnWG amendment
-drafts; Project 04 is therefore specified to be *robust to the allocation rule*: it models
-several candidate allocation mechanisms (static keys, dynamic proportional, optimisation-
-based, market-based) and evaluates them on the same physical and economic substrate, so the
-work remains valid regardless of which variant is finally enacted.
+drafts; the archived energy-sharing project (A4) was therefore built to be *robust to the
+allocation rule*: it models four allocation mechanisms (static key, dynamic proportional,
+optimisation-based, market-based) under four supply regimes (individual supply, Mieterstrom,
+`§42b EnWG` and energy sharing) and evaluates them on the same physical and economic
+substrate, so the work remains valid regardless of which variant is finally enacted. No
+active project models collective supply or energy sharing, and no project models the
+Bürgerenergiegesellschaft status.
 
 ---
 
 ## 5. E-mobility specifics
 
+No active project models e-mobility; the archived EV-charging project (A3) did.
+
 - **Ladesäulenverordnung (LSV)** - technical, calibration-law and ad-hoc-payment
   requirements for *public* charging points. Non-public depot and workplace charging is
-  outside LSV, which is why Project 03 focuses there.
+  outside LSV, which is why A3 focused there.
 - **AFIR** (EU 2023/1804) - deployment and payment/transparency requirements for public
   recharging infrastructure along TEN-T.
 - **Eichrecht** (calibration law) - billing-relevant measurement must be verifiable; this
   constrains what an optimiser may bill against.
 - **THG-Quote** - greenhouse-gas quota revenue attributable to charged electricity, a real
-  revenue line for depot operators and therefore a term in Project 03's objective.
+  revenue line for depot operators and therefore a term in A3's objective.
 - **`§14a EnWG`** applies to non-public charging points - the dimming interrupt above is a
   first-class part of the depot scheduling problem.
+
+**Not implemented in any project:** the AFIR and Eichrecht requirements. A3 names them in its
+README, but its code does not model them.
 
 ---
 
@@ -238,7 +317,10 @@ work remains valid regardless of which variant is finally enacted.
 - **Water-law constraints:** *Wasserrechtliche Genehmigung*, minimum/maximum reservoir levels,
   ramp-rate limits protecting downstream ecology, and - for plants with natural inflow -
   hydrological boundary conditions. These are **hard constraints** and belong in the safety
-  layer, never in the reward function (Project 02).
+  layer, never in the reward function (the archived pumped-storage project, A2).
+
+No active project models hydro or pumped storage; A2 modelled the `§118(6)` exemption as a
+switch and the reservoir limits in its safety layer.
 
 ---
 
@@ -247,14 +329,16 @@ work remains valid regardless of which variant is finally enacted.
 Four design rules follow from the above and are applied consistently across the portfolio:
 
 1. **Δt = 15 min everywhere.** Hourly models are not accepted as the primary configuration.
-2. **Hard constraints live in a safety layer, not in the reward.** Water levels, SoC limits,
-   thermal comfort bands, grid connection capacity and `§14a` dimming are enforced by
-   projection/action masking so that a learned policy cannot trade a penalty against a
-   physical or legal violation.
+2. **Hard constraints live in a safety layer, not in the reward.** Water levels (A2), SoC
+   limits, grid connection capacity and `§14a` dimming are enforced by projection/action
+   masking so that a learned policy cannot trade a penalty against a physical or legal
+   violation. No project models thermal comfort bands.
 3. **Regulatory switches are model parameters.** Plant vintage, `§14a` module choice,
    `§118(6)` applicability and negative-price rules are configuration, so sensitivity to
    regulatory change is a first-class result rather than an obsolescence risk.
-4. **The baseline is a rolling-horizon MILP-MPC on the same forecasts.** See
+4. **The baseline is a rolling-horizon MPC on the same forecasts.** It is an LP in
+   Projects 01 and 02; the archived pumped-storage project (A2) needed a MILP, with binary
+   pump and turbine modes. Project 03 climbs a forecast ladder instead. See
    [`03-methodology-benchmark-ladder.md`](03-methodology-benchmark-ladder.md).
 
 ---
@@ -276,26 +360,34 @@ Detailed access notes, licences and known pitfalls: [`02-data-sources.md`](02-da
 
 ---
 
-## 9. Master statutory constants reference table
+## 9. Regulatory constants in the code
 
-The table below compiles every regulatory constant, levy, surcharge, and tax rate instantiated across the six portfolio packages, citing the underlying legal norm and temporal validity.
+The constants below are the ones the code holds: the symbol it uses, its default value, and
+the source its comment cites. Projects are named as at the top. The concession fee, and the
+KWKG and offshore levies as separate rates, which an earlier version of this table listed,
+are in no project.
 
-| Parameter / Constant | Code Symbol | Value | Statutory Source | Validity Period | Applied In |
-|---|---|---|---|---|---|
-| Value Added Tax | vat_rate | 19.0% | UStG § 12(1) | Ongoing (2024-2026) | P01, P03, P04 |
-| Electricity Tax | electricity_tax | 2.05 ct/kWh (0.0205 €/kWh) | StromStG § 3 | Ongoing (standard rate) | P01, P04 |
-| Concession Fee | concession_fee | 1.50 ct/kWh (0.0150 €/kWh) | KAV § 2(2) (standard municipal band) | Ongoing | P01, P04 |
-| KWKG Cogeneration Surcharge | kwkg_levy | 0.275 ct/kWh (0.00275 €/kWh) | KWKG § 26 / netztransparenz.de | 2024-2025 | P01, P04 |
-| Offshore Network Surcharge | offshore_levy | 0.656 ct/kWh (0.00656 €/kWh) | EnFG § 12 / netztransparenz.de | 2024-2025 | P01, P04 |
-| Residential Working Grid Fee | grid_working_fee | 8.50 ct/kWh (0.0850 €/kWh) | BNetzA Monitoring Report / DSO tariffs | 2024-2025 benchmark | P01, P04 |
-| Static Retail Surcharges Sum | static_adders_total | 15.05 ct/kWh (0.1937 €/kWh with VAT) | Statutory sum: StromStG + KAV + EnFG + KWKG + Grid | 2024-2025 | P01 (prosumer.market) |
-| Fixed Solar Export Feed-in Tariff | eeg_feedin_ref | 7.86 ct/kWh (0.0786 €/kWh) | EEG 2023 § 21(1) / § 48 (rooftop <= 10 kWp) | 2024-2025 | P01, P04 |
-| Industrial Pump Network Charge | network_charge_pump | 12.00 €/MWh | BNetzA standard industrial MV working price | 2024-2025 reference | P02 (psw.config) |
-| Pumped Storage Grid Fee Exemption | para_118_6_exempt | True (20-year operational holiday) | EnWG § 118(6) | Active (valid 2024-2026) | P02 (psw.config) |
-| SteuVE Minimum Power Floor | p_min_dim_kw | 4.20 kW per controllable asset | BNetzA BK6-22-300 / BK8-22/010-A | Effective 2024-01-01 | P03 (evc.config) |
-| § 14a Module 1 Flat Discount | mod1_flat_eur | 110.0 to 190.0 €/year (~150 €/a default) | BNetzA Module 1 Determination | Effective 2024-01-01 | P03 (evc.market) |
-| § 14a Module 2 Percentage Discount | mod2_discount_pct | 60.0% reduction on working price | BNetzA Module 2 Determination | Effective 2024-01-01 | P03 (evc.market) |
-| § 42b Collective Building Supply | internal_price_default | 18.00 ct/kWh (0.1800 €/kWh) | EnWG § 42b / EEG § 21 Mieterstrom | Effective 2024-01-01 | P04 (rec.config) |
-| Negative Price Curtailment Gate | negative_price_rule | 4h / 3h / 1h consecutive negative hours | EEG § 51 / Solarspitzengesetz 2025 | Vintage-dependent | P02 (hybrid.config) |
-| Imbalance Settlement Period | mtu_minutes | 15 minutes | StromNZV § 4 / SDAC 15-min implementation | Ongoing (DE-LU standard) | All projects |
-
+| Parameter | Code symbol | Value | Source, as the code cites it | Where |
+|---|---|---|---|---|
+| VAT | `vat`; `grid_vat` and `shared_vat` in A4 | 19 %; 0 % at A3's commercial depot | UStG § 12 (1); the depot reclaims it (UStG § 15) | 01, A3, A4 |
+| Electricity tax | `electricity_tax`; `grid_electricity_tax` in A4 | 2.05 ct/kWh | § 3 StromStG, standard rate, 2024/2025 | 01, A3, A4 |
+| Levies (KWKG, offshore network levy, § 19 StromNEV) as one figure | `levies`; `grid_levies` in A4 | 1.5 ct/kWh | 2024/2025 | 01, A3, A4 |
+| Network charge, energy component | `network_charge` in 01; `grid_network_charge` in A4; `network_energy` in A3 | 8.5 ct/kWh; 6.0 ct/kWh at A3's depot | DSO and BNetzA averages, 2024/2025 | 01, A3, A4 |
+| Feed-in tariff for small PV | `feed_in_tariff` | 7.86 ct/kWh | EEG 2023 § 48 (1) Nr. 1, partial feed-in, February 2025 (A4); a legacy option in 01 | 01, A4 |
+| Applicable value, onshore wind | `MarketConfig.anzulegender_wert_wind` | 73.5 EUR/MWh | the BNetzA ceiling of the 2025 onshore tenders (EEG 2023 § 36), as in 2024; not an award | 02 |
+| Applicable value, PV | `MarketConfig.anzulegender_wert_pv` | 68.0 EUR/MWh | the BNetzA ceiling of the 2025 ground-mounted solar tenders (§ 37), 73.7 EUR/MWh in 2024; not an award | 02 |
+| Direct marketing fee | `MarketConfig.direct_marketing_fee` | 3.0 EUR/MWh | a trader's management fee, 2024/2025 | 02 |
+| Negative-price rule | `negative_price_rule` | in 02, by vintage: `none`, `six_hour`, `four_hour`, `three_hour`, `two_hour`, `one_hour`, `new_2025` (section 2.2); in 01, `none` or `new_2025` | § 51 EEG, kept per vintage by § 100; BGBl. 2025 I Nr. 51 | 02, 01 |
+| § 14a guaranteed minimum power | `Para14aConfig.p_min_kw` in 01; `Para14aConfig.p_min_total_kw` in A3 | 4.2 kW | BNetzA BK6-22-300 / BK8-22/010-A, in force 1 January 2024 | 01, A3 |
+| § 14a Module 1, flat reduction | `module_1_annual_reduction` | 190 EUR/a | the same determination | 01, A3 |
+| § 14a Module 2, reduction | `module_2_reduction` | 60 % of the network charge's energy component | the same determination | 01, A3 |
+| § 14a Module 3, time-variable factors | `module_3_factors` | 0.4 / 1.0 / 1.9 (low / standard / high) | the same determination | 01, A3 |
+| Peak charge | `peak_charge_eur_kw_year` | 120 EUR/kW/a, on the billing period's highest quarter-hour | § 19 (2) StromNEV, 2024/2025 | A3 |
+| THG-Quote revenue | `thg_eur_kwh` | 6 ct per kWh charged | 38. BImSchV, 2024 | A3 |
+| Pumped-storage network-charge exemption | `para_118_6_exempt` | on | § 118 (6) EnWG | A2 |
+| Pump network charge, if the exemption lapses | `network_charge_pump` | 12 EUR/MWh | BNetzA monitoring report, 2024/2025 | A2 |
+| aFRR minimum bid | `afrr_min_bid_mw` | 5 MW; A2's RL environment offers nothing below it | the prequalification minimum bid size | A2 |
+| aFRR product block | `block_steps` in A2; `afrr_block_steps` in 02 | 16 quarter-hours (4 h) | the 4-hour product blocks of regelleistung.net | A2; declared in 02, which reads no aFRR setting |
+| Mieterstrom surcharge | `mieterstrom_surcharge` | 2.61 ct/kWh, in the Mieterstrom regime | § 21 (3) / § 48a EEG, 2024/2025 | A4 |
+| Internal price of shared energy | `internal_price` | 20 ct/kWh under § 42b EnWG; 24 under Mieterstrom; 18 under energy sharing | an assumption per regime, not a statutory value | A4 |
+| Step length | `dt` | 0.25 h | the 15-minute market time unit (section 1.1) | every project |

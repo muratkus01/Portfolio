@@ -177,10 +177,14 @@ def load_year(year: int, days: int | None = None,
 def market_value_weights(frame: pd.DataFrame) -> pd.DataFrame:
     """Per-technology weights of the market-value proxy, from `load_year`'s factors.
 
-    National feed-in over installed capacity: the capacity is one figure within a month, so
-    the factor weights the price as the feed-in does. MW Wind an Land weights by onshore
-    feed-in alone (Anlage 1 Nr. 3.3.2), which `wind_cf` is. PV weights by `pv_feed_in_cf`,
-    public feed-in, not by the plant factor `pv_cf`, which also counts self-consumption.
+    National feed-in over installed capacity. The capacity is one figure within a month, so
+    for a monthly value the factor weights the price exactly as the feed-in does. An annual
+    value spans twelve monthly fleet figures, each month's feed-in divided by its own month's
+    fleet, so for annual values these capacity-factor weights differ slightly from feed-in
+    weights in how they weigh the months against each other. MW Wind an Land weights by
+    onshore feed-in alone (Anlage 1 Nr. 3.3.2), which `wind_cf` is. PV weights by
+    `pv_feed_in_cf`, public feed-in, not by the plant factor `pv_cf`, which also counts
+    self-consumption.
 
     Args:
         frame: a `load_year` frame.

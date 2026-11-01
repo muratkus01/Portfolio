@@ -1,6 +1,6 @@
 # ⚡ AI for Renewable Energy Systems: Applied Research Portfolio
 
-> Three engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems: strictly grounded in actual German market designs, grid codes, and regulatory frameworks.
+> Three engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems: strictly grounded in actual German market designs and regulatory frameworks.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![Live Showcase](https://img.shields.io/badge/Live_Showcase-GitHub_Pages-6c63ff.svg)](https://muratkus01.github.io/Portfolio/showcase.html)
@@ -10,7 +10,7 @@
 
 **Author:** Murat Kus · Dipl.-Ing. Mechanical Engineering · M.Sc. Sustainable Energy Systems (FH Upper Austria) · B.Sc. Artificial Intelligence (JKU Linz) - In Progress  
 **Domain:** Power System Economics, Energy Market Optimization, Sequential Decision-Making under Uncertainty  
-**Focus Markets:** Germany (DE-LU bidding zone), EPEX SPOT Day-Ahead / Intraday (SDAC/SIDC), `regelleistung.net` Balancing (FCR/aFRR), and German **reBAP** Imbalance Settlement.
+**Focus Markets:** Germany (DE-LU bidding zone): EPEX SPOT Day-Ahead (SDAC), continuous Intraday (SIDC, at the ID AEP index), German **reBAP** Imbalance Settlement, and EEG direct marketing with the market premium. No active project models balancing reserve (FCR/aFRR) yet; aFRR for Project 02's battery is planned, not built.
 
 ---
 
@@ -46,9 +46,9 @@ Each project is a fully structured Python package with clean modular `src/`, rep
 flowchart TB
     subgraph FOUND["Common Principles"]
         F1["Benchmark ladders: every method against simpler rungs and a perfect-information bound"]
-        F2["15-minute settlement at DE-LU prices (DA, ID, reBAP), modelled in each project"]
+        F2["15-minute settlement on DE-LU day-ahead prices in every project (through a dynamic tariff in 01), plus intraday (ID AEP) and reBAP in 03"]
         F3["German Regulatory Constraint Layer (§41a, §51, reBAP)"]
-        F4["Issue-time forecasts with an information-set test"]
+        F4["Issue-time forecasts with an information-set test in 01 and 03 (synthetic forecasts for B3 in 02)"]
     end
 
     subgraph BTM["Behind the Meter"]
@@ -71,7 +71,7 @@ flowchart TB
 | # | Project Dossier | Core Method | Asset / Scale | Regulatory Framework | Quickstart Command |
 |:---:|---|---|---|---|---|
 | **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Fast LP-MPC + Rescaled SAC RL | 8 kWp PV, 9.37 kWh BESS, 5.63 kW Inverter | §14a / §41a EnWG, EEG 2023 | `prosumer rolling-eval` |
-| **02** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/02-utility-hybrid-plant-dispatch/) | Co-located LP + B3 Rolling MPC | 50 MW Wind, 30 MW PV, 40 MWh BESS | EEG §51 / §51a Negative Price Rules | `python -m hybrid.cli ladder` |
+| **02** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/02-utility-hybrid-plant-dispatch/) | Benchmark ladder from B0 (no battery) to B3, an LP rolling MPC on synthetic forecasts; the negative-price rule of each EEG vintage (the whole run loses the premium once it reaches the vintage's threshold, and from 25 Feb 2025 every negative period does); the market premium per technology on proxy market values, paid as one blended plant rate, which understates what a rule removes. Stops at B3 by design | 50 MW onshore wind + 30 MWp PV + 20 MW / 40 MWh battery behind one 60 MW connection; national capacity factors, not a real site | EEG §51 negative-price rule by vintage, EEG 2023 market premium | `python -m hybrid.cli ladder --year 2025 --start 01-01 --days 30` |
 | **03** | [**Probabilistic Forecast-to-Bid**](projects/03-probabilistic-forecast-to-bid/) | Quantile forecast ladder (climatology to LightGBM, TSO forecast as benchmark), settled at real day-ahead, intraday (ID AEP) and reBAP prices | 200 MW wind + 100 MW PV, fleet-shaped | German single-price reBAP | `python -m f2b.cli backtest --phase validation` |
 
 Project 03's backtest needs the `[forecast]` extra (LightGBM, SciPy) and one `python -m f2b.cli build-data` run first. For its euro results, download reBAP and ID AEP by hand from netztransparenz.de into its `data/raw/netztransparenz/` folder before that run, because `build-data` reads them into the dataset ([its README](projects/03-probabilistic-forecast-to-bid/README.md), section 6).
@@ -86,12 +86,12 @@ charging under §14a EnWG, and cooperative energy sharing in renewable energy co
 
 ## 🛡️ Bugs the Invariants Caught
 
-Every project checks structural physical, electrical, and market invariants, at runtime or in its tests. Each invariant caught, or now guards against, a real defect that would otherwise have produced plausible but invalid results:
+Every project checks structural physical, electrical, and market invariants, at runtime or in its tests. Each invariant caught, or now guards against, a real defect. Most of these defects would otherwise have produced plausible but invalid results:
 
 | Project | Invariant | What It Caught |
 |:---:|---|---|
 | **01** | B2 <= B3 <= B1; zero violations under random actions | Linear terminal storage valuation priced stored energy at full retail import, driving MPC to buy from the grid at every horizon boundary. Continuous action clipping truncated policy outputs at 80% (resolved via action rescaling). |
-| **02** | B3 >= B1; every rung <= perfect foresight | B3 applied a planned curtailment fraction from forecast generation to actual generation, discarding deliverable energy. Voluntarily gating curtailment to negative prices lifted B3 to +5.4% over the unhybridized plant. |
+| **02** | No rung beats perfect foresight (B2) on revenue before imbalance, beyond solver rounding (`run_ladder` raises); zero violations under random actions; regression tests against the statute and the settlement | Found in the rebuild, each now pinned by a test. The six-hour rule kept the premium for the first 23 quarter-hours of a negative-price run, where §51 removes it for the whole run; a test had pinned the wrong rule, and that test, `test_six_hour_rule_removes_the_premium_for_the_whole_run`, now pins the statute's. Every battery rung started half full, so the battery sold energy it never bought and counted it as its value (`test_no_rung_earns_from_energy_it_never_bought`). B3 planned on a premium built from the mean of the window's prices, later ones included, and its price-forecast error was sized on their spread; it now plans on the previous month's realised rate, with the error sized on the previous year's prices (`test_later_prices_do_not_change_b3s_earlier_decisions`). Two defects were latent and moved no published number. Imbalance was never settled, because `run_ladder` dropped the schedule whenever reBAP was given (`test_a_deviation_from_the_committed_schedule_is_settled_at_rebap`); no rung commits a schedule yet, so imbalance is still 0 in every table. Grid imports were free: a stand-in rung that bought grid energy and sold it back beat B2 and tripped the ladder invariant (`test_grid_imports_are_paid_at_the_day_ahead_price`). One stopped valid runs: the invariant's absolute 1e-3 EUR tolerance tripped on solver rounding when B3 matched B2 under perfect forecasts; it is now 1e-6 of B2, at least 1e-3 EUR (`test_perfect_forecasts_do_not_trip_the_ladder_invariant`). Found before the rebuild: a market value derived from the plant's own export put B2 below B0, which the invariant, now on every rung, would have caught at once (`test_premium_rate_is_exogenous`); and B3 applied a curtailment planned on forecast generation to the true generation, discarding energy the connection could take (`test_rolling_mpc_beats_the_rule_based_baseline`). |
 | **03** | No forecast read after its decision time (an audit that can fail); features unchanged when everything outside their information set is corrupted | The information-set test caught a PV feature that wrapped around to the end of the series on the first day. Found during the rebuild and now guarded by the audit and its tests: day-ahead positions read forecasts issued after the 12:00 gate closure for every quarter-hour delivered after noon, and the old audit only re-checked the store's own guard, so it could not fail. The rebuild also found that the old model set the intraday price equal to the day-ahead price. |
 
 The archived projects ([`archive/README.md`](archive/README.md)) carry the number of their folder, prefixed with A:
@@ -113,7 +113,7 @@ Every method is measured against simpler rungs on the same data and against a pe
 | **B0** | Historical / Status-Quo | Baseline uncoordinated or unhedged reference. |
 | **B1** | Rule-Based Expert Baseline | Industry-standard heuristic (e.g. greedy self-consumption, threshold shaving). |
 | **B2** | Perfect-Foresight Optimization | Theoretical performance ceiling over the entire simulation horizon. |
-| **B3** | Rolling-Horizon MPC | **The deployable classical benchmark** operating under imperfect lookahead. |
+| **B3** | Rolling-Horizon MPC | **The classical benchmark** under imperfect lookahead. Deployable in Project 01, where it plans only on what a home system knows when it decides. In Project 02 it plans on synthetic forecasts and knows the true negative-price mask, so its recovery there is optimistic. |
 | **RL** | Learned Policy (SAC, Project 01 only) | **Must beat B3 on out-of-sample data** to justify algorithmic deployment. |
 
 Project 03 climbs a forecast ladder instead: climatology, persistence, linear quantile regression and LightGBM, with the forecast the transmission system operators publish as a benchmark. Every forecast is traded by the same policy rules (day-ahead only, intraday to the median, and a deadband rule whose band is tuned per forecast on the validation window) and compared with the perfect forecast.
@@ -131,15 +131,17 @@ Portfolio/
 ├── CLAUDE.md                          ← Assistant instructions & quickstart guide
 ├── datakit/                           ← Shared market data loaders & spot price connectors
 ├── docs/                              ← Energy market primers, regulatory guides & math
-├── projects/                          ← The three active projects (218 tests)
-│   ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (174 tests; data tests skip without the gitignored data)
-│   ├── 02-utility-hybrid-plant-dispatch/ ← Package: hybrid (26 tests)
-│   └── 03-probabilistic-forecast-to-bid/ ← Package: f2b (18 tests)
+├── projects/                          ← The three active projects (428 tests)
+│   ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (187 tests; data tests skip without the gitignored data)
+│   ├── 02-utility-hybrid-plant-dispatch/ ← Package: hybrid (180 tests, all offline)
+│   └── 03-probabilistic-forecast-to-bid/ ← Package: f2b (61 tests)
 └── archive/                           ← Set aside 2026-10-09, still tested (88 tests)
     ├── 02-pumped-storage-rl-multimarket/ ← Package: psw (27 tests)
     ├── 03-smart-ev-charging-14a/      ← Package: evc (20 tests)
     └── 04-energy-sharing-rec/         ← Package: rec (41 tests)
 ```
+
+Test counts as `pytest --collect-only` gave them on 2026-11-01: 516 in all. Started without the gitignored data and with network access, the full suite gave 476 passed and 40 skipped, all 40 of them Project 01's data tests. Project 01's tests download two public inputs from GitHub when they are missing: the BDEW H0 table and the thesis input year. CI, which does not install LightGBM, skips one more.
 
 ---
 
