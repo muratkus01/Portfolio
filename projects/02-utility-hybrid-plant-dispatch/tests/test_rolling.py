@@ -75,6 +75,40 @@ def test_rolling_mpc_is_feasible_and_timed(ladder):
     assert len(b3["solve_time_s"]) > 0
 
 
+# Recorded with CBC on this module's ladder fixture at a802748, the last commit before the aFRR
+# build. B0 and B1 call no solver. B2's net is its LP's optimal value, which every optimal
+# vertex that CBC may return shares.
+GOLDEN_B0_COST = {
+    "spot_revenue": 171606.74603726994, "premium_revenue": 20180.643504582826,
+    "marketing_fee": 7627.74131421856, "degradation_cost": 0.0, "imbalance_cost": 0.0,
+    "import_cost": 0.0, "net_revenue": 184159.6482276342, "chosen_curtail_mwh": 0.0,
+    "forced_curtail_mwh": 637.2275565652144, "export_mwh": 2542.580438072853}
+GOLDEN_B1_COST = {
+    "spot_revenue": 178395.65391288447, "premium_revenue": 20817.934652930548,
+    "marketing_fee": 7866.725494848955, "degradation_cost": 503.7865968413633,
+    "imbalance_cost": 0.0, "import_cost": 0.0, "net_revenue": 190843.0764741247,
+    "chosen_curtail_mwh": 0.0, "forced_curtail_mwh": 548.9600844948923,
+    "export_mwh": 2622.2418316163184}
+GOLDEN_B2_NET_EUR = 193862.48054459778
+
+
+def test_afrr_off_reproduces_the_golden_ladder(ladder):
+    """A pin: with aFRR off, the ladder earns what it earned at a802748, on CBC.
+
+    B0 and B1 are pinned term by term at rel 1e-12: exact but for the last bits that np.sin,
+    which builds the inputs, may round differently on another platform. B2 is pinned on its
+    net at rel 1e-7, as CBC's builds differ. Its spot revenue is not unique across optimal
+    vertices, so it is not pinned. B3 has no CBC golden: one of its 288 re-solves on another
+    optimal vertex would move it far more than any tight tolerance. The stand-in pins in
+    test_ladder_accounting.py carry B3.
+    """
+    _, res = ladder
+    assert res["B0 no battery"]["cost"] == pytest.approx(GOLDEN_B0_COST, rel=1e-12)
+    assert res["B1 curtailment avoidance"]["cost"] == pytest.approx(GOLDEN_B1_COST, rel=1e-12)
+    assert res["B2 perfect foresight"]["cost"]["net_revenue"] == pytest.approx(
+        GOLDEN_B2_NET_EUR, rel=1e-7)
+
+
 def test_b3_plans_its_whole_horizon_on_the_premium_it_knows_now():
     """A plan made late in a month must not price next month's steps at next month's rate.
 

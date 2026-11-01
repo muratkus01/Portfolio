@@ -1,14 +1,24 @@
 """Accounting of the benchmark ladder: what each rung is credited with, and the invariant."""
 from __future__ import annotations
 
+import itertools
+import json
+from pathlib import Path
+
 import numpy as np
+import pulp
 import pytest
 
 import hybrid.baselines as baselines
-from hybrid.baselines import run_ladder
+from hybrid.baselines import (b0_no_battery, b1_curtailment_avoidance, b2_perfect, b3_rolling,
+                              make_forecasts, run_ladder)
 from hybrid.config import MarketConfig, PlantConfig, RunConfig
-from hybrid.market import settle
+from hybrid.market import effective_price, premium_eligible, settle
 from hybrid.plant import simulate
+
+# Every output of the rungs on the LP's stand-in, recorded at a802748, the last commit before
+# the aFRR build (test_the_rungs_reproduce_their_golden_runs_on_a_stand_in_solver).
+GOLDENS = Path(__file__).with_name("goldens_a802748_standin.json")
 
 
 def window(n: int, seed: int = 0):
@@ -274,3 +284,169 @@ def test_a_start_outside_the_battery_limits_is_rejected(frac):
     """
     with pytest.raises(ValueError, match="soc_init_frac"):
         PlantConfig(soc_init_frac=frac)
+
+
+# ------------------------------------------------------------------ pins: aFRR off
+# The aFRR build adds a capacity leg to these rungs behind a switch that is off by default.
+# With it off, they must do exactly what they did before it. These pins hold that on every
+# platform without CBC: the LP the solver receives, and every output of the rungs on a
+# deterministic stand-in for the solver.
+def _frozen_lp(wind, pv, eff_price, dt, run, soc0, terminal_price=0.0,
+               export_cap=None) -> pulp.LpProblem:
+    """A frozen copy of the model `baselines.solve_window` built at a802748, up to the solve.
+
+    Never edit it to match the code: a difference means that the energy-only LP changed.
+    """
+    cfg = run.plant
+    n = len(wind)
+    m = pulp.LpProblem("hybrid", pulp.LpMaximize)
+
+    gen = np.asarray(wind, float) + np.asarray(pv, float)
+    cap = np.full(n, cfg.conn_mw) if export_cap is None else np.minimum(export_cap, cfg.conn_mw)
+
+    g = pulp.LpVariable.dicts("g", range(n), lowBound=0)
+    ch = pulp.LpVariable.dicts("ch", range(n), lowBound=0, upBound=cfg.bess_mw)
+    dis = pulp.LpVariable.dicts("dis", range(n), lowBound=0, upBound=cfg.bess_mw)
+    soc = pulp.LpVariable.dicts("soc", range(n), lowBound=cfg.soc_min, upBound=cfg.soc_max)
+    exp = pulp.LpVariable.dicts("exp", range(n), lowBound=0)
+
+    m += (pulp.lpSum(exp[t] * float(eff_price[t]) * dt for t in range(n))
+          - pulp.lpSum((ch[t] + dis[t]) * dt * cfg.c_deg_eur_mwh for t in range(n))
+          + terminal_price * soc[n - 1])
+
+    for t in range(n):
+        prev = soc0 if t == 0 else soc[t - 1]
+        m += soc[t] == prev + (cfg.eta_c * ch[t] - dis[t] / cfg.eta_d) * dt
+        m += g[t] <= float(gen[t])
+        m += exp[t] == g[t] + dis[t] - ch[t]
+        m += exp[t] <= float(cap[t])
+        if not cfg.grid_charging_allowed:
+            m += ch[t] <= g[t]
+    return m
+
+
+def _lp_terms(m: pulp.LpProblem) -> dict:
+    """What CBC receives of a model: its name and sense, every variable with its bounds and
+    category, every constraint in order with its name, sense, coefficients and constant, and
+    the objective's coefficients and constant."""
+    def coefficients(expression) -> list:
+        return sorted((variable.name, value) for variable, value in expression.items())
+
+    return {"problem": (m.name, m.sense),
+            "variables": [(v.name, v.lowBound, v.upBound, v.cat) for v in m.variables()],
+            "constraints": [(name, c.sense, c.constant, coefficients(c))
+                            for name, c in m.constraints.items()],
+            "objective": (m.objective.constant, coefficients(m.objective))}
+
+
+def test_the_off_path_builds_todays_lp(monkeypatch):
+    """A pin: with aFRR off, solve_window hands the solver the LP it built at a802748.
+
+    The aFRR build moves the model into a builder of its own and adds reserve terms behind a
+    switch. A recorder takes the solver's place, so the check needs no CBC and holds on every
+    platform. It covers the export cap, grid charging both ways and a terminal price.
+    """
+    built = []
+
+    def record(problem, *args, **kwargs):
+        built.append(problem)
+        return problem.status
+
+    monkeypatch.setattr(pulp.LpProblem, "solve", record)
+    wind, pv, price = window(8, seed=3)
+    eff = price - 60.0
+    order = np.r_[np.full(4, 70.0), np.full(4, 25.0)]   # above, then below, the 60 MW connection
+    for cap, grid, terminal in itertools.product((None, order), (False, True), (0.0, 41.5)):
+        run = RunConfig(plant=PlantConfig(grid_charging_allowed=grid))
+        built.clear()
+        baselines.solve_window(wind, pv, eff, run.dt, run, 12.0, terminal_price=terminal,
+                               export_cap=cap)
+        case = f"export cap {cap is not None}, grid charging {grid}, terminal price {terminal}"
+        assert len(built) == 1, case
+        frozen = _frozen_lp(wind, pv, eff, run.dt, run, 12.0, terminal, cap)
+        assert _lp_terms(built[0]) == _lp_terms(frozen), case
+
+
+def _stand_in_solve_window(wind, pv, eff_price, dt, run, soc0, terminal_price=0.0,
+                           export_cap=None, msg=False):
+    """A deterministic stand-in for the LP, in numpy, with solve_window's signature.
+
+    It discharges above the window's median price and charges below it, the harder the fuller
+    the battery starts; it curtails at negative prices and where the connection binds. It
+    ignores every limit, so the safety layer has to clip its plans, and each argument the
+    rungs pass moves the plan, so the goldens pin what they pass as well. It uses arithmetic
+    and a median only, so its plans are the same on every platform.
+    """
+    cfg = run.plant
+    price = np.asarray(eff_price, dtype=float)
+    gen = np.asarray(wind, dtype=float) + np.asarray(pv, dtype=float)
+    cap = (np.full(len(price), cfg.conn_mw) if export_cap is None
+           else np.minimum(export_cap, cfg.conn_mw))
+    fill = (soc0 - cfg.soc_min) / (cfg.soc_max - cfg.soc_min)
+    p_bat = (price - np.median(price) - 0.1 * terminal_price) * (0.4 + fill) / (4.0 * dt)
+    curt = np.where(price < 0.0, 0.5, 0.0) + np.where(gen > cap, 0.25, 0.0)
+    return p_bat, curt
+
+
+def _as_json(result: dict) -> dict:
+    """A rung's outputs as JSON values, without its solve times, which are measured."""
+    def value(v):
+        if isinstance(v, np.ndarray):
+            return v.tolist()
+        return dict(v) if isinstance(v, dict) else float(v)
+
+    return {key: value(v) for key, v in result.items() if key != "solve_time_s"}
+
+
+def _stand_in_runs() -> dict[str, dict]:
+    """B0 to B3 and run_ladder on the stand-in, as JSON values per run.
+
+    One day of `window` from midnight, shifted to give negative prices, at a 40 MW connection
+    so that it binds. run_ladder runs every rung with B3 re-planning every step, a premium
+    that changes within the window, reBAP and a schedule. The rungs then run alone under a
+    redispatch order, B3 with a terminal value and a re-plan every 4 steps.
+    """
+    wind, pv, price = window(96, seed=2)
+    price = price - 60.0
+    n = len(price)
+    run = RunConfig(dt=0.25, horizon_steps=16, plant=PlantConfig(conn_mw=40.0))
+    premium = np.r_[np.full(48, 8.0), np.full(48, 11.0)]
+    rebap = price + np.where(np.arange(n) % 3 == 0, 40.0, -20.0)
+    ladder = run_ladder(wind, pv, price, run, premium_rate=premium, rebap=rebap,
+                        schedule=np.full(n, 30.0), b3_premium_rate=np.full(n, 9.5),
+                        include_b2_no_battery=True)
+    runs = {f"ladder: {name}": r for name, r in ladder.items()}
+    order = np.r_[np.full(40, 40.0), np.full(16, 22.0), np.full(40, 40.0)]
+    eff = effective_price(price, run.market, 8.0, run.dt)
+    runs["B0, redispatch"] = b0_no_battery(wind, pv, run, order)
+    runs["B1, redispatch"] = b1_curtailment_avoidance(wind, pv, run, order)
+    runs["B2, redispatch"] = b2_perfect(wind, pv, eff, run, order)
+    forecasts = make_forecasts(wind, pv, eff, run, np.random.default_rng(7))
+    eligible = premium_eligible(price, run.market, run.dt)
+    runs["B3 every 4 steps, terminal value, redispatch"] = b3_rolling(
+        wind, pv, eff, *forecasts, run.with_(terminal_value=True), order, resolve_every=4,
+        premium=(np.full(n, 8.0), eligible))
+    return {name: _as_json(r) for name, r in runs.items()}
+
+
+def test_the_rungs_reproduce_their_golden_runs_on_a_stand_in_solver(monkeypatch):
+    """A pin: with aFRR off, the rungs' loops, the safety layer and the settlement give what
+    they gave at a802748, output for output.
+
+    CBC is replaced by `_stand_in_solve_window`, so the pin needs no solver and holds on every
+    platform. The goldens were recorded at a802748 with this stand-in, as json.dumps of
+    `_stand_in_runs()`; never re-record them to make this test pass. Its plans are not
+    optimal, so B2 need not lead the ladder: the invariant is switched off here, and the
+    other tests of this module keep it.
+    """
+    monkeypatch.setattr(baselines, "solve_window", _stand_in_solve_window)
+    monkeypatch.setattr(baselines, "ladder_tolerance", lambda b2_revenue: float("inf"))
+    golden = json.loads(GOLDENS.read_text())
+
+    runs = _stand_in_runs()
+
+    assert list(runs) == list(golden)
+    for name, outputs in runs.items():
+        assert list(outputs) == list(golden[name]), name
+        for key, value in outputs.items():
+            assert value == pytest.approx(golden[name][key], rel=1e-12), f"{name}: {key}"
