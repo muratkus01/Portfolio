@@ -4,44 +4,287 @@
     python -m hybrid.cli sizing    --year 2025 --days 30   connection-ratio sweep (RQ2)
     python -m hybrid.cli negprice  --year 2025 --days 30   negative-price rule by vintage (RQ4)
     python -m hybrid.cli decompose --year 2025 --days 30   where the battery's value comes from
+    python -m hybrid.cli b3-ablation --synthetic-demo      B3: forecast error x terminal value
+    python -m hybrid.cli report                            the published tables, to reports/
+
+A window runs --days days of 24 h from --start (MM-DD, Berlin time, 01-01 by default), or
+the whole Berlin calendar year with --full-year. --out PATH also writes the result as a CSV,
+one row per scenario and rung (`hybrid.tables`).
 """
 from __future__ import annotations
 
 import argparse
+import sys
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-from .baselines import run_ladder
-from .config import MarketConfig, PlantConfig, RunConfig
-from .data import describe, load_year, to_plant
-from .market import rebap_series
+from . import synthetic, tables
+from .baselines import ladder_tolerance, run_ladder
+from .config import NEGATIVE_PRICE_RULES, MarketConfig, PlantConfig, RunConfig
+from .data import describe, load_year, market_value_weights, to_plant
+from .market import (market_values, planning_rates, premium_by_technology, premium_eligible,
+                     premium_rates, premium_table, rebap_series, vintage_rules)
+
+
+# The default plant, at MarketConfig's applicable values, the 2025 tender ceilings, is
+# commissioned and awarded from 2023 on, so it is paid against its technology's ANNUAL market
+# value (EEG 2023 Anlage 1 Nr. 2), as negprice's recent vintage is. --neg-rule varies the
+# negative-price rule as a sensitivity on this plant; its applicable values and their annual
+# reference stay.
+_DEFAULT_PERIOD = "year"
 
 
 def _setup(args, plant: PlantConfig | None = None, market: MarketConfig | None = None):
+    """Run settings and the evaluated window.
+
+    args: parsed CLI arguments, e.g. year=2024, days=20, horizon=96, neg_rule="new_2025".
+    plant, market: settings to run instead of the defaults.
+    Returns (run, index, wind, pv, price, rebap): the RunConfig, the window's UTC timestamps,
+    and per step the plant's available wind and PV (MW), the day-ahead price and a synthetic
+    reBAP (EUR/MWh).
+    """
     run = RunConfig(dt=0.25, horizon_steps=args.horizon,
                     plant=plant or PlantConfig(),
                     market=market or MarketConfig(negative_price_rule=args.neg_rule))
-    df = load_year(args.year, args.days, run.dt)
+    df = load_window(args, run.dt)
     wind, pv, price = to_plant(df, run.plant.wind_mw, run.plant.pv_mw)
     rng = np.random.default_rng(run.seed)
     rebap = rebap_series(len(price), price, run.market, rng)
-    # premium rate: applicable value minus the market value realised over this window
-    premium = max(0.0, run.market.anzulegender_wert_wind - float(np.mean(price)))
-    return run, wind, pv, price, rebap, premium
+    return run, df.index, wind, pv, price, rebap
+
+
+def load_window(args, dt: float) -> pd.DataFrame:
+    """The evaluated window: `args.days` days of 24 h from `args.start` (MM-DD, Berlin time) in
+    `args.year`, or the whole Berlin calendar year when `args.days` is None.
+
+    args: parsed CLI arguments, e.g. year=2025, start="07-01", days=30.
+    dt: step length in hours, e.g. 0.25.
+    Returns the window's rows of `load_year(args.year)`.
+    Raises ValueError when the window does not lie inside its calendar year: load_year loads
+    one year, so a longer window would be cut short without a word.
+    """
+    begin = pd.Timestamp(f"{args.year}-{args.start}", tz="Europe/Berlin")
+    if args.days is None:
+        if args.start != "01-01":
+            raise ValueError(f"--full-year covers {args.year} from 01-01, not from {args.start}")
+        return _load(args, args.year, None, dt)
+    end = begin + pd.Timedelta(days=args.days)
+    if end > pd.Timestamp(f"{args.year + 1}-01-01", tz="Europe/Berlin"):
+        raise ValueError(f"{args.days} days from {args.start} run past the end of {args.year}")
+    if args.start == "01-01":
+        # load_year cuts the year's first days itself, as every window was cut before --start
+        return _load(args, args.year, args.days, dt)
+    year = _load(args, args.year, None, dt)
+    return year[(year.index >= begin) & (year.index < end)]
+
+
+def window_label(args) -> str:
+    """The window's name in file names: "2024" for a whole year, else e.g. "2025-07-01_30d",
+    and "synthetic_demo" for the showcase's synthetic inputs."""
+    if getattr(args, "synthetic_demo", False):
+        return "synthetic_demo"
+    if args.days is None:
+        return str(args.year)
+    return f"{args.year}-{args.start}_{args.days}d"
+
+
+def _window_text(args) -> str:
+    """The window as the output names it, e.g. "30 days of 2025" or "2024 (whole year)"."""
+    if getattr(args, "synthetic_demo", False):
+        return "the showcase's 3 synthetic days (demo_05)"
+    if args.days is None:
+        return f"{args.year} (whole year)"
+    text = f"{args.days} {'day' if args.days == 1 else 'days'} of {args.year}"
+    return text if args.start == "01-01" else f"{text} from {args.start}"
+
+
+def _load(args, year: int, days: int | None, dt: float) -> pd.DataFrame:
+    """`load_year`, noted in `args.inputs` where a report records what each run loaded."""
+    frame = load_year(year, days, dt)
+    _note_input(args, f"load_year({year}, days={days}, dt={dt})", frame, year, days)
+    return frame
+
+
+def _note_input(args, label: str, frame: pd.DataFrame, year: int | None = None,
+                days: int | None = None) -> None:
+    """Record an input frame in `args.inputs`, if the report asked for it (`hybrid.report`).
+
+    label: what loaded it, e.g. "load_year(2024, days=None, dt=0.25)".
+    year, days: the calendar year and window length it covers, None where it has no dates.
+    """
+    inputs = getattr(args, "inputs", None)
+    if inputs is not None:
+        inputs[label] = {"year": year, "days": days, "frame": frame}
+
+
+def _realised_premium(year: pd.DataFrame, index: pd.DatetimeIndex, wind: np.ndarray,
+                      pv: np.ndarray, applicable: dict, period: str) -> tuple:
+    """Premium table and per-step rate a plant is settled on: the REALISED market values.
+
+    The premium is paid against the market value of the whole calendar month or year (EEG
+    2023 Anlage 1 Nr. 3.1.1, 4.1.1), so the values come from the full year's data, not from
+    the window alone. Each technology gets max(0, AW - market value), and the plant's rate
+    weights the two by its own generation (`market.premium_table`).
+
+    year: `load_year(year)`, the whole year. index: the window's timestamps.
+    wind, pv: the plant's available generation on the window, MW per step.
+    applicable: anzulegender Wert per technology, EUR/MWh, e.g. {"wind": 73.5, "pv": 68.0}.
+    period: "month" or "year".
+    Returns (premium_table frame, the plant's rate per step as np.ndarray).
+    """
+    values = market_values(year["price_eur_mwh"], market_value_weights(year), period)
+    table = premium_table(index, {"wind": wind, "pv": pv}, values, applicable, period)
+    _refuse_unrealised(values.loc[table.index], period)
+    return table, premium_rates(index, table, period)
+
+
+def _refuse_unrealised(values: pd.DataFrame, period: str) -> None:
+    """Stop when a period the window is settled on is not over in the data.
+
+    Its market value is then the value of the period so far, which moves until the period
+    ends: settled on as the realised value it would overclaim, and no result built on it
+    would survive the period's end. datakit caches every payload forever, so a year fetched
+    before it ended stays short until its cached payloads are deleted.
+
+    values: `market.market_values` rows of the periods the window is settled on.
+    period: "month" or "year".
+    Raises ValueError naming each such period and its days of data.
+    """
+    short = [f"{key} ({row['days']:.0f} days of data)" for key, row in values.iterrows()
+             if not row["complete"]]
+    if short:
+        raise ValueError(
+            f"the {'annual' if period == 'year' else 'monthly'} market value of "
+            f"{', '.join(short)} is not realised yet: the data does not cover the whole "
+            "period. Run a period that is over; if it is over, delete the datakit cache files "
+            "of that year, which were fetched before it ended")
+
+
+def _applicable(market: MarketConfig) -> dict:
+    """The plant's applicable values per technology, EUR/MWh."""
+    return {"wind": market.anzulegender_wert_wind, "pv": market.anzulegender_wert_pv}
+
+
+def _premium(args, run: RunConfig, index: pd.DatetimeIndex, wind: np.ndarray,
+             pv: np.ndarray) -> tuple:
+    """The default plant's premium on the window: table and per-step rate it is settled on.
+
+    B2 plans on the same rate, as perfect foresight may; B0 and B1 read no prices.
+    Returns (premium_table frame, rate per step in EUR/MWh).
+    """
+    year = _load(args, args.year, None, run.dt)
+    return _realised_premium(year, index, wind, pv, _applicable(run.market), _DEFAULT_PERIOD)
+
+
+def _b3_planning_premium(args, run: RunConfig, index: pd.DatetimeIndex) -> np.ndarray:
+    """B3's premium per step: the plant's realised monthly rate of the month before.
+
+    A market value is known only once its period is over (`market.planning_rates`), so B3, a
+    deployable controller, plans on an estimate: each month on the previous month's realised
+    rate. For the default plant, which is paid against the annual value, that is one choice
+    among estimates known as early. The previous year's annual value is complete when
+    December's monthly one is, and the year's months so far are known from February on.
+    ladder prints the rates B3 plans on next to the rate it is settled on, so the gap shows.
+    A window's first month needs the month before it, December of the previous year for a
+    window in January, so this loads both years.
+
+    args: parsed CLI arguments, e.g. year=2024. run: the run's settings.
+    index: the window's timestamps.
+    Returns B3's rate per step, EUR/MWh.
+    """
+    frame = pd.concat([_load(args, args.year - 1, None, run.dt),
+                       _load(args, args.year, None, run.dt)])
+    wind, pv, _ = to_plant(frame, run.plant.wind_mw, run.plant.pv_mw)
+    values = market_values(frame["price_eur_mwh"], market_value_weights(frame), "month")
+    monthly = premium_table(frame.index, {"wind": wind, "pv": pv}, values,
+                            _applicable(run.market), "month")
+    return planning_rates(index, monthly)
+
+
+def _b3_price_scale(args, run: RunConfig) -> float:
+    """What B3's price-forecast error is sized on: the day-ahead price's standard deviation
+    over the calendar year before the window, EUR/MWh (`RunConfig.forecast_price_scale`).
+
+    A forecaster sizes its error on prices it has seen, so the window's own must not set it.
+    A whole year is steadier than a single month, whose spread a few scarce hours can dominate.
+
+    args: parsed CLI arguments, e.g. year=2024. run: the run's settings.
+    Returns the standard deviation in EUR/MWh.
+    """
+    return float(np.std(_load(args, args.year - 1, None, run.dt)["price_eur_mwh"].to_numpy()))
+
+
+def _print_premium(table: pd.DataFrame, period: str) -> None:
+    """Print a premium table by period: its days of market data, each technology's premium,
+    and the plant's rate, a blend weighted by this window's own wind/PV mix."""
+    print(f"market premium, settled on the realised {'annual' if period == 'year' else 'monthly'}"
+          " market value (a proxy, see negprice), EUR/MWh:")
+    for key, t in table.iterrows():
+        print(f"  {key} ({t['days']:.0f} days): wind {t['premium_wind']:.2f}, "
+              f"PV {t['premium_pv']:.2f}, plant on this window's wind/PV mix {t['rate']:.2f}")
+
+
+def _premium_columns(index: pd.DatetimeIndex, table: pd.DataFrame, period: str,
+                     b3_rate: np.ndarray | None = None) -> dict:
+    """The premium a scenario is settled on, as table columns.
+
+    index: the window's timestamps. table: its `market.premium_table`, by `period`.
+    b3_rate: the rate B3 planned on per step, where B3 ran.
+    Returns the market-value period and the mean over the window's steps of each
+    technology's premium and of the plant's rate (EUR/MWh); a window inside one period gets
+    that period's values. Where B3 ran, also the mean rate it planned on.
+    """
+    cols = {"premium_period": period}
+    for name, column in (("wind", "premium_wind"), ("pv", "premium_pv"), ("rate", "rate")):
+        cols[f"premium_{name}_mean_eur_mwh"] = float(
+            np.mean(premium_rates(index, table, period, column)))
+    if b3_rate is not None:
+        cols["b3_premium_rate_mean_eur_mwh"] = float(np.mean(b3_rate))
+    return cols
+
+
+def _window_columns(args, index: pd.DatetimeIndex, dt: float) -> dict:
+    """`tables.window_columns` of a window of Energy-Charts data."""
+    return tables.window_columns("Energy-Charts", args.year, len(index), dt, index)
+
+
+def _write(args, rows: list[dict], suffix: str = "") -> None:
+    """Write a command's result rows to --out and say where.
+
+    suffix: added to the file name's stem to write beside --out instead, e.g. "_premium"
+    turns reports/negprice_2024.csv into reports/negprice_2024_premium.csv.
+    """
+    out = Path(args.out)
+    path = tables.write_csv(rows, out.with_name(f"{out.stem}{suffix}{out.suffix}"))
+    print(f"\nwrote {len(rows)} rows to {path}")
+
+
+def _shown(diff: float, b2: float) -> float:
+    """A difference of two rungs' net revenue as printed, EUR: 0 where it lies within the
+    ladder's tolerance of B2's revenue `b2` (`ladder_tolerance`), as that much is the solver's
+    rounding and printed "-0" where it was negative. The --out tables keep the raw difference.
+
+    diff: e.g. B2 no battery minus B0. b2: B2's net revenue in the same run, EUR.
+    """
+    return 0.0 if abs(diff) <= ladder_tolerance(b2) else diff
 
 
 def _report(res: dict, title: str) -> None:
+    """Print each rung's settlement: net revenue, export, curtailment chosen and forced by the
+    connection, and constraint violations, then each rung's gain over B0."""
     print(f"\n{title}")
     print("=" * len(title))
     hdr = (f"{'controller':<26}{'net EUR':>12}{'export MWh':>12}"
-           f"{'curt chosen':>12}{'curt forced':>12}{'viol.':>7}")
+           f"{'curt chosen MWh':>17}{'curt forced MWh':>17}{'viol.':>7}")
     print(hdr)
     print("-" * len(hdr))
     for name, r in res.items():
         c = r["cost"]
         print(f"{name:<26}{c['net_revenue']:>12,.0f}{c['export_mwh']:>12,.0f}"
-              f"{c['chosen_curtail_mwh']:>12,.0f}{c['forced_curtail_mwh']:>12,.0f}"
+              f"{c['chosen_curtail_mwh']:>17,.0f}{c['forced_curtail_mwh']:>17,.0f}"
               f"{sum(r['violations'].values()):>7d}")
     if "B0 no battery" in res:
         b0 = res["B0 no battery"]["cost"]["net_revenue"]
@@ -52,123 +295,482 @@ def _report(res: dict, title: str) -> None:
 
 
 def cmd_ladder(args) -> None:
-    run, wind, pv, price, rebap, prem = _setup(args)
-    print(f"{len(price)} steps | {args.days} days of {args.year} | "
-          f"plant {run.plant.wind_mw:.0f} MW wind + {run.plant.pv_mw:.0f} MW PV + "
+    run, index, wind, pv, price, rebap = _setup(args)
+    table, prem = _premium(args, run, index, wind, pv)
+    print(f"{len(price)} steps | {_window_text(args)} | "
+          f"plant {run.plant.wind_mw:.0f} MW wind + {run.plant.pv_mw:.0f} MWp PV + "
           f"{run.plant.bess_mw:.0f} MW/{run.plant.bess_mwh:.0f} MWh behind "
           f"{run.plant.conn_mw:.0f} MW (overbuild {run.plant.overbuild_ratio:.2f}x)")
     print(describe(wind, pv, price, run.plant.conn_mw, run.dt))
-    print(f"market premium rate: {prem:.2f} EUR/MWh | "
-          f"negative-price rule: {run.market.negative_price_rule}")
+    print(f"negative-price rule: {run.market.negative_price_rule}")
+    _print_premium(table, _DEFAULT_PERIOD)
+    plan = None
+    if not args.fast:
+        plan = _b3_planning_premium(args, run, index)
+        run = run.with_(forecast_price_scale=_b3_price_scale(args, run))
+        by_month = pd.Series(plan, index=index.tz_convert("Europe/Berlin").strftime("%Y-%m"))
+        print("B3 plans each month on the realised monthly rate of the month before, EUR/MWh: "
+              + ", ".join(f"{m} {r:.2f}" for m, r in by_month.groupby(level=0).first().items()))
+        print(f"B3's price-forecast error: standard deviation {run.forecast_sigma:.0%} of "
+              f"{run.forecast_price_scale:.2f} EUR/MWh, the day-ahead price's standard "
+              f"deviation in {args.year - 1}")
     res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=not args.fast,
-                     progress=args.progress)
-    _report(res, f"Hybrid plant ladder, {args.days} days of {args.year}")
+                     progress=args.progress, b3_premium_rate=plan)
+    _report(res, f"Hybrid plant ladder, {_window_text(args)}")
     if "B3 rolling MPC" in res and "solve_time_s" in res["B3 rolling MPC"]:
         st = res["B3 rolling MPC"]["solve_time_s"]
         print(f"\nB3 solve time: mean {st.mean() * 1000:.0f} ms, max {st.max() * 1000:.0f} ms")
+    if args.out:
+        _write(args, tables.rung_rows(res, run, _window_columns(args, index, run.dt),
+                                      _premium_columns(index, table, _DEFAULT_PERIOD, plan)))
+
+
+def _value_split(res: dict) -> dict:
+    """What perfect foresight adds over B0 in one `run_ladder` result, in two parts, EUR: the
+    battery's own value (B2 - B2 no battery) and that of curtailing at low prices, which needs
+    no battery (B2 no battery - B0). They add up to B2 - B0."""
+    net = {name: r["cost"]["net_revenue"] for name, r in res.items()}
+    return {"battery_value_eur": net["B2 perfect foresight"] - net["B2 no battery"],
+            "chosen_curtailment_value_eur": net["B2 no battery"] - net["B0 no battery"]}
+
+
+# The rungs sizing prints. B2 minus B0 counts what curtailing at low prices earns as well, which
+# needs no battery; "B2 no battery" splits the two.
+_SIZING_RUNGS = ("B0 no battery", "B2 no battery", "B2 perfect foresight")
 
 
 def cmd_sizing(args) -> None:
     """RQ2: what is the optimal degree of connection undersizing?"""
-    rows = []
+    rows, out = [], []
     # The sweep spans connections BELOW the observed generation peak, because national
-    # capacity factors are far smoother than any single site: aggregated across Germany the
-    # combined wind+PV factor rarely exceeds ~0.45, so a connection sized at 75 % of
-    # nameplate never binds and the curtailment problem disappears entirely. Sweeping down to
-    # 25 % of nameplate is what makes the trade-off visible in this dataset. On site-level
-    # data the same curve would sit much further right - which is precisely why site data is
-    # this project's top acquisition priority.
+    # capacity factors are far smoother than any single site: aggregated across Germany, wind
+    # and PV come nowhere near their combined nameplate at once, so a connection near
+    # nameplate never binds and the curtailment problem disappears. Sweeping down to 25 % of
+    # nameplate is what makes the trade-off visible in this dataset. How far the window's peak
+    # sits below nameplate is not quoted here: the command prints it, computed from the
+    # Energy-Charts factors it loads, so it holds for whatever year and window are run. On
+    # site-level data the same curve would sit much further right - which is precisely why
+    # site data is this project's top acquisition priority.
     for conn in (20.0, 25.0, 30.0, 40.0, 60.0):
         plant = PlantConfig(conn_mw=conn)
-        run, wind, pv, price, rebap, prem = _setup(args, plant=plant)
-        res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False)
-        for name in ("B0 no battery", "B2 perfect foresight"):
+        run, index, wind, pv, price, rebap = _setup(args, plant=plant)
+        table, prem = _premium(args, run, index, wind, pv)
+        res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False,
+                         include_b2_no_battery=True)
+        for name in _SIZING_RUNGS:
             c = res[name]["cost"]
             rows.append({"conn_MW": conn, "overbuild": plant.overbuild_ratio,
                          "controller": name, "net_EUR": c["net_revenue"],
                          "forced_curt_MWh": c["forced_curtail_mwh"]})
+        if args.out:
+            out += tables.rung_rows(
+                res, run, _window_columns(args, index, run.dt),
+                _premium_columns(index, table, _DEFAULT_PERIOD), conn_mw=conn,
+                overbuild=plant.overbuild_ratio, **_value_split(res))
     df = pd.DataFrame(rows)
-    print("\nConnection-capacity sweep (80 MW installed generation)")
+    # generation and installed ratings are the same at every connection size
+    installed = run.plant.installed_mw
+    peak = float(np.max(wind + pv))
+    print(f"\nConnection-capacity sweep ({run.plant.wind_mw:.0f} MW wind + "
+          f"{run.plant.pv_mw:.0f} MWp PV installed)")
+    print(f"peak combined output in the window: {peak:.1f} MW, {peak / installed:.3f} of "
+          "installed (national Energy-Charts factors)")
     print(df.to_string(index=False, float_format=lambda x: f"{x:,.2f}"))
-    piv = df.pivot(index="conn_MW", columns="controller", values="net_EUR")
-    piv["battery_value_EUR"] = piv["B2 perfect foresight"] - piv["B0 no battery"]
-    print("\nValue of the battery by connection size:")
+    piv = df.pivot(index="conn_MW", columns="controller", values="net_EUR")[list(_SIZING_RUNGS)]
+    b2 = piv["B2 perfect foresight"]
+    for column, diff in (("battery_value_EUR", b2 - piv["B2 no battery"]),
+                         ("chosen_curtailment_value_EUR",
+                          piv["B2 no battery"] - piv["B0 no battery"])):
+        piv[column] = [_shown(d, r) for d, r in zip(diff, b2)]
+    print("\nValue by connection size: the battery's own (B2 - B2 no battery), and that of "
+          "curtailing\nat low prices, which needs no battery (B2 no battery - B0):")
     print(piv.to_string(float_format=lambda x: f"{x:,.0f}"))
+    print("(a difference within the solver's rounding prints as 0; --out keeps it as solved)")
+    if args.out:
+        _write(args, out)
+
+
+# Two vintages, and the market value each one is paid against. The applicable value
+# (anzulegender Wert) is set by the plant's tender award, or by law at commissioning, so an
+# older or offshore plant carries a higher one than a recent onshore plant at ~73.5 EUR/MWh.
+# The dates also fix the reference: a plant commissioned before 2023, or awarded before 2023,
+# is paid against its technology's MONTHLY market value, any other plant against the ANNUAL
+# value (EEG 2023 Anlage 1 Nr. 2).
+# Where a plant gets no premium the negative-price rule is economically irrelevant, because
+# there is no premium to suspend. That contrast is the point of the table; the note under it
+# says which vintage got none in the evaluated window.
+# Each entry: wind and PV applicable value (EUR/MWh), label, market-value period. The recent
+# plant is the default plant of every other command, at the values MarketConfig sets and
+# cites. The older vintage's values are a sensitivity, not a sourced award; both are printed.
+_NEGPRICE_VINTAGES = ((73.5, 68.0, "AW 73.5 (recent onshore)", _DEFAULT_PERIOD),
+                      (95.0, 90.0, "AW 95.0 (older vintage)", "month"))
+
+
+def _vintage_market(aw_wind: float, aw_pv: float, rule: str) -> MarketConfig:
+    """Market settings of a negprice vintage: its applicable values under rule `rule`."""
+    return MarketConfig(negative_price_rule=rule,
+                        anzulegender_wert_wind=aw_wind, anzulegender_wert_pv=aw_pv)
+
+
+def _negprice_premiums(args, dt: float, index: pd.DatetimeIndex, wind: np.ndarray,
+                       pv: np.ndarray) -> dict:
+    """Premium table and per-step plant rate of each negprice vintage on the window.
+
+    Every rung is settled on the realised value (`_realised_premium`), as the law settles. B0
+    and B1 do not read prices; B2 (perfect foresight) may plan on the realised value. negprice
+    runs no B3, which as a deployable controller could only plan on the previous month's.
+
+    args: parsed CLI arguments, e.g. year=2024, days=20. dt: step length in hours.
+    index: the window's timestamps. wind, pv: the plant's available generation on the
+    window, MW per step.
+    Returns {vintage label: (premium_table frame, plant rate per step as np.ndarray)}.
+    """
+    year = _load(args, args.year, None, dt)
+    return {label: _realised_premium(year, index, wind, pv, {"wind": aw_wind, "pv": aw_pv},
+                                     period)
+            for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES}
 
 
 def cmd_negprice(args) -> None:
     """RQ4: what does the tightened negative-price rule cost, by plant vintage?"""
-    rows = []
-    # Two vintages. The applicable value (anzulegender Wert) is set at commissioning, so an
-    # older or offshore plant carries a higher one and IS in the money against 2024 prices;
-    # a recent onshore plant at ~73.5 EUR/MWh is not, and for it the negative-price rule is
-    # economically irrelevant because there is no premium to suspend. That contrast is the
-    # point of the table.
-    for aw, label in ((73.5, "AW 73.5 (recent onshore)"), (95.0, "AW 95.0 (older vintage)")):
-        for rule in ("none", "six_hour", "new_2025"):
-            mk = MarketConfig(negative_price_rule=rule,
-                              anzulegender_wert_wind=aw, anzulegender_wert_pv=aw - 5)
-            run, wind, pv, price, rebap, _ = _setup(args, market=mk)
-            prem = max(0.0, aw - float(np.mean(price)))
-            res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False)
+    # One window for every scenario; only the market settings differ between them.
+    base, index, wind, pv, price, rebap = _setup(args)
+    premiums = _negprice_premiums(args, base.dt, index, wind, pv)
+    # The rule is fixed by the vintage (commissioning or tender date), and one vintage's
+    # threshold also moves with the evaluated year (market.vintage_rules). Columns run from the
+    # oldest vintage's rule to the newest, which is from the loosest to the tightest.
+    by_vintage = vintage_rules(args.year)
+    rules = list(dict.fromkeys(by_vintage.values()))
+    rows, out = [], []
+    for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES:
+        for rule in rules:
+            run = base.with_(market=_vintage_market(aw_wind, aw_pv, rule))
+            res = run_ladder(wind, pv, price, run, premiums[label][1], rebap, include_b3=False)
             for name, r in res.items():
                 rows.append({"vintage": label, "rule": rule, "controller": name,
-                             "premium_rate": prem,
                              "net_EUR": r["cost"]["net_revenue"],
                              "chosen_curt_MWh": r["cost"]["chosen_curtail_mwh"]})
-    df = pd.DataFrame(rows)
+            if args.out:
+                table = premiums[label][0]
+                # Every rung is settled on the blended rate; beside it, what the law would pay
+                # a plant that exports all of its generation, as B0 does where the connection
+                # does not bind, so the table shows what the blend misstates.
+                by_technology = premium_by_technology(
+                    {"wind": wind, "pv": pv}, table, index, period,
+                    premium_eligible(price, run.market, run.dt), run.dt)
+                out += tables.rung_rows(res, run, _window_columns(args, index, run.dt),
+                                        _premium_columns(index, table, period), vintage=label,
+                                        rule=rule, no_premium=_no_premium(table),
+                                        full_export_premium_by_technology_eur=by_technology)
+    _print_negprice(args.year, by_vintage, rules, premiums, pd.DataFrame(rows))
+    if args.out:
+        _write(args, out)
+        _write(args, _premium_rows(premiums, _window_columns(args, index, base.dt)), "_premium")
+
+
+def _premium_rows(premiums: dict, window: dict) -> list[dict]:
+    """negprice's premium tables as rows, one per vintage and market-value period.
+
+    A vintage paid against monthly values has a rate per month, and its result rows keep only
+    the rates' mean over the window, so the values per period are written here.
+    premiums: `_negprice_premiums(...)`. window: `_window_columns(...)` of the window.
+    Returns per vintage and period its days of market data, each technology's applicable
+    value, market value and premium, and the plant's rate on this window's wind/PV mix, all
+    in EUR/MWh, then the window columns.
+    """
+    rows = []
+    for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES:
+        for key, t in premiums[label][0].iterrows():
+            rows.append({"vintage": label, "premium_period": period, "period": key,
+                         "market_data_days": t["days"],
+                         "applicable_wind_eur_mwh": aw_wind, "applicable_pv_eur_mwh": aw_pv,
+                         "market_value_wind_eur_mwh": t["mw_wind"],
+                         "market_value_pv_eur_mwh": t["mw_pv"],
+                         "premium_wind_eur_mwh": t["premium_wind"],
+                         "premium_pv_eur_mwh": t["premium_pv"],
+                         "plant_rate_eur_mwh": t["rate"], **window})
+    return rows
+
+
+def _no_premium(table: pd.DataFrame) -> str:
+    """Each technology and period of a premium table that pays no premium, e.g. "PV in 2025",
+    or "none"."""
+    zero = [f"{name} in {key}" for key, t in table.iterrows()
+            for tech, name in (("wind", "wind"), ("pv", "PV"))
+            if t[f"premium_{tech}"] <= 0]
+    return ", ".join(zero) or "none"
+
+
+def _print_negprice(year: int, by_vintage: dict, rules: list, premiums: dict,
+                    df: pd.DataFrame) -> None:
+    """Print negprice's tables, and a note computed from the evaluated window."""
     print("\nNegative-price rule (EEG s51 / Solarspitzengesetz) by plant vintage")
-    for label, g in df.groupby("vintage"):
-        prem = g["premium_rate"].iloc[0]
-        print(f"\n{label} - premium rate {prem:.2f} EUR/MWh")
-        print(g.pivot(index="controller", columns="rule", values="net_EUR")
+    print(f"rule of each vintage in {year}, dated by commissioning or, for a tendered plant,\n"
+          "  by the bid date of its tender where EEG s100 says so:")
+    for vintage, rule in by_vintage.items():
+        print(f"  {vintage:<22}{rule}")
+    # Anlage 1 weights by the TSOs' online extrapolation (Nr. 5.1); the data layer reads
+    # public generation instead, so these values only approximate the statutory ones.
+    print("market value: a proxy, the day-ahead price weighted by public national generation\n"
+          "  (EEG Anlage 1 Nr. 3.3, 4.3); the premium is settled on the TSOs' published values,\n"
+          "  which this project does not load")
+    no_premium = []
+    for aw_wind, aw_pv, label, period in _NEGPRICE_VINTAGES:
+        table = premiums[label][0]
+        print(f"\n{label} - applicable value wind {aw_wind:.1f}, PV {aw_pv:.1f} EUR/MWh")
+        print(f"{'annual' if period == 'year' else 'monthly'} market value and premium, "
+              "EUR/MWh:")
+        for key, t in table.iterrows():
+            print(f"  {key} ({t['days']:.0f} days): wind {t['mw_wind']:.2f}, "
+                  f"PV {t['mw_pv']:.2f} -> premium wind {t['premium_wind']:.2f}, "
+                  f"PV {t['premium_pv']:.2f}, plant on this window's mix {t['rate']:.2f}")
+        g = df[df["vintage"] == label]
+        print(g.pivot(index="controller", columns="rule", values="net_EUR")[rules]
               .to_string(float_format=lambda x: f"{x:,.0f}"))
         print("  self-chosen curtailment (MWh), should RISE as the rule tightens:")
-        print(g.pivot(index="controller", columns="rule", values="chosen_curt_MWh")
+        print(g.pivot(index="controller", columns="rule", values="chosen_curt_MWh")[rules]
               .to_string(float_format=lambda x: f"{x:,.1f}"))
-    print("\nNote: with a premium rate of zero the rule cannot bite - there is no premium to "
-          "suspend. In 2024 the DE-LU market value exceeded the applicable value for a recent "
-          "onshore plant, so the tightened rule was economically irrelevant for that vintage.")
+        no_premium.append(f"{label} {_no_premium(table)}")
+    print(f"\nNote: a technology whose market value reaches its applicable value gets no "
+          f"premium, and there the rule cannot bite - there is no premium to suspend. "
+          f"No premium in this window ({year}): {'; '.join(no_premium)}.")
+
+
+# A connection that neither the plant's 80 MW of generation nor its 20 MW battery can reach, so
+# that nothing is curtailed or held back because of it.
+_UNCONSTRAINED_MW = 200.0
 
 
 def cmd_decompose(args) -> None:
-    """RQ1: is the battery's value curtailment avoidance, or arbitrage?"""
-    run, wind, pv, price, rebap, prem = _setup(args)
-    base = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False)
-    v_full = (base["B2 perfect foresight"]["cost"]["net_revenue"]
-              - base["B0 no battery"]["cost"]["net_revenue"])
+    """RQ1: is the battery's value curtailment avoidance, or arbitrage?
 
-    # remove curtailment risk by making the connection unconstrained
-    big = PlantConfig(conn_mw=200.0)
-    run2, w2, p2, pr2, rb2, prem2 = _setup(args, plant=big)
-    nocurt = run_ladder(w2, p2, pr2, run2, prem2, rb2, include_b3=False)
-    v_arbitrage = (nocurt["B2 perfect foresight"]["cost"]["net_revenue"]
-                   - nocurt["B0 no battery"]["cost"]["net_revenue"])
+    The battery's value is B2 minus "B2 no battery", at the connection as built (--conn, the
+    plant's 60 MW by default) and at one so wide it never binds. There no spill reaches the
+    battery, so all of its value is arbitrage: the plant's own energy sold at better prices.
+    The difference is the connection limit's effect: the spill the battery stores, net of the
+    discharge the limit holds back. B2 minus B0 is not the battery's value, as it also holds
+    what curtailing at low prices earns.
+    """
+    results = {}
+    for scenario, plant in (("as built", PlantConfig(conn_mw=args.conn)),
+                            ("unconstrained connection", PlantConfig(conn_mw=_UNCONSTRAINED_MW))):
+        run, index, wind, pv, price, rebap = _setup(args, plant=plant)
+        table, prem = _premium(args, run, index, wind, pv)
+        res = run_ladder(wind, pv, price, run, prem, rebap, include_b3=False,
+                         include_b2_no_battery=True)
+        results[scenario] = {"run": run, "index": index, "table": table, "res": res,
+                             "split": _value_split(res),
+                             "b2": res["B2 perfect foresight"]["cost"]["net_revenue"]}
+    built = results["as built"]
+    effect = (built["split"]["battery_value_eur"]
+              - results["unconstrained connection"]["split"]["battery_value_eur"])
+    share = (None if abs(built["split"]["battery_value_eur"]) <= ladder_tolerance(built["b2"])
+             else effect / built["split"]["battery_value_eur"])
+    _print_decompose(results, effect)
+    if args.out:
+        # both scenarios run on one window and its generation, so on one premium as well
+        window = _window_columns(args, built["index"], built["run"].dt)
+        premium = _premium_columns(built["index"], built["table"], _DEFAULT_PERIOD)
+        # the connection limit's effect is a result of both scenarios, so it repeats on each row
+        _write(args, [row for scenario, r in results.items()
+                      for row in tables.rung_rows(r["res"], r["run"], window, premium,
+                                                  scenario=scenario, **r["split"],
+                                                  connection_limit_effect_eur=effect,
+                                                  connection_limit_share=share)])
 
-    print("\nWhere the battery's value comes from")
-    print(f"  total value (as built)          {v_full:>12,.0f} EUR")
-    print(f"  value with an unconstrained POI {v_arbitrage:>12,.0f} EUR   <- pure arbitrage")
-    print(f"  attributable to curtailment     {v_full - v_arbitrage:>12,.0f} EUR")
-    if abs(v_full) > 1e-9:
-        print(f"  curtailment share: {(v_full - v_arbitrage) / v_full * 100:5.1f}%")
+
+def _print_decompose(results: dict, effect: float) -> None:
+    """Print decompose's split, EUR: per scenario B2 - B0 and its two parts, then the
+    battery's value without a connection limit and the limit's effect on it.
+
+    results: as `cmd_decompose` builds it, {scenario: {"run": its RunConfig, "split":
+        `_value_split(...)`, "b2": B2's net revenue in EUR, and more}}.
+    effect: the battery's value as built minus its value at the unconstrained connection.
+    """
+    table = {}
+    for scenario, r in results.items():
+        battery = r["split"]["battery_value_eur"]
+        chosen = r["split"]["chosen_curtailment_value_eur"]
+        table[f"{scenario}, {r['run'].plant.conn_mw:.0f} MW"] = {
+            "B2 - B0": _shown(battery + chosen, r["b2"]),
+            "  curtailing at low prices (B2 no battery - B0)": _shown(chosen, r["b2"]),
+            "  the battery (B2 - B2 no battery)": _shown(battery, r["b2"])}
+    print("\nWhere the battery's value comes from (B2, perfect foresight), EUR:")
+    print(pd.DataFrame(table).to_string(float_format=lambda x: f"{x:,.0f}"))
+    built, wide = results["as built"], results["unconstrained connection"]
+    arbitrage = _shown(wide["split"]["battery_value_eur"], wide["b2"])
+    battery = _shown(built["split"]["battery_value_eur"], built["b2"])
+    shown = _shown(effect, built["b2"])
+    print(f"the battery's value where no connection limit binds, which is arbitrage: "
+          f"{arbitrage:,.0f}")
+    print(f"the connection limit's effect on it (spill stored, net of discharge held back): "
+          f"{shown:,.0f}" + (f", {shown / battery:.1%} of the battery's value as built"
+                             if battery else ""))
+    print("(a difference within the solver's rounding prints as 0; --out keeps it as solved)")
 
 
-def main(argv: list[str] | None = None) -> int:
+# The B3 settings the ablation crosses: perfect forecasts and a forecast error of 15 %, each
+# without and with a linear terminal value on stored energy (`default_terminal_price`).
+_ABLATION = tuple((sigma, terminal) for sigma in (0.0, 0.15) for terminal in (False, True))
+
+
+def _ablation_inputs(args) -> tuple:
+    """The b3-ablation's window: the showcase's synthetic inputs, or Energy-Charts data.
+
+    args: parsed CLI arguments, e.g. synthetic_demo=False, year=2025, days=30.
+    Returns (run, wind, pv, price, rebap, premium_rate, b3_premium_rate, window columns,
+    premium columns). On real data every rung is settled on the realised annual value and B3
+    plans on the month before's realised rate, as in `ladder`; the demo has one fixed rate.
+    """
+    if args.synthetic_demo:
+        demo = synthetic.demo_inputs()
+        _note_input(args, "synthetic.demo_inputs()", pd.DataFrame(
+            {"wind_mw": demo.wind, "pv_mw": demo.pv, "price_eur_mwh": demo.price}))
+        window = tables.window_columns("synthetic (showcase demo_05)", None, len(demo.price),
+                                       demo.run.dt)
+        premium = {"premium_period": "fixed", "premium_wind_mean_eur_mwh": None,
+                   "premium_pv_mean_eur_mwh": None, "premium_rate_mean_eur_mwh": demo.premium_rate,
+                   "b3_premium_rate_mean_eur_mwh": demo.premium_rate}
+        return (demo.run, demo.wind, demo.pv, demo.price, None, demo.premium_rate, None,
+                window, premium)
+    run, index, wind, pv, price, rebap = _setup(args)
+    table, rate = _premium(args, run, index, wind, pv)
+    plan = _b3_planning_premium(args, run, index)
+    run = run.with_(forecast_price_scale=_b3_price_scale(args, run))
+    return (run, wind, pv, price, rebap, rate, plan, _window_columns(args, index, run.dt),
+            _premium_columns(index, table, _DEFAULT_PERIOD, plan))
+
+
+def _recovery(net: dict) -> float | None:
+    """B3's share of the headroom from B1 to B2, (B3 - B1) / (B2 - B1), from net revenue in
+    EUR by rung; None where B2 is not above B1 by more than the ladder's tolerance."""
+    b1, b2, b3 = (net[name] for name in ("B1 curtailment avoidance", "B2 perfect foresight",
+                                         "B3 rolling MPC"))
+    return None if b2 - b1 <= ladder_tolerance(b2) else (b3 - b1) / (b2 - b1)
+
+
+def cmd_b3_ablation(args) -> None:
+    """B3 under perfect forecasts and a 15 % forecast error, without and with a terminal
+    value: B0 to B3, B3's recovery of the B1-to-B2 headroom, and its stored energy at the end."""
+    run, wind, pv, price, rebap, rate, plan, window, premium = _ablation_inputs(args)
+    rows, out = [], []
+    for sigma, terminal in _ABLATION:
+        case = run.with_(forecast_sigma=sigma, terminal_value=terminal)
+        res = run_ladder(wind, pv, price, case, rate, rebap, progress=args.progress,
+                         b3_premium_rate=plan)
+        net = {name: r["cost"]["net_revenue"] for name, r in res.items()}
+        recovery = _recovery(net)
+        rows.append({"forecast_sigma": sigma, "terminal_value": terminal,
+                     **{f"{name[:2]} EUR": value for name, value in net.items()},
+                     "recovery": recovery,
+                     "B3 end SoC MWh": float(res["B3 rolling MPC"]["soc"][-1])})
+        if args.out:
+            # the case is in B3's settings, b3_forecast_sigma and b3_terminal_value
+            out += tables.rung_rows(res, case, window, premium, recovery=recovery)
+    title = f"B3 ablation, forecast error x terminal value, {_window_text(args)}"
+    print(f"\n{title}\n{'=' * len(title)}")
+    print(pd.DataFrame(rows).to_string(index=False, formatters={
+        **{f"B{k} EUR": "{:,.0f}".format for k in range(4)},
+        "recovery": lambda x: "n/a" if x is None or np.isnan(x) else f"{x:.1%}",
+        "B3 end SoC MWh": "{:.1f}".format}))
+    print("recovery: (B3 - B1) / (B2 - B1), B3's share of the headroom from B1 to B2")
+    if args.out:
+        _write(args, out)
+
+
+def _month_day(text: str) -> str:
+    """argparse type of --start: a calendar day as MM-DD, e.g. "07-01"."""
+    try:
+        day = datetime.strptime(f"2000-{text}", "%Y-%m-%d")     # a leap year admits 02-29
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"not a day as MM-DD: {text!r}") from err
+    return f"{day.month:02d}-{day.day:02d}"
+
+
+def _days(text: str) -> int:
+    """argparse type of --days: a whole number of days, at least 1, e.g. "30".
+
+    load_year cuts a window with iloc[:steps], so a negative count kept all but the last days
+    of the year without a word, and 0 kept nothing and failed later on an unrelated error.
+    """
+    try:
+        days = int(text)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"not a whole number of days: {text!r}") from err
+    if days < 1:
+        raise argparse.ArgumentTypeError(f"a window needs at least 1 day, not {days}")
+    return days
+
+
+def _megawatts(text: str) -> float:
+    """argparse type of --conn: a connection's export limit in MW, above 0, e.g. "30"."""
+    try:
+        mw = float(text)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"not a number of MW: {text!r}") from err
+    if not mw > 0:
+        raise argparse.ArgumentTypeError(f"a connection needs more than 0 MW, not {text}")
+    return mw
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """The command line: one subcommand per experiment, each with its window and settings."""
     p = argparse.ArgumentParser(prog="hybrid", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     for name, fn in (("ladder", cmd_ladder), ("sizing", cmd_sizing),
-                     ("negprice", cmd_negprice), ("decompose", cmd_decompose)):
+                     ("negprice", cmd_negprice), ("decompose", cmd_decompose),
+                     ("b3-ablation", cmd_b3_ablation)):
         sp = sub.add_parser(name)
         sp.add_argument("--year", type=int, default=2025)
-        sp.add_argument("--days", type=int, default=30)
+        span = sp.add_mutually_exclusive_group()
+        span.add_argument("--days", type=_days, default=30, help="window length in days of 24 h")
+        span.add_argument("--full-year", dest="days", action="store_const", const=None,
+                          help="the whole calendar year in Berlin time")
+        sp.add_argument("--start", type=_month_day, default="01-01",
+                        help="first day of the window, MM-DD in Berlin time")
         sp.add_argument("--horizon", type=int, default=96)
-        sp.add_argument("--neg-rule", default="new_2025",
-                        choices=["none", "six_hour", "new_2025"])
-        sp.add_argument("--fast", action="store_true")
+        sp.add_argument("--neg-rule", default="new_2025", choices=NEGATIVE_PRICE_RULES)
+        if name == "b3-ablation":
+            sp.add_argument("--synthetic-demo", action="store_true",
+                            help="run on showcase.py demo_05's synthetic inputs and settings "
+                                 "instead of the window and plant options")
+        else:
+            sp.add_argument("--fast", action="store_true")
+        if name == "decompose":
+            sp.add_argument("--conn", type=_megawatts, default=PlantConfig().conn_mw,
+                            metavar="MW", help="the connection as built, MW (default: %(default)g)")
         sp.add_argument("--progress", action="store_true")
+        sp.add_argument("--out", metavar="PATH",
+                        help="also write the result as a CSV, one row per scenario and rung")
         sp.set_defaults(func=fn)
-    args = p.parse_args(argv)
+    rp = sub.add_parser("report", help="run the published experiments into reports/")
+    rp.add_argument("--commands", metavar="FILE",
+                    help="run the experiments FILE holds instead of the publish set: one "
+                         "command line of this program per line, without 'python -m "
+                         "hybrid.cli'; '#' starts a comment")
+    rp.add_argument("--only", nargs="+", metavar="EXPERIMENT",
+                    help="run only these experiments, e.g. sizing_2024; processes running "
+                         "different ones can work side by side")
+    rp.add_argument("--reports-dir", metavar="PATH",
+                    help="write there instead of the project's reports/ folder")
+    rp.set_defaults(func=_cmd_report)
+    return p
+
+
+def _cmd_report(args) -> None:
+    """The report command. `hybrid.report` runs the other commands, so it is imported here,
+    when the command runs, rather than when this module loads."""
+    from .report import cmd_report
+
+    cmd_report(args)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run one command; argv defaults to the command line. Returns the exit status, 0."""
+    argv = sys.argv[1:] if argv is None else list(argv)
+    args = build_parser().parse_args(argv)
+    args.argv = argv          # the report records how it was started
     args.func(args)
     return 0
 

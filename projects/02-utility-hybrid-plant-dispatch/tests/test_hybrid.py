@@ -4,7 +4,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hybrid.baselines import b0_no_battery, b1_curtailment_avoidance, b2_perfect, run_ladder
+from hybrid.baselines import (b0_no_battery, b1_curtailment_avoidance, b2_perfect,
+                              ladder_tolerance, run_ladder)
 from hybrid.config import MarketConfig, PlantConfig, RunConfig
 from hybrid.market import effective_price, premium_eligible, settle
 from hybrid.plant import battery_interval, check_feasible, dispatch_step, simulate
@@ -123,19 +124,22 @@ def test_settlement_decomposition_sums_to_net():
     res = b1_curtailment_avoidance(wind, pv, run)
     c = settle(res, price, run.dt, run.plant, run.market, premium_rate=8.0)
     total = (c["spot_revenue"] + c["premium_revenue"] - c["marketing_fee"]
-             - c["degradation_cost"] - c["imbalance_cost"])
+             - c["degradation_cost"] - c["imbalance_cost"] - c["import_cost"])
     assert c["net_revenue"] == pytest.approx(total)
 
 
 # ------------------------------------------------------------------ ladder
 def test_perfect_foresight_beats_every_other_rung():
-    """The invariant that caught the premium-feedback bug."""
+    """The invariant that caught the premium-feedback bug, checked as run_ladder checks it:
+    revenue before imbalance, within the ladder's relative tolerance."""
     run = RunConfig(dt=0.25)
     wind, pv, price = synth(480)
     res = run_ladder(wind, pv, price, run, premium_rate=10.0, include_b3=False)
-    b2 = res["B2 perfect foresight"]["cost"]["net_revenue"]
-    for name, r in res.items():
-        assert r["cost"]["net_revenue"] <= b2 + 1e-3, f"{name} beat perfect foresight"
+    before = {name: r["cost"]["net_revenue"] + r["cost"]["imbalance_cost"]
+              for name, r in res.items()}
+    b2 = before["B2 perfect foresight"]
+    for name, revenue in before.items():
+        assert revenue <= b2 + ladder_tolerance(b2), f"{name} beat perfect foresight"
 
 
 def test_battery_adds_value_over_no_battery():
