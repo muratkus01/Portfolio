@@ -67,7 +67,7 @@ zero half-spread) and loses 58,322 to 79,902 EUR with the TSO forecast in 2026. 
 
 ## 1. Setup
 
-### Portfolio and data
+### Portfolio, data and licences
 
 | | Source | Use |
 |---|---|---|
@@ -82,6 +82,12 @@ zero half-spread) and loses 58,322 to 79,902 EUR with the TSO forecast in 2026. 
 its missing share per window. The two timestamp conventions agree: forecast irradiance and
 measured PV correlate best at lag 0 (0.9833), forecast wind and measured wind too (0.8175)
 ([data_alignment](reports/data_alignment.csv)).
+
+Energy-Charts and Open-Meteo publish under CC BY 4.0; Energy-Charts' day-ahead prices name
+Bundesnetzagentur | SMARD.de as their source. No open-data licence was found for reBAP and
+ID AEP on netztransparenz.de, so those raw files are not redistributed, only results derived
+from them. Each source has a note: [Energy-Charts](data/raw/energy_charts/SOURCE.md),
+[Open-Meteo](data/raw/open_meteo/SOURCE.md), [netztransparenz](data/raw/netztransparenz/SOURCE.md).
 
 ### Decision stages
 
@@ -296,6 +302,12 @@ them missing.
   is an assumption, swept from 0 to 6 EUR/MWh.
 - **The weather is Open-Meteo's best-match model**, whose composition can change over time,
   and the six-hour publication delay is an assumption.
+- **The test run refits every rung on training and validation data together**, with the
+  deadband frozen from validation, so F2 and F3 forecast 2026 from six more months of data
+  than in the validation scores.
+- **The deadband grid gained the values 2 and 4 after a first validation run with real
+  prices** (commit 935a408), before the validation results here were written and before the
+  test window was run; 4, the new widest, won for F1 to F3.
 - **The history is short**: training from February 2024, one validation half-year, one test
   window of 287 days. The validation window contains the switch to quarter-hourly
   day-ahead products on 2025-10-01.
@@ -326,7 +338,7 @@ python -m f2b.cli fingerprint-inputs           # SHA-256 of both inputs, into re
 python ../../scripts/make_f2b_figure.py        # the figure, from the committed CSVs
 ```
 
-reBAP and ID AEP have to be downloaded by hand from netztransparenz.de (pages
+Before `build-data`, download reBAP and ID AEP by hand from netztransparenz.de (pages
 "Ausgleichsenergiepreis > reBAP" and "> Index Ausgleichsenergiepreis", time zone UTC, any
 number of overlapping files) into `data/raw/netztransparenz/`; the site exports at most about
 seven months of reBAP per file. `backtest --reuse-forecasts` revalues the cached forecasts
@@ -340,13 +352,12 @@ at 16:25 and 16:54 UTC that day.
 The parametric-noise ablation keeps its four commands: `synthetic-policies`,
 `synthetic-forecast`, `synthetic-score-vs-value` and `synthetic-liquidity`.
 
-## 7. Data and licences
+Offline, the tests, `derive` and the figure run from what is committed. `build-data` fetches
+from Energy-Charts and Open-Meteo and the `synthetic-*` commands from Energy-Charts, unless
+their caches already hold the data; `backtest` and `fingerprint-inputs` read the dataset that
+`build-data` writes.
 
-Energy-Charts (Fraunhofer ISE) and Open-Meteo data are CC BY 4.0. reBAP and ID AEP are
-published by the four German TSOs on netztransparenz.de; the raw files are not redistributed,
-only results derived from them.
-
-## 8. Files
+## 7. Files
 
 | | |
 |---|---|

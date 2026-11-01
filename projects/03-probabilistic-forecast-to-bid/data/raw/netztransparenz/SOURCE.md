@@ -1,7 +1,8 @@
 # netztransparenz.de: reBAP and ID AEP
 
 Published by the four German transmission system operators. Downloaded by hand on
-2026-10-31; the raw CSVs stay out of the repository, only results derived from them are
+2026-10-31. No open-data licence for these series was found on netztransparenz.de (checked
+2026-11-01), so the raw CSVs stay out of the repository; only results derived from them are
 committed.
 
 | Series | Page | Settings | Files |
