@@ -251,7 +251,9 @@ not earn anything, and it is withdrawn.
    timestamps.
 4. **The look-ahead audit could not fail**: it only re-checked the store's own guard. It now
    counts forecasts read after their decision time, and a test shows it catches a cheating
-   stage.
+   stage. In the backtest every forecast is issued at its decision time by construction, so
+   there the audit can only catch a stage that decides after delivery; that the forecasts use
+   no data from after their decision time is what the information-set test of fix 9 checks.
 5. **The forecast store answered a lead beyond its horizon with another quarter-hour's
    forecast.** It raises now.
 6. **The newsvendor fractile was fitted on the window it was scored on**, and the synthetic
@@ -266,7 +268,9 @@ not earn anything, and it is withdrawn.
     overconfident on the window it was scored on. It now stops early and recalibrates on
     held-out training days.
 
-Each fix ships with a regression test that fails on the old code.
+Every fix that changes behaviour (1 to 6, 9 and 10) has a regression test that fails when the
+bug is put back; 7 and 8 are renames. The tests for 1 and 10 came later, after a review found
+them missing.
 
 ## 4. Limits of the evidence
 

@@ -112,6 +112,9 @@ def _stage(name: str, decision: np.ndarray, rows: np.ndarray, q_mw: np.ndarray,
            n: int) -> Stage:
     quantiles = np.full((n, len(LEVELS)), np.nan)
     quantiles[rows] = q_mw
+    # Every forecast is built from features cut at its decision time, so it is issued then by
+    # construction and audit_stages can only catch a stage that decides after delivery. That
+    # the features hold no later data is what the information-set test checks.
     issue = np.full(n, -1)
     issue[rows] = decision[rows]
     median = quantiles[:, int(np.argmin(np.abs(LEVELS - 0.5)))].copy()
