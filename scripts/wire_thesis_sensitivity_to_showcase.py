@@ -8,8 +8,8 @@ Type 2 functions use different ones. Hence "parametric" in the CSV's name. The s
 what the code returns and puts exactly that on the page:
 
 1. reports/thesis_sensitivity_parametric.csv in the Project 01 folder, one row per feasible
-   size (1,016): CAPEX, the Type 1 profit, ROCE and rank, and, where PV is 5, 10 or 15 kWp,
-   the Type 2 profit and ROCE;
+   size (1,016): CAPEX, the Type 1 profit, ROCE and rank (tied sizes share a rank), and,
+   where PV is 5, 10 or 15 kWp, the Type 2 profit and ROCE;
 2. the THESIS_SENSITIVITY line of showcase.html, built from that CSV as read back: Type 1's
    top five and every Type 2 cell, which the page's script draws.
 """
@@ -39,13 +39,19 @@ def sensitivity_table() -> pd.DataFrame:
 
     Columns: config_id, pv_kwp, bess_kwh, inverter_kw, capex_eur, type1_profit_eur,
     type1_roce_pct, type1_rank, type2_profit_eur, type2_roce_pct, e.g. the first row is
-    15_8_8, 15, 8, 8, 12205.0, 1115.81, 9.14, 1, 1115.8, 9.14. The Type 2 columns are empty
-    unless PV is one of TYPE2_PV_KWP.
+    15_8_8, 15, 8, 8, 12205.0, 1115.81, 9.14, 1, 1115.8, 9.14. type1_rank is 1 plus the
+    number of sizes with a higher type1_roce_pct, so tied sizes share a rank; rows of equal
+    rank run by PV, BESS and inverter. The Type 2 columns are empty unless PV is one of
+    TYPE2_PV_KWP.
     """
     t1 = run_type1_sensitivity()
+    # The module numbers its rows after a sort that is not stable, so sizes with equal ROCE get
+    # distinct ranks in an order that depends on the numpy build and the CPU. Here tied sizes
+    # share the best rank and the rows have a fixed order, so every machine writes the same file.
     table = t1[["config_id", "pv_kwp", "bess_kwh", "inverter_kw", "capex_eur"]].assign(
         type1_profit_eur=t1["opt_profit_eur"], type1_roce_pct=t1["roce_pct"],
-        type1_rank=t1["rank"])
+        type1_rank=t1["roce_pct"].rank(method="min", ascending=False).astype(int))
+    table = table.sort_values(["type1_rank", "pv_kwp", "bess_kwh", "inverter_kw"], ignore_index=True)
     t2 = pd.DataFrame([
         {"config_id": f"{pv}_{c['bess_kwh']}_{c['inverter_kw']}", "type2_capex_eur": c["capex_eur"],
          "type2_profit_eur": c["opt_profit_eur"], "type2_roce_pct": round(c["roce"] * 100, 2)}
