@@ -228,8 +228,9 @@ Since **1 January 2025**, all electricity suppliers must offer a **dynamic tarif
 (*dynamischer Stromtarif*) linked to the spot market price. Combined with the mandatory
 metering rollout, this makes the household or small commercial site a price-responsive
 agent with quarter-hourly granularity. Commercial implementations (aWATTar, Tibber and
-others) publish forward-looking hourly/quarter-hourly prices via public APIs, which is what
-makes Project 01 tractable on open data.
+others) publish forward-looking hourly/quarter-hourly prices via public APIs. No project
+reads them: Project 01 builds its dynamic tariff from the day-ahead price, which it reads
+from the Energy-Charts API.
 
 ### 3.3 Metering: MsbG, iMSys and the smart meter gateway
 
