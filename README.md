@@ -10,7 +10,7 @@
 
 **Author:** Murat Kus · Dipl.-Ing. Mechanical Engineering · M.Sc. Sustainable Energy Systems (FH Upper Austria) · B.Sc. Artificial Intelligence (JKU Linz) - In Progress  
 **Domain:** Power System Economics, Energy Market Optimization, Sequential Decision-Making under Uncertainty  
-**Focus Markets:** Germany (DE-LU bidding zone): EPEX SPOT Day-Ahead (SDAC), continuous Intraday (SIDC, at the ID AEP index), German **reBAP** Imbalance Settlement, and EEG direct marketing with the market premium. No active project models balancing reserve (FCR/aFRR) yet; aFRR for Project 02's battery is planned next.
+**Focus Markets:** Germany (DE-LU bidding zone): EPEX SPOT Day-Ahead (SDAC), continuous Intraday (SIDC, at the ID AEP index), German **reBAP** Imbalance Settlement, and EEG direct marketing with the market premium. No active project models balancing reserve (FCR/aFRR) yet; aFRR for Project 02's battery is planned, not built.
 
 ---
 

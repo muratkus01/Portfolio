@@ -83,8 +83,8 @@ Key modelling points:
   bid requires an aggregator's prequalified pool.
 
 **Not implemented in any active project:** FCR, aFRR and mFRR. Project 02 declares aFRR
-settings (`MarketConfig.afrr_*`) that no command reads; aFRR for its battery is planned
-next.
+settings (`MarketConfig.afrr_*`) that no command reads; aFRR for its battery is planned,
+not built.
 
 ### 1.4 Imbalance settlement and the balancing group
 
