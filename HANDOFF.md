@@ -305,8 +305,10 @@ was verified on disk, not taken from a log.
 5. **`.gitignore` fixed**: a trailing-slash exclude stopped git descending, so the SOURCE.md
    negation never fired and six provenance files were uncommittable.
 6. **`prosumer.data.pv_states`**: per-state 1 kWp PV from Open-Meteo through the existing pvlib
-   chain, one calibration scalar per state. All 16 calibrated. Median daily R2 0.903, hourly
-   nRMSE 0.536, peak ratio 1.077, worst month 13.1 %.
+   chain, one calibration scalar per state. All 16 calibrated. The fit metrics against the
+   company reference (daily R2, hourly nRMSE, peak ratio, worst month) derive from the
+   restricted exports, so they are not written here; `scripts/calibrate_pv_states.py` prints
+   them and stores them in the gitignored `pv_state_calibration.json`.
 
 ### Load profile decision, and what the review changed
 The question was BDEW H0 (thesis `Data/SLP/`) or measured HTW (`data/Lastprofile/`). Measured,
@@ -346,10 +348,11 @@ inflates controller quality by 6.4 points.
      state dependence independent of irradiance.
    - `slp.h0_profile(annual_kwh=3221.0)` default. Set the aggregate's energy explicitly;
      home-storage households are not average households.
-3. Bavarian PV file timing. Fifteen state exports land within 0.06 h of the reference centroid;
-   Bavaria lands at +0.99 h. The fifteen label their index UTC and are read as UTC; Bavaria is
-   local-time with no offset and is currently read as CET without DST. Test reading its
-   `DateTime` as UTC. This is the file the thesis used for its Munich household.
+3. Bavarian PV file timing. The generation-centroid check in `validate()` puts fifteen state
+   exports in line with the model and the Bavarian one off it (values not written here: they
+   derive from the restricted exports). The fifteen label their index UTC and are read as UTC;
+   Bavaria is local-time with no offset and is currently read as CET without DST. Test reading
+   its `DateTime` as UTC. This is the file the thesis used for its Munich household.
 4. Generate per-state 1 kWp series for 2024 to 2026-10. Open-Meteo covers through 2026-10-24.
 5. Orientation diversity: `pv.PVSystem` defaults to one due-south 35 degree array. Multiplied
    across a state fleet this biases the midday peak high and both shoulders low.
@@ -702,7 +705,7 @@ Walk `src/prosumer/data/pv_states.py` end to end and record it as a numbered rec
 - `fit_system_loss`: what is fitted, against what, one scalar per state, and the fitted range
 - what `validate()` deliberately excludes and why (annual yield, because the loss is fitted to it);
   confirm from the code and quote the comment
-- the Bavaria `tz_localize` special case: whether the +0.99 h offset is resolved or worked around,
+- the Bavaria `tz_localize` special case: whether the file's offset is resolved or worked around,
   and whether anyone tested reading that file as UTC instead
 - whether a caller can distinguish a calibrated series from the 11 % literature fallback
 - orientation: one due-south array per state, and what that does to a fleet midday peak
@@ -873,7 +876,7 @@ reaches a figure, a README or the showcase unless it traces to a committed CSV.
 - 2026-10-09 · Claude Code · Portfolio auf drei Projekte verkleinert: P02, P03 und P04 nach `archive/` verschoben (Tag `archive/six-project-portfolio`, 88 Tests laufen weiter), showcase.html um 165 KB bereinigt (Sektionen, Nav, Canvas-Engines, Simulatoren und alle Aufrufe beim Laden), README, CLAUDE.md, pyproject, CI, showcase.py, dashboards/app.py und verify_html_integrity.py angepasst. Verifiziert: 219 passed / 1 skipped, Integritaetscheck gruen, 83 onclick-Bindungen aufloesbar, Browser-Konsole fehlerfrei bei allen Jahres- und Projektwechseln. Dabei gefunden: ein vorbestehender TypeError fuer Jahr 2024 (behoben) und drei widerspruechliche Werte fuer die B3-Headroom in P01 (87,9 % / 46-56 % / 90 %), die Murat entscheiden muss.
 - 2026-10-09 · Antigravity · P06-Key-Bug in run_overnight_simulations.py behoben, 400 Szenarien neu gerechnet, lookup_cubes.json und showcase.html aktualisiert (400 Nullen auf 0), P06-README-Tabelle validiert, Nicht-Null-Assertion eingebaut.
 - 2026-10-09 · Antigravity · A15 abgeschlossen: P06 net_gain_30d_eur als echte B3-B0-Differenz mit Vorzeichen neu gerechnet, imbalance_volume_reduction_pct als Mengenmetrik benannt, P05 neu gerechnet (neg_avoid nicht mehr null, 1.168 EUR Mittel), P01-Identitaet verifiziert (111 Treffer, 0 Abweichungen), Nicht-Null-Assertion ueber alle 3 Projekte gruen.
-- 2026-10-26 · Claude Code · P01 Datenherkunft: Flottenzahlen aus dem MaStR-Register statt Fortschreibung (2025 war 24 % zu hoch, 2026 14 %), Anlagengröße im README an sieben Stellen auf 8,9 kWh / 5,51 kW korrigiert, showcase-Flottenwidget generiert (Bayern stand bei 437.600 statt 237.322), .gitignore reparierte sechs nicht committebare SOURCE.md. Lastprofilfrage gemessen: Spitze/Mittel 11,62 (ein Haushalt) gegen 2,70 (Summe 74) gegen 2,35 (H0); belegte Zirkularität: H0 als Wahrheit liefert 94,33 % statt 87,91 % B3-Capture. Neues Modul pv_states kalibriert alle 16 Bundesländer gegen das Referenzjahr, Median daily R2 0,903; die Stunde Versatz sitzt isoliert in der bayerischen Datei (+0,99 h gegen ±0,06 h bei den anderen 15). 240 passed, 1 skipped. Arbeit wird auf dem Firmenrechner fortgesetzt.
+- 2026-10-26 · Claude Code · P01 Datenherkunft: Flottenzahlen aus dem MaStR-Register statt Fortschreibung (2025 war 24 % zu hoch, 2026 14 %), Anlagengröße im README an sieben Stellen auf 8,9 kWh / 5,51 kW korrigiert, showcase-Flottenwidget generiert (Bayern stand bei 437.600 statt 237.322), .gitignore reparierte sechs nicht committebare SOURCE.md. Lastprofilfrage gemessen: Spitze/Mittel 11,62 (ein Haushalt) gegen 2,70 (Summe 74) gegen 2,35 (H0); belegte Zirkularität: H0 als Wahrheit liefert 94,33 % statt 87,91 % B3-Capture. Neues Modul pv_states kalibriert alle 16 Bundesländer gegen das Referenzjahr; ein Zeitversatz sitzt isoliert in der bayerischen Datei, nicht in den anderen 15 (Gütemaße und Versatzwerte stehen nicht hier, weil sie aus den NDA-Exporten stammen). 240 passed, 1 skipped. Arbeit wird auf dem Firmenrechner fortgesetzt.
 - 2026-10-26 · Claude Code · EIM-MUK: fresh clone into Vaults/MasterThesis. CI was red since 734fd17 (MaStR read at import, PuLP 4 in fresh installs). The MaStR fleet now loads lazily through `federal_states()`, fleet tests skip without data, PuLP pinned to >=3.2,<4. 207 passed / 34 skipped without data, 240 passed / 1 skipped with the USB data. Committed locally, not pushed.
 - 2026-10-26 · Claude Code · EIM-MUK: next action 1 done. Per-state aggregate household load fitted to the 73 HTW households (day class, state holidays, season, ERA5 temperature anomaly), coefficients and ten validation checks committed under reports/aggregate_load (34/34 pass/fail rows pass, both seeds); state_holidays for all 16 states; ERA5 daily fetch. Out of sample 15-min nRMSE 0.20 vs H0 0.24. Adversarial review added a seasonal weekend uplift (CV error 0.648 to 0.607 kWh/day), the holiday detection limit and a fleet_load fix. Found: HTW labels are legal local time, so htw.py replays summer one hour late in every HTW-truth result (flagged in README, fix pending Murat); the households show no regional holiday (not Saarland, unless only a minority there). Committed locally, not pushed.
 - 2026-10-27 · Claude Code · EIM-MUK: HTW clock fixed in c07847e (replay on the households' own clock; regression tests fail on the old code). Rebuilt dataset reproduced the published numbers exactly with the old code; with the fix H28 B3 capture is 89.43 % (was 87.91), H31 86.10 %. Remaining reruns (sweep, sizing, RL, figures) running on EIM-MUK. README battery configuration corrected to 9.37 kWh / 5.63 kW. Handoff for the personal laptop written above; pushed to GitHub on Murat's request.
