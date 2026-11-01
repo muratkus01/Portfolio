@@ -38,8 +38,8 @@ asset does not. The piece worth keeping is the aFRR modelling: reservations held
 four-hour blocks, settled apart from energy. It is planned for Project 02 (formerly 05), the
 hybrid plant, whose battery is an asset class the target companies actually own; there the
 capacity is to be co-optimised with the energy schedule rather than offered at a fixed share.
-Project 02 takes it up as aFRR Phase A, behind `MarketConfig.afrr_enabled`, which is off by
-default: capacity reserved by the battery, without activation.
+Project 02 is building it as aFRR Phase A, behind `MarketConfig.afrr_enabled`, which is off
+by default: capacity reserved by the battery, without activation. No command runs it yet.
 
 ### `03-smart-ev-charging-14a/` (package `evc`, 20 tests)
 

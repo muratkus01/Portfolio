@@ -154,9 +154,8 @@ class MarketConfig:
     afrr_floor_hours: float = 0.25
     # EUR per MWh of reserve not held, charged on top of the cut of its capacity payment. It
     # stands in for MfRRA's incentive component (§ 25 (2)(a)(i)(2)), whose intraday index
-    # the model does not load, and lies above every capacity and day-ahead price of 2024-2025
-    # (at most 3,783.56 EUR/MW/h and 936.28 EUR/MWh), so no plan profits from holding less
-    # than it sold.
+    # the model does not load, and lies above every capacity and day-ahead price of
+    # 2024-2025, so no plan profits from holding less than it sold.
     afrr_shortfall_penalty_eur_mwh: float = 10_000.0
 
     # --- redispatch (§ 13a EnWG) ---

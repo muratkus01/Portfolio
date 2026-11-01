@@ -24,9 +24,10 @@ from .config import PlantConfig
 from .reserve import ReserveRule
 
 # Reserve not held below this, in MW, counts as held: 100 W against reservations of whole MW.
-# Replaying a B2 plan over a full year fell short by up to 5.7e-5 MW without its planning
-# margin and by at most 3.9e-7 MW with it; a relative threshold would vanish for a tiny
-# reservation, where that residue is as large.
+# It is meant to lie above the rounding residue left by replaying a solver's plan through
+# this layer: in full-year prototype replays of B2, outside the repository, that residue
+# stayed below it. A relative threshold would vanish for a tiny reservation, where that
+# residue is as large.
 TOL = 1e-4
 # Slack, in MWh, that lets a plan sitting exactly on an energy band be followed despite
 # rounding. It is worth at most TOL_SOC / (0.95 x hours) MW of reserve, about half of TOL at

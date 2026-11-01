@@ -408,7 +408,11 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
     "imbalance_cost", "import_cost", "net_revenue") and MWh totals; with `afrr`, then
     "afrr_capacity_revenue", "afrr_capacity_cut" and "afrr_shortfall_cost" (EUR, all in
     net_revenue), "afrr_shortfall_up_mwh", "afrr_shortfall_down_mwh" and
-    "afrr_reserve_curtail_mwh".
+    "afrr_reserve_curtail_mwh". The last counts only the curtailment between the connection
+    and the connection less the positive reservation, given the battery power applied
+    (`plant.dispatch_step`'s "reserve_curtail"). Where a reservation lets the battery store
+    less, the extra curtailment above the connection stays in "forced_curtail_mwh", so this
+    term alone is not what aFRR curtails.
 
     Raises
     ------
