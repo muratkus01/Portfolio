@@ -6,9 +6,10 @@ dependency is added: pandas.read_excel would need openpyxl, which the project do
 Whatever the reader would otherwise have to guess at, it refuses.
 
 The workbook comes from the web, so it is untrusted input. A download stops past
-_MAX_DOWNLOAD_BYTES, its SHA-256 must be the pinned one before it is parsed, no zip member is
-unpacked beyond _MAX_MEMBER_BYTES, and ElementTree, on the expat that ships with Python 3.11
-and 3.12, resolves no external entities and bounds entity expansion.
+_MAX_DOWNLOAD_BYTES, its SHA-256 must be the pinned one before it is cached and again before
+it is parsed, no zip member is unpacked beyond _MAX_MEMBER_BYTES, and ElementTree, on the
+expat that ships with Python 3.11 and 3.12, resolves no external entities and bounds entity
+expansion.
 
 `load_capacity_results` caches the file under datakit's conventions without changing datakit,
 and `capacity_prices` maps its products onto a window's 15-minute steps (`reserve`). Neither
@@ -98,8 +99,9 @@ def load_capacity_results(year: int, cache_dir: Path | None = None) -> CapacityR
         is never downloaded again, as datakit's are not.
     Returns the file's table, URL and SHA-256.
     Raises ValueError for a year outside RULE_YEARS, before any download; for a year
-    regelleistung.net has no file for yet; for a download past _MAX_DOWNLOAD_BYTES; for a file
-    whose SHA-256 is not the pinned one; and for content that parse_results refuses.
+    regelleistung.net has no file for yet; for a download past _MAX_DOWNLOAD_BYTES; for a
+    download or a cached file whose SHA-256 is not the pinned one; and for content that
+    parse_results refuses.
     """
     _refuse_unchecked_year(year)
     import datakit
@@ -110,7 +112,7 @@ def load_capacity_results(year: int, cache_dir: Path | None = None) -> CapacityR
     path = cache_dir / f"{urllib.parse.quote(tag, safe='')}.xlsx"
     if not path.exists():
         try:
-            _download(url, path, tag)
+            _download(url, path, tag, PINNED_SHA256[year])
         except urllib.error.HTTPError as err:
             if err.code != 404:
                 raise
@@ -119,9 +121,10 @@ def load_capacity_results(year: int, cache_dir: Path | None = None) -> CapacityR
     content = path.read_bytes()
     sha256 = hashlib.sha256(content).hexdigest()
     if sha256 != PINNED_SHA256[year]:
-        raise ValueError(f"{path.name} has SHA-256 {sha256}, not the pinned "
-                         f"{PINNED_SHA256[year]}: the TSOs revised the file. Inspect it, then "
-                         "re-pin it in a commit of its own")
+        # _download caches only pinned bytes, so these changed in the cache since
+        raise ValueError(f"{path} has SHA-256 {sha256}, not the pinned {PINNED_SHA256[year]}. "
+                         "A download is cached only once it matches its pin, so the cached "
+                         "file changed since: delete it, and the next load downloads it again")
     return CapacityResults(parse_results(content), url, sha256)
 
 
@@ -137,12 +140,19 @@ def _refuse_unchecked_year(year: int) -> None:
             "September 2026, and § 19 (3) EEG with the BNetzA's MiSpeL determination")
 
 
-def _download(url: str, path: Path, tag: str) -> None:
+def _download(url: str, path: Path, tag: str, pinned: str) -> None:
     """Fetch `url` into `path` and record it in the cache's SOURCE.md, in datakit's format.
 
-    The bytes reach `path` through <path>.partial and os.replace, so an interrupted download
-    never leaves a cached file behind. A response past _MAX_DOWNLOAD_BYTES is refused.
-    Raises urllib.error.HTTPError and URLError as urlopen does.
+    Only bytes whose SHA-256 is `pinned` reach `path`. A cached file is never fetched again,
+    so a bad download, such as a proxy's error page sent with HTTP 200 or a truncated body,
+    would otherwise stay in the cache and be refused on every later load as if the TSOs had
+    revised the file. Such bytes are kept as <path>.rejected for inspection instead. Pinned
+    bytes reach `path` through <path>.partial and os.replace, so an interrupted download
+    never leaves a cached file behind.
+    url: the file's address (RESULTS_URL). path: where the file is cached. tag: its name in
+    SOURCE.md, e.g. "regelleistung_aFRR_capacity_results_2025". pinned: its SHA-256.
+    Raises ValueError for a response past _MAX_DOWNLOAD_BYTES or bytes that are not the
+    pinned ones, and urllib.error.HTTPError and URLError as urlopen does.
     """
     import datakit
 
@@ -151,6 +161,14 @@ def _download(url: str, path: Path, tag: str) -> None:
         content = response.read(_MAX_DOWNLOAD_BYTES + 1)
     if len(content) > _MAX_DOWNLOAD_BYTES:
         raise ValueError(f"{url} sent more than {_MAX_DOWNLOAD_BYTES} bytes; refused")
+    sha256 = hashlib.sha256(content).hexdigest()
+    if sha256 != pinned:
+        rejected = path.with_name(f"{path.name}.rejected")
+        rejected.write_bytes(content)
+        raise ValueError(f"{url} sent bytes with SHA-256 {sha256}, not the pinned {pinned}, so "
+                         f"nothing was cached; they are kept as {rejected}. Either the TSOs "
+                         "revised the file: inspect it, then re-pin it in a commit of its own. "
+                         "Or the download is not the file, e.g. a proxy's error page: try again")
     partial = path.with_name(f"{path.name}.partial")
     partial.write_bytes(content)
     os.replace(partial, path)

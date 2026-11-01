@@ -239,15 +239,41 @@ def _never_download(url, timeout):
 
 
 def test_a_pinned_file_whose_bytes_changed_is_refused(tmp_path, monkeypatch):
-    """A cached file whose SHA-256 is not the pinned one means that the TSOs revised it. It is
-    refused, naming both hashes, to be inspected and re-pinned in a commit of its own."""
+    """A cached file whose SHA-256 is not the pinned one changed in the cache, as only a
+    download that matches its pin is cached. It is refused, naming both hashes, to be
+    deleted and so fetched again."""
     monkeypatch.setattr(afrr_data, "urlopen", _never_download)
     content = results_xlsx(DAYS)
     _cache_file(tmp_path, 2025).write_bytes(content)
 
     with pytest.raises(ValueError, match=f"SHA-256 {hashlib.sha256(content).hexdigest()}, not "
-                                         f"the pinned {afrr_data.PINNED_SHA256[2025]}"):
+                                         f"the pinned {afrr_data.PINNED_SHA256[2025]}.*"
+                                         "delete it"):
         afrr_data.load_capacity_results(2025, cache_dir=tmp_path)
+
+
+def test_a_download_that_does_not_match_its_pin_is_not_cached(tmp_path, monkeypatch):
+    """Only pinned bytes reach the cache, which is never fetched again. A download with
+    another SHA-256, such as a proxy's error page sent with HTTP 200, a truncated body or a
+    file the TSOs revised, is refused naming both hashes and logged nowhere; its bytes are
+    kept beside the cache for inspection, and the next load downloads again."""
+    content = results_xlsx(DAYS)
+    rejected = tmp_path / f"{_cache_file(tmp_path, 2025).name}.rejected"
+    requests = []
+
+    def serve(url, timeout):
+        requests.append(url)
+        return io.BytesIO(content)
+
+    monkeypatch.setattr(afrr_data, "urlopen", serve)
+    for attempt in (1, 2):
+        with pytest.raises(ValueError, match=f"SHA-256 {hashlib.sha256(content).hexdigest()}, "
+                                             f"not the pinned {afrr_data.PINNED_SHA256[2025]}"
+                                             f".*kept as {re.escape(str(rejected))}"):
+            afrr_data.load_capacity_results(2025, cache_dir=tmp_path)
+        assert len(requests) == attempt
+    assert [path.name for path in tmp_path.iterdir()] == [rejected.name]
+    assert rejected.read_bytes() == content
 
 
 def test_a_download_is_cached_with_a_source_line(tmp_path, monkeypatch):
