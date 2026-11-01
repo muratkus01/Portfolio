@@ -176,6 +176,11 @@ def _line(label: str, text: str) -> str:
     return f"  {label:<10} " + text.replace("\n", "\n" + " " * 13)
 
 
+def _count(number: int, noun: str) -> str:
+    """A count with its noun, e.g. "1 part" or "8 parts"."""
+    return f"{number} {noun}{'' if number == 1 else 's'}"
+
+
 @dataclass
 class Part:
     """One report process: its experiments, its log and how it ended."""
@@ -532,8 +537,9 @@ def prefetch_inputs(plan: dict[str, str], meta) -> str:
             data.load_year(year)
         except (OSError, ValueError) as err:           # no network and no cache, or bad data
             raise Refusal(f"Energy-Charts data for {year} cannot be loaded: {err}") from err
-    loaded = ", ".join(map(str, sorted(years))) or "none needed"
-    return f"Energy-Charts years {loaded} loaded before the parts start"
+    if not years:
+        return "no Energy-Charts data to load"
+    return f"Energy-Charts {', '.join(map(str, sorted(years)))} loaded once, before the parts start"
 
 
 # ----------------------------------------------------------------------------------- plan
@@ -658,7 +664,8 @@ def check_template(template: dict[str, list[str]], path: Path, plan: dict[str, s
     if rows != len(windows):
         raise Refusal(f"{len(windows)} new windows {windows}, but {rows} rows under "
                       f"'## Windows of the tables' in {path.name}")
-    return f"{len(new)} new experiments and {len(windows)} new windows, rows from {path.name}"
+    return (f"{_count(len(new), 'new experiment')} and {_count(len(windows), 'new window')}, "
+            f"rows from {path.name}")
 
 
 def _check_how_rows(rows: list[str], new: list[str], plan: dict[str, str]) -> None:
@@ -1054,8 +1061,9 @@ def install(ctx: Context, fresh: Path, stage: Path, message: tuple[str, str]) ->
 def commit_message(ctx: Context, parts: int, new: dict[str, list[str]],
                    subject: str, full: bool) -> tuple[str, str]:
     """The commit's subject and body: what ran, where, and what is new."""
-    what = "the whole publish set" if full else f"{len(ctx.plan)} experiments of the publish set"
-    body = (f"Rerun {what} at {ctx.head[:7]}, in {parts} parts side by side on "
+    what = ("the whole publish set" if full
+            else f"{_count(len(ctx.plan), 'experiment')} of the publish set")
+    body = (f"Rerun {what} at {ctx.head[:7]}, in {_count(parts, 'parallel part')} on "
             f"{os.cpu_count()} CPUs, so that every table it wrote and run_meta.csv record that "
             "one commit. Every committed table reproduced cell for cell apart from its timing "
             "columns, and so did every committed row of window_stats.csv and run_meta.csv apart "
@@ -1092,9 +1100,9 @@ def run_set(ctx: Context, args: argparse.Namespace, summary: Summary) -> tuple[P
     Returns (the folder the parts wrote, the number of parts). Raises Refusal where one failed."""
     parts = pack_parts(ctx.plan, ctx.committed["meta"], args.workers)
     scope = "the whole publish set" if not args.only else "a part of the set (--only)"
-    summary.add("plan", f"{len(ctx.plan)} experiments, {scope}, in {len(parts)} parts side by "
-                f"side; {os.cpu_count()} CPUs ({platform.platform()}); the longest part "
-                f"about {parts[0][1] / 60:.0f} min")
+    summary.add("plan", f"{_count(len(ctx.plan), 'experiment')}, {scope}, in "
+                f"{_count(len(parts), 'part')} side by side; {os.cpu_count()} CPUs "
+                f"({platform.platform()}); the longest part about {parts[0][1] / 60:.0f} min")
     for number, (names, seconds) in enumerate(parts, 1):
         print(f"    part {number}  ~{seconds / 60:4.1f} min  {' '.join(names)}")
     stage = Path(tempfile.mkdtemp(prefix="publish_p02_"))
@@ -1116,6 +1124,10 @@ def publish(args: argparse.Namespace, summary: Summary) -> str:
     ctx = preflight(args, summary)
     stage, parts = run_set(ctx, args, summary)
     fresh = stage / STAGED
+    others = sorted(path.name for path in fresh.iterdir() if path.suffix != ".csv")
+    if others:
+        raise Refusal(f"the run wrote files that are not tables, which the driver would not "
+                      f"install: {others}")
     check_provenance(read_csv(fresh / "run_meta.csv"), ctx.plan, ctx.head)
     diffs, checked = check_reproduction(fresh, ctx.committed, full=not args.only)
     if diffs:
@@ -1135,10 +1147,10 @@ def publish(args: argparse.Namespace, summary: Summary) -> str:
     message = commit_message(ctx, parts, new, args.message, full=not args.only)
     summary.add("tests", install(ctx, fresh, stage, message))
     commit = git("rev-parse", "--short", "HEAD")
-    push = (f"git push {ctx.remote} {ctx.branch}" if ctx.remote and ctx.branch
-            else "nothing to push to: no remote branch was checked")
-    return (f"committed {commit} \"{args.message}\"; nothing is pushed. Push with: {push}. "
-            "SOURCE.md's prose still describes the run before this one.")
+    push = (f"Push it with: git push {ctx.remote} {ctx.branch}." if ctx.remote and ctx.branch
+            else "No remote branch was checked, so there is no push command.")
+    return (f"committed {commit} \"{args.message}\"; nothing is pushed yet. {push} SOURCE.md's "
+            "prose still describes the run before this one.")
 
 
 def reports_state() -> str:
