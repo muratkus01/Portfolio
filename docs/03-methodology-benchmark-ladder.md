@@ -18,14 +18,14 @@ states the rungs it uses.
 | **B0** | Historical reality | — (observed) | What the asset/site actually did. The commercial reference. |
 | **B1** | Rule-based replica | Same signals as the incumbent controller | **Model validation.** Reproduces the incumbent logic inside the digital model. |
 | **B2** | Perfect-foresight MILP | Full horizon known exactly | **Theoretical ceiling.** Values the flexibility itself, not the controller. |
-| **B3** | Rolling-horizon MILP-MPC | Realistic forecasts, re-solved each step | **Deployable classical optimum.** The bar a learned policy must clear. |
+| **B3** | Rolling-horizon MPC | Forecasts, re-solved each step | **Deployable classical optimum.** The bar a learned policy must clear. Projects 01 and 02 solve it as a linear program every quarter-hour: 01 on what a home system knows when it decides, 02 on synthetic forecasts and the true negative-price mask. Project 03's B3 is a deadband trading rule, not an MPC. |
 | **RL** | Learned policy | Same observations as B3 | Must beat **B3** out of sample. |
 
 ```mermaid
 flowchart LR
     B0["B0<br/>Historical reality"] --> B1["B1<br/>Rule-based replica"]
     B1 -->|"validates the<br/>digital model"| B2["B2<br/>Perfect-foresight MILP"]
-    B2 -->|"theoretical<br/>ceiling"| B3["B3<br/>Rolling-horizon MILP-MPC"]
+    B2 -->|"theoretical<br/>ceiling"| B3["B3<br/>Rolling-horizon MPC"]
     B3 -->|"the bar to beat"| RL["Learned policy<br/>PPO / SAC"]
     B2 -.->|"headroom"| RL
 ```
@@ -73,7 +73,7 @@ piecewise-linear segments, binary commitment and mode variables (charge/discharg
 with mutual exclusion, minimum up/down times, ramp constraints, and cyclic or terminal-value
 boundary conditions on storage state.
 
-## B3 — Rolling-horizon MILP-MPC: the real competitor
+## B3 — Rolling-horizon MPC: the real competitor
 
 The same MILP, but solved repeatedly in receding-horizon fashion on the **same imperfect
 forecasts the learned policy sees**:
