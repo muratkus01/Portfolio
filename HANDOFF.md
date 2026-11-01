@@ -107,7 +107,10 @@ no errors, section badges read 01, 02, 03, all three figures load.
    onto an asset class the target employers actually own.
 
 5. **Project 02 has no RL rung.** The portfolio's methodological spine ends in RL and this
-   project stops at B3. Either build it or say in the README that it deliberately stops there.
+   project stops at B3. ~~Either build it or say in the README that it deliberately stops
+   there.~~ **Decided, noted 2026-11-02:** Murat decided that P02 stops at B3 (`d7b2aa5`); RL
+   there is future work, conditional on a day-ahead schedule settled at reBAP. The README says
+   so at the top (`a1249af`).
 
 6. The four open P01 data-quality questions are in their own section below, added by the P01
    session as `c49da2c`.
