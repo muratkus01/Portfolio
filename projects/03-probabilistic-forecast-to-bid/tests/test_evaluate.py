@@ -171,3 +171,42 @@ def test_learned_rungs_never_fit_stop_or_calibrate_on_the_scored_window(monkeypa
     scored = [lo for lo, hi in seen["predict"] if hi >= first]
     assert calibrated, "the learned rungs predicted no held-out rows to recalibrate on"
     assert scored and min(scored) >= first
+
+
+def seed_frames():
+    rungs = ["F0 climatology", "F2 linear quantile", "F3 seed 0", "F3 seed 1"]
+    scores = pd.DataFrame({"rung": rungs, "stage": "DA", "pinball": [4.0, 3.0, 2.0, 1.0]})
+    totals = pd.DataFrame({"rung": rungs, "policy": "B0 day-ahead only",
+                           "net_revenue": [10.0, 20.0, 5.0, 30.0]})
+    return scores, totals
+
+
+def test_quality_vs_value_by_seed_scores_each_lightgbm_seed_on_its_own():
+    from f2b.analysis import quality_vs_value, quality_vs_value_by_seed
+
+    scores, totals = seed_frames()
+    by_seed = quality_vs_value_by_seed(scores, totals).set_index("f3_seed")
+    assert list(by_seed.index) == [0, 1]
+    assert (by_seed["rungs"] == 3).all()
+    # seed 0 earns least despite its skill; seed 1 is best at both
+    assert by_seed.loc[0, "spearman_skill_vs_eur"] == pytest.approx(-0.5)
+    assert by_seed.loc[1, "spearman_skill_vs_eur"] == pytest.approx(1.0)
+    assert by_seed.loc[0, "spearman_skill_vs_eur"] == pytest.approx(
+        quality_vs_value(scores, totals)["spearman_skill_vs_eur"].iloc[0])
+
+
+def test_derive_rebuilds_the_seed_table_from_committed_csvs_alone(tmp_path, monkeypatch):
+    from argparse import Namespace
+
+    from f2b import pipeline
+
+    scores, totals = seed_frames()
+    (tmp_path / "validation").mkdir()
+    scores.to_csv(tmp_path / "validation" / "forecast_by_stage.csv", index=False)
+    totals.to_csv(tmp_path / "validation" / "policies.csv", index=False)
+    monkeypatch.setattr(pipeline, "REPORTS", tmp_path)
+    monkeypatch.setattr(pipeline, "PROJECT", tmp_path)
+    pipeline.cmd_derive(Namespace(phases=["validation"]))
+    out = pd.read_csv(tmp_path / "validation" / "quality_vs_value_by_seed.csv")
+    assert list(out.columns) == ["policy", "f3_seed", "rungs", "spearman_skill_vs_eur"]
+    assert out["spearman_skill_vs_eur"].tolist() == pytest.approx([-0.5, 1.0])

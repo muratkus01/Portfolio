@@ -1,10 +1,11 @@
-"""The real-data commands, `build-data` and `backtest`; every table they print lands in reports/.
+"""The real-data commands, `build-data`, `backtest` and `derive`; every table lands in reports/.
 
     build-data                  fetch and cache every input, write reports/data_coverage.csv
     backtest --phase validation fit on train, tune on validation, write reports/validation/
                                 and the frozen settings reports/frozen_config.json
     backtest --phase test       refit on train + validation with the frozen settings and write
                                 reports/test/ for the 2026 window, once
+    derive                      rebuild the tables added after a run from its committed CSVs
 """
 from __future__ import annotations
 
@@ -17,7 +18,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .analysis import error_alignment, liquidity_sweep, quality_vs_value
+from .analysis import (
+    error_alignment,
+    liquidity_sweep,
+    quality_vs_value,
+    quality_vs_value_by_seed,
+)
 from .config import MarketConfig, RunConfig
 from .data import build_dataset
 from .evaluate import (
@@ -170,6 +176,8 @@ def _market_value(ladder, df: pd.DataFrame, mask: np.ndarray, run: RunConfig, ph
     error_alignment(ladder, df, priced, run).round(4).to_csv(out / "error_alignment.csv",
                                                              index=False)
     quality_vs_value(scores, totals).round(4).to_csv(out / "quality_vs_value.csv", index=False)
+    quality_vs_value_by_seed(scores, totals).round(4).to_csv(
+        out / "quality_vs_value_by_seed.csv", index=False)
     liquidity_sweep(ladder, df, priced, run, k, tau).round(2).to_csv(out / "liquidity.csv",
                                                                      index=False)
     print("\n" + totals.pivot(index="rung", columns="policy", values="net_revenue")
@@ -177,6 +185,21 @@ def _market_value(ladder, df: pd.DataFrame, mask: np.ndarray, run: RunConfig, ph
     fallback = market_prices(df)["id_aep_missing"] & priced
     return {"deadband_k": k, "newsvendor_tau": tau, "priced_steps": int(priced.sum()),
             "id_aep_fallback_steps": int(fallback.sum())}
+
+
+def cmd_derive(args) -> None:
+    """Rebuild the tables that follow from a run's committed CSVs, for tables added after it.
+
+    It reads forecast_by_stage.csv and policies.csv and refits or revalues nothing, so the
+    test window stays evaluated once.
+    """
+    for phase in args.phases:
+        out = REPORTS / phase
+        scores = pd.read_csv(out / "forecast_by_stage.csv")
+        totals = pd.read_csv(out / "policies.csv")
+        path = out / "quality_vs_value_by_seed.csv"
+        quality_vs_value_by_seed(scores, totals).round(4).to_csv(path, index=False)
+        print(f"wrote {path.relative_to(PROJECT)}")
 
 
 def _git(*cmd: str) -> str:

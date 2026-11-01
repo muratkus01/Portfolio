@@ -26,13 +26,16 @@ linear model catches up with LightGBM, and in the validation window passes it.
 **Whether that skill pays in euros changes with the window, and the difference stays within
 the noise.** Scheduling each forecast day-ahead and settling the rest at reBAP, the 2026 test
 window ranks the euros exactly as the skill: TSO forecast 28.96 M EUR, LightGBM 28.78 to
-28.79 M, linear 28.65 M, climatology 28.54 M, persistence 28.31 M (Spearman +1.0). The second
-half of 2025 does not (-0.4): climatology earned most and the TSO forecast least. In neither
+28.79 M, linear 28.65 M, climatology 28.54 M, persistence 28.31 M (Spearman +1.0 with every
+LightGBM seed). The second half of 2025 does not (-0.4 with LightGBM's first seed, -0.7 with
+the other two): climatology earned most and the TSO forecast least. In neither
 window does any forecast's day-ahead gain over climatology have a 90 % block-bootstrap
 interval that excludes zero; for the TSO forecast in 2026 it is +420,171 EUR (-106,521 to
 +1,233,049).
 [policies](reports/test/policies.csv), [value_of_forecast](reports/test/value_of_forecast.csv),
-[quality_vs_value](reports/test/quality_vs_value.csv)
+[quality_vs_value](reports/test/quality_vs_value.csv), per seed
+([validation](reports/validation/quality_vs_value_by_seed.csv),
+[test](reports/test/quality_vs_value_by_seed.csv))
 
 **Why.** For a day-ahead schedule `f`, the result against a perfect forecast is exactly
 `sum((y - f) * (reBAP - DA)) * dt`. It splits into a bias part, which pays a schedule below
@@ -314,6 +317,7 @@ python -m pytest tests -q
 python -m f2b.cli build-data                   # Energy-Charts and Open-Meteo, cached
 python -m f2b.cli backtest --phase validation  # the slow step: LightGBM with three seeds
 python -m f2b.cli backtest --phase test        # once; refuses to overwrite reports/test/
+python -m f2b.cli derive                       # tables added after the runs, from their CSVs
 python ../../scripts/make_f2b_figure.py        # the figure, from the committed CSVs
 ```
 

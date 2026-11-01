@@ -4,6 +4,7 @@ Real data, the source of every README result:
     python -m f2b.cli build-data                    fetch and cache every input
     python -m f2b.cli backtest --phase validation   fit the ladder, tune on validation
     python -m f2b.cli backtest --phase test         evaluate the 2026 window, once
+    python -m f2b.cli derive                        tables added later, from committed CSVs
 
 Parametric noise ablation, kept for comparison only:
     python -m f2b.cli synthetic-policies       [--year 2025 --days 60 --spread 3 --seed 0]
@@ -31,6 +32,10 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--reuse-forecasts", action="store_true",
                     help="value the forecasts cached by the last fit instead of refitting")
     sp.set_defaults(func=pipeline.cmd_backtest)
+    sp = sub.add_parser("derive")
+    sp.add_argument("--phase", dest="phases", nargs="+", choices=("validation", "test"),
+                    default=["validation", "test"])
+    sp.set_defaults(func=pipeline.cmd_derive)
     for name, fn in ablation.COMMANDS.items():
         sp = sub.add_parser(name)
         ablation.add_arguments(sp)
