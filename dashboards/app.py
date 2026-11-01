@@ -86,8 +86,8 @@ def _load_cubes() -> dict:
 CUBES = _load_cubes()
 
 # Projects 02, 03 and 04 were archived on 2026-10-09, so they are no longer offered in the
-# selector. Their input panels and lookup branches below are unreachable as a result; their
-# scenario rows are still present in the cubes. See archive/README.md.
+# selector. Their input panels and lookup branches below are unreachable as a result, and
+# simulations/results/ holds no scenario rows for them any more. See archive/README.md.
 # The current Project 03 (forecast-to-bid) is not offered either: its scenario grid swept
 # synthetic forecast noise and was retired. Its results are the CSVs in
 # projects/03-probabilistic-forecast-to-bid/reports/.
@@ -121,8 +121,9 @@ ui.page_opts(title="Portfolio Interactive Simulator", fillable=True)
 
 with ui.sidebar(width=300):
     ui.h5("Project Selector", style=f"color: {TEXT}; margin-bottom: 8px;")
+    # A single choice since the P02 grid was retired; the panels below still key on input.project.
     ui.input_select(
-        "project", "Active Project",
+        "project", "Active Project (only Project 01 has a sweep)",
         choices=PROJECT_LABELS, selected="p01",
     )
     ui.hr(style="border-color: #1e2d47;")
