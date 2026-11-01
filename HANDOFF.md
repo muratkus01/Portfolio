@@ -757,7 +757,9 @@ Murat split the 2026-10-31 work by project: this session owned `projects/03-*`,
 `docs/09-learned-forecast-layer.md`, `scripts/make_f2b_figure.py` and additions to `datakit`;
 the "RL Simulation" session owns P02, P01 and the shared public files (showcase, root
 README, CITATION.cff, docs/02, docs/05, the other scripts, simulations/results). Branch
-`quality/p03`, worktree `Vaults/Portfolio-quality`, based on 4c13a4a; nothing pushed.
+`quality/p03`, worktree `Vaults/Portfolio-quality`, based on 4c13a4a; ~~nothing pushed.~~
+**Superseded, noted 2026-11-02:** pushed; GitHub `main` holds the branch through the merges
+`5ed7d2c` and `4d5a7be`.
 
 ### What changed
 - An audit (2026-10-31) found the old P03 headline (B3 beats B1 by 286,110 EUR) came from a
@@ -799,8 +801,9 @@ README, CITATION.cff, docs/02, docs/05, the other scripts, simulations/results).
 `data/raw/netztransparenz/`, `datakit/cache/`. LightGBM 4.7.0 was added to the shared venv.
 
 ### Open
-1. Murat's OK to push `quality/p03`; rebase on origin/main first (no file overlap with the
-   other session's commits as of 7ee3bfa).
+1. ~~Murat's OK to push `quality/p03`; rebase on origin/main first (no file overlap with the
+   other session's commits as of 7ee3bfa).~~ **Done, noted 2026-11-02:** merged with GitHub
+   `main` instead of rebased (`5ed7d2c`, `4d5a7be`), then pushed.
 2. The other session's shared-files pass needs P03's wording: root README row and invariants
    table, showcase section, demo_06. Sent to it when this lands.
 3. Not built, deliberately: price and reBAP forecasting, decision-focused learning, an RL
