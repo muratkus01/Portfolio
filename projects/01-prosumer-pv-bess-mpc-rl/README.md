@@ -19,8 +19,10 @@ The thesis optimised one household over 2024 at hourly resolution with perfect f
 This extension asks what a controller that could actually be deployed achieves, and what the
 switch of the EPEX day-ahead market to quarter-hour products on 1 October 2025 is worth.
 The main results below come from committed scripts and committed CSVs in `reports/` (for
-Gate 0, a committed test and its reference CSV). Solve times, the example-day numbers and a
-few supporting checks come from one-off runs; the checks are marked.
+Gate 0, a committed test and its reference CSV). Solve times and a few supporting checks
+come from one-off runs; the checks are marked. The example-day numbers and the spread of the
+RL step cost come from the scripts in [`scripts/`](scripts/), which need the gitignored H28
+dataset.
 
 ```bash
 pip install -e ".[rl,data,dev]"
@@ -99,7 +101,8 @@ The figure below isolates the physical dispatch of the price-blind rule-based he
 ![example day dispatch](docs/figures/example_day_dispatch.png)
 
 This is a real run of both controllers, warmed up over the three preceding days, on the
-project's own tariff. On this day the export price falls to **0 ct/kWh between 11:00 and
+project's own tariff ([`scripts/example_day_stats.py`](scripts/example_day_stats.py) prints
+every number below). On this day the export price falls to **0 ct/kWh between 11:00 and
 17:00** (16 quarter-hours of negative spot price, which are four hourly products: the day
 predates the quarter-hour day-ahead market), while the evening peak reaches **40 ct/kWh**
 around 21:00.
@@ -173,7 +176,7 @@ The preliminary RL benchmark (Soft Actor-Critic trained on 2024 data and tested 
 1. **Dead Gradient from Action Clipping (77 to 82 % clipping rate):** In raw action formulations where the policy outputs a normalized battery power setpoint $a \in [-1, 1]$ scaled to $[-P_{max}, P_{max}]$, the physical state of charge and grid limits frequently prevent the requested action. The safety layer clipped 77 to 82 % of actions. When actions are clipped by an external projection, policy gradient updates produce zero or misdirected gradient steps. This was the obvious suspect; the ablation below shows it was the lesser of the two problems, and that removing the clipping without fixing the reward makes no reliable difference.
 2. **Uncontrollable term in the step reward:** The raw reward was the total step electricity cost:
    $$r_t = - \left( c_{imp}(t) \cdot p_{imp}(t) - c_{exp}(t) \cdot p_{exp}(t) \right) \Delta t$$
-   Most of that cost is set by household load and irradiance, which the battery cannot influence. Measured once on the test period (no committed script), the no-battery step cost has a standard deviation of 4.4 ct while the battery's own contribution under B1 dispatch has 2.9 ct, so the uncontrollable part adds noise of roughly one and a half times the signal the agent is trying to learn from. It does not swamp the signal, but it does make credit assignment harder than it needs to be.
+   Most of that cost is set by household load and irradiance, which the battery cannot influence. Measured on the test period ([`scripts/step_cost_spread.py`](scripts/step_cost_spread.py)), the no-battery step cost has a standard deviation of 4.4 ct while the battery's own contribution under B1 dispatch has 2.9 ct, so the uncontrollable part adds noise of roughly one and a half times the signal the agent is trying to learn from. It does not swamp the signal, but it does make credit assignment harder than it needs to be.
 
 #### Implemented Solutions
 
