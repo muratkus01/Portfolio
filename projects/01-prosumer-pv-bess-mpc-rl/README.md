@@ -43,9 +43,9 @@ from the published data exactly: `EP_buy = 1.19 * EPEX + 0.1937`,
 **Found while validating:** the thesis PV profile is one hour early, which
 `tests/test_thesis_reproduction.py` checks. Its source, a company ERA5 model export with
 UTC timestamps, is centred on solar noon; during data preparation the timestamps were
-written into the CET column one to one (8778 of 8784 hours identical under that reading).
-These two statements about the export rest on a one-off comparison with it, which cannot
-be redistributed, so no test repeats them. Correcting the timing
+written into the CET column one to one (under that reading the two series are identical in
+almost every hour). These two statements about the export rest on a one-off comparison
+with it, which cannot be redistributed, so no test repeats them. Correcting the timing
 (`load_thesis_year(correct_pv_timing=True)`) lowers the optimised scenario's annual profit
 by about 2 % (1039.0 to 1018.2 EUR, a one-off rerun that no test covers yet); the thesis
 conclusions hold. The thesis data is kept as published so Gate 0 still reproduces it;
