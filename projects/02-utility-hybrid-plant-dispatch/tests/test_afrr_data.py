@@ -7,6 +7,7 @@ window or pays a bid.
 """
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import hashlib
 import importlib.util
@@ -279,6 +280,27 @@ def test_a_bid_is_paid_only_where_it_was_at_or_below_the_marginal():
                                                                      [5.0] * 4]
     with pytest.raises(ValueError, match="unknown aFRR price basis 'minimum'"):
         paid_prices(prices, "minimum")
+
+
+def test_capacity_prices_are_read_only_and_one_value_per_step():
+    """CapacityPrices is frozen all the way down: its arrays are read-only copies of what it
+    was given, so no rung can change the prices that another rung reads, whichever pandas
+    built them, and paid_prices's realised arrays on "average" and "marginal" stay read-only
+    too. Fields of different lengths are refused."""
+    _, prices = _window(DAYS[0], 3)
+    for field in dataclasses.fields(prices):
+        with pytest.raises(ValueError, match="read-only"):
+            getattr(prices, field.name)[0] = 1
+    for basis in ("average", "marginal"):
+        with pytest.raises(ValueError, match="read-only"):
+            paid_prices(prices, basis)[0][0] = 0.0
+
+    given = {field.name: np.arange(4.0) for field in dataclasses.fields(CapacityPrices)}
+    copied = CapacityPrices(**given)
+    given["average_up"][0] = 99.0
+    assert copied.average_up[0] == 0.0
+    with pytest.raises(ValueError, match="one value per step"):
+        CapacityPrices(**{**given, "bid_down": np.arange(3.0)})
 
 
 def test_capacity_prices_refuses_what_it_cannot_map():

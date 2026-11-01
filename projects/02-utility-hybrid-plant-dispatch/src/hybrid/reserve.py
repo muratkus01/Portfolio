@@ -5,7 +5,7 @@ of them imports `afrr_data`, which reads regelleistung.net's files.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 import numpy as np
 
@@ -31,6 +31,8 @@ class CapacityPrices:
     marginal_up, marginal_down: the realised German marginal, the highest accepted bid.
     bid_up, bid_down: B3's bid, the same product's German average on the previous Berlin
         day, to whole cents; NaN on the window's first day, which has no gate in the window.
+    Every field is kept as a read-only copy of what is given, so no rung can change the prices
+    another rung reads. Raises ValueError unless every field holds one value per step.
     """
     block: np.ndarray
     day: np.ndarray
@@ -42,6 +44,20 @@ class CapacityPrices:
     marginal_down: np.ndarray
     bid_up: np.ndarray
     bid_down: np.ndarray
+
+    def __post_init__(self) -> None:
+        # Frozen all the way down. pandas 3 hands out read-only arrays and pandas 2 writable
+        # views of its frames, so without the copy an in-place write would raise on one and
+        # silently change the realised prices of every later rung on the other.
+        shapes = {}
+        for field in fields(self):
+            array = np.array(getattr(self, field.name))
+            array.setflags(write=False)
+            object.__setattr__(self, field.name, array)
+            shapes[field.name] = array.shape
+        if len(set(shapes.values())) != 1 or len(shapes["block"]) != 1:
+            raise ValueError(f"CapacityPrices holds one value per step in every field, not "
+                             f"the shapes {shapes}")
 
 
 def paid_prices(prices: CapacityPrices, basis: str) -> tuple[np.ndarray, np.ndarray]:
