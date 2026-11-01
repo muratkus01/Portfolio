@@ -17,7 +17,7 @@
 ## 🎯 60-Second Executive Quickstart
 
 ### 🌐 Interactive Web Showcase
-Explore the three projects' results, sensitivity sweeps and 15-minute dispatch profiles directly in your browser:  
+Explore the three projects' results and sensitivity sweeps directly in your browser, with one real 15-minute dispatch day of Project 01 (the page's interactive day is illustrative, not a model run):  
 👉 **[muratkus01.github.io/Portfolio/showcase.html](https://muratkus01.github.io/Portfolio/showcase.html)**
 
 ### 💻 Local Execution
