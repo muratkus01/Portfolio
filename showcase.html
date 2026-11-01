@@ -2295,7 +2295,7 @@
             </div>
             <div class="mini-metric">
               <div class="mini-lbl">Skill vs B0 Euros, Test / Val.</div>
-              <div class="mini-val amber">+1.0 / -0.4</div>
+              <div class="mini-val amber">+1.0 / -0.4 to -0.7</div>
             </div>
             <div class="mini-metric">
               <div class="mini-lbl">B0 Gains Beyond Noise</div>
@@ -2322,7 +2322,7 @@
               </tbody>
             </table>
             <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; padding: 10px 20px 12px;">
-              Each forecast's day-ahead median is scheduled once (policy B0) and what is left settles at reBAP; DA pinball is the pinball loss at the day-ahead gate, lower is better. The test window was evaluated once, with every setting frozen beforehand. In it the B0 euros rank exactly as the skill (Spearman +1.0 across the five rungs, with LightGBM seed 0). In the validation half-year, 2025-07-02 to 2025-12-29, they do not (-0.4, and more negative with seed 1 or 2, which earned less than persistence there): climatology earned the most (15,295,413 EUR) and the TSO forecast the least (15,055,372 EUR). In neither window does any forecast's day-ahead (B0) gain over climatology have a 90% block-bootstrap interval that excludes zero. Climatology carries 129,432 MWh of imbalance against 26,989 MWh for the TSO forecast; no balance responsible party may schedule that way, so its euros are a warning about scoring forecasts in euros alone, not a strategy. LightGBM seeds 1 and 2: pinball 2.40 and 2.41 MW, B0 28,790,925 and 28,790,914 EUR. Sources in the P03 folder: <code>reports/test/forecast_by_stage.csv</code>, <code>policies.csv</code>, <code>value_of_forecast.csv</code> and <code>quality_vs_value.csv</code>, and the same files in <code>reports/validation/</code>.
+              Each forecast's day-ahead median is scheduled once (policy B0) and what is left settles at reBAP; DA pinball is the pinball loss at the day-ahead gate, lower is better. The test window was evaluated once, with every setting frozen beforehand. In it the B0 euros rank exactly as the skill (Spearman +1.0 across the five rungs, with every LightGBM seed). In the validation half-year, 2025-07-02 to 2025-12-29, they do not (-0.4 with LightGBM seed 0, -0.7 with seeds 1 and 2, which earned less than persistence there): climatology earned the most (15,295,413 EUR) and the TSO forecast the least (15,055,372 EUR). In neither window does any forecast's day-ahead (B0) gain over climatology have a 90% block-bootstrap interval that excludes zero. Climatology carries 129,432 MWh of imbalance against 26,989 MWh for the TSO forecast; no balance responsible party may schedule that way, so its euros are a warning about scoring forecasts in euros alone, not a strategy. LightGBM seeds 1 and 2: pinball 2.40 and 2.41 MW, B0 28,790,925 and 28,790,914 EUR. Sources in the P03 folder: <code>reports/test/forecast_by_stage.csv</code>, <code>policies.csv</code>, <code>value_of_forecast.csv</code>, <code>quality_vs_value.csv</code> and <code>quality_vs_value_by_seed.csv</code>, and the same files in <code>reports/validation/</code>.
             </p>
           </div>
 
