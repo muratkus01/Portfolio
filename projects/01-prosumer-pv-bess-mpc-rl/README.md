@@ -29,6 +29,7 @@ prosumer rolling-eval --data <household>    # B1 / B2 / B3 variants, train 2024,
 prosumer household-sweep                    # the deployable B3 for 73 measured households
 prosumer quarter-hour-study                 # value of quarter-hour prices after 2025-10-01
 prosumer rl-eval                            # SAC on the same information set as B3
+prosumer year-split                         # 2025 against 2026 over the same months, from the CSVs
 prosumer sizing                             # battery capacity x inverter power grid sweep
 ```
 
@@ -77,6 +78,19 @@ Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kW
 
 - **B3 Headroom Recovery:** The deployable rolling MPC captures **89.4 %** of the theoretical perfect-foresight ceiling (350 of 392 EUR headroom over B1) using only published prices, NWP irradiance forecasts, and standard load profiles. Zero constraint violations across all 59,996 quarter-hours.
 - **Economic Return:** Adding a battery under B3 dispatch turns an annual electricity expense of +52.89 EUR/a (PV only) into a net revenue of -394.38 EUR/a, an annual gain of **447.27 EUR/a**. Against the marginal CAPEX of 4,349 EUR (350 EUR/kWh storage plus 190 EUR/kW inverter) that is a **9.7-year simple payback** and **10.3 % return on capital**, against 17.9 years and 5.6 % for the price-blind rule-based operation. Perfect foresight would reach 9.2 years and 10.8 %, so the entire remaining control gap is worth about half a point of return.
+
+#### The same months in 2025 and 2026
+
+The test period holds January to September twice: in 2025 with hourly day-ahead prices, in
+2026 with quarter-hour prices and only until 17 September. Over those months the B1 to B2
+gap is 157 EUR in 2025 and 217 EUR in 2026, and B3 captures 87.2 % and 92.7 % of it. The
+three RL seeds capture 27.8 to 29.2 % in 2025 and 49.5 to 50.6 % in 2026, and over the whole
+of 2025 only 9.7 to 10.2 % (B3: 85.4 %). Every RL seed costs more than B1 in each of the 7
+months from October to February (January and February 2025, October 2025 to February 2026)
+and less in each of the other 14; B3 costs less than B1 in all 21 months. The split cannot
+separate the market design from the year. `prosumer year-split` computes it from the monthly
+cost CSVs of the H28 rolling evaluation and the RL run
+([year_split](reports/year_split/year_split.csv)).
 
 ### Operational dispatch: 24-hour summer day comparison
 
