@@ -3,7 +3,16 @@
 **Purpose.** Every project in this portfolio treats the German regulatory framework as part
 of the *environment specification*, not as a compliance footnote. This document is the
 shared reference: it defines the market products, the legal constraints and the settlement
-mechanics that the optimisation models and RL environments must reproduce.
+mechanics the projects model. It also covers products and rules that no project implements
+yet: each section names the projects that implement its subject, and marks the main items
+that none implements as **not implemented**.
+
+> **Project numbers.** 01 is the prosumer PV and battery project, 02 the utility hybrid plant
+> and 03 the forecast-to-bid pipeline. A2, A3 and A4 are the archived pumped-storage,
+> EV-charging and energy-sharing projects ([`archive/README.md`](../archive/README.md)): they
+> still build and their tests still run, but they are no longer part of the portfolio. Older
+> texts use the numbers of the six-project portfolio, in which the hybrid plant was 05 and
+> forecast-to-bid 06.
 
 > **Currency of information.** Energy law in Germany changes frequently. Each statement
 > below carries the instrument it derives from so it can be re-verified against the current
@@ -46,8 +55,11 @@ this portfolio therefore uses **Δt = 15 min** as the native resolution.
 ```
 
 A dispatch policy that optimises one of these stages in isolation leaves money on the table
-and, worse, can create commitments it cannot honour later. Projects 02 and 03 explicitly
-model the **sequential, nested** nature of this decision problem.
+and, worse, can create commitments it cannot honour later. Project 03 models part of this
+**sequential, nested** decision problem: a day-ahead position, intraday trades at the ID AEP
+index and imbalance settled at reBAP. **Not implemented in any active project:** the
+balancing capacity auctions, balancing energy activation and the intraday auctions. The
+archived pumped-storage project (A2) co-optimised aFRR capacity with day-ahead energy.
 
 ### 1.3 Balancing (Regelleistung) products
 
@@ -64,10 +76,15 @@ Key modelling points:
 - Capacity and energy are **separately priced**; aFRR/mFRR energy is called from a common
   European merit order, so activation is *stochastic from the bidder's perspective*.
 - Offering capacity **removes headroom** from the energy markets - the opportunity cost
-  coupling is the entire optimisation problem for storage (Projects 02, 05).
+  coupling is the entire optimisation problem for storage. The archived pumped-storage
+  project (A2) modelled it for aFRR; for the battery of Project 02 it is planned, not built.
 - **Prequalification** (*Präqualifikation*) per the TSO Prequalification Conditions is a hard
   gate: minimum bid size, measurement, remote control and proof of availability. A pooled
   bid requires an aggregator's prequalified pool.
+
+**Not implemented in any active project:** FCR, aFRR and mFRR. Project 02 declares aFRR
+settings (`MarketConfig.afrr_*`) that no command reads; aFRR for its battery is planned
+next.
 
 ### 1.4 Imbalance settlement and the balancing group
 
@@ -79,8 +96,10 @@ price per quarter-hour, published by the TSOs on `netztransparenz.de`.
 reBAP is *signed and volatile* - it can exceed several hundred €/MWh and can also be
 negative, meaning an imbalance in the system-helping direction is remunerated. This creates
 a genuine sequential decision problem: closing a forecast error via intraday trading costs a
-known spread now; leaving it open exposes the portfolio to an unknown reBAP later. Project 06
-is built around exactly this trade-off.
+known spread now; leaving it open exposes the portfolio to an unknown reBAP later. Project 03
+is built around exactly this trade-off, on real reBAP and ID AEP prices. Project 02 can
+settle a deviation from a committed schedule at reBAP, on a synthetic reBAP series, but no
+rung commits a schedule, so its imbalance is 0 in every table.
 
 ---
 
@@ -147,7 +166,10 @@ EEG 2023 § 9 requires technical equipment allowing the network operator to redu
 remotely and to retrieve the actual feed-in power, above defined size thresholds. New small
 PV systems without a smart-meter gateway face a **feed-in limitation** (the 60 %-of-installed-
 capacity cap introduced by the 2025 Solarspitzengesetz) until intelligent metering is in
-place - a direct, quantifiable incentive for the storage sizing questions in Project 01.
+place - a direct incentive for storage sizing.
+
+**Not implemented in any project:** remote control under § 9 and the 60 % feed-in cap.
+Project 01 applies no export cap in any result.
 
 ### 2.4 Redispatch 2.0
 
@@ -161,7 +183,10 @@ are compensated financially. For a hybrid plant or storage asset this means:
 - the controller must distinguish *self-chosen* curtailment from *ordered* curtailment
   because the compensation regimes differ.
 
-Projects 05 and 02 include a redispatch-order channel in the environment for this reason.
+**Not implemented in any project:** redispatch orders and their compensation. Project 02
+carries the channel in code, an export cap below the connection (`market.redispatch_series`,
+`plant.dispatch_step`), but no command applies an order, so no result contains redispatch.
+Its curtailment split is chosen against forced by the connection, not against ordered.
 
 ---
 
@@ -185,12 +210,15 @@ customer receives a **reduced network charge** in return, choosing between:
 | **Module 2** | Percentage reduction on the energy component (*Arbeitspreis*) of the network charge |
 | **Module 3** | Time-variable network charges (*zeitvariable Netzentgelte*), selectable in addition to Module 1, phased in from 2025 |
 
-**Consequence for modelling:** in Projects 01 and 03 the control problem is *not* the
-textbook "minimise cost under a fixed tariff". The agent chooses a network-charge module
-(a slow, annual decision), then operates under a stochastic dimming signal it does not
-control, and must remain feasible and comfortable when it arrives. This is a constrained,
-partially observable control problem with an exogenous safety-critical interrupt - a much
-better-posed RL problem than the usual formulation.
+**Consequence for modelling:** the control problem is *not* the textbook "minimise cost
+under a fixed tariff". The site chooses a network-charge module (a slow, annual decision),
+then operates under a stochastic dimming signal it does not control, and must remain
+feasible when it arrives. This is a constrained, partially observable control problem with
+an exogenous safety-critical interrupt - a much better-posed RL problem than the usual
+formulation. Project 01 has the module as a setting and the dimming signal as a synthetic
+process, because no public data on realised dimming events exists; its safety layer caps
+battery charging during an event. The archived EV-charging project (A3) built its depot
+problem around both.
 
 ### 3.2 `§41a EnWG` - dynamic tariffs
 
@@ -209,9 +237,10 @@ digitalisation of the energy transition (GNDEW) accelerated the rollout and the 
 the **CLS channel** (controllable local system) used to steer devices under `§14a EnWG`.
 
 **Consequence for modelling:** the *actuation path* has real latency, limited bandwidth and
-a defined command vocabulary. Projects 01 and 03 assume control at 15-minute granularity
-through this channel rather than continuous-time actuation, and Project 03 models
-OCPP 2.0.1 / EEBUS semantics on the device side.
+a defined command vocabulary. Project 01 assumes control at 15-minute granularity through
+this channel rather than continuous-time actuation, as did the archived EV-charging project
+(A3). **Not implemented in any project:** OCPP 2.0.1 and EEBUS semantics on the device side;
+A3 names them as its target interface, but its code does not implement them.
 
 ### 3.4 Network charges and other levies
 
@@ -220,7 +249,13 @@ arbitrages: energy procurement, network charges (*Netzentgelte*, per DSO and per
 concession fee (*Konzessionsabgabe*), electricity tax (*Stromsteuer*), offshore network levy,
 `§19 StromNEV` levy, CHP levy (KWKG) and VAT. For industrial sites, `§19(2) StromNEV`
 individual network charges (peak-load-based, *atypische Netznutzung*) create an explicit
-peak-shaving incentive modelled in Project 03.
+peak-shaving incentive, which the archived EV-charging project (A3) modelled as a charge on
+the billing period's highest quarter-hour.
+
+Project 01 builds the household's import price from the spot price, a supplier margin, the
+network charge's energy component, the levies as one figure and electricity tax, with VAT on
+the total (`prosumer.config.TariffConfig`). **Not implemented in any project:** the concession fee, and
+network charges per DSO and grid level.
 
 ---
 
@@ -235,24 +270,29 @@ peak-shaving incentive modelled in Project 03.
 
 **Status note.** Building-level collective supply (`§42b EnWG`) is in force. Broader
 **energy sharing across the public grid** has been the subject of successive EnWG amendment
-drafts; Project 04 is therefore specified to be *robust to the allocation rule*: it models
-several candidate allocation mechanisms (static keys, dynamic proportional, optimisation-
-based, market-based) and evaluates them on the same physical and economic substrate, so the
-work remains valid regardless of which variant is finally enacted.
+drafts; the archived energy-sharing project (A4) was therefore built to be *robust to the
+allocation rule*: it models four allocation mechanisms (static key, dynamic proportional,
+optimisation-based, market-based) under four supply regimes (individual supply, Mieterstrom,
+`§42b EnWG` and energy sharing) and evaluates them on the same physical and economic
+substrate, so the work remains valid regardless of which variant is finally enacted. No
+active project models collective supply or energy sharing, and no project models the
+Bürgerenergiegesellschaft status.
 
 ---
 
 ## 5. E-mobility specifics
 
+No active project models e-mobility; the archived EV-charging project (A3) did.
+
 - **Ladesäulenverordnung (LSV)** - technical, calibration-law and ad-hoc-payment
   requirements for *public* charging points. Non-public depot and workplace charging is
-  outside LSV, which is why Project 03 focuses there.
+  outside LSV, which is why A3 focused there.
 - **AFIR** (EU 2023/1804) - deployment and payment/transparency requirements for public
   recharging infrastructure along TEN-T.
 - **Eichrecht** (calibration law) - billing-relevant measurement must be verifiable; this
   constrains what an optimiser may bill against.
 - **THG-Quote** - greenhouse-gas quota revenue attributable to charged electricity, a real
-  revenue line for depot operators and therefore a term in Project 03's objective.
+  revenue line for depot operators and therefore a term in A3's objective.
 - **`§14a EnWG`** applies to non-public charging points - the dimming interrupt above is a
   first-class part of the depot scheduling problem.
 
@@ -271,7 +311,10 @@ work remains valid regardless of which variant is finally enacted.
 - **Water-law constraints:** *Wasserrechtliche Genehmigung*, minimum/maximum reservoir levels,
   ramp-rate limits protecting downstream ecology, and - for plants with natural inflow -
   hydrological boundary conditions. These are **hard constraints** and belong in the safety
-  layer, never in the reward function (Project 02).
+  layer, never in the reward function (the archived pumped-storage project, A2).
+
+No active project models hydro or pumped storage; A2 modelled the `§118(6)` exemption as a
+switch and the reservoir limits in its safety layer.
 
 ---
 
@@ -280,14 +323,16 @@ work remains valid regardless of which variant is finally enacted.
 Four design rules follow from the above and are applied consistently across the portfolio:
 
 1. **Δt = 15 min everywhere.** Hourly models are not accepted as the primary configuration.
-2. **Hard constraints live in a safety layer, not in the reward.** Water levels, SoC limits,
-   thermal comfort bands, grid connection capacity and `§14a` dimming are enforced by
-   projection/action masking so that a learned policy cannot trade a penalty against a
-   physical or legal violation.
+2. **Hard constraints live in a safety layer, not in the reward.** Water levels (A2), SoC
+   limits, grid connection capacity and `§14a` dimming are enforced by projection/action
+   masking so that a learned policy cannot trade a penalty against a physical or legal
+   violation. No project models thermal comfort bands.
 3. **Regulatory switches are model parameters.** Plant vintage, `§14a` module choice,
    `§118(6)` applicability and negative-price rules are configuration, so sensitivity to
    regulatory change is a first-class result rather than an obsolescence risk.
-4. **The baseline is a rolling-horizon MILP-MPC on the same forecasts.** See
+4. **The baseline is a rolling-horizon MPC on the same forecasts.** It is an LP in
+   Projects 01 and 02; the archived pumped-storage project (A2) needed a MILP, with a binary
+   direction variable. Project 03 climbs a forecast ladder instead. See
    [`03-methodology-benchmark-ladder.md`](03-methodology-benchmark-ladder.md).
 
 ---
