@@ -2,7 +2,7 @@
 """Portfolio showcase: run every project's benchmark ladder and print what it finds.
 
     python showcase.py               offline, synthetic inputs, about a minute
-    python showcase.py --real-data   DE-LU 2025 prices and generation via datakit (network)
+    python showcase.py --real-data   demo 01 on DE-LU 2025 day-ahead prices via datakit (network)
     python showcase.py --tests       also run the test suite and report the real counts
 
 Demos 01 and 02 compute every number on the spot with the project packages. Demo 03 reads
@@ -192,7 +192,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--real-data", action="store_true",
-                    help="use DE-LU 2025 prices via datakit (needs network)")
+                    help="run demo 01 on DE-LU 2025 prices via datakit (needs network)")
     ap.add_argument("--tests", action="store_true", help="also run the test suite")
     ap.add_argument("--only", choices=list(DEMOS), help="run a single project")
     ap.add_argument("--html", nargs="?", const="showcase.html", default=None,
@@ -202,8 +202,8 @@ def main() -> int:
     print("=" * 84)
     print("  AI for Renewable Energy Systems: applied research portfolio")
     print("  Murat Kus | Dipl.-Ing. | M.Sc. Sustainable Energy Systems (FH Upper Austria) | B.Sc. Artificial Intelligence (JKU Linz) - In Progress")
-    print(f"  inputs: {'DE-LU 2025 day-ahead prices (datakit)' if args.real_data else 'synthetic, offline'}"
-          f" | demos 01-02 compute now, demo 03 reads committed CSVs")
+    demo01 = "DE-LU 2025 day-ahead prices (datakit)" if args.real_data else "synthetic, offline"
+    print(f"  inputs: demo 01 {demo01}; demo 02 synthetic; demo 03 reads committed CSVs")
     print("=" * 84)
 
     failures = 0
