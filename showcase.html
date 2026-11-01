@@ -820,6 +820,9 @@
     .invariant-text strong {
       color: var(--text-main);
     }
+    .invariant-text p + p {
+      margin-top: 8px;
+    }
 
     /* CLI Runner Box */
     .cli-box {
@@ -2113,16 +2116,16 @@
       <div class="sec-header">
         <h2 class="sec-title"><span class="sec-num-badge">02</span> Utility Hybrid Wind+PV+BESS Plant Dispatch</h2>
         <p class="sec-summary">
-          Co-located hybrid power plant integrating <strong>50 MW wind</strong>, <strong>30 MW solar PV</strong>, and a <strong>40 MWh BESS</strong> behind a strictly constrained <strong>40 MW grid interconnection point</strong> (2.0x over-planting ratio). Dispatched via rolling-horizon MILP and continuous MPC to prevent line overloading and eliminate renewable revenue forfeiture under statutory <strong>EEG §51 / §51a negative price rules</strong>.
+          A co-located plant of <strong>50 MW onshore wind</strong>, <strong>30 MWp PV</strong> and a <strong>20 MW / 40 MWh battery</strong> behind one <strong>60 MW grid connection</strong> in Germany; it is not a real site. The plant earns the <strong>day-ahead price</strong> plus the <strong>EEG market premium</strong>, computed per technology and paid as one blended rate, under the <strong>EEG §51 negative-price rule</strong> of each plant vintage. A benchmark ladder from B0 (no battery) to B3 (a rolling LP-MPC), solved with PuLP and CBC, runs on Energy-Charts national wind and solar generation and day-ahead prices for the calendar years 2024 and 2025.
         </p>
         <div class="topology-strip">
-          <span class="topo-node accent">50 MW Wind + 30 MW PV</span>
+          <span class="topo-node accent">50 MW Wind + 30 MWp PV (National Profiles)</span>
           <span class="topo-arrow">&rarr;</span>
-          <span class="topo-node emerald">40 MWh BESS Buffer</span>
+          <span class="topo-node emerald">20 MW / 40 MWh Battery</span>
           <span class="topo-arrow">&rarr;</span>
-          <span class="topo-node amber">Strict 40 MW POC Limit</span>
+          <span class="topo-node amber">60 MW Grid Connection</span>
           <span class="topo-arrow">&rarr;</span>
-          <span class="topo-node purple">EEG §51 Market Gate</span>
+          <span class="topo-node purple">Day-Ahead Price + EEG Premium, §51 Rule</span>
         </div>
       </div>
 
@@ -2130,79 +2133,56 @@
         <div class="data-col">
           <div class="metrics-strip">
             <div class="mini-metric">
-              <div class="mini-lbl">B3 Value Added</div>
-              <div class="mini-val emerald" id="p02-metric-lift">+5.4% Rev</div>
+              <div class="mini-lbl">B3 Share of Gain, Jan / Jul 2025</div>
+              <div class="mini-val emerald">94.1 / 95.4%</div>
             </div>
             <div class="mini-metric">
-              <div class="mini-lbl">Forced Curtailment</div>
-              <div class="mini-val cyan" id="p02-metric-curtail">603.8 MWh</div>
+              <div class="mini-lbl">Battery's Own Value (B2), 2024 / 2025</div>
+              <div class="mini-val cyan">1.24M / 1.46M EUR</div>
             </div>
             <div class="mini-metric">
-              <div class="mini-lbl">Over-Planting</div>
-              <div class="mini-val amber">2.00x Ratio</div>
+              <div class="mini-lbl">Quarter-Hours above 60 MW, 2024 / 2025</div>
+              <div class="mini-val amber">0 / 0</div>
             </div>
             <div class="mini-metric">
-              <div class="mini-lbl">Physical Invariants</div>
-              <div class="mini-val emerald">0 Violations</div>
+              <div class="mini-lbl">Plant-Limit Violations</div>
+              <div class="mini-val emerald">0</div>
             </div>
           </div>
 
           <div class="table-card">
             <div class="table-title">
-              <span id="p02-table-sub">Benchmark Ladder Comparison (80 MW Behind 40 MW Connection)</span>
-              <span style="font-family: var(--font-mono); color: var(--text-muted);" id="p02-table-period">3-Day Evaluation Period</span>
+              <span>Benchmark Ladder (Energy-Charts Data, Synthetic Forecasts)</span>
+              <span style="font-family: var(--font-mono); color: var(--text-muted);">Two 30-Day Windows of 2025</span>
             </div>
             <table class="ladder-tbl">
               <thead>
-                <tr><th>Operating Controller</th><th>Net Market Revenue</th><th>Forced Curtailment</th><th>Hybrid Value Lift</th></tr>
+                <tr><th>Controller Rung</th><th>1 to 30 January 2025</th><th>1 to 30 July 2025</th></tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>B0 Standalone (No Battery)</td>
-                  <td id="p02-b0-rev">190,105 EUR</td>
-                  <td id="p02-b0-curtail">695.3 MWh</td>
-                  <td>
-                    <div class="ladder-bar-wrap">
-                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 4%;"></div></div>
-                      <span>Baseline</span>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td>B1 Curtailment Avoidance Rule</td>
-                  <td id="p02-b1-rev">199,059 EUR</td>
-                  <td id="p02-b1-curtail">602.0 MWh</td>
-                  <td>
-                    <div class="ladder-bar-wrap">
-                      <div class="ladder-bar-track"><div class="ladder-bar-fill amber" style="width: 85%;"></div></div>
-                      <span id="p02-b1-lift">+4.7% Lift</span>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td>B3 Rolling-Horizon MPC (12h)</td>
-                  <td id="p02-b3-rev">200,385 EUR</td>
-                  <td id="p02-b3-curtail">603.8 MWh</td>
-                  <td>
-                    <div class="ladder-bar-wrap">
-                      <div class="ladder-bar-track"><div class="ladder-bar-fill emerald" id="p02-b3-bar" style="width: 98%;"></div></div>
-                      <span class="highlight" id="p02-b3-lift">+5.4% Lift</span>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td>B2 Perfect Foresight MILP</td>
-                  <td id="p02-b2-rev">200,561 EUR</td>
-                  <td id="p02-b2-curtail">602.0 MWh</td>
-                  <td>
-                    <div class="ladder-bar-wrap">
-                      <div class="ladder-bar-track"><div class="ladder-bar-fill cyan" style="width: 100%;"></div></div>
-                      <span class="ceiling" id="p02-b2-lift">+5.5% (Ceiling)</span>
-                    </div>
-                  </td>
-                </tr>
+                <tr><td>B0 No Battery</td><td>909,598 EUR</td><td>554,183 EUR</td></tr>
+                <tr><td>B1 Rule-Based: Stores Spill</td><td>909,598 EUR</td><td>554,183 EUR</td></tr>
+                <tr><td>B2 Perfect-Foresight LP (Upper Bound)</td><td class="ceiling">1,001,522 EUR</td><td class="ceiling">656,969 EUR</td></tr>
+                <tr><td>B3 Rolling LP-MPC (24 h)</td><td>996,142 EUR</td><td>652,211 EUR</td></tr>
+                <tr><td>B3's Share of the B1-to-B2 Gain</td><td class="highlight">94.1%</td><td class="highlight">95.4%</td></tr>
+                <tr><td>Premium Settled on / B3 Planned on</td><td>1.48 / 0.00 EUR/MWh</td><td>8.74 / 27.34 EUR/MWh</td></tr>
               </tbody>
             </table>
+            <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; padding: 10px 20px 12px;">
+              Net revenue over each window: the day-ahead price and the premium on the export, minus the 3 EUR/MWh marketing fee and battery wear. Imbalance and grid imports are 0 in every row. B2 knows prices and generation in advance, so its figures are upper bounds. The connection never binds in either window, so B1, which only stores what the connection would spill, earns exactly what B0 earns, and the gain from B1 to B2 is the gain from B0 to B2. Both of B3's shares are optimistic: B3 plans on synthetic forecasts, the truth with a 15% AR(1) error in one random draw, and takes its negative-price mask from the true prices. It plans each month on the previous month's realised premium, while every rung is settled on the realised annual market value of 2025, so in July B3 plans on a premium far above the one it is paid. Sources in the P02 folder: <code>reports/ladder_2025-01-01_30d.csv</code> and <code>reports/ladder_2025-07-01_30d.csv</code>.
+            </p>
+          </div>
+
+          <div class="invariant-card">
+            <div class="invariant-tag">Project 02 stops at B3, on purpose</div>
+            <div class="invariant-text">
+              <p>A learned policy is worth training where a rolling MPC cannot keep up with the problem, and this model does not pose such a problem yet. Each reason can be checked in the code and the tables:</p>
+              <p><strong>1. No rung commits a day-ahead schedule.</strong> <code>market.settle</code> prices a deviation from a committed schedule at reBAP, but no rung produces one and no command passes one, so <code>imbalance_cost_eur</code> is 0 in every row of every table.</p>
+              <p><strong>2. No redispatch.</strong> <code>market.redispatch_series</code> exists, but no command calls it, and <code>tables.INERT_SETTINGS</code> names its settings as unused.</p>
+              <p><strong>3. The connection does not bind on national profiles.</strong> At 60 MW, <code>steps_over_connection</code> is 0 in every Energy-Charts window of <code>reports/window_stats.csv</code>: the plant's peak generation is 42.5 MW in 2024 and 38.3 MW in 2025.</p>
+              <p><strong>4. The premium is deterministic.</strong> It is a fixed function of the period's prices and national generation. B3 plans on an estimate of it, the previous month's realised rate; in July 2025 that estimate, 27.34 EUR/MWh, lies far above the 8.74 EUR/MWh B3 is settled on. Narrowing that gap needs a better estimate of the market value, a forecasting task, not a learned policy.</p>
+              <p>Reinforcement learning is shown in Project 01, on a household PV battery: a soft actor-critic agent reaches 32.4% of the gain from B1 to B2 (median of three seeds), against 89.4% for its rolling MPC. Here it is future work, worth doing once every rung commits a day-ahead schedule that is settled at reBAP.</p>
+            </div>
           </div>
 
           <!-- Detailed Engineering Analysis Workbench -->
@@ -2216,43 +2196,51 @@
 
             <!-- Tab 1: Formulation & Physics -->
             <div id="p02-pane-form" class="proj-pane active">
-              <h4>Over-Planting MILP & Point of Common Coupling (POC) Constraints</h4>
-              <p>The co-located hybrid plant controller maximizes total wholesale market revenue from 50 MW wind and 30 MW solar behind a strict 40 MW grid connection limit, accounting for battery cell degradation:</p>
-              <div class="formula-box">max &Sigma;<sub>t</sub> [ &lambda;<sub>t</sub><sup>DA</sup> &middot; P<sub>t</sub><sup>grid</sup> - c<sub>deg</sub> &middot; (P<sub>t</sub><sup>bat,chg</sup> + P<sub>t</sub><sup>bat,dis</sup>) ] &Delta;t</div>
-              <p>Subject to the invariant point of common coupling capacity boundary and battery dynamics:</p>
-              <div class="formula-box">0 &le; P<sub>t</sub><sup>grid</sup> &le; P<sub>POC</sub><sup>max</sup> = 40.0 MW,   P<sub>t</sub><sup>grid</sup> = P<sub>t</sub><sup>wind,inj</sup> + P<sub>t</sub><sup>pv,inj</sup> + P<sub>t</sub><sup>bat,dis</sup></div>
-              <div class="formula-box">E<sub>t+1</sub> = E<sub>t</sub> + [ &eta;<sub>chg</sub> P<sub>t</sub><sup>bat,chg</sup> - (1 / &eta;<sub>dis</sub>) P<sub>t</sub><sup>bat,dis</sup> ] &Delta;t,   SOC<sub>min</sub> &le; E<sub>t</sub> / E<sub>nom</sub> &le; SOC<sub>max</sub></div>
-              <p>Where total harvestable renewable generation (up to 80 MW) is dynamically partitioned between direct grid export, battery storage charging, and controlled physical curtailment.</p>
+              <h4>Linear Program, Plant Model and Settlement</h4>
+              <p>B2 and B3 solve one linear program with no binary variables: with wear priced, charging and discharging at once never pays. It maximises revenue over the quarter-hours (&Delta;t = 0.25 h) of the window, or of B3's horizon, at an effective price that adds the market premium only where it is payable:</p>
+              <div class="formula-box">max &Sigma;<sub>t</sub> [ p<sub>t</sub> &middot; e<sub>t</sub> - c<sub>w</sub> &middot; (ch<sub>t</sub> + dis<sub>t</sub>) ] &Delta;t,   p<sub>t</sub> = &lambda;<sub>t</sub><sup>DA</sup> + MP<sub>t</sub> &middot; 1[premium payable in t] - fee</div>
+              <p>subject to, in every quarter-hour t:</p>
+              <div class="formula-box">g<sub>t</sub> &le; G<sub>t</sub><sup>wind</sup> + G<sub>t</sub><sup>pv</sup>,   e<sub>t</sub> = g<sub>t</sub> + dis<sub>t</sub> - ch<sub>t</sub>,   0 &le; e<sub>t</sub> &le; 60 MW,   ch<sub>t</sub> &le; g<sub>t</sub> (no grid charging)</div>
+              <div class="formula-box">soc<sub>t</sub> = soc<sub>t-1</sub> + ( &eta;<sub>c</sub> &middot; ch<sub>t</sub> - dis<sub>t</sub> / &eta;<sub>d</sub> ) &Delta;t,   soc<sub>min</sub> &le; soc<sub>t</sub> &le; soc<sub>max</sub>,   0 &le; ch<sub>t</sub>, dis<sub>t</sub> &le; 20 MW</div>
+              <p>G is the wind and PV available, g what the plant uses of it; the rest is curtailed, and curtailment is split by cause: forced by the connection, or chosen. Wind and PV are the national capacity factor of each quarter-hour, Energy-Charts generation over the fleet of its month, times the rating, with no power curve, wake model or inverter clipping. The battery runs between 5% and 95% of its 40 MWh at 95% efficiency each way, starts every window at its minimum and wears at c<sub>w</sub> = 3 EUR per MWh charged or discharged. No value is put on the energy left at the end of a plan (see Invariant Guards). The settlement pays the day-ahead price on the export and the premium where it is payable, and charges the 3 EUR/MWh marketing fee and the wear.</p>
             </div>
 
             <!-- Tab 2: Regulatory Mechanics -->
             <div id="p02-pane-reg" class="proj-pane">
-              <h4>EEG §51 / §51a Statutory Negative Spot Remuneration Suspensions</h4>
-              <p>Under §51 of the German Renewable Energy Sources Act (EEG), market premium payments and statutory feed-in remuneration are entirely suspended when Day-Ahead spot prices remain negative for consecutive hours (progressing from historical 4-hour windows to single-hour suspensions in recent legal revisions).</p>
-              <p>Injecting renewable energy into negative spot prices without subsidy yields immediate commercial loss. The hybrid plant controller treats negative pricing as an active economic signal: clean energy that would otherwise be curtailed is diverted into the battery, stored, and injected during peak evening hours when remunerations return to positive territory.</p>
+              <h4>EEG Market Premium and the Negative-Price Rule by Vintage</h4>
+              <p>Under EEG direct marketing the law pays each technology max(0, applicable value - market value) on its own export, wherever the premium is payable: against the monthly market value for plants commissioned or awarded before 2023, against the annual value from 2023 on (EEG 2023 Anlage 1 Nr. 2). The model pays the plant one blended rate per period, the two premiums weighted by its own available generation. The market values are computed proxies, the day-ahead price weighted by national feed-in; the values the TSOs publish, which the premium is legally settled on, are not loaded. The default plant takes the Bundesnetzagentur's ceilings for the 2025 tenders, 73.5 EUR/MWh for wind and 68.0 for PV, not an award, and is paid against the annual value.</p>
+              <p><strong>EEG §51, as implemented by vintage:</strong> no rule before 2016; six hours (2016-2020) or four hours (2021-2022) of negative prices remove the premium for the whole run; for the vintage from 2023 to 24 February 2025 the threshold falls by calendar year, three hours in 2024 and 2025; from 25 February 2025 (Solarspitzengesetz) the premium goes in every negative period. Runs are counted in calendar hours, and an hour counts as negative when the mean of its quarter-hour prices is negative. Not modelled: the §51a extension of the support period and the small-plant exemptions.</p>
+              <p><strong>Result:</strong> every tightening of the rule lowers B0's revenue and raises the energy B2 chooses to curtail, for both vintages in both years. Under the rule of the newest plants, a counterfactual before 25 February 2025, B2 curtails 6,715 MWh in 2024 and 8,155 MWh in 2025 at the default plant. Paid per technology, as the law pays, B0 loses 144,002 EUR of premium to that rule in 2024 and 128,716 EUR in 2025; the blended rate, which every table settles on, takes 116,440 and 62,246 EUR, so it understates what a rule removes. Sources: <code>reports/negprice_2024.csv</code> and <code>reports/negprice_2025.csv</code>.</p>
+              <p><strong>Not modelled:</strong> intraday trading, a day-ahead schedule settled at reBAP, and Redispatch 2.0. aFRR participation by the battery is not built yet: its settings in <code>MarketConfig</code> are inert.</p>
             </div>
 
             <!-- Tab 3: Invariant Guards -->
             <div id="p02-pane-inv" class="proj-pane">
-              <h4>Curtailment Spillage Bug Autopsy & Negative Price Gating</h4>
-              <p><strong>Curtailment Spillage Defect:</strong> Early rolling-horizon MPC implementations computed a planned curtailment percentage from forecast weather and applied that fraction blindly to real-time generation. When actual generation was slightly below forecast, this logic needlessly spilled clean electricity even when the 40 MW POC interconnection had available headroom.</p>
-              <p><strong>Invariant Correction:</strong> Reformulating dispatch in absolute power units and voluntarily restricting curtailment decisions strictly to statutory negative price intervals lifted B3 MPC performance from +3.8% to +5.4% over baseline, capturing 10,280 EUR in additional revenue without a single over-injection violation.</p>
+              <h4>The Ladder Invariant and the Defects It Caught</h4>
+              <p>No rung may beat B2, perfect foresight, on revenue before imbalance, beyond the solver's rounding (<code>ladder_tolerance_eur</code> in every table); <code>baselines.run_ladder</code> raises otherwise. No row of any table breaks a plant limit, settles any imbalance or buys grid energy.</p>
+              <p><strong>1. Market value from the plant's own export:</strong> a controller that correctly curtails during negative prices concentrates its output in high-price hours. That raised its own apparent market value and cut its own premium, so perfect foresight scored below a do-nothing baseline. The market value is a national figure that one plant cannot move, so it is now exogenous, and the invariant now covers every rung, not only B3.</p>
+              <p><strong>2. Plan execution:</strong> B3 applied the curtailment fraction it planned on forecast generation to the true generation, and so discarded energy the connection could have taken. It now executes planned curtailment only where the effective price is negative; elsewhere the safety layer stores what the connection cannot take, as far as the battery has room, and curtails the rest.</p>
+              <p><strong>3. Terminal value:</strong> a linear value on the energy stored at the end of each plan made B3 hoard energy. On the showcase's three synthetic days (the default plant behind a 40 MW connection, a 12-hour horizon, a fixed premium of 8 EUR/MWh), B3 recovers 100.0% of the B1-to-B2 gain with perfect forecasts and 87.1% with a 15% forecast error, but -142.4% and -179.1% with the terminal value on, ending with 34.3 and 38.0 MWh stored that it never sells. So the terminal value is off by default. These figures come from synthetic inputs, not from data: <code>reports/b3_ablation_synthetic_demo.csv</code>.</p>
             </div>
 
             <!-- Tab 4: Algorithmic Ladder -->
             <div id="p02-pane-arch" class="proj-pane">
-              <h4>Operating Controller Progression</h4>
-              <p>&bull; <strong>B0 Standalone (No Battery):</strong> Wind and solar operate unbuffered; power exceeding 40 MW is curtailed (695.3 MWh spilled, 190,105 EUR revenue).</p>
-              <p>&bull; <strong>B1 Heuristic Curtailment Avoidance:</strong> Rule-based controller charges the battery whenever total generation exceeds 40 MW and discharges during peak hours (199,059 EUR, +4.7% lift).</p>
-              <p>&bull; <strong>B3 Rolling-Horizon MPC (12h Look-Ahead):</strong> Optimizes 48 quarter-hour steps forward under forecast uncertainty, scheduling battery storage cycles around price peaks and negative intervals (200,385 EUR, +5.4% lift, 98.9% of B2 ceiling).</p>
-              <p>&bull; <strong>B2 Perfect Foresight MILP:</strong> Omniscient upper bound with perfect knowledge of weather and prices (200,561 EUR, +5.5% ceiling).</p>
+              <h4>Controller Ladder, B0 to B3</h4>
+              <p>&bull; <strong>B0 No Battery:</strong> the same generation without a battery. It curtails only what the connection forces, and sells through negative prices.</p>
+              <p>&bull; <strong>B1 Rule-Based Storage:</strong> stores what the connection would spill and discharges into headroom. It reads no prices, so it equals B0 wherever the connection never binds.</p>
+              <p>&bull; <strong>B2 Perfect-Foresight LP:</strong> one LP over the whole window on the realised premium, the ceiling of the ladder. "B2 no battery" is B2 with the battery taken out, perfect foresight that can only curtail; it splits B2's gain over B0 into the battery's own value and the value of curtailing at low prices.</p>
+              <p>&bull; <strong>B3 Rolling LP-MPC:</strong> re-solves the LP every quarter-hour over the next 24 hours and applies the first step. Its forecasts are synthetic: wind and PV are the truth times (1 + 0.15 &middot; AR(1)) with a step-to-step correlation of 0.8, and the price forecast adds 15% of the 2024 day-ahead price's standard deviation times such an error. One error series serves every issue time, so the error does not grow with lead time; a forecast layer is not built. B3 plans each month on the previous month's realised premium and puts no value on the energy left at the end of a plan. It takes 0.23 s per solve on average in both 2025 windows (<code>b3_solve_time_mean_s</code>); four runs shared a 4-core laptop, so that is an order of magnitude only.</p>
+              <p>&bull; <strong>RL:</strong> not implemented; see "Project 02 stops at B3" above.</p>
             </div>
           </div>
 
           <div class="cli-box">
-            <span id="p02-cli-text">python -m hybrid.cli ladder --year 2025</span>
+            <span id="p02-cli-text">cd projects/02-utility-hybrid-plant-dispatch &amp;&amp; python -m hybrid.cli sizing --year 2024 --full-year</span>
             <button class="btn-copy" onclick="copyDynamicText('p02-cli-text')">Copy Command</button>
           </div>
+          <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; margin-top: 8px;">
+            Prints the connection sweep of 2024: the battery's own value and the value of curtailing at low prices by connection size, as in <code>reports/sizing_2024.csv</code>; add <code>--out PATH</code> to write the CSV. Install the project first, with <code>pip install -e ".[dev]"</code> in its folder. The data come from Energy-Charts through the repository's <code>datakit</code>, which caches every response; no key is needed. <code>python -m hybrid.cli report</code> reruns every published table into <code>reports/</code>, in series in about an hour.
+          </p>
         </div>
 
         <div class="visual-col">
@@ -2766,51 +2754,11 @@
         regEnv: 'Redispatch 2.0 & EnWG §14a Intro',
         regSub: 'Static §14a baseline & §118(6) exemption',
         p01: P01_TEST_RESULTS,
-        p02: {
-          b3Metric: '91.7% B2 Capture',
-          netMetric: '832,180 EUR',
-          tableSub: 'Multi-Market Settlement Breakdown (365 Days, 2024 Multi-Market)',
-          b1Net: '254,120 EUR',
-          b1Arb: '152,400 EUR',
-          b1Wear: '45,200 EUR',
-          b2Net: '884,210 EUR',
-          b2Arb: '589,400 EUR',
-          b2Wear: '51,400 EUR',
-          b3Net: '832,180 EUR',
-          b3Arb: '548,200 EUR',
-          b3Wear: '48,100 EUR',
-          b3Rec: '91.7%',
-          rlsNet: '182,400 EUR',
-          rlsArb: '164,200 EUR',
-          rlsWear: '61,200 EUR',
-          rluNet: '194,800 EUR',
-          rluArb: '78,500 EUR',
-          rluWear: '1,100 EUR',
-          cli: 'python -m psw.cli ladder --year 2024'
-        },
         p04: {
           breakeven: '0.098 EUR/kWh',
           surplus: '21.40 EUR/wk',
           tableSub: 'Allocation Mechanism Stability (2024 Network Tariffs)',
           cli: 'python -m rec.cli mechanisms --year 2024'
-        },
-        p02: {
-          liftMetric: '+5.3% Rev',
-          curtailMetric: '542.1 MWh',
-          tableSub: 'Benchmark Ladder Comparison (80 MW Behind 40 MW Connection, 2024)',
-          tablePeriod: '3-Day Evaluation (2024 DE-LU)',
-          b0Rev: '168,400 EUR',
-          b0Curtail: '542.1 MWh',
-          b1Rev: '176,150 EUR',
-          b1Curtail: '482.0 MWh',
-          b1Lift: '+4.6% Lift',
-          b3Rev: '177,320 EUR',
-          b3Curtail: '483.5 MWh',
-          b3Lift: '+5.3% Lift',
-          b2Rev: '177,480 EUR',
-          b2Curtail: '482.0 MWh',
-          b2Lift: '+5.4% (Ceiling)',
-          cli: 'python -m hybrid.cli ladder --year 2024'
         }
       },
       '2025': {
@@ -2827,51 +2775,11 @@
         regEnv: '§14a EnWG Mandatory (Active)',
         regSub: 'Dynamic curtailment modules 1-3 active',
         p01: P01_TEST_RESULTS,
-        p02: {
-          b3Metric: '91.8% B2 Capture',
-          netMetric: '959,666 EUR',
-          tableSub: 'Multi-Market Settlement Breakdown (365 Days, 2025 Multi-Market)',
-          b1Net: '297,825 EUR',
-          b1Arb: '180,325 EUR',
-          b1Wear: '48,300 EUR',
-          b2Net: '1,018,586 EUR',
-          b2Arb: '682,786 EUR',
-          b2Wear: '54,600 EUR',
-          b3Net: '959,666 EUR',
-          b3Arb: '633,866 EUR',
-          b3Wear: '52,500 EUR',
-          b3Rec: '91.8%',
-          rlsNet: '208,541 EUR',
-          rlsArb: '187,461 EUR',
-          rlsWear: '69,600 EUR',
-          rluNet: '222,668 EUR',
-          rluArb: '89,504 EUR',
-          rluWear: '1,200 EUR',
-          cli: 'python -m psw.cli ladder --year 2025'
-        },
         p04: {
           breakeven: '0.110 EUR/kWh',
           surplus: '24.13 EUR/wk',
           tableSub: 'Allocation Mechanism Stability (2025 Network Tariffs)',
           cli: 'python -m rec.cli mechanisms --year 2025'
-        },
-        p02: {
-          liftMetric: '+5.4% Rev',
-          curtailMetric: '603.8 MWh',
-          tableSub: 'Benchmark Ladder Comparison (80 MW Behind 40 MW Connection, 2025)',
-          tablePeriod: '3-Day Evaluation Period',
-          b0Rev: '190,105 EUR',
-          b0Curtail: '695.3 MWh',
-          b1Rev: '199,059 EUR',
-          b1Curtail: '602.0 MWh',
-          b1Lift: '+4.7% Lift',
-          b3Rev: '200,385 EUR',
-          b3Curtail: '603.8 MWh',
-          b3Lift: '+5.4% Lift',
-          b2Rev: '200,561 EUR',
-          b2Curtail: '602.0 MWh',
-          b2Lift: '+5.5% (Ceiling)',
-          cli: 'python -m hybrid.cli ladder --year 2025'
         }
       },
       '2026': {
@@ -2888,51 +2796,11 @@
         regEnv: '§14a EnWG Dynamic Dimming Enforced',
         regSub: 'Automated SteuVE dimming & §41a dynamic tariffs',
         p01: P01_TEST_RESULTS,
-        p02: {
-          b3Metric: '91.7% B2 Capture',
-          netMetric: '891,200 EUR',
-          tableSub: 'Multi-Market Settlement Breakdown (Jan-Aug, 2026 Multi-Market)',
-          b1Net: '278,900 EUR',
-          b1Arb: '168,500 EUR',
-          b1Wear: '46,800 EUR',
-          b2Net: '946,300 EUR',
-          b2Arb: '634,200 EUR',
-          b2Wear: '53,200 EUR',
-          b3Net: '891,200 EUR',
-          b3Arb: '589,100 EUR',
-          b3Wear: '50,800 EUR',
-          b3Rec: '91.7%',
-          rlsNet: '195,600 EUR',
-          rlsArb: '175,800 EUR',
-          rlsWear: '65,400 EUR',
-          rluNet: '208,400 EUR',
-          rluArb: '83,600 EUR',
-          rluWear: '1,150 EUR',
-          cli: 'python -m psw.cli ladder --year 2026'
-        },
         p04: {
           breakeven: '0.104 EUR/kWh',
           surplus: '22.85 EUR/wk',
           tableSub: 'Allocation Mechanism Stability (2026 Network Tariffs)',
           cli: 'python -m rec.cli mechanisms --year 2026'
-        },
-        p02: {
-          liftMetric: '+5.5% Rev',
-          curtailMetric: '615.4 MWh',
-          tableSub: 'Benchmark Ladder Comparison (80 MW Behind 40 MW Connection, 2026)',
-          tablePeriod: '3-Day Evaluation (2026 DE-LU)',
-          b0Rev: '178,250 EUR',
-          b0Curtail: '615.4 MWh',
-          b1Rev: '186,810 EUR',
-          b1Curtail: '534.0 MWh',
-          b1Lift: '+4.8% Lift',
-          b3Rev: '187,980 EUR',
-          b3Curtail: '535.2 MWh',
-          b3Lift: '+5.5% Lift',
-          b2Rev: '188,140 EUR',
-          b2Curtail: '534.0 MWh',
-          b2Lift: '+5.5% (Ceiling)',
-          cli: 'python -m hybrid.cli ladder --year 2026'
         }
       }
     };
@@ -2978,24 +2846,6 @@
       setEl('p01-rl-cost', cfg.p01.rlCost);
       setEl('p01-rl-rec', cfg.p01.rlRec);
       setEl('p01-cli-text', cfg.p01.cli);
-
-      // P02
-      setEl('p02-metric-lift', cfg.p02.liftMetric);
-      setEl('p02-metric-curtail', cfg.p02.curtailMetric);
-      setEl('p02-table-sub', cfg.p02.tableSub);
-      setEl('p02-table-period', cfg.p02.tablePeriod);
-      setEl('p02-b0-rev', cfg.p02.b0Rev);
-      setEl('p02-b0-curtail', cfg.p02.b0Curtail);
-      setEl('p02-b1-rev', cfg.p02.b1Rev);
-      setEl('p02-b1-curtail', cfg.p02.b1Curtail);
-      setEl('p02-b1-lift', cfg.p02.b1Lift);
-      setEl('p02-b3-rev', cfg.p02.b3Rev);
-      setEl('p02-b3-curtail', cfg.p02.b3Curtail);
-      setEl('p02-b3-lift', cfg.p02.b3Lift);
-      setEl('p02-b2-rev', cfg.p02.b2Rev);
-      setEl('p02-b2-curtail', cfg.p02.b2Curtail);
-      setEl('p02-b2-lift', cfg.p02.b2Lift);
-      setEl('p02-cli-text', cfg.p02.cli);
 
       // Switch the per-year gallery figures to the selected year. P01 (capture ladder and one
       // example day) and P03 (one test-window figure) show the same figures for every year.
