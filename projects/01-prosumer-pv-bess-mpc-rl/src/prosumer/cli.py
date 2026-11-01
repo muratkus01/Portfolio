@@ -231,6 +231,15 @@ def cmd_rl_eval(args) -> None:
                       model_dir=args.model_dir)
     print(res["summary"].round(2).to_string())
     print(res["seeds"].round(3).to_string())
+
+
+def cmd_year_split(args) -> None:
+    from .experiments.year_split import run_year_split
+    res = run_year_split(args.reports, out_dir=args.out)
+    with pd.option_context("display.width", 140, "display.max_columns", 10):
+        print(res.round(1).to_string(index=False))
+
+
 def cmd_sizing(args) -> None:
     from .experiments.sizing import run_sizing_grid
     res = run_sizing_grid(args.data, controllers=tuple(args.controllers.split(",")),
@@ -377,6 +386,13 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--action-mode", default="rescale", choices=["clip", "rescale"])
     sp.add_argument("--model-dir", default="data/processed/rl_models")
     sp.set_defaults(func=cmd_rl_eval)
+
+    sp = sub.add_parser("year-split",
+                        help="2025 against 2026 over the same months, from the monthly costs")
+    sp.add_argument("--reports", default="reports",
+                    help="folder with rolling_eval_htw_H28/ and rl_eval_H28/")
+    sp.add_argument("--out", default="reports/year_split")
+    sp.set_defaults(func=cmd_year_split)
 
     sp = sub.add_parser("sizing", help="evaluate battery and inverter sizing grid")
     sp.add_argument("--data", default="data/processed/site_2024_2026_htw_H28.parquet")

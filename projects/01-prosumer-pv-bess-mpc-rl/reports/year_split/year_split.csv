@@ -1,0 +1,31 @@
+period,months,controller,net cost EUR,capture of B1->B2 %,months costlier than B1
+January to September 2025,9,B1 rule-based,-118.6186,0.0,0
+January to September 2025,9,B2 perfect foresight,-275.6104,100.0,0
+January to September 2025,9,"B3 NWP PV, SLP load, fitted TV",-255.4436,87.1542,0
+January to September 2025,9,RL SAC seed 0,-162.3131,27.8323,2
+January to September 2025,9,RL SAC seed 1,-164.4583,29.1988,2
+January to September 2025,9,RL SAC seed 2,-162.2875,27.816,2
+January to September 2026,9,B1 rule-based,-236.7688,0.0,0
+January to September 2026,9,B2 perfect foresight,-453.5783,100.0,0
+January to September 2026,9,"B3 NWP PV, SLP load, fitted TV",-437.7351,92.6926,0
+January to September 2026,9,RL SAC seed 0,-344.0792,49.4952,2
+January to September 2026,9,RL SAC seed 1,-345.845,50.3097,2
+January to September 2026,9,RL SAC seed 2,-346.4658,50.596,2
+January to December 2025,12,B1 rule-based,-88.2139,0.0,0
+January to December 2025,12,B2 perfect foresight,-263.0966,100.0,0
+January to December 2025,12,"B3 NWP PV, SLP load, fitted TV",-237.5365,85.3844,0
+January to December 2025,12,RL SAC seed 0,-105.1211,9.6677,5
+January to December 2025,12,RL SAC seed 1,-105.9748,10.1559,5
+January to December 2025,12,RL SAC seed 2,-105.4359,9.8477,5
+October to February,7,B1 rule-based,20.5761,0.0,0
+October to February,7,B2 perfect foresight,-18.7526,100.0,0
+October to February,7,"B3 NWP PV, SLP load, fitted TV",-4.1528,62.8775,0
+October to February,7,RL SAC seed 0,90.3593,-177.4358,7
+October to February,7,RL SAC seed 1,89.467,-175.167,7
+October to February,7,RL SAC seed 2,88.0723,-171.6207,7
+whole test period,21,B1 rule-based,-324.9827,0.0,0
+whole test period,21,B2 perfect foresight,-716.6749,100.0,0
+whole test period,21,"B3 NWP PV, SLP load, fitted TV",-675.2716,89.4296,0
+whole test period,21,RL SAC seed 0,-449.2003,31.7131,7
+whole test period,21,RL SAC seed 1,-451.8198,32.3818,7
+whole test period,21,RL SAC seed 2,-451.9017,32.4027,7
