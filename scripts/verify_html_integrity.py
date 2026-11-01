@@ -2,7 +2,7 @@
 Verify showcase.html integrity:
 1. Check zero em/en dashes.
 2. Check the simulator canvases and their functions exist.
-3. Check the per-year gallery buttons and every image the page can show.
+3. Check every image the page can show.
 4. Check all onclick handlers call functions the page defines.
 5. Check every GRID_PARAMS.p01 combination resolves to a SCENARIO_CUBES.p01 key, built the
    way simP01 builds it, for both sweep years. The page must declare simP01 exactly once.
@@ -70,13 +70,9 @@ def check_canvases_and_functions(html):
 
 
 def check_gallery(html):
-    """Check 3: the 2026 gallery buttons, and every image the page can show exists on disk."""
-    # P01 and P03 show the same figures for every year
-    for pid in ['p02']:
-        btn_id = f'{pid}-galbtn-2026'
-        assert f'id="{btn_id}"' in html, f"Missing {btn_id}"
-        print(f"Gallery button OK: {btn_id}")
-
+    """Check 3: every image the page can show exists on disk."""
+    # No project shows per-year figures any more, so there are no year buttons in a gallery to
+    # check. Project 02 has no figures: its results are the tables in its reports/ folder.
     # the <img> tags and the gallery entries in PROJECT_VISUALS (src: '...'), which
     # switchVisual swaps in
     images = set(re.findall(r'<img[^>]+src="([^"]+)"', html)) | set(re.findall(r"src: '([^']+)'", html))
