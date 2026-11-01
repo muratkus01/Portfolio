@@ -1,6 +1,6 @@
 """Project 01's thesis sizing stand-in as a CSV, and its values on the showcase page.
 
-    python scripts/wire_thesis_sensitivity_to_showcase.py
+    python scripts/wire_thesis_sensitivity_to_showcase.py [--check]
 
 `prosumer.experiments.sensitivity` gives each size of the thesis sizing grid a ROCE without
 simulating any dispatch: the yearly profit comes from hand-set formulas, and its Type 1 and
@@ -12,7 +12,12 @@ what the code returns and puts exactly that on the page:
    where PV is 5, 10 or 15 kWp, the Type 2 profit and ROCE;
 2. the THESIS_SENSITIVITY line of showcase.html, built from that CSV as read back: Type 1's
    top five and every Type 2 cell, which the page's script draws.
+
+With --check it writes nothing and exits with an error if the committed CSV or the page line
+differs from what the code gives now.
 """
+import argparse
+import io
 import json
 import sys
 from pathlib import Path
@@ -101,17 +106,48 @@ def wire(html: str, data: dict) -> str:
     return "".join(lines)
 
 
+def check_up_to_date(csv_text: str, html: str, wired: str) -> None:
+    """Exit with an error unless the committed CSV and the page line equal what the code gives.
+
+    `csv_text` and `wired` are the CSV and the page as this run would write them, `html` the
+    page as it is. The CSV is read with universal newlines, so a checkout whose line endings
+    Git turned into CRLF (core.autocrlf) still compares equal.
+    """
+    stale = []
+    if CSV_PATH.read_text(encoding="utf-8") != csv_text:
+        stale.append(CSV_PATH.relative_to(ROOT).as_posix())
+    if wired != html:
+        stale.append("the THESIS_SENSITIVITY line of showcase.html")
+    if stale:
+        sys.exit(f"ERROR: out of date with prosumer.experiments.sensitivity: {' and '.join(stale)}."
+                 " Rerun python scripts/wire_thesis_sensitivity_to_showcase.py.")
+    print("OK: the CSV and the page's THESIS_SENSITIVITY line equal what the code gives.")
+
+
 def main() -> None:
-    """Write the CSV, then set the page's THESIS_SENSITIVITY line from the CSV as written."""
+    """Write the CSV, then set the page's THESIS_SENSITIVITY line from the CSV as written.
+
+    With --check, write nothing and exit with an error if either is out of date.
+    """
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--check", action="store_true",
+                    help="write nothing; fail if the CSV or the page line is out of date")
+    args = ap.parse_args()
     table = sensitivity_table()
-    table.to_csv(CSV_PATH, index=False, lineterminator="\n")
-    # The page reads the file back rather than the frame, so it shows exactly what is committed.
-    data = page_data(pd.read_csv(CSV_PATH))
+    csv_text = table.to_csv(index=False, lineterminator="\n")
+    # The page reads the CSV text back rather than the frame, so it shows exactly what is committed.
+    data = page_data(pd.read_csv(io.StringIO(csv_text)))
     # newline="" keeps the page's own line endings on every platform.
     with open(HTML_PATH, encoding="utf-8", newline="") as f:
         html = f.read()
+    wired = wire(html, data)
+    if args.check:
+        check_up_to_date(csv_text, html, wired)
+        return
+    with open(CSV_PATH, "w", encoding="utf-8", newline="") as f:
+        f.write(csv_text)
     with open(HTML_PATH, "w", encoding="utf-8", newline="") as f:
-        f.write(wire(html, data))
+        f.write(wired)
     cells = sum(len(v) for v in data["type2"].values())
     print(f"Wrote {CSV_PATH.relative_to(ROOT).as_posix()} ({len(table)} sizes) and set "
           f"THESIS_SENSITIVITY in showcase.html (top {TOP_N}, {cells} Type 2 cells).")
