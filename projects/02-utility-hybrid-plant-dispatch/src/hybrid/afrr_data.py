@@ -5,20 +5,56 @@ one row per day and product. It is read here with the standard library, by colum
 dependency is added: pandas.read_excel would need openpyxl, which the project does not install.
 Whatever the reader would otherwise have to guess at, it refuses.
 
-The workbook comes from the web, so it is untrusted input. No zip member is unpacked beyond
-_MAX_MEMBER_BYTES, and ElementTree, on the expat that ships with Python 3.11 and 3.12, resolves
-no external entities and bounds entity expansion.
+The workbook comes from the web, so it is untrusted input. A download stops past
+_MAX_DOWNLOAD_BYTES, its SHA-256 must be the pinned one before it is parsed, no zip member is
+unpacked beyond _MAX_MEMBER_BYTES, and ElementTree, on the expat that ships with Python 3.11
+and 3.12, resolves no external entities and bounds entity expansion.
+
+`load_capacity_results` caches the file under datakit's conventions without changing datakit,
+and `capacity_prices` maps its products onto a window's 15-minute steps (`reserve`). Neither
+the raw file nor block-level prices are ever committed.
 """
 from __future__ import annotations
 
 import datetime
+import hashlib
 import io
 import math
+import os
 import re
+import urllib.error
+import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
+from pathlib import Path
+from typing import NamedTuple
+from urllib.request import urlopen
 
+import numpy as np
 import pandas as pd
+
+# Imported for its side effect: hybrid.data puts the repository's datakit folder on sys.path.
+# datakit itself is imported where it is used, as hybrid.data does.
+from . import data as _data  # noqa: F401
+from .reserve import CapacityPrices
+
+RESULTS_URL = ("https://www.regelleistung.net/apps/crds/api/v2/tenders/files/"
+               "RESULT_OVERVIEW_CAPACITY_MARKET_aFRR_{year}-01-01_{year}-12-31.xlsx")
+# The yearly files as retrieved on 1 November 2026, byte-identical on a second download. A
+# file whose bytes differ is refused: the TSOs revised it, so inspect it, then re-pin it in a
+# commit of its own.
+PINNED_SHA256 = {2024: "f74c4abaaeed69c408b13096736595eda01303d1ae698be0553cb3488a440830",
+                 2025: "12e81c231c762c2f5580ccd6988b71703511ff97364641773a71c7fbc3e9ad1c"}
+# The years whose aFRR rules the model was checked against. Every one of them is pinned above,
+# so no unpinned year can load. Adding a year is a commit of its own, after re-checking the
+# documents that `_refuse_unchecked_year` names.
+RULE_YEARS = (2024, 2025)
+GATE = datetime.time(9, 0)      # Berlin; bids for day D close at 09:00 on D-1, MfRRA § 20 (3)
+AWARD = datetime.time(9, 30)    # Berlin; awards are known by 09:30 on D-1, MfRRA § 20 (3)(c)
+
+# The yearly files are 0.33 to 0.38 MB.
+_MAX_DOWNLOAD_BYTES = 20 * 2 ** 20
+_LICENCE = "none; the regelleistung.net FAQ allows use without permission; not redistributed"
 
 # The German prices of a product, EUR/MW/h: the volume-weighted average of the accepted bids,
 # and the marginal, the highest accepted bid. Never the TOTAL_* columns: Austria since 2020
@@ -44,6 +80,87 @@ _MAIN = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 _DOCUMENT_REL = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 _PACKAGE_REL = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 _TABLE_COLUMNS = ["date", "direction", "start_h", "end_h", "average", "marginal"]
+
+
+class CapacityResults(NamedTuple):
+    """A year's aFRR results file: its table (`parse_results`), the URL it came from, and the
+    SHA-256 of its bytes, which run_meta records."""
+    table: pd.DataFrame
+    url: str
+    sha256: str
+
+
+def load_capacity_results(year: int, cache_dir: Path | None = None) -> CapacityResults:
+    """The yearly aFRR capacity results of `year`, from the cache or regelleistung.net.
+
+    year: a year whose rules the model was checked against (RULE_YEARS), e.g. 2025.
+    cache_dir: where the file is cached, by default datakit's gitignored cache. A cached file
+        is never downloaded again, as datakit's are not.
+    Returns the file's table, URL and SHA-256.
+    Raises ValueError for a year outside RULE_YEARS, before any download; for a year
+    regelleistung.net has no file for yet; for a download past _MAX_DOWNLOAD_BYTES; for a file
+    whose SHA-256 is not the pinned one; and for content that parse_results refuses.
+    """
+    _refuse_unchecked_year(year)
+    import datakit
+
+    cache_dir = datakit.DEFAULT_CACHE if cache_dir is None else Path(cache_dir)
+    url = RESULTS_URL.format(year=year)
+    tag = f"regelleistung_aFRR_capacity_results_{year}"
+    path = cache_dir / f"{urllib.parse.quote(tag, safe='')}.xlsx"
+    if not path.exists():
+        try:
+            _download(url, path, tag)
+        except urllib.error.HTTPError as err:
+            if err.code != 404:
+                raise
+            raise ValueError(f"regelleistung.net has no yearly results file for {year} at "
+                             f"{url}; it publishes it on 2 January of the next year") from err
+    content = path.read_bytes()
+    sha256 = hashlib.sha256(content).hexdigest()
+    if sha256 != PINNED_SHA256[year]:
+        raise ValueError(f"{path.name} has SHA-256 {sha256}, not the pinned "
+                         f"{PINNED_SHA256[year]}: the TSOs revised the file. Inspect it, then "
+                         "re-pin it in a commit of its own")
+    return CapacityResults(parse_results(content), url, sha256)
+
+
+def _refuse_unchecked_year(year: int) -> None:
+    """Refuse a year whose aFRR rules the model was not checked against, and name what to
+    re-check before RULE_YEARS may grow. No clock is read: results do not depend on today."""
+    if year not in RULE_YEARS:
+        raise ValueError(
+            f"the aFRR rules were checked for {' and '.join(map(str, RULE_YEARS))} only, not "
+            f"for {year}. Before adding a year to RULE_YEARS, re-check the PQ conditions (v1.06 "
+            "of 7 October 2026 changes the energy band), the MfRRA and BK6-25-212 (15-minute "
+            "products), the aFRR settlement model that regelleistung.net lists from 1 "
+            "September 2026, and § 19 (3) EEG with the BNetzA's MiSpeL determination")
+
+
+def _download(url: str, path: Path, tag: str) -> None:
+    """Fetch `url` into `path` and record it in the cache's SOURCE.md, in datakit's format.
+
+    The bytes reach `path` through <path>.partial and os.replace, so an interrupted download
+    never leaves a cached file behind. A response past _MAX_DOWNLOAD_BYTES is refused.
+    Raises urllib.error.HTTPError and URLError as urlopen does.
+    """
+    import datakit
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with urlopen(url, timeout=datakit.TIMEOUT) as response:
+        content = response.read(_MAX_DOWNLOAD_BYTES + 1)
+    if len(content) > _MAX_DOWNLOAD_BYTES:
+        raise ValueError(f"{url} sent more than {_MAX_DOWNLOAD_BYTES} bytes; refused")
+    partial = path.with_name(f"{path.name}.partial")
+    partial.write_bytes(content)
+    os.replace(partial, path)
+    source = path.parent / "SOURCE.md"
+    if not source.exists():
+        source.write_text("# Data provenance\n\nEvery file in this directory, with its "
+                          "origin.\n\n", encoding="utf-8")
+    retrieved = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    with source.open("a", encoding="utf-8") as fh:
+        fh.write(f"- `{tag}` | {url} | retrieved {retrieved} | licence: {_LICENCE}\n")
 
 
 def parse_results(data: bytes) -> pd.DataFrame:
@@ -220,3 +337,59 @@ def _cell_text(cell: ET.Element, shared: list[str]) -> str | None:
     if not 0 <= index < len(shared):
         raise ValueError(f"cell {cell.get('r')} names shared string {index} of {len(shared)}")
     return shared[index]
+
+
+# ------------------------------------------------------------------ onto the window
+def capacity_prices(index: pd.DatetimeIndex, table: pd.DataFrame) -> CapacityPrices:
+    """The aFRR products, B3's gates, awards and bids, and the prices on a window's steps.
+
+    A step belongs to the product of its Berlin date and wall-clock hour. On the October day
+    02:00-03:00 occurs twice and both fall in 00_04, which then holds 20 quarter-hours; on the
+    March day that hour does not exist, and 00_04 holds 12. Never step // 16: after 30 March
+    2025 that puts Berlin midnight 12 steps into a block.
+    index: the window's tz-aware timestamps, 15 minutes apart, e.g. a load_year frame's index.
+    table: `parse_results` of the year the window lies in. load_window keeps a window inside
+        its calendar year, so one yearly file covers it, and the first day's previous day is
+        never needed, as nothing is bid for the first day.
+    Returns the window's CapacityPrices, one value per step.
+    Raises ValueError when the steps are not 15 minutes apart, which the 09:00 gate and the
+    09:30 award need, or when the table lacks a step's product.
+    """
+    if not ((index[1:] - index[:-1]) == pd.Timedelta(minutes=15)).all():
+        raise ValueError("capacity_prices needs steps 15 minutes apart, so that the 09:00 "
+                         "gate and the 09:30 award fall on steps")
+    local = index.tz_convert("Europe/Berlin")
+    dates = np.asarray(local.date)
+    start_h = 4 * (np.asarray(local.hour, dtype=np.int64) // 4)
+    ordinal = np.array([date.toordinal() for date in dates])
+    day = ordinal - ordinal[0]
+    clock = 60 * np.asarray(local.hour) + np.asarray(local.minute)
+    next_day_in_window = day < day[-1]
+    realised = _product_prices(table, dates, start_h)
+    unpriced = realised.isna().any(axis=1).to_numpy()
+    if unpriced.any():
+        t = int(np.argmax(unpriced))
+        raise ValueError(f"the aFRR results hold no product for {dates[t]}, "
+                         f"{start_h[t]:02d}-{start_h[t] + 4:02d} h Berlin")
+    # Matched by product, not by step offset: 00_04 lasts 3 or 5 hours on a daylight-saving day.
+    yesterday = _product_prices(table, dates - datetime.timedelta(days=1), start_h)
+    bid = np.where((day > 0)[:, None],
+                   np.round(yesterday["average"][["up", "down"]].to_numpy(), 2), np.nan)
+    return CapacityPrices(
+        block=np.unique(6 * ordinal + start_h // 4, return_inverse=True)[1], day=day,
+        gate=(clock == 60 * GATE.hour + GATE.minute) & next_day_in_window,
+        award=(clock == 60 * AWARD.hour + AWARD.minute) & next_day_in_window,
+        average_up=realised[("average", "up")].to_numpy(),
+        average_down=realised[("average", "down")].to_numpy(),
+        marginal_up=realised[("marginal", "up")].to_numpy(),
+        marginal_down=realised[("marginal", "down")].to_numpy(),
+        bid_up=bid[:, 0], bid_down=bid[:, 1])
+
+
+def _product_prices(table: pd.DataFrame, dates: np.ndarray,
+                    start_h: np.ndarray) -> pd.DataFrame:
+    """Per step, the average and the marginal of its product in each direction, as columns
+    (basis, direction), e.g. ("average", "up"); NaN where `table` lacks the product."""
+    wide = (table.set_index(["date", "start_h", "direction"])[["average", "marginal"]]
+            .unstack("direction"))
+    return wide.reindex(pd.MultiIndex.from_arrays([dates, start_h]))
