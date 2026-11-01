@@ -814,7 +814,7 @@ README, CITATION.cff, docs/02, docs/05, the other scripts, simulations/results).
 
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
 2. **Project 04 Multi-Agent REC Extension:** Implement multi-member peer-to-peer sharing, local marginal pricing, and cooperative game-theoretic cost allocation (Owen core excess).
-3. **Project 02 RL Policy Evaluation:** Validate trained PPO dispatch against multi-market balancing price volatility.
+3. ~~**Project 02 RL Policy Evaluation:** Validate trained PPO dispatch against multi-market balancing price volatility.~~ **Dropped, noted 2026-11-02:** the PPO belonged to the pumped-storage project, P02 before the renumbering, archived on 2026-10-09 (`archive/README.md`). Today's P02, the hybrid plant, has no learned policy and stops at B3.
 4. **CI Verification:** Verify GitHub Actions CI workflow status on push.
 
 ---
