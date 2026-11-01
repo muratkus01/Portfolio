@@ -111,8 +111,11 @@ def test_the_lp_prices_reserve_not_held_like_the_settlement():
     be held at all: the plan loses its payment on all 10 MW and pays the penalty on 40 MWh.
     Fixed again on the third product, once the battery is full, it falls short by
     10 x (1 - 36 x 0.95 / 40) = 1.45 MW, 5.8 MWh. And 1 MW at 6.5 MWh in store holds its
-    4-hour band but not the floor, 5 MWh: 1 x (1 - 4.5 x 0.95 / 5) = 0.145 MW, 0.58 MWh. In
-    both windows the LP's objective equals the net the settlement pays, at rel 1e-6.
+    4-hour band but not the floor, 5 MWh: 1 x (1 - 4.5 x 0.95 / 5) = 0.145 MW, 0.58 MWh.
+    10 MW of negative reserve fixed on a windless night from 34 MWh has room for
+    4 / 0.95 MWh of its 10 MWh band at the start, so it falls short by 10 - 4 / 0.95 MW,
+    23.16 MWh, and the battery's discharge must export the rest. In all three windows the
+    LP's objective equals the net the settlement pays, at rel 1e-6.
     """
     n = 64
     block = np.arange(n) // 16
@@ -133,6 +136,17 @@ def test_the_lp_prices_reserve_not_held_like_the_settlement():
     _, cost = _replay(plan, spec, night, night, night, soc0=6.5)
 
     assert cost["afrr_shortfall_up_mwh"] == pytest.approx(0.145 * 4, rel=1e-6)
+    assert plan.objective == pytest.approx(cost["net_revenue"], rel=1e-6)
+
+    price = np.full(n, 50.0)
+    spec = _spec(block, fixed_down=10.0, paid_down=15.0)
+    plan = _solve(spec, night, night, price, soc0=34.0)
+    _, cost = _replay(plan, spec, night, night, price, soc0=34.0)
+    # its 1-hour band has room for (38 - 34) / 0.95 MWh at the start: that many MW are held
+    short = (10.0 - (PLANT.soc_max - 34.0) / PLANT.eta_c) * 4.0
+
+    assert cost["afrr_shortfall_down_mwh"] == pytest.approx(short, rel=1e-6)
+    assert cost["afrr_capacity_cut"] == pytest.approx(15.0 * short, rel=1e-6)
     assert plan.objective == pytest.approx(cost["net_revenue"], rel=1e-6)
 
 
@@ -402,6 +416,30 @@ def test_b2_objective_equals_its_settled_revenue(two_days, monkeypatch):
     assert plans[0].objective == pytest.approx(cost["net_revenue"], rel=1e-6)
 
 
+def test_b2_plans_from_the_energy_stored_when_the_window_starts(monkeypatch):
+    """B2 plans from the energy its replay starts with. Started at 34 MWh, 4 MWh below the
+    maximum, the first product's negative reserve has room for 4 / (0.95 x (1 + margin)) MW
+    at the window's first instant, and B2 reserves that much, as it is paid; its objective is
+    what the settlement pays its replay, at rel 1e-6. Planned from the minimum instead, it
+    would reserve more than the replay can hold."""
+    solve, plans = afrr_rungs.solve_window_reserve, []
+
+    def recorded(*args, **kwargs):
+        plans.append(solve(*args, **kwargs))
+        return plans[-1]
+
+    monkeypatch.setattr(afrr_rungs, "solve_window_reserve", recorded)
+    wind, pv, price = _window(96, seed=1)
+    run = RunConfig(dt=DT, plant=PlantConfig(soc_init_frac=0.85),
+                    market=MarketConfig(afrr_enabled=True, afrr_price_basis="average"))
+    b2 = run_ladder(wind, pv, price, run, 8.0, include_b3=False,
+                    afrr=_capacity(96, 0.0, 30.0))[B2]
+
+    room = (PLANT.soc_max - 34.0) / (PLANT.eta_c * (1 + PLAN_MARGIN))
+    assert b2["afrr_down"][:16] == pytest.approx(np.full(16, room), rel=1e-6)
+    assert plans[0].objective == pytest.approx(b2["cost"]["net_revenue"], rel=1e-6)
+
+
 def test_reservations_are_constant_within_each_product(two_days):
     """A product is sold as one quantity for all its hours: one value per product and
     direction, in B2's plan and in its replay."""
@@ -506,16 +544,17 @@ def test_rounding_b2_down_keeps_its_plan_feasible(two_days):
 
 
 def test_rounding_drops_a_reservation_that_misses_the_floor_at_any_instant():
-    """Rounding reads the plan's state of charge at both ends of every step of a product.
-    Four products of 3, 1, 5 and 1 hours, as on the 23- and 25-hour days, paid 10 EUR/MW/h
-    up and 20 down: 1.6 MW up at 7 MWh hold their band as 1 MW (6.21 MWh) but not the floor
-    (7.26 MWh), so 0; 3.4 MW down keep room for the floor (33.25 MWh) at each of their own
-    steps' ends, but not at the start of the first, so 0; and 2.5 MW up with 3.4 MW down at
-    33 MWh become 2 and 3 MW. The capacity lost: 10 x 1.6 x 3 + 20 x 3.4 x 5
-    + (10 x 0.5 + 20 x 0.4) x 1 = 401 EUR."""
+    """Rounding reads the plan's state of charge at both ends of every step of a product,
+    the window's first instant included. Four products of 3, 1, 5 and 1 hours, as on the
+    23- and 25-hour days, paid 10 EUR/MW/h up and 20 down: 1.6 MW up, planned at 7.3 MWh
+    from a start of 7 MWh, hold their band as 1 MW (6.21 MWh) and the floor (7.26 MWh) at
+    each of their steps' ends, but not at the start, so 0; 3.4 MW down keep room for the
+    floor (33.25 MWh) at each of their own steps' ends, but not at the start of the first,
+    so 0; and 2.5 MW up with 3.4 MW down at 33 MWh become 2 and 3 MW. The capacity lost:
+    10 x 1.6 x 3 + 20 x 3.4 x 5 + (10 x 0.5 + 20 x 0.4) x 1 = 401 EUR."""
     steps = [12, 4, 20, 4]
     block = np.repeat(np.arange(4), steps)
-    soc = np.repeat([7.0, 34.0, 33.0, 33.0], steps)
+    soc = np.repeat([7.3, 34.0, 33.0, 33.0], steps)
     r_up = np.repeat([1.6, 0.0, 0.0, 2.5], steps)
     r_down = np.repeat([0.0, 0.0, 3.4, 3.4], steps)
     spec = _spec(block, fixed_up=np.nan, fixed_down=np.nan, paid_up=10.0, paid_down=20.0,
@@ -604,7 +643,11 @@ def test_the_ladder_allows_a_rung_the_margin_on_its_capacity_revenue(monkeypatch
     out-earn it by that share of the rung's own capacity revenue, beyond the usual
     tolerance, and by no more. B1 is replaced by B2's own dispatch holding every reservation
     PLAN_MARGIN / 2 larger: that passes, though it out-earns B2 by more than the usual
-    tolerance. Twice PLAN_MARGIN larger stops the run."""
+    tolerance. Twice PLAN_MARGIN larger stops the run. And the share is of the rung's own
+    capacity revenue, not of B2's, which may be paid more: B1 replaced by B2's dispatch
+    without aFRR, credited with a share of B2's reservations and held to be short of none,
+    out-earns B2 by more than the margin on its own capacity revenue, though by less than
+    the margin on B2's, and stops the run."""
     wind, pv, price = _window(96, seed=2)
     run, prices = _afrr_run("average"), _capacity(96, 40.0, 20.0)
     eff = effective_price(price, run.market, 8.0, DT)
@@ -623,5 +666,26 @@ def test_the_ladder_allows_a_rung_the_margin_on_its_capacity_revenue(monkeypatch
     assert res[B1]["cost"]["net_revenue"] - b2 > ladder_tolerance(b2)
 
     monkeypatch.setattr(baselines, "b1_curtailment_avoidance", holding_more(2.0))
+    with pytest.raises(AssertionError, match="ladder invariant violated"):
+        run_ladder(wind, pv, price, run, 8.0, include_b3=False, afrr=prices)
+
+    # Credited with `share` of B2's reservations, the stand-in earns B2's net without aFRR
+    # plus that share of B2's capacity revenue. Its excess over B2 lies about halfway
+    # between the margin on the capacity revenue it holds and the margin on B2's.
+    payment = Payment(*paid_prices(prices, "average"), prices.block)
+    on = afrr_rungs.b2_reserve(wind, pv, eff, run, prices)
+    off = baselines.b2_perfect(wind, pv, eff, run)
+    on_cost, off_cost = (settle(res, price, DT, PLANT, run.market, premium_rate=8.0,
+                                afrr=payment) for res in (on, off))
+    capacity = on_cost["afrr_capacity_revenue"]
+    gain = on_cost["net_revenue"] - off_cost["net_revenue"]
+    excess = ladder_tolerance(on_cost["net_revenue"]) + PLAN_MARGIN * (gain + capacity) / 2
+    share = (gain + excess) / capacity
+    assert share < 0.9, "the stand-in holds clearly less capacity revenue than B2"
+
+    def b1_without_afrr(wind, pv, run, export_cap=None):
+        return {**off, "afrr_up": share * on["afrr_up"], "afrr_down": share * on["afrr_down"]}
+
+    monkeypatch.setattr(baselines, "b1_curtailment_avoidance", b1_without_afrr)
     with pytest.raises(AssertionError, match="ladder invariant violated"):
         run_ladder(wind, pv, price, run, 8.0, include_b3=False, afrr=prices)
