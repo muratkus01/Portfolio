@@ -48,7 +48,7 @@ flowchart TB
         F1["Benchmark ladders: every method against simpler rungs and a perfect-information bound"]
         F2["15-minute settlement on DE-LU day-ahead prices in every project (through a dynamic tariff in 01), plus intraday (ID AEP) and reBAP in 03"]
         F3["German Regulatory Constraint Layer (§41a, §51, reBAP)"]
-        F4["Issue-time forecasts with an information-set test"]
+        F4["Issue-time forecasts with an information-set test in 01 and 03 (synthetic forecasts for B3 in 02)"]
     end
 
     subgraph BTM["Behind the Meter"]
@@ -113,7 +113,7 @@ Every method is measured against simpler rungs on the same data and against a pe
 | **B0** | Historical / Status-Quo | Baseline uncoordinated or unhedged reference. |
 | **B1** | Rule-Based Expert Baseline | Industry-standard heuristic (e.g. greedy self-consumption, threshold shaving). |
 | **B2** | Perfect-Foresight Optimization | Theoretical performance ceiling over the entire simulation horizon. |
-| **B3** | Rolling-Horizon MPC | **The deployable classical benchmark** operating under imperfect lookahead. |
+| **B3** | Rolling-Horizon MPC | **The classical benchmark** under imperfect lookahead. Deployable in Project 01, where it plans only on what a home system knows when it decides. In Project 02 it plans on synthetic forecasts and knows the true negative-price mask, so its recovery there is optimistic. |
 | **RL** | Learned Policy (SAC, Project 01 only) | **Must beat B3 on out-of-sample data** to justify algorithmic deployment. |
 
 Project 03 climbs a forecast ladder instead: climatology, persistence, linear quantile regression and LightGBM, with the forecast the transmission system operators publish as a benchmark. Every forecast is traded by the same policy rules (day-ahead only, intraday to the median, and a deadband rule whose band is tuned per forecast on the validation window) and compared with the perfect forecast.
