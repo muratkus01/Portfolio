@@ -1,7 +1,7 @@
 """
 dashboards/app.py
 =================
-Shiny Express interactive dashboard for all 6 portfolio projects.
+Shiny Express interactive dashboard for the Project 01 sizing sweep.
 Reads precomputed parquet tables from simulations/results/ and
 displays instant parameter-reactive KPIs and plots.
 
@@ -91,9 +91,11 @@ CUBES = _load_cubes()
 # The current Project 03 (forecast-to-bid) is not offered either: its scenario grid swept
 # synthetic forecast noise and was retired. Its results are the CSVs in
 # projects/03-probabilistic-forecast-to-bid/reports/.
+# Nor is the current Project 02 (hybrid plant): its grid read hourly prices as quarter-hours and
+# scaled 14 days to a year, and was retired. Its results are the CSVs in
+# projects/02-utility-hybrid-plant-dispatch/reports/.
 PROJECT_LABELS = {
     "p01": "01 Residential PV+BESS",
-    "p02": "02 Utility Hybrid Plant",
 }
 
 # ---------------------------------------------------------------------------
@@ -135,17 +137,6 @@ with ui.sidebar(width=300):
         ui.input_select("p01_inv",  "Inverter Rating (kW)",
                         choices=["3.68", "5.63", "8.0", "10.0"], selected="5.63")
 
-    # --- P02 sliders ---
-    with ui.panel_conditional("input.project === 'p02'"):
-        ui.h6("Pumped Storage Parameters", style=f"color: {ACCENT};")
-        ui.input_select("p02_turb", "Turbine Capacity / Unit (MW)",
-                        choices=["50.0", "75.0", "100.0"], selected="75.0")
-        ui.input_select("p02_eres", "Upper Reservoir (MWh)",
-                        choices=["1200.0", "2400.0", "3600.0"], selected="2400.0")
-        ui.input_slider("p02_wear", "Mode-Change Penalty (EUR/switch)", min=0, max=300, value=100, step=50)
-        ui.input_select("p02_pol",  "Dispatch Policy",
-                        choices=["b1", "b2", "b3", "rl_smoothed", "rl_unsmoothed"], selected="b3")
-
     # --- P04 sliders ---
     with ui.panel_conditional("input.project === 'p04'"):
         ui.h6("Energy Community Parameters", style=f"color: {ACCENT};")
@@ -155,19 +146,8 @@ with ui.sidebar(width=300):
         ui.input_select("p04_pv",      "Shared PV Capacity (kWp)",
                         choices=["30.0", "50.0", "65.0", "90.0", "120.0"], selected="50.0")
 
-    # --- P02 sliders ---
-    with ui.panel_conditional("input.project === 'p02'"):
-        ui.h6("Hybrid Plant Parameters", style=f"color: {ACCENT};")
-        ui.input_select("p02_poc",  "Grid Connection POC (MW)",
-                        choices=["25.0", "30.0", "40.0", "50.0", "60.0"], selected="40.0")
-        ui.input_select("p02_pv",   "Co-located Solar PV (MW)",
-                        choices=["20.0", "30.0", "40.0", "50.0", "60.0"], selected="30.0")
-        ui.input_select("p02_bess", "Buffer BESS (MWh)",
-                        choices=["0.0", "10.0", "20.0", "30.0", "40.0"], selected="20.0")
-
     ui.hr(style="border-color: #1e2d47;")
     ui.markdown(f'<span style="color:{SUB}; font-size:0.75rem;">Results load from precomputed parquet tables in `simulations/results/`. Run `--full` overnight simulation to populate all cells.</span>')
-    ui.markdown(f'<span style="color:{SUB}; font-size:0.72rem; display:block; margin-top:6px;">*Note: Project 02 evaluates a 14-day telemetry window extrapolated to 365 days (scaled by 365/14). In schema, these metrics are designated with `_per_year_extrapolated` alongside `eval_days=14` and `annualised=True`.</span>')
 
 
 # ===========================================================================
@@ -202,17 +182,11 @@ def _cube_lookup():
         inv_val  = float(input.p01_inv())
         key = f"{pv_val}|{bess_val}|{inv_val}|{year}"
 
-    elif proj == "p02":
-        key = f"{input.p02_turb()}|{input.p02_eres()}|{input.p02_wear()}|{input.p02_pol()}|{year}"
-
     elif proj == "p04":
         c_grid = [0.000, 0.010, 0.020, 0.030, 0.050,
                   0.070, 0.090, 0.100, 0.110, 0.120, 0.140]
         c_val  = min(c_grid, key=lambda x: abs(x - input.p04_cnet()))
         key = f"{c_val}|{input.p04_members()}|{input.p04_pv()}|{year}"
-
-    elif proj == "p02":
-        key = f"{input.p02_poc()}|{input.p02_pv()}|{input.p02_bess()}|{year}"
 
     else:
         key = ""
@@ -241,15 +215,9 @@ with ui.card():
                                     showcase=ui.tags.span(
                                         style=f"color:{color}; font-size:1.5rem;",
                                         children=["~" if abs(val) < 100 else ""]))
-            elif proj == "p02":
-                val = data[0] if data else 0.0
-                return ui.value_box("Annual Revenue", f"EUR {val:,.0f}")
             elif proj == "p04":
                 val = data[0] if data else 0.0
                 return ui.value_box("Welfare Surplus / Week", f"EUR {val:,.0f}")
-            elif proj == "p02":
-                val = data[0] if data else 0.0
-                return ui.value_box("Annual Revenue", f"EUR {val:,.0f}")
             return ui.value_box("--", "--")
 
         @render.ui
@@ -261,15 +229,9 @@ with ui.card():
             if proj == "p01":
                 val = (data[1] * 100) if len(data) > 1 else 0.0
                 return ui.value_box("Self-Consumption", f"{val:.1f}%")
-            elif proj == "p02":
-                val = data[1] if len(data) > 1 else 0.0
-                return ui.value_box("Reversals / Day", f"{val:.1f}")
             elif proj == "p04":
                 val = data[1] if len(data) > 1 else 0.0
                 return ui.value_box("Prosumer Export Gain", f"{val:.1f}%")
-            elif proj == "p02":
-                val = data[1] if len(data) > 1 else 0.0
-                return ui.value_box("Forced Curtailment", f"{val:.0f} MWh")
             return ui.value_box("--", "--")
 
         @render.ui
@@ -281,15 +243,9 @@ with ui.card():
             if proj == "p01":
                 val = (data[2] * 100) if len(data) > 2 else 0.0
                 return ui.value_box("Grid Independence", f"{val:.1f}%")
-            elif proj == "p02":
-                val = data[2] if len(data) > 2 else 0.0
-                return ui.value_box("Annual Wear Cost", f"EUR {val:,.0f}")
             elif proj == "p04":
                 val = data[3] if len(data) > 3 else 0.0
                 return ui.value_box("Break-even Tariff", f"EUR {val:.3f}/kWh")
-            elif proj == "p02":
-                val = data[5] if len(data) > 5 else 0.0
-                return ui.value_box("Revenue Lift vs B1", f"{val:.1f}%")
             return ui.value_box("--", "--")
 
 
@@ -330,22 +286,6 @@ with ui.card():
             ax.set_ylabel("Net Annual Cost (EUR)")
             ax.set_title(f"P01 Cost by PV Size  |  Year {year}")
 
-        elif proj == "p02":
-            grp_col = "wear_eur"
-            b1_col  = "out_b1_revenue_eur_per_year_extrapolated" if "out_b1_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_b1_revenue_eur"
-            b3_col  = "out_b3_revenue_eur_per_year_extrapolated" if "out_b3_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_b3_revenue_eur"
-            if not all(c in df_yr.columns for c in [grp_col, b1_col, b3_col]):
-                _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
-            summary = df_yr.groupby(grp_col)[[b1_col, b3_col]].mean()
-            x = np.arange(len(summary))
-            w = 0.35
-            ax.bar(x - w/2, summary[b1_col], w, label="B1 Threshold", color=AMBER, alpha=0.85)
-            ax.bar(x + w/2, summary[b3_col], w, label="B3 Rolling MPC", color=ACCENT, alpha=0.85)
-            ax.set_xticks(x); ax.set_xticklabels([f"{v} EUR" for v in summary.index])
-            ax.set_xlabel("Wear Penalty (EUR/switch)")
-            ax.set_ylabel("Revenue (EUR)")
-            ax.set_title(f"P02 Revenue vs Wear Penalty  |  Year {year}")
-
         elif proj == "p04":
             if "c_net" not in df_yr.columns:
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
@@ -355,21 +295,6 @@ with ui.card():
             ax.set_xlabel("Sharing Network Charge (EUR/kWh)")
             ax.set_ylabel("Community Welfare Surplus (EUR/week)")
             ax.set_title(f"P04 Welfare vs Network Tariff  |  Year {year}")
-
-        elif proj == "p02":
-            if "poc_mw" not in df_yr.columns:
-                _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
-            b1_col_p5 = "out_b1_revenue_eur_per_year_extrapolated" if "out_b1_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_b1_revenue_eur"
-            b3_col_p5 = "out_b3_revenue_eur_per_year_extrapolated" if "out_b3_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_b3_revenue_eur"
-            summary = df_yr.groupby("poc_mw")[[b1_col_p5, b3_col_p5]].mean()
-            x = np.arange(len(summary))
-            w = 0.35
-            ax.bar(x - w/2, summary[b1_col_p5], w, label="B1 No-BESS", color=AMBER, alpha=0.85)
-            ax.bar(x + w/2, summary[b3_col_p5], w, label="B3 Rolling MPC", color=ACCENT, alpha=0.85)
-            ax.set_xticks(x); ax.set_xticklabels([f"{v:.0f} MW" for v in summary.index])
-            ax.set_xlabel("Grid Connection (MW)")
-            ax.set_ylabel("Annual Revenue (EUR)")
-            ax.set_title(f"P02 Revenue vs POC Limit  |  Year {year}")
 
         ax.legend(loc="best") if proj != "p04" else None
         ax.grid(True, alpha=0.3)
@@ -410,18 +335,6 @@ with ui.card():
             ax.set_title("Net Annual Cost Heatmap (EUR)")
             plt.colorbar(im, ax=ax)
 
-        elif proj == "p02":
-            rev_col_p2 = "out_revenue_eur_per_year_extrapolated" if "out_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_revenue_eur"
-            if not all(c in df_yr.columns for c in ["turb_mw_unit", "wear_eur", rev_col_p2]):
-                _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
-            pivot = df_yr.groupby(["turb_mw_unit", "wear_eur"])[rev_col_p2].mean().unstack(fill_value=0)
-            im = ax.imshow(pivot.values, cmap="YlGn", aspect="auto")
-            ax.set_xticks(range(len(pivot.columns))); ax.set_xticklabels([str(c) for c in pivot.columns])
-            ax.set_yticks(range(len(pivot.index)));   ax.set_yticklabels([str(r) for r in pivot.index])
-            ax.set_xlabel("Wear Penalty (EUR)"); ax.set_ylabel("Turbine MW/unit")
-            ax.set_title("Revenue Heatmap (EUR)")
-            plt.colorbar(im, ax=ax)
-
         elif proj == "p04":
             if not all(c in df_yr.columns for c in ["n_members", "shared_pv_kwp", "out_welfare_eur_per_week"]):
                 _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
@@ -431,18 +344,6 @@ with ui.card():
             ax.set_yticks(range(len(pivot.index)));   ax.set_yticklabels([str(r) for r in pivot.index])
             ax.set_xlabel("Shared PV (kWp)"); ax.set_ylabel("Members")
             ax.set_title("Weekly Welfare Surplus Heatmap (EUR)")
-            plt.colorbar(im, ax=ax)
-
-        elif proj == "p02":
-            rev_col_p5 = "out_revenue_eur_per_year_extrapolated" if "out_revenue_eur_per_year_extrapolated" in df_yr.columns else "out_revenue_eur"
-            if not all(c in df_yr.columns for c in ["poc_mw", "bess_mwh", rev_col_p5]):
-                _no_data_plot(ax); fig.patch.set_facecolor(BG); return fig
-            pivot = df_yr.groupby(["poc_mw", "bess_mwh"])[rev_col_p5].mean().unstack(fill_value=0)
-            im = ax.imshow(pivot.values, cmap="plasma", aspect="auto")
-            ax.set_xticks(range(len(pivot.columns))); ax.set_xticklabels([str(c) for c in pivot.columns])
-            ax.set_yticks(range(len(pivot.index)));   ax.set_yticklabels([str(r) for r in pivot.index])
-            ax.set_xlabel("BESS (MWh)"); ax.set_ylabel("POC Limit (MW)")
-            ax.set_title("Revenue Heatmap (EUR)")
             plt.colorbar(im, ax=ax)
 
         fig.tight_layout()
