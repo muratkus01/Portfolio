@@ -40,8 +40,12 @@ def _down_ceiling(mw: float, rule: ReserveRule = RULE) -> float:
 def test_random_setpoints_never_use_reserved_headroom():
     """Whatever the controller proposes, the battery keeps the power headroom both
     reservations need, export keeps the positive one's MW free below the connection, the
-    plant never imports and its state of charge stays within its limits: random proposals,
+    plant never imports, the battery charges only from export above the negative
+    reservation, and its state of charge stays within its limits: random proposals,
     curtailment, whole-MW reservations and starting states of charge, at three connections.
+    Where both reservations together exceed the connection, export is held at the
+    connection less the positive one, below the negative one, and the battery may still
+    store what the connection would curtail.
 
     Negative control: today's layer, which ignores the reservations, uses that headroom on
     the same inputs, e.g. by discharging 20 MW while 15 MW of positive reserve are held.
@@ -65,6 +69,9 @@ def test_random_setpoints_never_use_reserved_headroom():
         assert np.all(down - res["p_bat"] <= cfg.bess_mw + 1e-9)
         assert np.all(res["export"] + up <= conn + 1e-9)
         assert res["import"].max() == 0.0
+        charging = res["p_bat"] < 0
+        least_export = np.minimum(down, np.maximum(0.0, conn - up))
+        assert np.all(res["export"][charging] >= least_export[charging] - 1e-9)
         assert cfg.soc_min - 1e-9 <= res["soc"].min() <= res["soc"].max() <= cfg.soc_max + 1e-9
         assert np.any(today["p_bat"] + up > cfg.bess_mw + 1e-6)
         assert np.any(today["export"] + up > conn + 1e-6)
@@ -94,6 +101,34 @@ def test_a_reservation_restricts_the_battery_but_never_forces_it():
         assert lo <= 0.0 <= hi
 
 
+def test_a_reservation_beyond_the_plants_limits_is_counted_never_forced():
+    """No plan reserves more than the battery's 20 MW, or more positive reserve than the
+    connection, but the layer must not turn such a reservation into a forced move. Above
+    the rating, positive reserve only stops discharging and negative reserve only stops
+    charging. Above the connection, positive reserve only stops export: at 20 MW, 25 MW of
+    it leave 40 MW of wind to charge the battery's 20 MW and be curtailed, never to import
+    or to run below 0. check_feasible counts the headroom such a result lacks, in every step.
+    """
+    beyond_up, beyond_down = Reservation(25.0, 0.0, RULE), Reservation(0.0, 25.0, RULE)
+    for soc in (CFG.soc_min, 20.0, CFG.soc_max):
+        lo, hi = battery_interval(soc, DT, CFG, beyond_up)
+        assert lo <= 0.0 == hi
+        lo, hi = battery_interval(soc, DT, CFG, beyond_down)
+        assert lo == 0.0 <= hi
+
+    cfg = PlantConfig(conn_mw=20.0)
+    windy = dispatch_step(40.0, 0.0, 20.0, 10.0, 0.0, DT, cfg, reserve=beyond_up)
+    assert (windy["p_bat"], windy["export"], windy["import"]) == (-20.0, 0.0, 0.0)
+    assert windy["gen"] == windy["reserve_curtail"] == 20.0
+
+    n = 3
+    res = simulate(np.array([0.0, 40.0, 10.0]), np.zeros(n), np.array([10.0, 10.0, -10.0]),
+                   np.zeros(n), DT, cfg, soc0=20.0, reserve_up=np.full(n, 25.0),
+                   reserve_down=np.array([0.0, 25.0, 25.0]), rule=RULE)
+    assert check_feasible(res, cfg) == {**dict.fromkeys(TODAYS_CHECKS, 0), "reserve_power": n,
+                                        "reserve_connection": n}
+
+
 def test_positive_reserve_holds_four_hours_and_negative_one():
     """With the default rule, r MW of positive reserve keep soc_min + 4 r / eta_d in store
     and r MW of negative reserve keep soc_max - 1 r eta_c as the ceiling (PQ §§ 1.6, 2.7.1):
@@ -117,8 +152,9 @@ def test_the_fifteen_minute_floor_binds_below_five_megawatts():
     """Each reserved direction keeps at least 15 minutes of the battery's 20 MW, 5 MWh (PQ
     § 2.7.1, per product as v1.06 § 2.7.2 states): 2 MW of negative reserve keep 5 MWh x eta_c
     of room, not 2 MWh x eta_c, and 1 MW of positive reserve 5 MWh, not 4. With A MWh of room
-    left, the 2 MW hold 2 A / 5, so 2 (1 - A / 5) are not held. A floor of 0, as B2 plans,
-    relaxes both."""
+    left, the 2 MW hold 2 A / 5, so 2 (1 - A / 5) are not held; with A MWh in store, the 1 MW
+    hold A / 5, so 4.5 MWh leave 0.1 MW not held, which 4 hours alone would count as held.
+    A floor of 0, as B2 plans, relaxes both."""
     no_floor = ReserveRule(4.0, 1.0, 0.0)
     soc = 32.85
     for rule, ceiling in ((RULE, CFG.soc_max - 5.0 * CFG.eta_c),
@@ -139,13 +175,23 @@ def test_the_fifteen_minute_floor_binds_below_five_megawatts():
                             reserve=Reservation(0.0, 2.0, no_floor))
     assert relaxed["afrr_deficit_down"] == 0.0
 
+    store = 4.5                                     # MWh the battery can deliver
+    soc = CFG.soc_min + store / CFG.eta_d
+    held_up, relaxed_up = (dispatch_step(10.0, 0.0, soc, 0.0, 0.0, DT, CFG,
+                                         reserve=Reservation(1.0, 0.0, rule))
+                           for rule in (RULE, no_floor))
+    assert held_up["afrr_deficit_up"] == pytest.approx(1.0 * (1 - store / 5.0))
+    assert relaxed_up["afrr_deficit_up"] == 0.0
+
 
 def test_upward_reserve_keeps_connection_headroom_and_labels_its_curtailment():
     """Positive reserve keeps its MW free below the connection, so that a call could be
     exported. 70 MW behind 60 MW, with a battery that can take 4.2 MW: without reserve it
     charges those and the connection forces the remaining 5.8 MW away; with 5 MW of positive
     reserve it charges the same, export stops at 55 MW, the forced curtailment is the same,
-    and the 5 MW more it needs are "reserve_curtail", neither forced nor chosen."""
+    and the 5 MW more it needs are "reserve_curtail", neither forced nor chosen. A battery
+    with room stores the excess over 55 MW first: 62 MW charge 7 MW and nothing is
+    curtailed."""
     soc = CFG.soc_max - 1.0
     plain = dispatch_step(50.0, 20.0, soc, 0.0, 0.0, DT, CFG)
     held = dispatch_step(50.0, 20.0, soc, 0.0, 0.0, DT, CFG,
@@ -158,12 +204,21 @@ def test_upward_reserve_keeps_connection_headroom_and_labels_its_curtailment():
     assert held["reserve_curtail"] == pytest.approx(5.0)
     assert held["chosen_curtail"] == plain["chosen_curtail"] == 0.0
 
+    stored = dispatch_step(62.0, 0.0, 25.0, 0.0, 0.0, DT, CFG,
+                           reserve=Reservation(5.0, 0.0, RULE))
+    assert (stored["p_bat"], stored["export"]) == (-7.0, 55.0)
+    assert [stored[k] for k in ("forced_curtail", "reserve_curtail", "chosen_curtail")] == [
+        0.0, 0.0, 0.0]
+
 
 def test_negative_reserve_never_draws_from_the_grid():
     """A negative call is served by exporting less, so the battery charges only from export
     above the negative reservation (R4): at night, asked to charge, it does not, even where
     grid charging would be allowed, and the reservation's shortfall is what export lacks,
-    r_dn - export. With 10 MW of wind it charges from the 4 MW above 6 MW of reserve."""
+    r_dn - export. With 10 MW of wind it charges from the 4 MW above 6 MW of reserve. The
+    export counts after the controller's own curtailment: of 20 MW of wind, half curtailed,
+    it charges the same 4 MW; of 10 MW, half curtailed, it charges nothing, and the 1 MW the
+    5 MW of export lack is not held."""
     down = Reservation(0.0, 6.0, RULE)
     for cfg in (CFG, PlantConfig(grid_charging_allowed=True)):
         night = dispatch_step(0.0, 0.0, 20.0, -10.0, 0.0, DT, cfg, reserve=down)
@@ -174,6 +229,12 @@ def test_negative_reserve_never_draws_from_the_grid():
     windy = dispatch_step(10.0, 0.0, 20.0, -10.0, 0.0, DT, CFG, reserve=down)
     assert (windy["p_bat"], windy["export"], windy["afrr_deficit_down"]) == (-4.0, 6.0, 0.0)
 
+    curtailed = dispatch_step(20.0, 0.0, 20.0, -10.0, 0.5, DT, CFG, reserve=down)
+    assert (curtailed["p_bat"], curtailed["export"], curtailed["afrr_deficit_down"]) == (
+        -4.0, 6.0, 0.0)
+    short = dispatch_step(10.0, 0.0, 20.0, -10.0, 0.5, DT, CFG, reserve=down)
+    assert (short["p_bat"], short["export"], short["afrr_deficit_down"]) == (0.0, 5.0, 1.0)
+
 
 def test_reserve_not_held_is_measured_at_both_ends_of_a_step(monkeypatch):
     """A reservation holds at every instant of its step, and the state of charge is linear in
@@ -181,7 +242,8 @@ def test_reserve_not_held_is_measured_at_both_ends_of_a_step(monkeypatch):
     past its band and moves back, as at a product boundary; the end counts where a step ends
     past its band, which only a slack wider than TOL_SOC allows, so the test widens it to
     0.5 MWh. Following a plan on the band leaves a residue below TOL (1e-4 MW), which counts
-    as held. 6 MW each way: the up band needs 24 MWh, the down band 6 MWh of room."""
+    as held. TOL lies between 5e-5 MW, which counts as held, and 2e-4 MW, which counts in
+    full. 6 MW each way: the up band needs 24 MWh, the down band 6 MWh of room."""
     band, up = _up_band(6.0), Reservation(6.0, 0.0, RULE)
     ceiling, down = _down_ceiling(6.0), Reservation(0.0, 6.0, RULE)
 
@@ -199,6 +261,13 @@ def test_reserve_not_held_is_measured_at_both_ends_of_a_step(monkeypatch):
 
     on_band = dispatch_step(0.0, 0.0, band + 0.1, 20.0, 0.0, DT, CFG, reserve=up)
     assert 0.0 < short_up(on_band["soc"]) < TOL and on_band["afrr_deficit_up"] == 0.0
+
+    # numbers, not the imported TOL, so that a changed threshold fails here
+    starts = [band - short * 24.0 / 6.0 / CFG.eta_d for short in (5e-5, 2e-4)]
+    assert [short_up(s) for s in starts] == pytest.approx([5e-5, 2e-4])
+    below, above = (dispatch_step(30.0, 0.0, s, -10.0, 0.0, DT, CFG, reserve=up) for s in starts)
+    assert below["afrr_deficit_up"] == 0.0
+    assert above["afrr_deficit_up"] == pytest.approx(2e-4)
 
     monkeypatch.setattr(plant, "TOL_SOC", 0.5)
     past_up = dispatch_step(0.0, 0.0, band + 0.1, 20.0, 0.0, DT, CFG, reserve=up)
