@@ -1,13 +1,19 @@
 """The README's results against the committed tables in reports/.
 
 Each result table in the README must hold what its CSV holds, cell by cell, to the precision
-it prints; the claims it makes about the tables must hold in them; and its key results may
-quote only numbers those tables print. The README's figures once came from console runs that
-no file kept, and outlived the code that made them. Offline and fast: this reads files only.
+it prints, under the column names it prints; the claims it makes about the tables must hold
+in them; its key results may quote only numbers those tables print, each in the sentence of
+its own year, window and rung; and the settings its prose quotes must be those the tables ran
+with. The README's figures once came from console runs that no file kept, and outlived the
+code that made them. Offline: this reads files, asks git which files it tracks, and lets
+pytest count the suite without running it.
 """
 from __future__ import annotations
 
+import posixpath
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -362,20 +368,231 @@ def test_no_row_breaks_a_limit_or_settles_imbalance_or_imports():
 
 
 def test_the_rl_comparison_quotes_project_01s_table():
-    """The scope note's figures: Project 01's SAC, the median of its seeds, and its B3."""
+    """The scope note's figures, each in its own place: Project 01's SAC, the median of its
+    seeds, against its B3. Swapped, the two would invert the reason for stopping at B3."""
     path = Path("..", "01-prosumer-pv-bess-mpc-rl", "reports", "rl_eval_H28", "rl_summary.csv")
     capture = pd.read_csv(PROJECT / path, index_col=0)["capture of B1->B2 %"]
-    sac = capture[capture.index.str.startswith("RL SAC")].median()
+    seeds = capture[capture.index.str.startswith("RL SAC")]
     b3 = capture[capture.index.str.startswith("B3")].item()
-    text = readme()
+    text = prose()
     assert f"({path.as_posix()})" in text
-    assert f"{sac:.1f} %" in text and f"{b3:.1f} %" in text
+    assert (f"a soft actor-critic agent reaches {seeds.median():.1f} % of the gain from B1 to B2 "
+            f"(median of {WORDS[len(seeds)]} seeds), against {b3:.1f} % for its rolling MPC"
+            ) in text
+
+
+# Counts the README spells out.
+WORDS = {2: "two", 3: "three", 4: "four", 5: "five"}
+
+
+def prose() -> str:
+    """The README's text on one line: every run of whitespace one space, and bold marks and
+    the marks that open a blockquote's lines gone, so a sentence reads the same wherever its
+    lines wrap."""
+    lines = (re.sub(r"^\s*>\s?", "", line) for line in readme().splitlines())
+    return " ".join(" ".join(lines).replace("**", "").split())
+
+
+def key_results() -> str:
+    """The key results block, as `prose` gives it."""
+    text = readme()
+    assert "### Key results" in text
+    block = text.split("### Key results", 1)[1].split("\n#", 1)[0]
+    return " ".join(block.replace("**", "").split())
+
+
+def test_each_key_result_sits_in_its_sentence():
+    """A key result must hold where its sentence puts it: in its year, window, connection and
+    rung. A number printed in some table can still sit in the wrong sentence, e.g. January's
+    recovery quoted for July."""
+    text, years = key_results(), (2024, 2025)
+    sizing = {y: report(f"sizing_{y}.csv").groupby("conn_mw").first() for y in years}
+    own = {y: sizing[y]["battery_value_eur"] for y in years}
+    low = {y: sizing[y]["chosen_curtailment_value_eur"] for y in years}
+    lo, hi = own[2024].index.min(), own[2024].index.max()
+    # the sizing test checks that it rises at every step, in each year
+    assert "rises with every step of connection size in both years" in text
+    assert (f"from {own[2024][lo]:,.0f} EUR at {lo:.0f} MW to {own[2024][hi]:,.0f} EUR at "
+            f"{hi:.0f} MW in 2024, and from {own[2025][lo]:,.0f} to {own[2025][hi]:,.0f} EUR "
+            f"in 2025") in text
+    assert (f"adds {low[2024].min():,.0f} to {low[2024].max():,.0f} EUR in 2024 and "
+            f"{low[2025].min():,.0f} to {low[2025].max():,.0f} EUR in 2025") in text
+
+    windows = report("window_stats.csv").set_index("window").loc[[str(y) for y in years]]
+    assert (windows["steps_over_connection"] == 0).all()
+    assert f"The {windows['connection_mw'].iloc[0]:.0f} MW connection never binds" in text
+    for y in years:
+        wide = report(f"decompose_{y}.csv").set_index("scenario").loc["as built"].iloc[0]
+        assert abs(wide["connection_limit_effect_eur"]) <= wide["ladder_tolerance_eur"]
+    tight = {y: report(f"decompose_{y}_conn-30.csv").set_index("scenario").loc["as built"]
+             .iloc[0] for y in years}
+    mw = tight[2024]["plant_conn_mw"]
+    effect = {y: tight[y]["connection_limit_effect_eur"] for y in years}
+    share = {y: 100 * tight[y]["connection_limit_share"] for y in years}
+    assert (f"A {mw:.0f} MW connection changes it by {effect[2024]:,.0f} EUR in 2024 and "
+            f"{effect[2025]:,.0f} EUR in 2025 ({share[2024]:.1f} % and {share[2025]:.1f} % of "
+            f"the battery's value at {mw:.0f} MW)") in text
+
+    b3 = [report(name).set_index("rung") for name in LADDER]
+    month = [pd.Timestamp(d.loc[B3, "window_start_berlin"]) for d in b3]
+    recovery = [100 * (d.loc[B3, "net_revenue_eur"] - d.loc[B1, "net_revenue_eur"])
+                / (d.loc[B2, "net_revenue_eur"] - d.loc[B1, "net_revenue_eur"]) for d in b3]
+    assert (f"recovers {recovery[0]:.1f} % ({month[0].month_name()} {month[0].year}) and "
+            f"{recovery[1]:.1f} % ({month[1].month_name()} {month[1].year}) of the gain from "
+            f"B1 to B2") in text
+    sigma = {d.loc[B3, "b3_forecast_sigma"] for d in b3}
+    assert len(sigma) == 1 and {d.loc[B3, "b3_seed"] for d in b3} == {0}
+    assert f"the truth with a {100 * sigma.pop():.0f} % AR(1) error in one random draw" in text
+    planned = [d.loc[B3, "b3_premium_rate_mean_eur_mwh"] for d in b3]
+    settled = [d.loc[B3, "premium_rate_mean_eur_mwh"] for d in b3]
+    assert (f"It plans on the previous month's realised premium, {planned[0]:.2f} and "
+            f"{planned[1]:.2f} EUR/MWh, and is settled on {settled[0]:.2f} and "
+            f"{settled[1]:.2f} EUR/MWh") in text
+
+    negprice = {y: report(f"negprice_{y}.csv") for y in years}
+    recent = {y: negprice[y][negprice[y]["vintage"].str.contains("recent")
+                             & (negprice[y]["rule"] == "new_2025")].set_index("rung")
+              for y in years}
+    for y in years:
+        assert recent[y].loc[B2, "market_anzulegender_wert_pv"] == (
+            sizing[y]["market_anzulegender_wert_pv"].iloc[0]), "the default plant"
+    curtailed = {y: recent[y].loc[B2, "chosen_curtail_mwh"] for y in years}
+    assert (f"B2 curtails {curtailed[2024]:,.0f} MWh in 2024 and {curtailed[2025]:,.0f} MWh in "
+            f"2025 at the default plant") in text
+    exact, blended = {}, {}
+    for y in years:
+        b0 = recent[y].loc[B0]
+        none = negprice[y][negprice[y]["vintage"].str.contains("recent")
+                           & (negprice[y]["rule"] == "none")].set_index("rung").loc[B0]
+        exact[y] = (none["full_export_premium_by_technology_eur"]
+                    - b0["full_export_premium_by_technology_eur"])
+        blended[y] = none["premium_revenue_eur"] - b0["premium_revenue_eur"]
+    assert (f"B0 at the default plant loses {exact[2024]:,.0f} EUR to that rule in 2024 and "
+            f"{exact[2025]:,.0f} EUR in 2025; the blended rate, which every table settles on, "
+            f"takes {blended[2024]:,.0f} and {blended[2025]:,.0f} EUR") in text
+
+
+def test_the_prose_quotes_the_settings_the_tables_ran_with():
+    """Numbers in the README's prose that describe how a table ran: the wide connection, the
+    applicable values, B3's horizon and planning months, the synthetic demo's settings, where
+    the connection binds, and what B2 curtails with and without the battery."""
+    text, years = prose(), (2024, 2025)
+    plant = report(LADDER[0]).set_index("rung").loc[B3]           # the default plant
+    rated = (f"{plant['plant_wind_mw']:.0f} MW onshore wind + {plant['plant_pv_mw']:.0f} MWp PV",
+             f"a {plant['plant_bess_mw']:.0f} MW / {plant['plant_bess_mwh']:.0f} MWh battery")
+    assert f"{rated[0]} + {rated[1]} behind a {plant['plant_conn_mw']:.0f} MW connection" in text
+    assert (f"{rated[0]} (a DC rating) + {rated[1]} behind one {plant['plant_conn_mw']:.0f} MW "
+            f"connection") in text
+    assert plant["plant_eta_c"] == plant["plant_eta_d"] and pd.isna(plant["plant_soc_init_frac"])
+    assert (f"Battery: {plant['plant_bess_mw']:.0f} MW / {plant['plant_bess_mwh']:.0f} MWh, used "
+            f"between {100 * plant['plant_soc_min_frac']:.0f} % and "
+            f"{100 * plant['plant_soc_max_frac']:.0f} % of its energy, "
+            f"{100 * plant['plant_eta_c']:.0f} % efficient each way, starting at its minimum, "
+            f"with linear wear of {plant['plant_c_deg_eur_mwh']:.0f} EUR per MWh") in text
+    assert f"a hard export limit of {plant['plant_conn_mw']:.0f} MW" in text
+    assert f"wears at {plant['plant_c_deg_eur_mwh']:.0f} EUR per MWh of throughput" in text
+    wide = report("decompose_2024.csv").set_index("scenario").loc["unconstrained connection"]
+    assert f"at its connection as built and at {wide['plant_conn_mw'].iloc[0]:.0f} MW" in text
+
+    vintages = report("negprice_2024.csv").groupby("vintage", sort=False).first()
+    recent, older = (vintages.loc[[v for v in vintages.index if word in v][0]]
+                     for word in ("recent", "older"))
+    assert (f"applicable values are {recent['market_anzulegender_wert_wind']:.1f} EUR/MWh for "
+            f"wind and {recent['market_anzulegender_wert_pv']:.1f} for PV") in text
+    assert (f"The older one, at {older['market_anzulegender_wert_wind']:.1f} and "
+            f"{older['market_anzulegender_wert_pv']:.1f} EUR/MWh") in text
+
+    b3 = [report(name).set_index("rung").loc[B3] for name in LADDER]
+    hours = {row["b3_horizon_steps"] * row["dt_h"] for row in b3}
+    assert len(hours) == 1
+    assert f"over the next {hours.pop():.0f} hours and applies the first step" in text
+    start = [pd.Timestamp(row["window_start_berlin"]) for row in b3]
+    before = [s - pd.DateOffset(months=1) for s in start]
+    assert (f"{before[0].month_name()} {before[0].year}'s in the {start[0].month_name()} window "
+            f"and {before[1].month_name()} {before[1].year}'s in the {start[1].month_name()} "
+            f"window") in text
+    assert (f"in the {start[0].month_name()} window B3 plans on {before[0].month_name()} "
+            f"{before[0].year}'s premium") in text
+
+    demo = report("b3_ablation_synthetic_demo.csv").iloc[0]
+    assert demo["premium_period"] == "fixed"
+    assert (f"behind a {demo['plant_conn_mw']:.0f} MW connection, B3 on a "
+            f"{demo['b3_horizon_steps'] * demo['dt_h']:.0f}-hour horizon, and one fixed premium "
+            f"of {demo['premium_rate_mean_eur_mwh']:.0f} EUR/MWh") in text
+    assert (f"over the next {b3[0]['b3_horizon_steps']:.0f} quarter-hours "
+            f"({demo['b3_horizon_steps']:.0f} on the synthetic days)") in text
+    windows = report("window_stats.csv").set_index("window")
+    assert (f"the synthetic days run it behind "
+            f"{windows.loc['synthetic_demo', 'connection_mw']:.0f} MW") in text
+
+    peak = {y: windows.loc[str(y), "peak_generation_mw"] for y in years}
+    forced = {y: report(f"sizing_{y}.csv").set_index(["rung", "conn_mw"]).loc[B0,
+                                                                               "forced_curtail_mwh"]
+              for y in years}
+    binds = {y: forced[y][forced[y] > 0].index.max() for y in years}
+    assert (f"{peak[2024]:.1f} MW in 2024 and {peak[2025]:.1f} MW in 2025: in the sweep, at "
+            f"{binds[2024]:.0f} MW and below in 2024 and at {binds[2025]:.0f} MW and below in "
+            f"2025") in text
+    for y in years:
+        assert (forced[y][forced[y].index > binds[y]] == 0).all()
+
+    built = {y: report(f"decompose_{y}.csv").set_index(["scenario", "rung"]).loc["as built"]
+             for y in years}
+    battery, conn = built[2025].loc[B2, "plant_bess_mw"], built[2025].loc[B2, "plant_conn_mw"]
+    assert peak[2025] + battery < conn < peak[2024] + battery
+    assert (f"in 2025 the plant's peak generation plus the battery's full {battery:.0f} MW stays "
+            f"below {conn:.0f} MW") in text
+    kept, without = ({y: built[y].loc[rung, "chosen_curtail_mwh"] for y in years}
+                     for rung in (B2, "B2 no battery"))
+    assert (f"at {conn:.0f} MW, B2 curtails {kept[2024]:,.0f} MWh in 2024 against "
+            f"{without[2024]:,.0f} MWh without the battery, and {kept[2025]:,.0f} against "
+            f"{without[2025]:,.0f} MWh in 2025") in text
+
+
+def test_the_readme_states_how_many_tests_there_are():
+    """The README states the suite's size in two places, and pytest's own count of this
+    folder's tests keeps both right. It only collects, so no test runs twice."""
+    collected = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider",
+         str(PROJECT / "tests")], cwd=PROJECT, capture_output=True, text=True)
+    count = re.search(r"^(\d+) tests? collected", collected.stdout, re.MULTILINE)
+    assert count, collected.stdout[-2000:] + collected.stderr[-2000:]
+    assert re.findall(r"(\d+) tests\b", readme()) == [count.group(1)] * 2
+
+
+def _tracked() -> tuple[set[str], str]:
+    """Every file git tracks, by its path from the repository's root in git's own case, and
+    this project's folder in the same form, e.g. "projects/02-utility-hybrid-plant-dispatch/".
+    A link resolves on GitHub only to such a file; the file system here ignores case and also
+    holds untracked files."""
+    def git(*args: str, cwd: Path = PROJECT) -> str:
+        return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True,
+                              text=True).stdout
+    try:
+        root = Path(git("rev-parse", "--show-toplevel").strip())
+        files = set(git("ls-files", cwd=root).splitlines())
+        prefix = git("rev-parse", "--show-prefix").strip()
+    except (OSError, subprocess.CalledProcessError) as err:
+        pytest.skip(f"git is not available: {err}")
+    return files, prefix
 
 
 def test_every_relative_link_in_the_readme_resolves():
-    """A link or figure whose file is gone, or was never committed, fails here."""
-    targets = re.findall(r"\]\(([^)\s]+)\)", readme())
-    local = [t for t in targets if not t.startswith(("http://", "https://", "#", "mailto:"))]
+    """A link or figure must name a file git tracks, in its exact case, or a folder that holds
+    one; and a link whose text is a path, e.g. [`sizing_2024.csv`](...), must end in it, so it
+    cannot point at another year's table."""
+    links = re.findall(r"\[([^\]]*)\]\(([^)\s]+)\)", readme())
+    local = [(name, target) for name, target in links
+             if not target.startswith(("http://", "https://", "#", "mailto:"))]
     assert local
-    missing = [t for t in local if not (PROJECT / t.split("#")[0]).exists()]
+    files, prefix = _tracked()
+    missing = []
+    for name, target in local:
+        path = posixpath.normpath(posixpath.join(prefix, target.split("#")[0]))
+        found = (any(f.startswith(f"{path}/") for f in files) if target.endswith("/")
+                 else path in files)
+        if not found:
+            missing.append(target)
+        if name.startswith("`") and name.endswith("`"):
+            assert target.split("#")[0].endswith(name.strip("`")), f"[{name}]({target})"
     assert not missing, missing
