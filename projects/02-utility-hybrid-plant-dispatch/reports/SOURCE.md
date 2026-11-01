@@ -90,9 +90,9 @@ Section `source_url` of `run_meta.csv` names every request. datakit fetched the 
   EEG 2023 Anlage 1. The TSOs publish the values the premium is settled on, and this project
   does not load them. Section `market_value_proxy_eur_mwh` of `run_meta.csv` holds the proxy by
   technology, month and year.
-- The applicable values. 73.5 EUR/MWh for wind and 68.0 EUR/MWh for PV, the 2024/2025 tender
-  ceilings that `MarketConfig` cites, not an award. The older vintage in negprice, at 95.0 and
-  90.0 EUR/MWh, is a sensitivity.
+- The applicable values. 73.5 EUR/MWh for wind and 68.0 EUR/MWh for PV, the Bundesnetzagentur's
+  ceilings for the 2025 tenders, not an award. Wind's ceiling was the same in 2024; PV's was
+  73.7 EUR/MWh. The older vintage in negprice, at 95.0 and 90.0 EUR/MWh, is a sensitivity.
 - B3's forecasts. The true series plus AR(1) noise with a step-to-step correlation of 0.8,
   seeded with 0. In the ladder tables the error is 15 % of wind and PV, and for the price 15 %
   of the 2024 day-ahead price's standard deviation; the ablation runs 0 and 15 %. No forecast

@@ -29,7 +29,7 @@ from .market import (market_values, planning_rates, premium_by_technology, premi
                      premium_rates, premium_table, rebap_series, vintage_rules)
 
 
-# The default plant, at MarketConfig's applicable values from the 2024/2025 tender ceilings, is
+# The default plant, at MarketConfig's applicable values, the 2025 tender ceilings, is
 # commissioned and awarded from 2023 on, so it is paid against its technology's ANNUAL market
 # value (EEG 2023 Anlage 1 Nr. 2), as negprice's recent vintage is. --neg-rule varies the
 # negative-price rule as a sensitivity on this plant; its applicable values and their annual

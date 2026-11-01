@@ -107,9 +107,10 @@ class MarketConfig:
     # commissioned from 2023 on and, if tendered, awarded from 2023 on (EEG 2023 Anlage 1
     # Nr. 2; market.market_values, market.premium_table).
     eeg_enabled: bool = True
-    # EEG 2023 § 36 onshore wind statutory reference ceiling (source: BNetzA Festlegung 2024/2025)
+    # The BNetzA ceilings (Höchstwerte) of the 2025 tenders, not an award: onshore wind
+    # (EEG 2023 § 36) 7.35 ct/kWh, as in 2024; ground-mounted solar (§ 37) 6.80 ct/kWh, down
+    # from 7.37 ct/kWh in 2024 (BNetzA press releases of 14 Dec 2023 and 19 Dec 2024).
     anzulegender_wert_wind: float = 73.5     # EUR/MWh
-    # EEG 2023 § 37 ground-mounted solar statutory reference ceiling (source: BNetzA Festlegung 2024/2025)
     anzulegender_wert_pv: float = 68.0       # EUR/MWh
     direct_marketing_fee: float = 3.0        # EUR/MWh standard trader management fee (2024/2025)
 

@@ -191,9 +191,11 @@ legally settled on the values the TSOs publish, which this project does not load
 data measures by how much.
 
 There are two vintages. The **recent** one is the default plant of every other table: its
-applicable values are 73.5 EUR/MWh for wind and 68.0 for PV, the 2024/2025 tender ceilings
-that `MarketConfig` cites, not an award, and it is paid against the annual market value. The
-**older** one, at 95.0 and 90.0 EUR/MWh against the monthly value, is a sensitivity.
+applicable values are 73.5 EUR/MWh for wind and 68.0 for PV, the Bundesnetzagentur's
+ceilings for the 2025 tenders, not an award, and it is paid against the annual market value.
+Wind's ceiling was the same in 2024; PV's was 73.7 EUR/MWh (section 13). Limitation 9 says
+which way the ceilings bias the premiums. The **older** one, at 95.0 and 90.0 EUR/MWh against
+the monthly value, is a sensitivity.
 
 Premium by vintage, the mean over the year's quarter-hours ([`negprice_2024.csv`](reports/negprice_2024.csv), [`negprice_2025.csv`](reports/negprice_2025.csv); by month in [`negprice_2024_premium.csv`](reports/negprice_2024_premium.csv), [`negprice_2025_premium.csv`](reports/negprice_2025_premium.csv)):
 
@@ -618,7 +620,7 @@ built yet), grid charging (not modelled), the wear cost, and the safety layer on
 | Dimension | Assumption, as built | Limitation and impact |
 |---|---|---|
 | **Physical** | 50 MW onshore wind + 30 MWp PV (a DC rating) + a 20 MW / 40 MWh battery behind one 60 MW connection. The battery runs between 5 % and 95 % of its energy at 95 % efficiency each way, starts every window at its minimum, and wears at 3 EUR per MWh of throughput. No grid charging | No power curves, wake losses or inverter clipping: generation is a national factor times the rating. No calendar ageing. Overbuild is (MW wind + MWp PV) / MW connection |
-| **Market** | Price-taker on the DE-LU day-ahead price; the EEG market premium per technology under the negative-price rule of the vintage; a marketing fee of 3 EUR/MWh | No intraday trading and no day-ahead schedule, so no imbalance. No § 51a extension. The market values are computed proxies |
+| **Market** | Price-taker on the DE-LU day-ahead price; the EEG market premium per technology under the negative-price rule of the vintage; a marketing fee of 3 EUR/MWh | No intraday trading and no day-ahead schedule, so no imbalance. No § 51a extension. The market values are computed proxies, and the applicable values are tender ceilings (Limitation 9) |
 | **Data** | Energy-Charts national generation over the national fleet of each month, for 2024 and 2025 | National profiles are smoother than one site, so curtailment is understated |
 | **Regulatory** | The connection as a hard export limit; the § 51 thresholds by vintage, cited to the statute in `market.py` | No redispatch. aFRR is not built yet: its settings are inert |
 
@@ -655,6 +657,13 @@ built yet), grid charging (not modelled), the wear cost, and the safety layer on
    bounds.
 8. **No cost is modelled** for the connection, the battery, or wear beyond the linear rate, so
    the sizing tables show revenue, not an optimum.
+9. **The applicable values are tender ceilings, not awards.** PV awards of 2024 and 2025 lay
+   well below the PV ceiling (section 13), so a recently awarded PV plant earns a smaller PV
+   premium than the recent vintage here. An onshore plant's applicable value is its award
+   times a correction factor for its site's yield (§ 36h EEG 2023). Where that factor is above
+   1, at a site that yields less than the reference site, a plant awarded near the ceiling
+   gets a higher applicable value, and so a higher wind premium, than here. The recent
+   vintage's results, in 0.3 and in every other table, rest on these two values.
 
 ### Operational risks and mitigations
 
@@ -695,10 +704,16 @@ tests/           offline tests, the README's results included
 
 ## 13. References
 
-- EEG 2023 `§§ 9, 19, 20 ff., 51, 100` and Anlage 1; the 2025 Solarspitzengesetz amendments
+- EEG 2023 `§§ 9, 19, 20 ff., 36h, 51, 100` and Anlage 1; the 2025 Solarspitzengesetz amendments
   (BGBl. 2025 I Nr. 51); `§§ 13a, 14c EnWG` (Redispatch 2.0). See
   [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md);
   `market.py` cites the statute texts it implements.
+- Bundesnetzagentur: the tender ceilings of
+  [2024](https://www.bundesnetzagentur.de/SharedDocs/Pressemitteilungen/DE/2023/20231214_HoechstwerteEE.html)
+  (onshore wind 7.35 ct/kWh, ground-mounted solar 7.37 ct/kWh) and
+  [2025](https://www.bundesnetzagentur.de/SharedDocs/Pressemitteilungen/DE/2024/20241219_Hoechstwerte.html)
+  (7.35 and 6.80 ct/kWh), and the awards of the
+  [ground-mounted solar tenders](https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/Ausschreibungen/Solaranlagen1/BeendeteAusschreibungen/start.html).
 - Energy-Charts (Fraunhofer ISE), <https://api.energy-charts.info>, CC BY 4.0; the day-ahead
   prices are credited to Bundesnetzagentur | SMARD.de.
 - netztransparenz.de: the TSOs' published market values and reBAP, not loaded yet.
