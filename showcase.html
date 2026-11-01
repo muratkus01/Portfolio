@@ -3421,7 +3421,8 @@
         if (panel) panel.style.display = (k === viewKey) ? 'block' : 'none';
       });
       if (viewKey === 'sens2') {
-        renderSens2Matrix(15);
+        // Through selectSens2Pv, so the highlighted PV button matches the matrix it reopens on.
+        selectSens2Pv(15);
       } else if (viewKey === 'national') {
         renderNationalFleet(currentThesisNationalYear);
       }
