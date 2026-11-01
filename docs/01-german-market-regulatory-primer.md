@@ -299,6 +299,9 @@ No active project models e-mobility; the archived EV-charging project (A3) did.
 - **`§14a EnWG`** applies to non-public charging points - the dimming interrupt above is a
   first-class part of the depot scheduling problem.
 
+**Not implemented in any project:** the AFIR and Eichrecht requirements. A3 names them in its
+README, but its code does not model them.
+
 ---
 
 ## 6. Hydro and pumped storage specifics
