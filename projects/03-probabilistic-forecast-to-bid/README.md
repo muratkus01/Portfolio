@@ -53,10 +53,10 @@ forecasts in euros alone, not a strategy. [error_alignment](reports/test/error_a
 **Trading every forecast revision intraday does not pay.** Policy B1, which follows each
 revision at the intraday index, loses money against scheduling once with every forecast that
 revises (climatology never does) in both windows at any half-spread from 0.5 EUR/MWh. With the TSO forecast and LightGBM it loses
-in 2026 even at zero cost: -87,261 EUR and -24,494 EUR (median of three seeds, -18,586 to
--30,053). The deadband rule B3, which trades only large revisions, gains at most 18,258 EUR
-(persistence, 2026, at zero cost) and loses 58,322 to 79,902 EUR with the TSO forecast in
-2026. [liquidity](reports/test/liquidity.csv)
+in 2026 even at a zero half-spread, where only the impact charge of 0.02 EUR/MWh per MW traded
+remains: -87,261 EUR and -24,494 EUR (median of three seeds, -18,586 to -30,053). The deadband
+rule B3, which trades only large revisions, gains at most 18,258 EUR (persistence, 2026, at a
+zero half-spread) and loses 58,322 to 79,902 EUR with the TSO forecast in 2026. [liquidity](reports/test/liquidity.csv)
 
 ![Pinball loss by decision stage, reliability of the day-ahead quantiles, and each forecast's day-ahead result against the perfect forecast split into bias and alignment](docs/figures/f2b_trading_benchmark.png)
 
@@ -204,7 +204,8 @@ size, alignment and the spread's volatility, and over half a year that product i
 
 ### 2.4 Intraday correction and liquidity
 
-B1 against B0, EUR, by intraday half-spread ([test](reports/test/liquidity.csv),
+B1 against B0, EUR, by intraday half-spread; the impact charge of 0.02 EUR/MWh per MW traded
+applies in every column, 0 included ([test](reports/test/liquidity.csv),
 [validation](reports/validation/liquidity.csv)):
 
 | | 0 | 0.5 | 1 | 3 | 6 EUR/MWh |
@@ -214,10 +215,11 @@ B1 against B0, EUR, by intraday half-spread ([test](reports/test/liquidity.csv),
 | F4 TSO forecast, validation | +8,600 | -704 | -10,008 | -47,224 | -103,047 |
 | F3 seed 0, validation | -15,580 | -46,103 | -76,627 | -198,720 | -381,861 |
 
-The forecast revisions are public, so by the time they are traded the intraday price already
-carries them. Persistence is the exception at zero cost (+57,592 EUR in validation, +20,602 in
-2026): its day-ahead forecast is so poor that correcting it is worth something, though not at
-0.5 EUR/MWh. The band of B3, tuned to the validation window, does not transfer: with the TSO
+A likely reason, not tested here: the forecast revisions are public, so by the time they are
+traded the intraday price already carries them, and settling every trade at the ID AEP, an
+index of the last trades before delivery, builds that in. Persistence is the exception at a
+zero half-spread (+57,592 EUR in validation, +20,602 in 2026): its day-ahead forecast is so
+poor that correcting it is worth something, though not at 0.5 EUR/MWh. The band of B3, tuned to the validation window, does not transfer: with the TSO
 forecast it loses 69,112 EUR against B0 in 2026 at 3 EUR/MWh, and for F1 to F3 the widest band
 on offer won, so B3 hardly trades at all.
 
