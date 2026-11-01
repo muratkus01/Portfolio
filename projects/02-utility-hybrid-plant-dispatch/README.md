@@ -740,7 +740,8 @@ built yet), grid charging (not modelled), the wear cost, and the safety layer on
 
 ## 12. Repository structure
 
-Follows [`../../templates/project-template/`](../../templates/project-template/); conventions
+One module per concern in `src/hybrid/`, not the full layout that
+[`../../templates/project-template/`](../../templates/project-template/) proposes; conventions
 in [`../../docs/05-tech-stack.md`](../../docs/05-tech-stack.md). A probabilistic forecast
 layer would be shared with [Project 03](../03-probabilistic-forecast-to-bid/); B3 does not use
 one yet.
@@ -759,9 +760,6 @@ src/hybrid/
   cli.py         the commands
 reports/         the committed result tables and SOURCE.md
 tests/           offline tests, the README's results included
-docs/figures/    the portfolio showcase's illustrations, drawn by
-                 scripts/generate_all_figures.py from synthetic shapes and fixed
-                 numbers; they show no result of this README
 ```
 
 ---
@@ -772,8 +770,8 @@ docs/figures/    the portfolio showcase's illustrations, drawn by
   (BGBl. 2025 I Nr. 51); `§§ 13a, 14c EnWG` (Redispatch 2.0). `market.py` cites the statute
   texts it implements. The portfolio's
   [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-german-market-regulatory-primer.md)
-  is background only, and older than this README: where the two differ, as on the
-  negative-price rules, section 0.3 and `market.py` hold the rules as implemented.
+  gives the background and states the negative-price rules as `market.py` implements them;
+  where any wording differs, section 0.3 and `market.py` hold.
 - Bundesnetzagentur: the tender ceilings of
   [2024](https://www.bundesnetzagentur.de/SharedDocs/Pressemitteilungen/DE/2023/20231214_HoechstwerteEE.html)
   (onshore wind 7.35 ct/kWh, ground-mounted solar 7.37 ct/kWh) and
