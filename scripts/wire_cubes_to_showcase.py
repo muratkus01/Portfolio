@@ -274,7 +274,12 @@ def main():
         html = re.sub(sim_regex, new_sim_funcs.strip(), html)
         print("Replaced the simulator functions with SCENARIO_CUBES lookups.")
     else:
-        sys.exit("ERROR: Could not find the simulator functions block!")
+        # The P01 rework of the page removed this anchor comment. The simP01 template above is
+        # older than that rework (it prints EUR/yr, reads a p01-slider-eeg the page lacks and
+        # builds the key without invStr), so restoring the anchor would undo the rework.
+        sys.exit("ERROR: Could not find the simulator functions block. Do not restore its anchor: "
+                 "the simP01 template in this script predates the page's P01 rework and would undo "
+                 "it. Bring the template up to date with the page first.")
 
     # Write output
     with open(HTML_PATH, "w", encoding="utf-8") as f:
