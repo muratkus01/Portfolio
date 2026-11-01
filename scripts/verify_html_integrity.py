@@ -70,8 +70,8 @@ def check_gallery(html):
     """Check 3: every image the page can show exists on disk."""
     # No project shows per-year figures any more, so there are no year buttons in a gallery to
     # check. Project 02 has no figures: its results are the tables in its reports/ folder.
-    # the <img> tags and the gallery entries in PROJECT_VISUALS (src: '...'), which
-    # switchVisual swaps in
+    # The images are the <img> tags and the gallery entries in PROJECT_VISUALS (src: '...'),
+    # which switchVisual swaps in.
     images = set(re.findall(r'<img[^>]+src="([^"]+)"', html)) | set(re.findall(r"src: '([^']+)'", html))
     for rel in sorted(images):
         assert (ROOT / rel).is_file(), f"Missing figure file: {rel}"
