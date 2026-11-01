@@ -89,12 +89,16 @@ no errors, section badges read 01, 02, 03, all three figures load.
    README did before it was corrected. Add a CLI subcommand per project that writes what it
    computes into `reports/`, then cite those files from the README.~~
 
-3. **Project 03 does not forecast anything.** `src/f2b/forecast.py:76` is still `ar_noise`:
+3. ~~**Project 03 does not forecast anything.** `src/f2b/forecast.py:76` is still `ar_noise`:
    the truth plus an AR(1) perturbation whose spread widens with lead time. The reported MAE,
    RMSE and CRPS values therefore restate the noise parameters rather than measuring a model.
    The plan for replacing it is `docs/09-learned-forecast-layer.md`, and it is also priority 2
    in `Jobsuche/bewerbung/skill_matrix.md`. Until it is built, do not claim a trained
-   forecaster anywhere.
+   forecaster anywhere.~~ **Superseded, noted 2026-11-02:** P03 now forecasts.
+   `src/f2b/models.py` holds the ladder F0 to F3, fitted on training rows (climatology,
+   persistence, linear quantile regression, LightGBM), and the published TSO forecast as the
+   benchmark F4; see "Project 03 rebuilt on real data" below. The noise model survives only as
+   the labelled `synthetic-*` ablation (`forecast.build_store`).
 
 4. **Project 02's aFRR parameters are inert.** `afrr_enabled`, `afrr_capacity_eur_mw_h` and
    `afrr_block_steps` appear 6 times in `src/hybrid/config.py` and 0 times in every other
