@@ -81,3 +81,93 @@ def test_quality_vs_value_is_plus_one_when_better_forecasts_earn_more():
     row = quality_vs_value(scores, totals).iloc[0]
     assert row["rungs"] == 3                       # the second seed does not vote
     assert row["spearman_skill_vs_eur"] == pytest.approx(1.0)
+
+
+def test_intraday_trades_and_imbalances_settle_at_the_published_prices():
+    """Fix 1: an intraday trade clears at the ID AEP, at the day-ahead price only where the AEP
+    is missing, and a deviation at the published reBAP. The first version priced intraday
+    trades at the day-ahead price and deviations at a synthetic series."""
+    from f2b.config import RunConfig
+    from f2b.evaluate import Ladder, _stage, daily_net
+    from f2b.models import LEVELS
+    from f2b.policies import b1_point_intraday
+
+    df = market_frame()
+    n = len(df)
+    rng = np.random.default_rng(4)
+    truth = df["truth_mw"].to_numpy()
+    band = np.linspace(-10, 10, len(LEVELS))[None, :]
+    rows = np.arange(n)
+    stages = [_stage("DA", rows, rows, (truth + 8 + 10 * rng.standard_normal(n))[:, None] + band, n),
+              _stage("ID-2h", rows, rows, (truth + 3 + 2 * rng.standard_normal(n))[:, None] + band, n)]
+    ladder = Ladder({"F9 test": stages}, {})
+    run = RunConfig()
+    position, trades = b1_point_intraday(stages)
+    traded = sum(t.sum() for t in trades) * run.dt
+    deviation = (truth - position).sum() * run.dt
+    assert abs(traded) > 100 and abs(deviation) > 100  # both legs carry volume
+
+    def b1(frame: pd.DataFrame) -> pd.Series:
+        totals, _ = daily_net(ladder, frame, np.ones(n, dtype=bool), run, {"F9 test": 0.25}, 0.5)
+        return totals.set_index(["rung", "policy"]).loc[("F9 test", "B1 intraday to median")]
+
+    base = b1(df)
+    moved_aep = b1(df.assign(id_aep=df["id_aep"] + 10.0))
+    assert moved_aep["id_revenue"] - base["id_revenue"] == pytest.approx(10.0 * traded)
+    moved_rebap = b1(df.assign(rebap=df["rebap"] + 10.0))
+    assert moved_rebap["imbalance_settlement"] - base["imbalance_settlement"] == pytest.approx(
+        10.0 * deviation)
+    no_aep = b1(df.assign(id_aep=np.nan))
+    assert no_aep["id_revenue"] == pytest.approx(
+        sum((t * df["price_da"].to_numpy()).sum() for t in trades) * run.dt)
+
+
+@pytest.mark.parametrize("phase, first_scored", [("validation", "2025-07-02"),
+                                                 ("test", "2026-01-01")])
+def test_learned_rungs_never_fit_stop_or_calibrate_on_the_scored_window(monkeypatch, phase,
+                                                                       first_scored):
+    """Fix 10: every rung is fitted, LightGBM stopped early and each quantile recalibrated only
+    on days before the window that is scored. LightGBM once stopped early on the validation
+    window itself. The model classes are replaced by a spy, so only the wiring is tested."""
+    import f2b.evaluate as ev
+    from f2b.config import RunConfig
+    from f2b.models import LEVELS
+
+    index = pd.date_range("2024-02-18", "2026-10-15", freq="15min", tz="UTC")
+    n = len(index)
+    df = pd.DataFrame({"truth_mw": np.full(n, 100.0), "tso_da_mw": 100.0}, index=index)
+    seen = {"fit": [], "early stopping": [], "predict": []}
+
+    class Spy:
+        name, best = "spy", {}
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def fit(self, X, y, times, X_val=None, y_val=None):
+            seen["fit"].append(times.max())
+            if X_val is not None:
+                seen["early stopping"].append(index[X_val.index].max())
+            return self
+
+        def predict(self, X, times):
+            seen["predict"].append((times.min(), times.max()))
+            return np.zeros((len(X), len(LEVELS)))
+
+    for name in ("Climatology", "Persistence", "TsoForecast", "LinearQuantile",
+                 "GradientBoosting"):
+        monkeypatch.setattr(ev, name, Spy)
+    monkeypatch.setattr(ev, "build_features", lambda frame, weather_q, decision, dt: (
+        pd.DataFrame({"x": np.zeros(len(frame))})))
+    monkeypatch.setattr(ev, "stage_decisions", lambda idx, run: {"DA": np.arange(len(idx))})
+
+    ev.fit_ladder(df, None, RunConfig(), phase, seeds=(0,), log=lambda *a, **k: None)
+
+    first = pd.Timestamp(first_scored, tz="UTC")
+    assert seen["fit"] and seen["early stopping"]
+    assert max(seen["fit"]) < first
+    assert max(seen["early stopping"]) < first
+    calibrated = [hi for lo, hi in seen["predict"] if hi < first]
+    scored = [lo for lo, hi in seen["predict"] if hi >= first]
+    assert calibrated, "the learned rungs predicted no held-out rows to recalibrate on"
+    assert scored and min(scored) >= first
