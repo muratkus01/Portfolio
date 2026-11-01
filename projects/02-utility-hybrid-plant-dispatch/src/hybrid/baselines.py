@@ -112,12 +112,38 @@ def solve_window(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray, dt: fl
     Curtailment is a free decision variable: with the negative-price rule active the
     effective price can be negative, and curtailing then is strictly optimal.
     """
+    m, v = _energy_lp(wind, pv, eff_price, dt, run, soc0, terminal_price, export_cap)
+    m.solve(pulp.PULP_CBC_CMD(msg=msg))
+    if pulp.LpStatus[m.status] != "Optimal":
+        return None
+    return _read_plan(v, wind, pv)
+
+
+def _export_limit(n: int, cfg: PlantConfig, export_cap: np.ndarray | None) -> np.ndarray:
+    """The export limit of each of n steps, MW: the connection, or a redispatch order below it.
+
+    cfg: the plant. export_cap: the order's limit per step, MW, or None for the connection.
+    """
+    return np.full(n, cfg.conn_mw) if export_cap is None else np.minimum(export_cap, cfg.conn_mw)
+
+
+def _energy_lp(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray, dt: float,
+               run: RunConfig, soc0: float, terminal_price: float = 0.0,
+               export_cap: np.ndarray | None = None) -> tuple[pulp.LpProblem, dict]:
+    """The energy-only window LP of `solve_window`, built and not solved.
+
+    The aFRR rungs add their reserve terms to this model (`reserve.add_reserve_terms`), so
+    that with aFRR off the solver receives exactly the model it received before the build.
+    Arguments as for `solve_window`. Returns (the model, its variables by name: "g", "ch",
+    "dis", "soc" and "exp", each a dict by step; soc[t] is the energy stored at the end of
+    step t).
+    """
     cfg = run.plant
     n = len(wind)
     m = pulp.LpProblem("hybrid", pulp.LpMaximize)
 
     gen = np.asarray(wind, float) + np.asarray(pv, float)
-    cap = np.full(n, cfg.conn_mw) if export_cap is None else np.minimum(export_cap, cfg.conn_mw)
+    cap = _export_limit(n, cfg, export_cap)
 
     g = pulp.LpVariable.dicts("g", range(n), lowBound=0)             # generation used
     ch = pulp.LpVariable.dicts("ch", range(n), lowBound=0, upBound=cfg.bess_mw)
@@ -137,11 +163,18 @@ def solve_window(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray, dt: fl
         m += exp[t] <= float(cap[t])
         if not cfg.grid_charging_allowed:
             m += ch[t] <= g[t]                           # charge only from on-site generation
+    return m, {"g": g, "ch": ch, "dis": dis, "soc": soc, "exp": exp}
 
-    m.solve(pulp.PULP_CBC_CMD(msg=msg))
-    if pulp.LpStatus[m.status] != "Optimal":
-        return None
 
+def _read_plan(v: dict, wind: np.ndarray, pv: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """A solved window LP's plan: (battery power, curtailment fraction) per step.
+
+    v: the model's variables, as `_energy_lp` returns them. wind, pv: the generation it was
+    built on, MW per step. A variable the solver left without a value reads as 0.
+    """
+    gen = np.asarray(wind, float) + np.asarray(pv, float)
+    n = len(gen)
+    ch, dis, g = v["ch"], v["dis"], v["g"]
     p_bat = np.array([(dis[t].value() or 0.0) - (ch[t].value() or 0.0) for t in range(n)])
     used = np.array([g[t].value() or 0.0 for t in range(n)])
     curt_frac = np.where(gen > 1e-9, np.clip(1.0 - used / np.maximum(gen, 1e-9), 0, 1), 0.0)

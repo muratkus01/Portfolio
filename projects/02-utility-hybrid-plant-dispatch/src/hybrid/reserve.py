@@ -1,4 +1,5 @@
-"""The pure parts of the aFRR capacity model: no I/O and no solver.
+"""The aFRR capacity model's own parts: its types, its payments, and the terms its
+reservations add to a window LP. Nothing here reads a file or calls a solver.
 
 The optimisers, the safety layer and the settlement read what is defined here, so that none
 of them imports `afrr_data`, which reads regelleistung.net's files.
@@ -10,11 +11,23 @@ from dataclasses import dataclass, fields
 from typing import NamedTuple
 
 import numpy as np
+import pulp
 
 # In config, beside the settings they validate (MarketConfig.afrr_*), so that this module
 # may read config and config needs nothing from here.
 from .config import AFRR_MIN_ENERGY_HOURS as MIN_ENERGY_HOURS
 from .config import AFRR_PRICE_BASES as PRICE_BASES
+from .config import PlantConfig
+
+# B2 plans the energy and the export of what it reserves (R4-R6 in `add_reserve_terms`) on
+# r x (1 + PLAN_MARGIN), and is paid r. Its single plan is replayed open-loop through the
+# safety layer, and PuLP reads CBC's solution to about eight significant digits, so the
+# replayed state of charge drifts from the planned one; where the plan empties the battery
+# to hold its export at r_down, the layer's clip multiplies that drift. In full-year
+# prototype replays outside the repository, this margin kept the residue far below
+# plant.TOL at a negligible cost. B3 re-plans from its true state every step and plans
+# whole MW, where the margin would cost a whole MW, so it plans without it.
+PLAN_MARGIN = 1e-4
 
 
 @dataclass(frozen=True)
@@ -156,3 +169,222 @@ def product_shortfall(deficit: np.ndarray, block: np.ndarray,
     np.maximum.at(peak, product, deficit)
     per_step = peak[product]
     return per_step, float(np.sum(per_step) * dt)
+
+
+@dataclass(frozen=True)
+class ReserveSpec:
+    """The aFRR reservations of one plan, product by product, as `add_reserve_terms` reads them.
+
+    The plan's products are numbered from 0 in time order. Per product and direction ("up"
+    for positive reserve, "down" for negative):
+    fixed_up, fixed_down: NaN where the plan decides the reservation; otherwise the MW it
+        must hold, finite and at least 0. It may fall short of them only at the penalty plus
+        their payment per MWh not held, as the settlement charges it.
+    paid_up, paid_down: what a reservation is paid, EUR/MW/h, finite and at least 0, and
+        above 0 where decided: a product that pays nothing is fixed at 0.
+    hours: the hours the product is paid and charged for, above 0, e.g. 4.0, or 3.0 and 5.0
+        on the daylight-saving days.
+    For the plan as a whole:
+    block: per step, the step's product, an integer from 0 in time order, each at least once.
+    rule: the energy each reservation keeps (ReserveRule).
+    penalty: EUR per MWh of reserve not held, finite and above 0.
+    integer: True decides in whole MW, each decision with a binary indicator that carries
+        the floor (rule.floor_mwh); False decides continuously, which needs a floor of 0.
+    margin: decisions plan their energy and export on r x (1 + margin) and are paid r,
+        e.g. PLAN_MARGIN; fixed reservations plan on r. Finite and at least 0.
+    The arrays are kept as read-only copies. Raises ValueError where the fields do not fit.
+    """
+    fixed_up: np.ndarray
+    fixed_down: np.ndarray
+    paid_up: np.ndarray
+    paid_down: np.ndarray
+    hours: np.ndarray
+    block: np.ndarray
+    rule: ReserveRule
+    penalty: float
+    integer: bool
+    margin: float
+
+    def __post_init__(self) -> None:
+        for name in ("fixed_up", "fixed_down", "paid_up", "paid_down", "hours", "block"):
+            array = np.array(getattr(self, name), dtype=None if name == "block" else float)
+            array.setflags(write=False)
+            object.__setattr__(self, name, array)
+        problem = _spec_problem(self)
+        if problem:
+            raise ValueError(f"ReserveSpec: {problem}")
+
+
+def _spec_problem(spec: ReserveSpec) -> str | None:
+    """What does not fit in `spec`, in words, or None where everything does."""
+    fixed, paid = (spec.fixed_up, spec.fixed_down), (spec.paid_up, spec.paid_down)
+    count = len(spec.hours)
+    if count == 0 or any(a.shape != (count,) for a in (*fixed, *paid, spec.hours)):
+        return "fixed_*, paid_* and hours hold one value per product, for at least one"
+    block = spec.block
+    if (block.ndim != 1 or not np.issubdtype(block.dtype, np.integer)
+            or np.any(np.diff(block) < 0)
+            or not np.array_equal(np.unique(block), np.arange(count))):
+        return "block numbers each step's product from 0 in time order, each at least once"
+    if any(np.any(~np.isnan(f) & ~(np.isfinite(f) & (f >= 0))) for f in fixed):
+        return "a fixed reservation is finite and at least 0 MW, or NaN where decided"
+    if any(not np.all(np.isfinite(p) & (p >= 0)) for p in paid):
+        return "paid_* are finite and at least 0 EUR/MW/h"
+    if any(np.any(np.isnan(f) & (p <= 0)) for f, p in zip(fixed, paid)):
+        return "a product that pays nothing is fixed at 0, not decided"
+    if not np.all(np.isfinite(spec.hours) & (spec.hours > 0)):
+        return "hours are finite and above 0"
+    if not (math.isfinite(spec.penalty) and spec.penalty > 0):
+        return "penalty is finite and above 0 EUR/MWh"
+    if not (math.isfinite(spec.margin) and spec.margin >= 0):
+        return "margin is finite and at least 0"
+    if not spec.integer and spec.rule.floor_mwh > 0 and any(np.isnan(f).any() for f in fixed):
+        # the floor asks a reservation above 0 for floor_mwh, whatever its size, which only a
+        # binary indicator can express
+        return ("a continuous decision cannot keep the floor; decide in whole MW, or set "
+                "the floor to 0, as B2 does")
+    return None
+
+
+class ReservePlan(NamedTuple):
+    """A solved plan with aFRR reservations (`afrr_rungs.solve_window_reserve`), per step:
+    p_bat: battery power, MW, > 0 discharging. curt: share of generation curtailed, 0 to 1.
+    r_up, r_down: MW reserved, from 0 to the battery's rating; whole MW where decided so.
+    soc: the energy stored at the end of the step as planned, MWh.
+    And objective: the plan's value, EUR: the window LP's energy terms, plus the capacity
+    paid, less the cut and the penalty of reserve the plan does not hold.
+    """
+    p_bat: np.ndarray
+    curt: np.ndarray
+    r_up: np.ndarray
+    r_down: np.ndarray
+    soc: np.ndarray
+    objective: float
+
+
+class _Held(NamedTuple):
+    """One product's reservation in one direction, as LP terms.
+
+    r: the MW reserved, a decision's variable or a fixed number. u: the MW of a fixed one the
+    plan may fail to hold, a variable from 0 to r; 0 for a decision, which holds all of r.
+    z: a whole-MW decision's indicator, 1 where it reserves, which carries the floor, or None.
+    k: what the plan holds r at: 1 + the margin for a decision, 1 for a fixed one.
+    """
+    r: pulp.LpVariable | float
+    u: pulp.LpVariable | float
+    z: pulp.LpVariable | None
+    k: float
+
+
+def add_reserve_terms(m: pulp.LpProblem, v: dict, spec: ReserveSpec, plant: PlantConfig,
+                      soc0: float, cap: np.ndarray) -> tuple[list, list]:
+    """Add `spec`'s aFRR reservations to a window LP of `baselines._energy_lp`.
+
+    On every step of a product that a direction reserves or decides: battery-power headroom
+    (R1 up, R2 down), connection headroom for positive reserve (R3), and export of at least
+    the negative reservation, so that a call never draws from the grid (R4). At both ends of
+    the step, the energy band of each such direction (R5 up, R6 down) and its floor (R7):
+    the state of charge is linear within a step, so this holds the energy at every instant,
+    as the safety layer measures it. The objective gains the settlement's terms
+    (`market.settle`): the capacity paid, c x r x hours, and for a fixed reservation the
+    penalty plus c per MWh not held, on u for all of its product's hours. A product that a
+    direction neither reserves nor decides adds nothing, so a spec with every reservation
+    fixed at 0 leaves `m` as it was.
+    m, v: the model and its variables (`baselines._energy_lp`). spec: the reservations, one
+        product per step of the model. plant: the plant the model was built for.
+    soc0: energy stored at the start, MWh. cap: export limit per step, MW.
+    Returns (up, down): per product, the reservation as the model holds it, a variable where
+    decided and a number where fixed, to read the plan with once it is solved.
+    Raises ValueError unless spec holds one product per step of the model.
+    """
+    if len(spec.block) != len(v["soc"]):
+        raise ValueError(f"spec has {len(spec.block)} steps and the model {len(v['soc'])}")
+    up, down = ([_held(m, spec, direction, b, plant) for b in range(len(spec.hours))]
+                for direction in ("up", "down"))
+    if all(held is None for held in up + down):
+        return [0.0] * len(up), [0.0] * len(down)
+    for t, b in enumerate(spec.block):
+        _add_headroom(m, v, t, up[b], down[b], plant.bess_mw, float(cap[t]))
+        if t == 0 or spec.block[t - 1] != b:
+            start = soc0 if t == 0 else v["soc"][t - 1]
+            _add_bands(m, start, f"{b}_start", up[b], down[b], spec.rule, plant)
+        _add_bands(m, v["soc"][t], f"{b}_{t}", up[b], down[b], spec.rule, plant)
+    m.setObjective(m.objective + _reserve_value(spec, up, down))
+    return ([0.0 if held is None else held.r for held in up],
+            [0.0 if held is None else held.r for held in down])
+
+
+def _held(m: pulp.LpProblem, spec: ReserveSpec, direction: str, b: int,
+          plant: PlantConfig) -> _Held | None:
+    """Product b's reservation in `direction` ("up" or "down") as LP terms, or None where it
+    is fixed at 0. A whole-MW decision under a floor gets its indicator, tied to it here."""
+    fixed = float(getattr(spec, f"fixed_{direction}")[b])
+    if fixed == 0.0:
+        return None
+    if not math.isnan(fixed):
+        return _Held(fixed, pulp.LpVariable(f"u_{direction}_{b}", 0.0, fixed), None, 1.0)
+    category = pulp.LpInteger if spec.integer else pulp.LpContinuous
+    r = pulp.LpVariable(f"r_{direction}_{b}", 0.0, plant.bess_mw, cat=category)
+    z = None
+    if spec.integer and spec.rule.floor_mwh > 0:
+        # 0 means no bid, so whole MW give the 1 MW minimum on their own; the floor needs z
+        z = pulp.LpVariable(f"z_{direction}_{b}", cat=pulp.LpBinary)
+        m += r <= plant.bess_mw * z, f"z_{direction}_{b}_reserves"
+        m += r >= z, f"z_{direction}_{b}_holds"
+    return _Held(r, 0.0, z, 1.0 + spec.margin)
+
+
+def _add_headroom(m: pulp.LpProblem, v: dict, t: int, up: _Held | None, down: _Held | None,
+                  rating: float, cap: float) -> None:
+    """R1-R4 on step t for each direction its product holds (None: holds nothing)."""
+    if up is not None:
+        m += v["dis"][t] - v["ch"][t] + up.r <= rating, f"R1_{t}"
+        m += v["exp"][t] + up.r <= cap, f"R3_{t}"
+    if down is not None:
+        m += v["ch"][t] - v["dis"][t] + down.r <= rating, f"R2_{t}"
+        m += v["exp"][t] >= down.k * down.r - down.u, f"R4_{t}"
+
+
+def _add_bands(m: pulp.LpProblem, soc, name: str, up: _Held | None, down: _Held | None,
+               rule: ReserveRule, plant: PlantConfig) -> None:
+    """R5-R7 at one instant, the end of a step or the start of a product: `soc`, the energy
+    stored then (a variable, or the window's first MWh), keeps the band and the floor of
+    each direction the product holds."""
+    if up is not None:
+        held = up.k * up.r - up.u
+        m += soc >= plant.soc_min + held * (rule.hours_up / plant.eta_d), f"R5_{name}"
+        floor = _floor(up, rule.floor_mwh, rule.hours_up)
+        if floor is not None:
+            m += soc >= plant.soc_min + floor * (1.0 / plant.eta_d), f"R7_up_{name}"
+    if down is not None:
+        held = down.k * down.r - down.u
+        m += soc <= plant.soc_max - held * (rule.hours_down * plant.eta_c), f"R6_{name}"
+        floor = _floor(down, rule.floor_mwh, rule.hours_down)
+        if floor is not None:
+            m += soc <= plant.soc_max - floor * plant.eta_c, f"R7_down_{name}"
+
+
+def _floor(held: _Held, floor_mwh: float, hours: float):
+    """The MWh the floor keeps for `held` (R7), or None where it asks no more than the band:
+    a whole-MW decision keeps floor_mwh where its indicator is 1, and a fixed r MW keeps
+    floor_mwh x (r - u) / r, the share the plan holds, where floor_mwh exceeds r x hours."""
+    if floor_mwh <= 0:
+        return None
+    if held.z is not None:
+        return floor_mwh * held.z
+    if isinstance(held.r, float) and floor_mwh > held.r * hours:
+        return (held.r - held.u) * (floor_mwh / held.r)
+    return None
+
+
+def _reserve_value(spec: ReserveSpec, up: list, down: list) -> pulp.LpAffineExpression:
+    """The objective's aFRR terms, as the settlement counts them: per product and direction,
+    c x r x hours paid, less (penalty + c) x u x hours, the cut and the penalty of the MW of a
+    fixed reservation not held."""
+    terms = []
+    for b, hours in enumerate(spec.hours):
+        for held, paid in ((up[b], spec.paid_up[b]), (down[b], spec.paid_down[b])):
+            if held is not None:
+                terms.append(float(paid * hours) * held.r
+                             - float((spec.penalty + paid) * hours) * held.u)
+    return pulp.lpSum(terms)
