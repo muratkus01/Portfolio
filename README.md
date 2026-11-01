@@ -141,7 +141,7 @@ Portfolio/
     └── 04-energy-sharing-rec/         ← Package: rec (41 tests)
 ```
 
-Test counts as `pytest --collect-only` gave them on 2026-11-01: 516 in all. Without the gitignored data, the full suite gave 476 passed and 40 skipped, all 40 of them Project 01's data tests; CI, which does not install LightGBM, skips one more.
+Test counts as `pytest --collect-only` gave them on 2026-11-01: 516 in all. Started without the gitignored data and with network access, the full suite gave 476 passed and 40 skipped, all 40 of them Project 01's data tests. Project 01's tests download two public inputs from GitHub when they are missing: the BDEW H0 table and the thesis input year. CI, which does not install LightGBM, skips one more.
 
 ---
 

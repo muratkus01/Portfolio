@@ -23,7 +23,7 @@ Archived, still built and still tested, but not shown in `showcase.html`:
 - `archive/03-smart-ev-charging-14a/` (`evc`, 20 tests)
 - `archive/04-energy-sharing-rec/` (`rec`, 41 tests)
 
-Run everything, active and archived (516 tests, 2026-11-01: without the gitignored data, 476 passed and 40 skipped with LightGBM installed; CI does not install LightGBM and skips one more):
+Run everything, active and archived (516 tests, 2026-11-01: started without the gitignored data and with network access, 476 passed and 40 skipped with LightGBM installed; Project 01's tests download the BDEW H0 table and the thesis input year from GitHub when they are missing; CI does not install LightGBM and skips one more):
 ```bash
 pytest -q
 ```
