@@ -111,7 +111,8 @@ def demo_05(real: bool) -> dict:
     call that `python -m hybrid.cli b3-ablation --synthetic-demo` makes for its case of a 15 %
     forecast error without a terminal value, so each rung's net revenue and forced curtailment
     are that case's rows of P02's reports/b3_ablation_synthetic_demo.csv. The ablation has no
-    real-data version, so `real` is ignored and the headline says the inputs are synthetic.
+    real-data version, so the headline says the inputs are synthetic, and, when `real` is set,
+    that --real-data does not apply here.
     Returns {"rows": [(label, value), ...], "headline": str}, like the other demos.
     """
     from hybrid import synthetic
@@ -126,9 +127,11 @@ def demo_05(real: bool) -> dict:
                 f"curtailment") for k, v in r.items()]
     b0 = r["B0 no battery"]["net_revenue"]
     b3 = r["B3 rolling MPC"]["net_revenue"]
+    # The banner announces real prices under --real-data; say that they do not reach this demo.
+    ignored = ", --real-data does not apply" if real else ""
     return {
         "rows": rows,
-        "headline": f"synthetic inputs (hybrid.synthetic: 3 days, 80 MW behind 40 MW): B3 earns "
+        "headline": f"synthetic inputs{ignored} (hybrid.synthetic: 3 days, 80 MW behind 40 MW): B3 earns "
                     f"{b3 - b0:+,.0f} EUR over B0, the plant without a battery; the 15% error, "
                     "no terminal value case of P02's reports/b3_ablation_synthetic_demo.csv",
     }
