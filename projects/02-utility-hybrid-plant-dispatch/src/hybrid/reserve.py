@@ -324,6 +324,10 @@ def rounding_bound(plan: ReservePlan, spec: ReserveSpec, soc0: float, floor_mwh:
     The rounded plan keeps the whole-MW rules with the floor and the same energy schedule,
     so the best whole-MW plan with the floor earns at least the continuous plan's objective
     less this: an upper bound on what continuous MW and a relaxed floor overstate.
+    It also counts what spec.margin costs in whole MW, so it is loose where the margin holds
+    a reservation just below a whole MW: at a connection that binds, negative reserve's
+    export holds it to the connection / (1 + margin), and rounding drops a whole MW that a
+    whole-MW plan without the margin, as B3 plans, could hold.
     Arguments as for `whole_megawatts`; spec's paid prices and hours price the loss as the
     plan's objective counts its capacity.
     """
@@ -362,6 +366,12 @@ def add_reserve_terms(m: pulp.LpProblem, v: dict, spec: ReserveSpec, plant: Plan
     penalty plus c per MWh not held, on u for all of its product's hours. A product that a
     direction neither reserves nor decides adds nothing, so a spec with every reservation
     fixed at 0 leaves `m` as it was.
+    u is one variable per product, as the settlement charges a product's largest shortfall
+    for all of it: once a fixed reservation falls short, the plan may move the state of
+    charge within that shortfall for the rest of the product at no further cost. The safety
+    layer lets the battery move no further past a band than it already is
+    (`plant.battery_interval`), so a replay may not follow such a move and then earns less
+    than the plan's objective. Decisions have no slack, so for them the two agree.
     m, v: the model and its variables (`baselines._energy_lp`). spec: the reservations, one
         product per step of the model. plant: the plant the model was built for.
     soc0: energy stored at the start, MWh. cap: export limit per step, MW.

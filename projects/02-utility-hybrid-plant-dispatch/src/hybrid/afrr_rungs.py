@@ -77,7 +77,8 @@ def b2_reserve(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray, run: Run
     wind, pv, eff_price, export_cap: as for `baselines.b2_perfect`. run: the run's settings.
     prices: the window's capacity prices (`afrr_data.capacity_prices`).
     Returns the dispatch arrays of `plant.simulate` with the reservations, and
-    "afrr_rounding_bound_eur": what the two relaxations can overstate (`rounding_bound`).
+    "afrr_rounding_bound_eur": an upper bound on what the two relaxations overstate
+    (`rounding_bound`).
     Raises RuntimeError where the LP is not solved to optimality, and where the replay
     leaves reserve not held (`_refuse_unheld_replay`).
     """
@@ -134,8 +135,12 @@ def refuse_what_afrr_cannot_run(prices: CapacityPrices | None, run: RunConfig, s
     not bound for negative reserve; a connection below the battery's rating, where the
     connection headroom of positive reserve cannot be kept; B3 on the "average" basis, which
     pays a bid nobody knows at the gate; and a penalty at or below a price paid in the window,
-    at which holding less than was sold could pay. NotImplementedError for B3, which does not
-    bid aFRR capacity yet.
+    as the penalty stands in for MfRRA's incentive component, charged on top of the cut, and
+    is meant to lie above every price the run pays. That alone does not keep a plan from
+    holding less than it sold: the cut takes back what each MW-hour not held was paid, so
+    holding less never pays on the capacity side at any penalty, and what the penalty must
+    outweigh is the energy a shortfall frees, as the default of 10,000 EUR/MWh does by far.
+    NotImplementedError for B3, which does not bid aFRR capacity yet.
     """
     market, plant = run.market, run.plant
     if prices is None or not market.afrr_enabled:
