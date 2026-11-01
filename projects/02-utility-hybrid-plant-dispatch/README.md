@@ -29,9 +29,12 @@ programs solved with PuLP and CBC, on Energy-Charts data for the calendar years 
 >    `steps_over_connection` is 0 in every Energy-Charts window of
 >    [`window_stats.csv`](reports/window_stats.csv). The curtail-or-store decision appears
 >    only where the sizing sweep narrows the connection.
-> 4. **The premium is deterministic.** It is one realised rate per technology and calendar
->    month or year (`market.premium_table`), and B3 plans on the previous month's realised
->    rate (`market.planning_rates`). No random premium state is left for a policy to learn.
+> 4. **The premium is deterministic.** The settled premium is a fixed function of the
+>    period's prices and national generation (`market.premium_table`). B3 plans on an
+>    estimate of it, the previous month's realised rate against that month's market value
+>    (`market.planning_rates`), although the plant is paid against the annual value. In July
+>    2025 that estimate lies far above the settled rate (0.4). Narrowing that gap needs a
+>    better estimate of the market value, a forecasting task, not a learned policy.
 >
 > Reinforcement learning is shown in [Project 01](../01-prosumer-pv-bess-mpc-rl/), on a
 > household PV battery: a soft actor-critic agent reaches 32.4 % of the gain from B1 to B2
@@ -59,9 +62,12 @@ B2 knows prices and generation in advance, so its figures are upper bounds.
   exactly what B0 earns, and the connection limit changes the battery's value by 0. A 30 MW
   connection changes it by -32,376 EUR in 2024 and -37,755 EUR in 2025 (-2.7 % and -2.6 %).
   On these data the battery's value is arbitrage.
-- **B3**, the deployable rolling MPC, recovers 94.1 % (January 2025) and 95.4 % (July 2025)
-  of the gain from B1 to B2, which here is the gain from B0 to B2. It plans on the previous
-  month's realised premium, 0.00 and 27.34 EUR/MWh, and is settled on 1.48 and 8.74 EUR/MWh.
+- **B3**, the rolling MPC, recovers 94.1 % (January 2025) and 95.4 % (July 2025) of the gain
+  from B1 to B2, which here is the gain from B0 to B2. Both figures are optimistic: B3 plans
+  on synthetic forecasts, the truth with a 15 % AR(1) error in one random draw, it takes its
+  negative-price mask from the true prices, and the connection never binds in either 30-day
+  window. It plans on the previous month's realised premium, 0.00 and 27.34 EUR/MWh, and is
+  settled on 1.48 and 8.74 EUR/MWh.
 - **Every tightening of the negative-price rule** lowers B0's revenue and raises the energy
   B2 chooses to curtail, for both vintages in both years. Under the rule of the newest
   plants, B2 curtails 6,715 MWh in 2024 and 8,155 MWh in 2025 at the default plant.
@@ -281,15 +287,18 @@ export, so energy charged during a suspension earns the premium when it is sold 
 (Limitation 4). B0's loss minus B2's loss is what storage and curtailing recover in the
 model; the export-step rule overstates it, and the blend's effect on it is not known.
 
-### 0.4 B3 on real data: two 30-day windows of 2025
+### 0.4 B3 on Energy-Charts data with synthetic forecasts: two 30-day windows of 2025
 
-B3 re-solves the LP every quarter-hour over the next 24 hours on synthetic forecasts
-(section 11) and applies the first step; it knows the current quarter-hour exactly. It plans
-each month on the previous month's realised premium rate: December 2024's in the January
-window and June 2025's in the July window. Every rung is settled on the realised annual
-market value of 2025, at the plant's rate for the window's own wind/PV mix.
+B3 re-solves the LP every quarter-hour over the next 24 hours and applies the first step. Its
+forecasts are synthetic: one random draw of the truth with a 15 % AR(1) error (Limitation 5).
+It knows the current quarter-hour exactly, and its negative-price mask comes from the true
+prices, so its recovery is optimistic; a forecast layer (WP6) is not built. It plans each
+month on the previous month's realised premium rate, computed against that month's market
+value: December 2024's in the January window and June 2025's in the July window. Every rung
+is settled on the realised annual market value of 2025, at the plant's rate for the window's
+own wind/PV mix.
 
-B3 on 30 days of real data ([`ladder_2025-01-01_30d.csv`](reports/ladder_2025-01-01_30d.csv), [`ladder_2025-07-01_30d.csv`](reports/ladder_2025-07-01_30d.csv)):
+B3 on 30 days of Energy-Charts data, with synthetic forecasts ([`ladder_2025-01-01_30d.csv`](reports/ladder_2025-01-01_30d.csv), [`ladder_2025-07-01_30d.csv`](reports/ladder_2025-07-01_30d.csv)):
 
 | Window, Berlin time | B0 EUR | B1 EUR | B2 EUR | B3 EUR | B3's share of the B1-to-B2 gain | Premium settled on EUR/MWh | Premium B3 planned on EUR/MWh |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -597,7 +606,7 @@ weather-to-power chain exists.
 | **B1** | Stores what the connection would spill and discharges into headroom; reads no prices. Equals B0 wherever the connection never binds |
 | **B2** | Perfect-foresight LP over the whole window, on the realised premium: the ceiling of the ladder |
 | **B2 no battery** | B2 with the battery taken out: perfect foresight that can only curtail. Splits B2's gain over B0 into the battery and curtailing at low prices |
-| **B3** | Rolling LP-MPC: a 24-hour horizon re-solved every quarter-hour on synthetic forecasts, planning on the previous month's realised premium, with no terminal value |
+| **B3** | Rolling LP-MPC: a 24-hour horizon re-solved every quarter-hour on synthetic forecasts, planning on the previous month's realised premium against that month's market value, with no terminal value |
 | **RL** | Not implemented (future work) |
 
 **KPIs, as built:** net revenue over the window, split into spot revenue, premium, marketing

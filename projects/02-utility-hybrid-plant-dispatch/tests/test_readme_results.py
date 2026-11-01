@@ -34,7 +34,7 @@ TABLES = {
     "Negative-price rule, calendar year 2024": ("negprice_2024.csv",),
     "Negative-price rule, calendar year 2025": ("negprice_2025.csv",),
     "B0's loss of premium from `none`": ("negprice_2024.csv", "negprice_2025.csv"),
-    "B3 on 30 days of real data": LADDER,
+    "B3 on 30 days of Energy-Charts data": LADDER,
     "B3 ablation on synthetic inputs": ("b3_ablation_synthetic_demo.csv",),
 }
 # A number as the README prints it, e.g. "1,240,768", "-2.7" or "0.00", but not the digits of
@@ -300,7 +300,7 @@ def test_the_per_technology_table_quotes_the_negprice_csvs():
 def test_the_ladder_table_quotes_its_csvs():
     """Per 30-day window: B0 to B3, B3's share of the gain from B1 to B2, and the premium
     every rung is settled on against the one B3 planned on."""
-    header, rows = table("B3 on 30 days of real data")
+    header, rows = table("B3 on 30 days of Energy-Charts data")
     assert header == ["Window, Berlin time", "B0 EUR", "B1 EUR", "B2 EUR", "B3 EUR",
                       "B3's share of the B1-to-B2 gain", "Premium settled on EUR/MWh",
                       "Premium B3 planned on EUR/MWh"]
