@@ -371,11 +371,15 @@ def _stand_in_solve_window(wind, pv, eff_price, dt, run, soc0, terminal_price=0.
                            export_cap=None, msg=False):
     """A deterministic stand-in for the LP, in numpy, with solve_window's signature.
 
-    It discharges above the window's median price and charges below it, the harder the fuller
-    the battery starts; it curtails at negative prices and where the connection binds. It
-    ignores every limit, so the safety layer has to clip its plans, and each argument the
-    rungs pass moves the plan, so the goldens pin what they pass as well. It uses arithmetic
-    and a median only, so its plans are the same on every platform.
+    It discharges above the window's mean price and charges below it, the harder the fuller
+    the battery starts, and it shifts the battery with the window's mean generation above the
+    connection. It curtails half at negative prices, plus each step's share above the
+    connection and a little more the more the window exceeds it. So, as in an LP, every value
+    a rung passes, at every step of the window, moves the plan's first step, which B3
+    executes: its forecasts, the premium it plans on and the redispatch order reach the
+    goldens as surely as the truth does. It ignores every limit, so the safety layer has to
+    clip its plans. It uses arithmetic and means only, so its plans are the same on every
+    platform but for the last bits.
     """
     cfg = run.plant
     price = np.asarray(eff_price, dtype=float)
@@ -383,8 +387,11 @@ def _stand_in_solve_window(wind, pv, eff_price, dt, run, soc0, terminal_price=0.
     cap = (np.full(len(price), cfg.conn_mw) if export_cap is None
            else np.minimum(export_cap, cfg.conn_mw))
     fill = (soc0 - cfg.soc_min) / (cfg.soc_max - cfg.soc_min)
-    p_bat = (price - np.median(price) - 0.1 * terminal_price) * (0.4 + fill) / (4.0 * dt)
-    curt = np.where(price < 0.0, 0.5, 0.0) + np.where(gen > cap, 0.25, 0.0)
+    excess = np.maximum(gen - cap, 0.0)
+    p_bat = ((price - np.mean(price) - 0.1 * terminal_price) * (0.4 + fill) / (4.0 * dt)
+             - 0.3 * np.mean(gen - cap))
+    curt = np.clip(np.where(price < 0.0, 0.5, 0.0) + excess / np.maximum(gen, 1e-9)
+                   + 0.01 * np.mean(excess), 0.0, 1.0)
     return p_bat, curt
 
 
@@ -404,7 +411,10 @@ def _stand_in_runs() -> dict[str, dict]:
     One day of `window` from midnight, shifted to give negative prices, at a 40 MW connection
     so that it binds. run_ladder runs every rung with B3 re-planning every step, a premium
     that changes within the window, reBAP and a schedule. The rungs then run alone under a
-    redispatch order, B3 with a terminal value and a re-plan every 4 steps.
+    redispatch order, B3 with a terminal value and a re-plan every 4 steps. Both B3 runs plan
+    on a premium that changes, at another step than the premium they are settled on, where
+    the premium is payable (steps 0-28 and 67-95; the negative prices between lose it), so
+    that the horizon's premium adjustment reaches their plans.
     """
     wind, pv, price = window(96, seed=2)
     price = price - 60.0
@@ -413,7 +423,8 @@ def _stand_in_runs() -> dict[str, dict]:
     premium = np.r_[np.full(48, 8.0), np.full(48, 11.0)]
     rebap = price + np.where(np.arange(n) % 3 == 0, 40.0, -20.0)
     ladder = run_ladder(wind, pv, price, run, premium_rate=premium, rebap=rebap,
-                        schedule=np.full(n, 30.0), b3_premium_rate=np.full(n, 9.5),
+                        schedule=np.full(n, 30.0),
+                        b3_premium_rate=np.r_[np.full(20, 9.5), np.full(76, 7.0)],
                         include_b2_no_battery=True)
     runs = {f"ladder: {name}": r for name, r in ladder.items()}
     order = np.r_[np.full(40, 40.0), np.full(16, 22.0), np.full(40, 40.0)]
@@ -421,11 +432,13 @@ def _stand_in_runs() -> dict[str, dict]:
     runs["B0, redispatch"] = b0_no_battery(wind, pv, run, order)
     runs["B1, redispatch"] = b1_curtailment_avoidance(wind, pv, run, order)
     runs["B2, redispatch"] = b2_perfect(wind, pv, eff, run, order)
-    forecasts = make_forecasts(wind, pv, eff, run, np.random.default_rng(7))
+    rate = np.r_[np.full(76, 8.0), np.full(20, 12.0)]
+    eff_b3 = effective_price(price, run.market, rate, run.dt)
+    forecasts = make_forecasts(wind, pv, eff_b3, run, np.random.default_rng(7))
     eligible = premium_eligible(price, run.market, run.dt)
     runs["B3 every 4 steps, terminal value, redispatch"] = b3_rolling(
-        wind, pv, eff, *forecasts, run.with_(terminal_value=True), order, resolve_every=4,
-        premium=(np.full(n, 8.0), eligible))
+        wind, pv, eff_b3, *forecasts, run.with_(terminal_value=True), order, resolve_every=4,
+        premium=(rate, eligible))
     return {name: _as_json(r) for name, r in runs.items()}
 
 
@@ -434,10 +447,11 @@ def test_the_rungs_reproduce_their_golden_runs_on_a_stand_in_solver(monkeypatch)
     they gave at a802748, output for output.
 
     CBC is replaced by `_stand_in_solve_window`, so the pin needs no solver and holds on every
-    platform. The goldens were recorded at a802748 with this stand-in, as json.dumps of
-    `_stand_in_runs()`; never re-record them to make this test pass. Its plans are not
-    optimal, so B2 need not lead the ladder: the invariant is switched off here, and the
-    other tests of this module keep it.
+    platform. The goldens were recorded on a802748's code with this stand-in and
+    `_stand_in_runs`, one line per run: its name, then json.dumps of its outputs. Never
+    re-record them to make this test pass. Its plans are not optimal, so B2 need not lead
+    the ladder: the invariant is switched off here, and the other tests of this module keep
+    it.
     """
     monkeypatch.setattr(baselines, "solve_window", _stand_in_solve_window)
     monkeypatch.setattr(baselines, "ladder_tolerance", lambda b2_revenue: float("inf"))
