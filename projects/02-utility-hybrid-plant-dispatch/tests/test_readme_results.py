@@ -33,6 +33,7 @@ TABLES = {
                            "negprice_2024_premium.csv", "negprice_2025_premium.csv"),
     "Negative-price rule, calendar year 2024": ("negprice_2024.csv",),
     "Negative-price rule, calendar year 2025": ("negprice_2025.csv",),
+    "B0's loss of premium from `none`": ("negprice_2024.csv", "negprice_2025.csv"),
     "B3 on 30 days of real data": LADDER,
     "B3 ablation on synthetic inputs": ("b3_ablation_synthetic_demo.csv",),
 }
@@ -256,6 +257,44 @@ def test_the_negprice_table_quotes_its_csv(year):
         assert (np.diff(b0) < 0).all(), vintage
         assert (np.diff(by_rule[("chosen_curtail_mwh", B2)]) > 0).all(), vintage
         assert ((b2.iloc[0] - b2.iloc[1:]) < (b0.iloc[0] - b0.iloc[1:])).all(), vintage
+
+
+def test_the_per_technology_table_quotes_the_negprice_csvs():
+    """Per year and vintage, B0's loss of premium from none to each rule: at the blended rate
+    every rung is settled on, and paid per technology on all of its generation, which B0
+    exports here. The README says the two agree under none; that per technology every rule
+    removes more, from and to the shares it quotes; and that PV's mean premium is above
+    wind's in every row of the premium table."""
+    header, rows = table("B0's loss of premium from `none`")
+    expected, more = [], {}
+    for year in (2024, 2025):
+        d = report(f"negprice_{year}.csv")
+        rules = list(dict.fromkeys(d["rule"]))
+        assert header == ["Year", "Vintage", "Paid", *[f"{rule} EUR" for rule in rules[1:]]]
+        b0 = d[d["rung"] == B0].set_index(["vintage", "rule"])
+        assert (b0["forced_curtail_mwh"] == 0).all() and (b0["chosen_curtail_mwh"] == 0).all()
+        for vintage in dict.fromkeys(d["vintage"]):
+            blended = b0.loc[vintage, "premium_revenue_eur"]
+            exact = b0.loc[vintage, "full_export_premium_by_technology_eur"]
+            assert exact["none"] == pytest.approx(blended["none"]), (year, vintage)
+            loss = {"at the blended rate": blended["none"] - blended[rules[1:]],
+                    "per technology": exact["none"] - exact[rules[1:]]}
+            expected += [[str(year), vintage, paid, *lost] for paid, lost in loss.items()]
+            short = f"{'older' if 'older' in vintage else 'recent'} vintage, {year}"
+            for rule in rules[1:]:
+                more[short, rule] = loss["per technology"][rule] / loss["at the blended rate"][rule]
+            means = b0.loc[vintage].iloc[0]
+            assert means["premium_pv_mean_eur_mwh"] > means["premium_wind_mean_eur_mwh"]
+    assert len(rows) == len(expected)
+    for cells, want in zip(rows, expected):
+        assert_row(cells, want, f"per technology {want[0]}, {want[1]}, {want[2]}")
+    (low, _), (high, _) = min(more, key=more.get), max(more, key=more.get)
+    lo, hi = 100 * (min(more.values()) - 1), 100 * (max(more.values()) - 1)
+    assert lo > 0
+    text = " ".join(readme().split())
+    assert f"from {lo:.0f} % more ({low}) to {hi:.0f} % more ({high})" in text
+    quoted = re.findall(r"(\d+) % to (\d+) %", text)
+    assert quoted and set(quoted) == {(f"{lo:.0f}", f"{hi:.0f}")}, quoted
 
 
 def test_the_ladder_table_quotes_its_csvs():

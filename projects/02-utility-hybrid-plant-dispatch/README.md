@@ -11,7 +11,7 @@ programs solved with PuLP and CBC, on Energy-Charts data for the calendar years 
 | **Status** | Ladder B0 to B3 implemented and evaluated; the project stops at B3, on purpose (below). 175 tests, all offline |
 | **Method** | B0 no battery · B1 rule-based storage · B2 perfect-foresight LP · B3 rolling LP-MPC on synthetic forecasts |
 | **Asset** | 50 MW onshore wind + 30 MWp PV + a 20 MW / 40 MWh battery behind a 60 MW connection; not a real site |
-| **Markets** | Day-ahead price and the EEG market premium per technology. Not modelled: intraday trading, a day-ahead schedule settled at reBAP, redispatch. aFRR is not built yet: its settings in `MarketConfig` are inert |
+| **Markets** | Day-ahead price and the EEG market premium, computed per technology and paid as one blended plant rate. Not modelled: intraday trading, a day-ahead schedule settled at reBAP, redispatch. aFRR is not built yet: its settings in `MarketConfig` are inert |
 | **Data** | National wind and solar generation, installed capacity and day-ahead prices from Energy-Charts (CC BY 4.0) |
 | **Resolution** | 15 min |
 
@@ -65,6 +65,9 @@ B2 knows prices and generation in advance, so its figures are upper bounds.
 - **Every tightening of the negative-price rule** lowers B0's revenue and raises the energy
   B2 chooses to curtail, for both vintages in both years. Under the rule of the newest
   plants, B2 curtails 6,715 MWh in 2024 and 8,155 MWh in 2025 at the default plant.
+- **The blended premium rate understates what a rule removes.** Paid per technology, as the
+  law pays, B0 at the default plant loses 144,002 EUR to that rule in 2024 and 128,716 EUR in
+  2025; the blended rate, which every table settles on, takes 116,440 and 62,246 EUR.
 - **No row of any table** breaks a plant limit, settles any imbalance or buys grid energy:
   each is 0 in every row.
 
@@ -243,13 +246,40 @@ vintage (monthly value, so dated before 2023) carries `none`, `six_hour` or `fou
 the recent vintage carries `three_hour` or `new_2025`. No plant carried `new_2025` before
 25 February 2025, so on the prices before that day its row is a counterfactual.
 
-B0 cannot react, so its loss from `none` to a rule is the premium the rule removes. B2
-curtails more with every tightening and loses less than B0 to every rule. Part of that is
-curtailing, which needs no battery; `negprice` runs no "B2 no battery", so the tables do not
-split the two. Two approximations of the settlement favour storage (section 11): the rule
-applies at the step of export, so energy charged during a suspension earns the premium when
-it is sold later, and one blended premium rate per period misprices the steps the rule acts
-on. Read B0's loss minus B2's loss as an upper bound on what storage and curtailing recover.
+B0 cannot react, so its loss from `none` to a rule is the premium the rule removes, at the
+model's blended rate. B2 curtails more with every tightening and loses less than B0 to every
+rule. Part of that is curtailing, which needs no battery; `negprice` runs no "B2 no battery",
+so the tables do not split the two.
+
+**The blended rate understates what each rule removes.** B0 exports all of its generation,
+as the connection never binds, so its premium can also be paid per technology, as the law
+pays it (`market.premium_by_technology`, the column `full_export_premium_by_technology_eur`).
+Under `none` the two agree. Under every rule the loss per technology is larger, from 4 % more
+(older vintage, 2024) to 107 % more (recent vintage, 2025): the steps a rule suspends hold
+more PV than the period as a whole, and PV's mean premium is above wind's in every row of
+the premium table.
+
+B0's loss of premium from `none`, at the blended rate and paid per technology ([`negprice_2024.csv`](reports/negprice_2024.csv), [`negprice_2025.csv`](reports/negprice_2025.csv)):
+
+| Year | Vintage | Paid | `six_hour` EUR | `four_hour` EUR | `three_hour` EUR | `new_2025` EUR |
+|---|---|---|---:|---:|---:|---:|
+| 2024 | AW 73.5 (recent onshore) | at the blended rate | 69,657 | 100,568 | 109,135 | 116,440 |
+| 2024 | AW 73.5 (recent onshore) | per technology | 86,089 | 122,229 | 133,469 | 144,002 |
+| 2024 | AW 95.0 (older vintage) | at the blended rate | 227,446 | 325,405 | 354,048 | 377,470 |
+| 2024 | AW 95.0 (older vintage) | per technology | 236,529 | 339,438 | 369,659 | 395,516 |
+| 2025 | AW 73.5 (recent onshore) | at the blended rate | 44,098 | 56,415 | 60,355 | 62,246 |
+| 2025 | AW 73.5 (recent onshore) | per technology | 78,567 | 113,918 | 124,213 | 128,716 |
+| 2025 | AW 95.0 (older vintage) | at the blended rate | 318,908 | 412,421 | 438,511 | 449,396 |
+| 2025 | AW 95.0 (older vintage) | per technology | 357,560 | 476,636 | 508,885 | 522,542 |
+
+B2's export cannot be paid per technology in this model: the battery mixes wind and PV
+energy, and the settlement does not track whose energy it holds, as § 19 (3) EEG 2023 would
+need. So how the
+blend moves B2's loss, and with it what storage and curtailing recover from a rule, is not
+measured. A second approximation does favour storage: the rule applies at the step of
+export, so energy charged during a suspension earns the premium when it is sold later
+(Limitation 4). B0's loss minus B2's loss is what storage and curtailing recover in the
+model; the export-step rule overstates it, and the blend's effect on it is not known.
 
 ### 0.4 B3 on real data: two 30-day windows of 2025
 
@@ -372,7 +402,7 @@ publishable and reproducible from open sources.
 
 | Instrument | How it enters the model |
 |-----------|-------------------------|
-| **EEG direct marketing** (`§§ 20 ff. EEG`) | Revenue = day-ahead price + market premium - marketing fee (3 EUR/MWh). Per technology, premium = max(0, applicable value - market value): the monthly market value for plants commissioned or awarded before 2023, the annual value from 2023 on (Anlage 1 Nr. 2 EEG 2023). The market value is a national figure, so the objective stays separable in time. It is computed as a proxy (0.3) |
+| **EEG direct marketing** (`§§ 20 ff. EEG`) | Revenue = day-ahead price + market premium - marketing fee (3 EUR/MWh). Per technology, premium = max(0, applicable value - market value): the monthly market value for plants commissioned or awarded before 2023, the annual value from 2023 on (Anlage 1 Nr. 2 EEG 2023). The plant is paid one blended rate, the two premiums weighted by its generation in the period, which understates what a negative-price rule removes (0.3). The market value is a national figure, so the objective stays separable in time. It is computed as a proxy (0.3) |
 | **Negative-price rule** (`§ 51 EEG`, tightened by the 2025 Solarspitzengesetz) | Implemented per vintage: none before 2016; six hours (2016-2020) or four hours (2021-2022) of negative prices remove the premium for the whole run; the threshold of the vintage from 2023 to 24 February 2025 falls from four hours in 2023 to one from 2027; from 25 February 2025, every negative period. **Not modelled:** the § 51a extension of the support period and the § 51 (2) small-plant exemptions |
 | **Remote controllability** (`§ 9 EEG`) | The technical basis of an override channel. **Not modelled** |
 | **Redispatch 2.0** (`§§ 13a, 14c EnWG`) | **Not modelled:** no command applies an order; its settings in `MarketConfig` are inert |
@@ -391,8 +421,8 @@ publishable and reproducible from open sources.
   of PV, a battery with efficiency, state-of-charge limits and linear throughput wear, and a
   shared connection point.
 - The benchmark ladder B0 to B3, and B2 without a battery.
-- Settlement on the day-ahead price and the EEG market premium per technology, with the
-  negative-price rule of each vintage.
+- Settlement on the day-ahead price and the EEG market premium, computed per technology and
+  paid as one blended plant rate, with the negative-price rule of each vintage.
 - Curtailment split by cause: chosen, an economic decision, and forced by the connection.
 - A connection-capacity sweep at a fixed battery.
 
@@ -426,7 +456,8 @@ publishable and reproducible from open sources.
 4. Test whether a distributional learned policy beats a tuned MPC where the imbalance tail
    dominates. *Future work.*
 5. Quantify the economic effect of the negative-price rule's tightening, by plant vintage.
-   *Done (0.3).*
+   *Done for B0, at the blended rate and per technology; for B2 at the blended rate only
+   (0.3).*
 
 ---
 
@@ -437,7 +468,7 @@ publishable and reproducible from open sources.
 | RQ1 | Where does the battery's value in a hybrid plant actually come from? | H1: Forecast-error management and curtailment avoidance dominate pure arbitrage at realistic German connection ratios; the ordering reverses only at high connection headroom | Not supported on national profiles: the battery's value is arbitrage, and a tight connection lowers it (0.2). Forecast-error management cannot be measured without a schedule |
 | RQ2 | What is the optimal connection-capacity ratio? | H2: Well below the sum of nameplates, with the optimum shifting **upward** as the negative-price rule tightens (curtailment becomes cheap, so firm export capacity is worth less) | Not tested: revenue rises with the connection at every step (0.1), but no cost is modelled, and the sweep runs under one rule only |
 | RQ3 | Does a learned policy beat rolling MPC? | H3: Yes, modestly, and specifically in high-forecast-error periods, by managing imbalance-tail risk that a point-forecast MPC ignores | Future work, once every rung commits a day-ahead schedule settled at reBAP (note at the top) |
-| RQ4 | What does the tightened negative-price rule cost a new plant relative to an old one? | H4: Material, and partly recoverable by storage; quantifying "partly" is the deliverable | Measured by vintage (0.3). B2 loses less than B0, but the settlement overstates what storage recovers, and curtailing is not split from the battery |
+| RQ4 | What does the tightened negative-price rule cost a new plant relative to an old one? | H4: Material, and partly recoverable by storage; quantifying "partly" is the deliverable | Measured by vintage (0.3), at the blended premium rate, which understates what each rule removes from B0 by 4 % to 107 %. B2 loses less than B0, but how much storage and curtailing recover is not established, and curtailing is not split from the battery |
 | RQ5 | Is aFRR participation worth it for the battery? | H5: Only when the connection is not the binding constraint; where curtailment risk is high, reserved headroom is too expensive | Not testable: aFRR is not built yet, and its settings are inert |
 
 ---
@@ -454,7 +485,7 @@ flowchart TB
 
     CF["Capacity factors x plant ratings<br/>50 MW wind, 30 MWp PV"]
     MV["Market value per technology<br/>monthly or annual proxy"]
-    PREM["Market premium per technology<br/>max(0, AW - market value)"]
+    PREM["Market premium per technology<br/>max(0, AW - market value),<br/>paid as one blended rate"]
     RULE["Negative-price rule of the vintage<br/>EEG § 51"]
 
     subgraph LAD["Benchmark ladder"]
@@ -584,9 +615,10 @@ built yet), grid charging (not modelled), the wear cost, and the safety layer on
 
 ## 9. Deliverables
 
-1. A 15-minute German hybrid-plant model with the EEG market premium per technology, on
-   monthly or annual market values, and the negative-price rule of every vintage.
-   *Delivered.* The design's monthly market-value coupling is not needed (6.2).
+1. A 15-minute German hybrid-plant model with the EEG market premium, computed per
+   technology on monthly or annual market values and paid as one blended rate, and the
+   negative-price rule of every vintage. *Delivered, with the blended rate as an
+   approximation (0.3).* The design's monthly market-value coupling is not needed (6.2).
 2. A benchmark ladder B0 to B3 that is reusable for any co-located plant study. *Delivered.*
 3. A distributional RL controller with a connection-capacity safety layer. *Future work.*
 4. The battery value decomposition. *Delivered for arbitrage against the connection limit's
@@ -620,7 +652,7 @@ built yet), grid charging (not modelled), the wear cost, and the safety layer on
 | Dimension | Assumption, as built | Limitation and impact |
 |---|---|---|
 | **Physical** | 50 MW onshore wind + 30 MWp PV (a DC rating) + a 20 MW / 40 MWh battery behind one 60 MW connection. The battery runs between 5 % and 95 % of its energy at 95 % efficiency each way, starts every window at its minimum, and wears at 3 EUR per MWh of throughput. No grid charging | No power curves, wake losses or inverter clipping: generation is a national factor times the rating. No calendar ageing. Overbuild is (MW wind + MWp PV) / MW connection |
-| **Market** | Price-taker on the DE-LU day-ahead price; the EEG market premium per technology under the negative-price rule of the vintage; a marketing fee of 3 EUR/MWh | No intraday trading and no day-ahead schedule, so no imbalance. No § 51a extension. The market values are computed proxies, and the applicable values are tender ceilings (Limitation 9) |
+| **Market** | Price-taker on the DE-LU day-ahead price; the EEG market premium, computed per technology and paid as one blended plant rate, under the negative-price rule of the vintage; a marketing fee of 3 EUR/MWh | No intraday trading and no day-ahead schedule, so no imbalance. No § 51a extension. The market values are computed proxies, and the applicable values are tender ceilings (Limitation 9) |
 | **Data** | Energy-Charts national generation over the national fleet of each month, for 2024 and 2025 | National profiles are smoother than one site, so curtailment is understated |
 | **Regulatory** | The connection as a hard export limit; the § 51 thresholds by vintage, cited to the statute in `market.py` | No redispatch. aFRR is not built yet: its settings are inert |
 
@@ -640,11 +672,13 @@ built yet), grid charging (not modelled), the wear cost, and the safety layer on
    the TSOs publish, which the project does not load. `market.market_values` expects the
    proxy to run high, so the premiums computed from it run low; no committed data measures
    the gap.
-4. **The settlement approximates the law in two ways that favour storage.** One blended
-   premium rate per period misprices every quarter-hour whose wind/PV mix departs from the
-   period's, those the negative-price rule acts on included. And the rule applies at the step
-   of export, so energy charged while the premium is suspended earns it when sold later,
-   whereas § 19 (3) EEG 2023 gives stored energy the claim of the step it was generated in.
+4. **The settlement approximates the law in two ways.** One blended premium rate per period
+   pays every quarter-hour the period's wind/PV mix. The steps a negative-price rule suspends
+   hold more PV, so the blend understates what the rule removes: from B0, by 4 % to 107 %
+   (0.3). Its effect on B2, and so on the battery's value and on what storage recovers from a
+   rule, is not measured. And the rule applies at the step of export, so energy charged while
+   the premium is suspended earns it when sold later, whereas § 19 (3) EEG 2023 gives stored
+   energy the claim of the step it was generated in. That favours storage.
 5. **B3's forecasts are synthetic perturbations of the truth.** Wind and PV forecasts are the
    true values times (1 + σ·AR(1)), with σ = 15 % and ρ = 0.8, clipped at 0. In the ladder
    tables the price forecast is the effective price plus σ times the standard deviation of
