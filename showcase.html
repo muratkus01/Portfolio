@@ -342,7 +342,6 @@
     .mkt-val.cyan { color: var(--cyan-bright); }
     .mkt-val.emerald { color: var(--emerald-bright); }
     .mkt-val.amber { color: var(--amber); }
-    .mkt-val.purple { color: #c084fc; }
     .mkt-sub {
       font-size: 0.75rem;
       color: var(--text-sub);
@@ -1330,8 +1329,8 @@
         <div class="global-year-selector">
           <span class="year-label">Evaluation Year:</span>
           <button class="year-btn" id="ybtn-2024" onclick="setGlobalYear(2024)">2024</button>
-          <button class="year-btn" id="ybtn-2025" onclick="setGlobalYear(2025)">2025</button>
-          <button class="year-btn active" id="ybtn-2026" onclick="setGlobalYear(2026)">2026 (Jan-Sep YTD)</button>
+          <button class="year-btn active" id="ybtn-2025" onclick="setGlobalYear(2025)">2025</button>
+          <button class="year-btn" id="ybtn-2026" onclick="setGlobalYear(2026)">2026</button>
         </div>
         <a class="nav-btn-github" href="https://github.com/muratkus01/Portfolio" target="_blank">
           GitHub
@@ -1344,7 +1343,6 @@
 
     <!-- Hero Section -->
     <header class="hero">
-      <span id="hero-market-chip" style="display:none">Real 2025 Market Anchor</span>
       <h1 class="hero-title">Applied AI & Algorithmic Dispatch for Modern Power Systems</h1>
       <div class="hero-author">
         <strong>Murat Kus</strong> · Dipl.-Ing. | M.Sc. Sustainable Energy Systems (FH Upper Austria) | B.Sc. Artificial Intelligence (JKU Linz) - In Progress
@@ -1353,42 +1351,35 @@
         Quantitative flexibility valuation, battery dispatch under German retail tariffs and EEG rules, and decision-making under uncertainty in decarbonized electricity systems. Three reference implementations: behind-the-meter prosumer storage under dynamic retail pricing (EnWG §41a), co-located utility-scale hybrid wind-solar-BESS dispatch behind one shared grid connection (EEG §51 and the 2025 Solarspitzengesetz), and probabilistic forecasts for a wind and PV portfolio that sells day-ahead, may correct intraday and settles its imbalance at the German single-price reBAP. The first two are measured against the same benchmark ladder, from a rule-based heuristic through a perfect-foresight ceiling to a rolling-horizon controller (deployable in the first, on synthetic forecasts in the second); the third scores a forecast ladder from climatology to LightGBM against the TSOs' published forecast, in pinball loss and in euros.
       </p>
 
-      <!-- Market & Grid Regulatory Console -->
+      <!-- DE-LU day-ahead market by calendar year, copied from Project 02's window_stats.csv -->
       <div class="market-console">
         <div class="market-console-header">
           <div class="market-console-title">
             <span class="pulse-dot"></span>
-            <span>EPEX SPOT & Balancing Market Conditions · DE-LU Bidding Zone</span>
+            <span>DE-LU Day-Ahead Market by Calendar Year</span>
           </div>
-          <div class="market-console-tag" id="market-year-tag">2026 Jan-Sep 21 YTD (6,312 Hours)</div>
+          <div class="market-console-tag" id="market-year-tag">2025: 365 Days, 35,040 Quarter-Hours</div>
         </div>
-        <div class="market-telemetry-grid">
+        <div class="market-telemetry-grid" id="market-grid">
           <div class="market-cell">
-            <div class="mkt-lbl">Mean Day-Ahead Spot Price</div>
-            <div class="mkt-val cyan" id="mkt-spot-mean">105.77 €/MWh</div>
-            <div class="mkt-sub" id="mkt-spot-sub">Base load wholesale index (Jan-Sep 21, 6,312 hrs)</div>
+            <div class="mkt-lbl">Mean Day-Ahead Price</div>
+            <div class="mkt-val cyan" id="mkt-spot-mean">89.32 EUR/MWh</div>
+            <div class="mkt-sub">DE-LU bidding zone, the mean over every quarter-hour</div>
           </div>
           <div class="market-cell">
-            <div class="mkt-lbl">Negative Price Hours (EEG §51)</div>
-            <div class="mkt-val amber" id="mkt-neg-hours">384 Hours</div>
-            <div class="mkt-sub" id="mkt-neg-sub">6.1% of YTD intervals (EEG §51/§51a cutoff)</div>
+            <div class="mkt-lbl">Quarter-Hours with a Negative Price</div>
+            <div class="mkt-val amber" id="mkt-neg-qh">2,299</div>
+            <div class="mkt-sub" id="mkt-neg-sub">Prices are set per quarter-hour from 1 October 2025, so this is not four times a count of hours</div>
           </div>
           <div class="market-cell">
-            <div class="mkt-lbl">Spot Volatility Range</div>
-            <div class="mkt-val" id="mkt-vol-range">-499.99 to +747.10 €/MWh</div>
-            <div class="mkt-sub" id="mkt-vol-sub">1,247.1 €/MWh gross spread</div>
-          </div>
-          <div class="market-cell">
-            <div class="mkt-lbl">aFRR Capacity Auction Mean</div>
-            <div class="mkt-val emerald" id="mkt-afrr-mean">21.80 €/MW/h</div>
-            <div class="mkt-sub" id="mkt-afrr-sub">Symmetric balancing reserve (FCR/aFRR)</div>
-          </div>
-          <div class="market-cell">
-            <div class="mkt-lbl">Grid Regulatory Environment</div>
-            <div class="mkt-val purple" id="mkt-reg-env">§14a EnWG Dynamic Dimming Enforced</div>
-            <div class="mkt-sub" id="mkt-reg-sub">Automated SteuVE dimming & §41a dynamic tariffs</div>
+            <div class="mkt-lbl">Project 02 Plant: Peak Generation</div>
+            <div class="mkt-val emerald" id="mkt-peak-gen">38.3 MW</div>
+            <div class="mkt-sub">Of 80 MW installed, wind and PV; 0 quarter-hours above its 60 MW connection</div>
           </div>
         </div>
+        <p style="font-size: 0.74rem; color: var(--text-muted); line-height: 1.5; margin: 14px 0 0;">
+          From <code>projects/02-utility-hybrid-plant-dispatch/reports/window_stats.csv</code>, which covers the calendar years 2024 and 2025, on Energy-Charts data (CC BY 4.0; prices credited to Bundesnetzagentur | SMARD.de). No committed table covers 2026 yet.
+        </p>
       </div>
     </header>
 
@@ -2575,20 +2566,19 @@
     };
 
     // Global Evaluation Year Configuration & Reactive Engine
+    // The market console shows one row of projects/02-utility-hybrid-plant-dispatch/reports/
+    // window_stats.csv per calendar year: days, steps, mean_price_eur_mwh,
+    // negative_price_quarter_hours and peak_generation_mw. No committed table covers 2026, so
+    // its market entry is null and the console says so instead of showing figures.
     const YEAR_CONFIG = {
       '2024': {
-        label: '2024 Full Year (8,784 Hours)',
-        chip: '2024 DE-LU EPEX SPOT & Balancing',
-        spotMean: '67.24 €/MWh',
-        spotSub: 'Base load wholesale index (8,784 hrs)',
-        negHours: '301 Hours',
-        negSub: '3.4% of annual intervals (EEG §51 cutoff)',
-        volRange: '-72.0 to +245.0 €/MWh',
-        volSub: '317.0 €/MWh gross spread',
-        afrrMean: '18.40 €/MW/h',
-        afrrSub: 'Symmetric balancing reserve (FCR/aFRR)',
-        regEnv: 'Redispatch 2.0 & EnWG §14a Intro',
-        regSub: 'Static §14a baseline & §118(6) exemption',
+        market: {
+          label: '2024: 366 Days, 35,136 Quarter-Hours',
+          spotMean: '78.51 EUR/MWh',
+          negQuarterHours: '1,828',
+          negSub: 'Prices were hourly in 2024, so 457 hours',
+          peakGen: '42.5 MW'
+        },
         p01: P01_TEST_RESULTS,
         p04: {
           breakeven: '0.098 EUR/kWh',
@@ -2598,18 +2588,13 @@
         }
       },
       '2025': {
-        label: '2025 Standard Benchmark (8,760 Hours)',
-        chip: 'Real 2025 Market Anchor',
-        spotMean: '78.45 €/MWh',
-        spotSub: 'Base load wholesale index (8,760 hrs)',
-        negHours: '468 Hours',
-        negSub: '5.3% of annual intervals (EEG §51 cutoff)',
-        volRange: '-84.5 to +312.0 €/MWh',
-        volSub: '396.5 €/MWh gross spread',
-        afrrMean: '24.15 €/MW/h',
-        afrrSub: 'Symmetric balancing reserve (FCR/aFRR)',
-        regEnv: '§14a EnWG Mandatory (Active)',
-        regSub: 'Dynamic curtailment modules 1-3 active',
+        market: {
+          label: '2025: 365 Days, 35,040 Quarter-Hours',
+          spotMean: '89.32 EUR/MWh',
+          negQuarterHours: '2,299',
+          negSub: 'Prices are set per quarter-hour from 1 October 2025, so this is not four times a count of hours',
+          peakGen: '38.3 MW'
+        },
         p01: P01_TEST_RESULTS,
         p04: {
           breakeven: '0.110 EUR/kWh',
@@ -2619,18 +2604,7 @@
         }
       },
       '2026': {
-        label: '2026 Jan-Sep 21 YTD (6,312 Hours)',
-        chip: '2026 DE-LU EPEX SPOT & Balancing (Jan-Sep 21)',
-        spotMean: '105.77 €/MWh',
-        spotSub: 'Base load wholesale index (Jan-Sep 21, 6,312 hrs)',
-        negHours: '384 Hours',
-        negSub: '6.1% of YTD intervals (EEG §51/§51a cutoff)',
-        volRange: '-499.99 to +747.10 €/MWh',
-        volSub: '1,247.1 €/MWh gross spread',
-        afrrMean: '21.80 €/MW/h',
-        afrrSub: 'Symmetric balancing reserve (FCR/aFRR)',
-        regEnv: '§14a EnWG Dynamic Dimming Enforced',
-        regSub: 'Automated SteuVE dimming & §41a dynamic tariffs',
+        market: null,
         p01: P01_TEST_RESULTS,
         p04: {
           breakeven: '0.104 EUR/kWh',
@@ -2657,19 +2631,17 @@
         if (el) el.innerText = val;
       };
 
-      // Update Market Console (Values and Year-Specific Subtitles)
-      setEl('market-year-tag', cfg.label);
-      setEl('hero-market-chip', cfg.chip);
-      setEl('mkt-spot-mean', cfg.spotMean);
-      setEl('mkt-spot-sub', cfg.spotSub);
-      setEl('mkt-neg-hours', cfg.negHours);
-      setEl('mkt-neg-sub', cfg.negSub);
-      setEl('mkt-vol-range', cfg.volRange);
-      setEl('mkt-vol-sub', cfg.volSub);
-      setEl('mkt-afrr-mean', cfg.afrrMean);
-      setEl('mkt-afrr-sub', cfg.afrrSub);
-      setEl('mkt-reg-env', cfg.regEnv);
-      setEl('mkt-reg-sub', cfg.regSub);
+      // Update the market console. A year that no committed table covers shows no figures.
+      const mkt = cfg.market;
+      setEl('market-year-tag', mkt ? mkt.label : yKey + ': No Committed Table Yet');
+      const marketGrid = document.getElementById('market-grid');
+      if (marketGrid) marketGrid.style.display = mkt ? '' : 'none';
+      if (mkt) {
+        setEl('mkt-spot-mean', mkt.spotMean);
+        setEl('mkt-neg-qh', mkt.negQuarterHours);
+        setEl('mkt-neg-sub', mkt.negSub);
+        setEl('mkt-peak-gen', mkt.peakGen);
+      }
 
       // P01
       setEl('p01-metric-b3', cfg.p01.b3Metric);
@@ -3657,8 +3629,9 @@
       selectProject('p01', false);
       setupCanvasListeners();
 
-      // Initialize the P01 simulator with defaults and the selected year (2026 default)
-      setGlobalYear(2026);
+      // Initialize the P01 simulator with defaults and the selected year. 2025 is the latest
+      // year the market console has figures for; the P01 sweep shows 2025 for 2026 as well.
+      setGlobalYear(2025);
 
       updateHud(scrubberIdx);
 
