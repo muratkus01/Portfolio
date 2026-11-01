@@ -19,7 +19,9 @@ Last checked against the live APIs on 2026-08-11:
 | Generation by type + load | `public_power` | **15 min** | Energy-Charts | CC BY 4.0 |
 | Installed capacity by technology | `installed_power` | annual | Energy-Charts | CC BY 4.0 |
 | Cross-border physical flows | `cross_border_flows` | 15 min | Energy-Charts | CC BY 4.0 |
-| ENTSO-E Transparency (raw) | `entsoe` | varies | ENTSO-E | free reuse, **token required** |
+
+`python datakit.py --check` calls these four. `entsoe`, a raw ENTSO-E Transparency query
+(free reuse, **token required**), is not part of that check, because it needs a token.
 
 `python datakit.py --pull 2025` retrieves, for calendar year 2025:
 
