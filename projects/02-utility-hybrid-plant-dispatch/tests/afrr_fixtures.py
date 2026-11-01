@@ -64,7 +64,7 @@ def invented_prices(day: datetime.date, product: str) -> tuple[float, float]:
     return average, 2 * average + 0.5
 
 
-def results_xlsx(days, layout="16", blank=(), drop=(), extra=()) -> bytes:
+def results_xlsx(days, layout="16", blank=(), drop=(), extra=(), cells=()) -> bytes:
     """A yearly results workbook holding the 12 products of each day, as bytes.
 
     days: the delivery days, e.g. [datetime.date(2025, 3, 29), datetime.date(2025, 3, 30)].
@@ -76,17 +76,25 @@ def results_xlsx(days, layout="16", blank=(), drop=(), extra=()) -> bytes:
     drop: (day, product) rows left out.
     extra: (day, product) rows added after the others, e.g. a duplicate, or "POS_00_01", a
         15-minute product.
+    cells: (day, product, column, value) quadruples whose cell holds `value` instead, a float
+        as a number and a str as inline text, e.g. a negative price or a fractional DATE_FROM.
     Returns the bytes of the xlsx file; the same arguments give the same bytes.
     """
     header = {"16": LAYOUT_2024, "23": tuple(reversed(LAYOUT_2025))}.get(layout, layout)
     blanks = {(day, product, GERMAN[basis]) for day, product, basis in blank}
+    overrides = {(day, product, name): value for day, product, name, value in cells}
     dropped = set(drop)
     rows = [(day, product) for day in days for product in PRODUCTS
             if (day, product) not in dropped] + list(extra)
+
+    def cell(day, product, name):
+        if (day, product, name) in overrides:
+            return overrides[(day, product, name)]
+        return None if (day, product, name) in blanks else _value(name, day, product)
+
     sheet = [_row(1, [("shared", i) for i in range(len(header))])]
     for number, (day, product) in enumerate(rows, start=2):
-        sheet.append(_row(number, [None if (day, product, name) in blanks
-                                   else _value(name, day, product) for name in header]))
+        sheet.append(_row(number, [cell(day, product, name) for name in header]))
     parts = {"[Content_Types].xml": _CONTENT_TYPES, "xl/workbook.xml": _WORKBOOK,
              "xl/_rels/workbook.xml.rels": _WORKBOOK_RELS,
              "xl/sharedStrings.xml": _shared_strings(header),
@@ -98,6 +106,26 @@ def results_xlsx(days, layout="16", blank=(), drop=(), extra=()) -> bytes:
             # a fixed time stamp, so that the same arguments give the same bytes
             book.writestr(zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0)), text,
                           compress_type=zipfile.ZIP_DEFLATED)
+    return buffer.getvalue()
+
+
+def rewrite_member(data: bytes, name: str, old: str, new: str) -> bytes:
+    """The workbook `data` with the text `old`, which must occur once, replaced by `new` in
+    its member `name`: for files that no well-formed writer makes.
+
+    data: a results_xlsx workbook. name: a zip member, e.g. "xl/worksheets/sheet1.xml".
+    old, new: e.g. '<c r="A1" t="s"><v>0</v></c>' and '<c r="A1" t="s"><v>99</v></c>'.
+    Returns the bytes of the changed workbook.
+    """
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(data)) as source, \
+            zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as book:
+        for info in source.infolist():
+            text = source.read(info).decode("utf-8")
+            if info.filename == name:
+                assert text.count(old) == 1, f"{old!r} occurs {text.count(old)} times in {name}"
+                text = text.replace(old, new)
+            book.writestr(info, text, compress_type=zipfile.ZIP_DEFLATED)
     return buffer.getvalue()
 
 

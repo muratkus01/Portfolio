@@ -11,6 +11,7 @@ import datetime
 import hashlib
 import importlib.util
 import io
+import os
 import re
 import urllib.error
 from pathlib import Path
@@ -86,6 +87,39 @@ def test_parser_refuses_a_blank_german_price():
             parse_results(data)
 
 
+def test_parser_refuses_a_price_that_is_negative_or_not_finite():
+    """A German price is a finite number of at least 0. A negative, NaN or infinite price, or
+    text, is refused with its day and product, never read."""
+    for column in PRICE_COLUMNS.values():
+        for value, shown in ((-1.0, "is -1.0"), (float("nan"), "is nan"),
+                             (float("inf"), "is inf"), ("n/a", "reads 'n/a'")):
+            data = results_xlsx(DAYS, cells=[(DAYS[1], "NEG_08_12", column, value)])
+            with pytest.raises(ValueError, match=rf"{re.escape(column)} {re.escape(shown)} on "
+                                                 r"2025-01-02 for NEG_08_12"):
+                parse_results(data)
+
+
+def test_parser_refuses_a_date_that_is_not_a_whole_excel_day():
+    """DATE_FROM is a whole Excel serial day. A fraction of a day, or a date written as text,
+    is refused rather than truncated or guessed at."""
+    serial = float((DAYS[1] - datetime.date(1899, 12, 30)).days)
+    for value, text, refusal in ((serial + 0.5, repr(serial + 0.5), "is not a whole day"),
+                                 ("2025-01-02", "2025-01-02", "is not an Excel serial day")):
+        data = results_xlsx(DAYS, cells=[(DAYS[1], "POS_00_04", "DATE_FROM", value)])
+        with pytest.raises(ValueError, match=rf"DATE_FROM '{re.escape(text)}' {refusal}"):
+            parse_results(data)
+
+
+def test_parser_sorts_its_table_by_day_direction_and_hours():
+    """The table comes sorted by date, direction and start hour, whatever order the file's
+    rows are in: here the days run backwards and, within a day, POS comes before NEG."""
+    table = parse_results(results_xlsx(list(reversed(DAYS))))
+
+    keys = list(zip(table["date"], table["direction"], table["start_h"]))
+    assert keys == sorted(keys)
+    pd.testing.assert_frame_equal(table, parse_results(results_xlsx(DAYS)))
+
+
 def test_parser_refuses_a_day_without_its_twelve_products():
     """Every day carries each of its 12 products once: a day that lacks one, repeats one or
     lacks them all is refused, naming the day."""
@@ -124,6 +158,17 @@ def test_the_reader_refuses_a_zip_member_above_its_cap(monkeypatch):
     monkeypatch.setattr(afrr_data, "_MAX_MEMBER_BYTES", 5000)
     with pytest.raises(ValueError, match="sheet1.xml unpacks to more than 5000 bytes"):
         parse_results(results_xlsx(DAYS))
+
+
+def test_the_reader_refuses_a_shared_string_the_workbook_lacks():
+    """A cell that names a shared string the workbook does not hold is refused. Read as a
+    list index, -1 would quietly give the last string instead."""
+    for index in (-1, 99):
+        data = fixtures.rewrite_member(results_xlsx(DAYS), "xl/worksheets/sheet1.xml",
+                                       '<c r="A1" t="s"><v>0</v></c>',
+                                       f'<c r="A1" t="s"><v>{index}</v></c>')
+        with pytest.raises(ValueError, match=f"cell A1 names shared string {index} of 16"):
+            parse_results(data)
 
 
 # ------------------------------------------------------------------ onto the window
@@ -277,35 +322,78 @@ def test_a_download_that_does_not_match_its_pin_is_not_cached(tmp_path, monkeypa
 
 
 def test_a_download_is_cached_with_a_source_line(tmp_path, monkeypatch):
-    """A downloaded file is cached and never fetched again, as datakit's are not, and
-    SOURCE.md gets one line for it in datakit's format. The pin is moved to the fixture's
-    bytes here."""
+    """A downloaded file is cached and never fetched again, as datakit's are not. It reaches
+    the cache through <file>.partial and os.replace, so an interrupted download leaves no
+    cached file. SOURCE.md gets one line per file in datakit's format, below the lines
+    already there. Both years are loaded, with their pins moved to the fixture's bytes."""
     content = results_xlsx(DAYS)
-    monkeypatch.setitem(afrr_data.PINNED_SHA256, 2025, hashlib.sha256(content).hexdigest())
-    requests = []
+    sha256 = hashlib.sha256(content).hexdigest()
+    years = (2024, 2025)
+    requests, replaced = [], []
+    real_replace = os.replace
 
     def serve(url, timeout):
         requests.append((url, timeout))
         return io.BytesIO(content)
 
+    def replace(source, target):
+        replaced.append((Path(source).name, Path(target).name))
+        real_replace(source, target)
+
     monkeypatch.setattr(afrr_data, "urlopen", serve)
-    first = afrr_data.load_capacity_results(2025, cache_dir=tmp_path)
+    monkeypatch.setattr(afrr_data.os, "replace", replace)
+    for year in years:
+        monkeypatch.setitem(afrr_data.PINNED_SHA256, year, sha256)
+    first = [afrr_data.load_capacity_results(year, cache_dir=tmp_path) for year in years]
     second = afrr_data.load_capacity_results(2025, cache_dir=tmp_path)
 
-    assert requests == [(afrr_data.RESULTS_URL.format(year=2025), datakit.TIMEOUT)]
-    assert first.url == afrr_data.RESULTS_URL.format(year=2025)
-    assert first.sha256 == second.sha256 == hashlib.sha256(content).hexdigest()
+    urls = [afrr_data.RESULTS_URL.format(year=year) for year in years]
+    names = [_cache_file(tmp_path, year).name for year in years]
+    assert requests == [(url, datakit.TIMEOUT) for url in urls]
+    assert replaced == [(f"{name}.partial", name) for name in names]
+    assert [result.url for result in first] == urls
+    assert second.sha256 == sha256
     pd.testing.assert_frame_equal(second.table, parse_results(content))
-    assert sorted(path.name for path in tmp_path.iterdir()) == [
-        "SOURCE.md", _cache_file(tmp_path, 2025).name]
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["SOURCE.md", *names]
     lines = (tmp_path / "SOURCE.md").read_text(encoding="utf-8").splitlines()
     assert lines[:2] == ["# Data provenance", ""]
     entries = [line for line in lines if line.startswith("- ")]
-    assert len(entries) == 1
-    assert re.fullmatch(r"- `regelleistung_aFRR_capacity_results_2025` \| "
-                        + re.escape(first.url) + r" \| retrieved \d{4}-\d\d-\d\dT\S+\+00:00 \| "
-                        r"licence: none; the regelleistung\.net FAQ allows use without "
-                        r"permission; not redistributed", entries[0])
+    assert len(entries) == 2
+    for year, url, entry in zip(years, urls, entries):
+        assert re.fullmatch(rf"- `regelleistung_aFRR_capacity_results_{year}` \| "
+                            + re.escape(url) + r" \| retrieved \d{4}-\d\d-\d\dT\S+\+00:00 \| "
+                            r"licence: none; the regelleistung\.net FAQ allows use without "
+                            r"permission; not redistributed", entry)
+
+
+def test_a_failed_download_other_than_404_is_raised_as_is(tmp_path, monkeypatch):
+    """Only a 404 says that the file is not published yet. Any other HTTP error, or no
+    network at all, is raised as urlopen raised it, never reworded as the publication rule,
+    and nothing is cached."""
+    url = afrr_data.RESULTS_URL.format(year=2025)
+    for error in (urllib.error.HTTPError(url, 500, "Internal Server Error", None, None),
+                  urllib.error.URLError("no network")):
+        def fail(url, timeout, error=error):
+            raise error
+
+        monkeypatch.setattr(afrr_data, "urlopen", fail)
+        with pytest.raises(type(error)) as raised:
+            afrr_data.load_capacity_results(2025, cache_dir=tmp_path)
+        assert raised.value is error
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_the_cache_is_datakits_unless_another_is_named(tmp_path, monkeypatch):
+    """Without cache_dir, the file is cached where datakit caches: datakit.DEFAULT_CACHE, as
+    it reads when the load runs. It is moved to tmp_path here, and the pin to the fixture."""
+    content = results_xlsx(DAYS)
+    monkeypatch.setitem(afrr_data.PINNED_SHA256, 2025, hashlib.sha256(content).hexdigest())
+    monkeypatch.setattr(datakit, "DEFAULT_CACHE", tmp_path)
+    monkeypatch.setattr(afrr_data, "urlopen", lambda url, timeout: io.BytesIO(content))
+
+    afrr_data.load_capacity_results(2025)
+
+    assert _cache_file(tmp_path, 2025).read_bytes() == content
 
 
 def test_a_missing_yearly_file_is_refused_with_the_publication_rule(tmp_path, monkeypatch):
