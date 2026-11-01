@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from prosumer.experiments.year_split import B1, B2, B3, ROLLING_CSV, RL_CSV, run_year_split
+from prosumer.experiments.year_split import B1, B2, B3, RL_CSV, ROLLING_CSV, run_year_split
 
 MONTHS = pd.period_range("2025-01", "2026-09", freq="M").strftime("%Y-%m")
 
