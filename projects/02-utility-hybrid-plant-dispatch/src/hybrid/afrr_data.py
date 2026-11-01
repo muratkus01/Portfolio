@@ -365,18 +365,16 @@ def capacity_prices(index: pd.DatetimeIndex, table: pd.DataFrame) -> CapacityPri
     02:00-03:00 occurs twice and both fall in 00_04, which then holds 20 quarter-hours; on the
     March day that hour does not exist, and 00_04 holds 12. Never step // 16: after 30 March
     2025 that puts Berlin midnight 12 steps into a block.
-    index: the window's tz-aware timestamps, 15 minutes apart, e.g. a load_year frame's index.
+    index: the window's tz-aware timestamps, 15 minutes apart, from Berlin midnight to Berlin
+        midnight, e.g. a load_year frame's index.
     table: `parse_results` of the year the window lies in. load_window keeps a window inside
         its calendar year, so one yearly file covers it, and the first day's previous day is
         never needed, as nothing is bid for the first day.
     Returns the window's CapacityPrices, one value per step.
-    Raises ValueError when the steps are not 15 minutes apart, which the 09:00 gate and the
-    09:30 award need, or when the table lacks a step's product.
+    Raises ValueError for a window `_berlin_steps` refuses, and when the table lacks a step's
+    product.
     """
-    if not ((index[1:] - index[:-1]) == pd.Timedelta(minutes=15)).all():
-        raise ValueError("capacity_prices needs steps 15 minutes apart, so that the 09:00 "
-                         "gate and the 09:30 award fall on steps")
-    local = index.tz_convert("Europe/Berlin")
+    local = _berlin_steps(index)
     dates = np.asarray(local.date)
     start_h = 4 * (np.asarray(local.hour, dtype=np.int64) // 4)
     ordinal = np.array([date.toordinal() for date in dates])
@@ -402,6 +400,29 @@ def capacity_prices(index: pd.DatetimeIndex, table: pd.DataFrame) -> CapacityPri
         marginal_up=realised[("marginal", "up")].to_numpy(),
         marginal_down=realised[("marginal", "down")].to_numpy(),
         bid_up=bid[:, 0], bid_down=bid[:, 1])
+
+
+def _berlin_steps(index: pd.DatetimeIndex) -> pd.DatetimeIndex:
+    """The window's steps in Berlin time, once they are known to be steps capacity_prices can
+    map: 15 minutes apart, so that the 09:00 gate and the 09:30 award fall on steps, and whole
+    Berlin days from midnight to midnight. B3 bids at each gate for all of the next day, and
+    for nothing on the first day, which no gate inside the window precedes. A window that
+    starts later would be paid on "bid" on its second day, which B3 cannot bid for, and one
+    that ends off midnight would bid at its last gate for part of a day.
+    Raises ValueError otherwise, e.g. for 30 days of 24 hours across a daylight-saving change,
+    which end at 01:00 or 23:00 Berlin.
+    """
+    if not ((index[1:] - index[:-1]) == pd.Timedelta(minutes=15)).all():
+        raise ValueError("capacity_prices needs steps 15 minutes apart, so that the 09:00 "
+                         "gate and the 09:30 award fall on steps")
+    local = index.tz_convert("Europe/Berlin")
+    end = local[-1] + pd.Timedelta(minutes=15)
+    if local[0] != local[0].normalize() or end != end.normalize():
+        raise ValueError(f"capacity_prices needs whole Berlin days, from midnight to midnight, "
+                         f"as B3 bids for whole days; this window runs from {local[0]} to "
+                         f"{end}. Days of 24 hours that span a daylight-saving change end "
+                         "at 01:00 or 23:00 Berlin")
+    return local
 
 
 def _product_prices(table: pd.DataFrame, dates: np.ndarray,

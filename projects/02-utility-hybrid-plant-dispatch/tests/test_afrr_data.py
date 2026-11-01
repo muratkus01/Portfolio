@@ -292,6 +292,26 @@ def test_capacity_prices_refuses_what_it_cannot_map():
         capacity_prices(index[::4], parse_results(results_xlsx(DAYS)))
 
 
+def test_capacity_prices_refuses_a_window_of_part_days():
+    """A window runs from Berlin midnight to Berlin midnight, as B3 bids at each gate for all
+    of the next day and for nothing on the first day. A window from 10:00 has no gate before
+    its second day, which would still be bid for and paid on "bid". Three times 24 hours
+    from Berlin midnight across a daylight-saving change end at 01:00 or 23:00, so that the
+    last gate bids for an hour, or 23 hours, of its day. The table holds every day the
+    window touches, so that nothing else refuses it."""
+    def hours_from_midnight(first: str, steps: int) -> pd.DatetimeIndex:
+        return pd.date_range(pd.Timestamp(first, tz="Europe/Berlin"), periods=steps,
+                             freq="15min").tz_convert("UTC")
+
+    for index, days in ((_berlin_window(DAYS[0], 3)[40:], DAYS),
+                        (hours_from_midnight("2025-03-29", 3 * 96),
+                         _days(datetime.date(2025, 3, 29), 4)),
+                        (hours_from_midnight("2025-10-25", 3 * 96),
+                         _days(datetime.date(2025, 10, 25), 3))):
+        with pytest.raises(ValueError, match="whole Berlin days"):
+            capacity_prices(index, parse_results(results_xlsx(days)))
+
+
 # ------------------------------------------------------------------ the yearly file
 def _cache_file(cache_dir: Path, year: int) -> Path:
     """Where load_capacity_results caches the file of `year`."""
