@@ -122,7 +122,8 @@ def test_each_table_names_the_window_and_command_that_made_it():
     meta = report("run_meta.csv")
     commands = meta[(meta["section"] == "run") & (meta["item"] == "command")].set_index(
         "experiment")["value"]
-    _, rows = table("How each table is made")
+    header, rows = table("How each table is made")
+    assert header == ["Table", "Window, Berlin time", "Command"]
     named = {files.split(",")[0].removesuffix(".csv"): (files, window, command)
              for files, window, command in rows}
     assert sorted(named) == sorted(commands.index)
@@ -142,7 +143,11 @@ def test_the_window_table_quotes_window_stats():
                                  w["max_combined_cf"], w["connection_mw"],
                                  w["steps_over_connection"]]
                 for _, w in report("window_stats.csv").iterrows()}
-    _, rows = table("Windows of the tables")
+    header, rows = table("Windows of the tables")
+    assert header == ["Window, Berlin time", "Quarter-hours", "Mean day-ahead price EUR/MWh",
+                      "Quarter-hours with a negative price", "Peak generation MW",
+                      "Largest combined capacity factor", "Connection MW",
+                      "Quarter-hours above the connection"]
     assert sorted(cells[0] for cells in rows) == sorted(expected)
     for cells in rows:
         assert_row(cells, expected[cells[0]], cells[0])
@@ -153,7 +158,10 @@ def test_the_sizing_table_quotes_its_csv(year):
     """Per connection: B0, B1, B2, the battery's own value, curtailing at low prices and B0's
     forced curtailment. The README says the battery's value rises with every step of
     connection size, and that B1 equals B0 where no generation exceeds the connection."""
-    _, rows = table(f"Connection sweep, calendar year {year}")
+    header, rows = table(f"Connection sweep, calendar year {year}")
+    assert header == ["Connection MW", "Overbuild", "B0 EUR", "B1 EUR", "B2 EUR",
+                      "The battery's own value EUR", "Curtailing at low prices EUR",
+                      "B0 forced curtailment MWh"]
     groups = [(conn, g.set_index("rung")) for conn, g in report(f"sizing_{year}.csv")
               .groupby("conn_mw")]
     assert len(rows) == len(groups)
@@ -172,12 +180,17 @@ def test_the_sizing_table_quotes_its_csv(year):
 def test_the_decompose_table_quotes_its_csvs():
     """Per year and connection as built: the battery's value there and at the 200 MW that
     nothing reaches, and the connection limit's effect, the difference, as a share."""
-    _, rows = table("The battery's value by connection")
+    header, rows = table("The battery's value by connection")
+    wide_mw = {report(name).set_index("scenario").loc["unconstrained connection", "plant_conn_mw"]
+               .iloc[0] for name in DECOMPOSE}
+    assert len(wide_mw) == 1
+    assert header == ["Year", "Connection as built MW", "The battery's value as built EUR",
+                      f"The battery's value at {wide_mw.pop():.0f} MW EUR",
+                      "Connection limit's effect EUR", "Share of the value as built"]
     assert len(rows) == len(DECOMPOSE)
     for cells, name in zip(rows, DECOMPOSE):
         d = report(name).set_index("scenario")
         built, wide = d.loc["as built"].iloc[0], d.loc["unconstrained connection"].iloc[0]
-        assert wide["plant_conn_mw"] == 200.0
         assert_row(cells, [str(built["year"]), built["plant_conn_mw"],
                            built["battery_value_eur"], wide["battery_value_eur"],
                            built["connection_limit_effect_eur"],
@@ -187,7 +200,10 @@ def test_the_decompose_table_quotes_its_csvs():
 def test_the_premium_table_quotes_the_negprice_csvs():
     """Per year and vintage: the market-value basis, the annual proxy where it applies, and
     the mean premium per technology and for the plant, with the periods that pay none."""
-    _, rows = table("Premium by vintage")
+    header, rows = table("Premium by vintage")
+    assert header == ["Year", "Vintage", "Market value", "Wind market value EUR/MWh",
+                      "PV market value EUR/MWh", "Wind premium EUR/MWh", "PV premium EUR/MWh",
+                      "Plant rate EUR/MWh", "No premium for"]
     expected = []
     for year in (2024, 2025):
         periods = report(f"negprice_{year}_premium.csv").set_index("vintage")
@@ -216,8 +232,10 @@ def test_the_negprice_table_quotes_its_csv(year):
     d = report(f"negprice_{year}.csv")
     header, rows = table(f"Negative-price rule, calendar year {year}")
     recent, older = dict.fromkeys(d["vintage"])
-    assert "recent" in recent and header[2].startswith("Recent")
-    assert "older" in older and header[5].startswith("Older")
+    assert "recent" in recent and "older" in older
+    assert header == ["Rule", f"Plants that carry it in {year}", "Recent: B0 EUR",
+                      "Recent: B2 EUR", "Recent: B2 chosen curtailment MWh", "Older: B0 EUR",
+                      "Older: B2 EUR", "Older: B2 chosen curtailment MWh"]
     rules = list(dict.fromkeys(d["rule"]))
     carried = {rule: vintage for vintage, rule in vintage_rules(year).items()}
     assert len(rows) == len(rules)
@@ -243,7 +261,10 @@ def test_the_negprice_table_quotes_its_csv(year):
 def test_the_ladder_table_quotes_its_csvs():
     """Per 30-day window: B0 to B3, B3's share of the gain from B1 to B2, and the premium
     every rung is settled on against the one B3 planned on."""
-    _, rows = table("B3 on 30 days of real data")
+    header, rows = table("B3 on 30 days of real data")
+    assert header == ["Window, Berlin time", "B0 EUR", "B1 EUR", "B2 EUR", "B3 EUR",
+                      "B3's share of the B1-to-B2 gain", "Premium settled on EUR/MWh",
+                      "Premium B3 planned on EUR/MWh"]
     assert len(rows) == len(LADDER)
     for cells, name in zip(rows, LADDER):
         d = report(name).set_index("rung")
@@ -259,7 +280,9 @@ def test_the_ablation_table_quotes_its_csv():
     B3 holds at the end, all on the showcase's synthetic inputs."""
     d = report("b3_ablation_synthetic_demo.csv")
     assert (d["inputs"] == "synthetic (showcase demo_05)").all()
-    _, rows = table("B3 ablation on synthetic inputs")
+    header, rows = table("B3 ablation on synthetic inputs")
+    assert header == ["Forecast error", "Terminal value", "B0 EUR", "B1 EUR", "B2 EUR", "B3 EUR",
+                      "B3's share of the B1-to-B2 gain", "Energy B3 holds at the end MWh"]
     cases = list(d.groupby(["b3_forecast_sigma", "b3_terminal_value"], sort=False))
     assert len(rows) == len(cases)
     for cells, ((sigma, terminal), g) in zip(rows, cases):
