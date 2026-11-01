@@ -19,9 +19,11 @@ The thesis optimised one household over 2024 at hourly resolution with perfect f
 This extension asks what a controller that could actually be deployed achieves, and what the
 switch of the EPEX day-ahead market to quarter-hour products on 1 October 2025 is worth.
 The main results below come from committed scripts and committed CSVs in `reports/` (for
-Gate 0, a committed test and its reference CSV). Solve times and a few supporting checks
-come from one-off runs; the checks are marked. The example-day numbers and the spread of the
-RL step cost come from the scripts in [`scripts/`](scripts/), which need the gitignored H28
+Gate 0, a committed test and its reference CSV). Each CSV's commit is in
+`git log -- reports/`, and [`tests/test_readme_results.py`](tests/test_readme_results.py)
+checks the numbers this page takes from them. Solve times and a few supporting checks come
+from one-off runs; the checks are marked. The example-day numbers and the spread of the RL
+step cost come from the scripts in [`scripts/`](scripts/), which need the gitignored H28
 dataset.
 
 ```bash
