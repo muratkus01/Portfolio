@@ -197,9 +197,15 @@ def test_products_follow_berlin_clock_hours_across_daylight_saving():
 
 def test_the_gate_and_the_award_are_nine_and_half_past_nine_berlin():
     """B3 bids at 09:00 Berlin on D-1 and learns its award at 09:30 (MfRRA § 20 (3)): at 08:00
-    and 08:30 UTC in January, 07:00 and 07:30 UTC in July. The window's last day has neither,
-    as its next day lies outside the window. The gate before the 23-hour 30 March 2025 bids
-    for 92 steps, the one before the 25-hour 26 October 2025 for 100."""
+    and 08:30 UTC in January, 07:00 and 07:30 UTC in July, and on the daylight-saving days by
+    the clock that holds on them. The window's last day has neither, as its next day lies
+    outside the window. The gate before the 23-hour 30 March 2025 bids for 92 steps, the one
+    before the 25-hour 26 October 2025 for 100.
+
+    Negative control: a gate counted 36 steps, 9 hours of elapsed time, from each Berlin
+    midnight is an hour late on 30 March and an hour early on 26 October, so the checks on
+    those days tell the Berlin clock from a step offset.
+    """
     for first, gate_utc in ((datetime.date(2025, 1, 14), "08:00"),
                             (datetime.date(2025, 7, 14), "07:00")):
         index, prices = _window(first, 3)
@@ -207,19 +213,30 @@ def test_the_gate_and_the_award_are_nine_and_half_past_nine_berlin():
 
         assert list(index[prices.gate]) == gates
         assert list(index[prices.award]) == [gate + pd.Timedelta(minutes=30) for gate in gates]
-    for first, steps in ((datetime.date(2025, 3, 29), 92), (datetime.date(2025, 10, 25), 100)):
-        _, prices = _window(first, 3)
+    for first, steps, gates_utc in (
+            (datetime.date(2025, 3, 29), 92, ("2025-03-29 08:00", "2025-03-30 07:00")),
+            (datetime.date(2025, 10, 25), 100, ("2025-10-25 07:00", "2025-10-26 08:00"))):
+        index, prices = _window(first, 3)
+        gates = [pd.Timestamp(gate, tz="UTC") for gate in gates_utc]
         bids_for = prices.day[prices.gate][0] + 1
+
         assert np.sum(prices.day == bids_for) == steps, first
+        assert list(index[prices.gate]) == gates, first
+        assert list(index[prices.award]) == [gate + pd.Timedelta(minutes=30) for gate in gates]
+        since_midnight = np.arange(len(index)) - np.searchsorted(prices.day, prices.day)
+        step_offset_gate = (since_midnight == 36) & (prices.day < prices.day[-1])
+        assert list(index[step_offset_gate]) != gates, first
 
 
 def test_the_bid_is_the_same_product_on_the_previous_day():
     """B3 bids each product at its German average of the previous Berlin day, to whole cents
     (MfRRA § 4 (3)(h)), matched by product and not by step offset: on 26 October 2025 the
     00_04 product lasts 5 hours, and each of its 20 steps bids the 00_04 of the day before.
-    On the window's first day, which has no gate inside the window, there is no bid."""
+    On the window's first day, which has no gate inside the window, there is no bid, and
+    "bid" pays nothing there, although the table holds the day before it, as the yearly
+    table does for every window that does not start on 1 January."""
     days = _days(datetime.date(2025, 10, 25), 3)
-    table = parse_results(results_xlsx(days))
+    table = parse_results(results_xlsx(_days(datetime.date(2025, 10, 24), 4)))
 
     def product(day, direction, start_h):
         return ((table["date"] == day) & (table["direction"] == direction)
@@ -236,6 +253,9 @@ def test_the_bid_is_the_same_product_on_the_previous_day():
     assert np.isnan(prices.bid_up[prices.day == 0]).all()
     assert np.isnan(prices.bid_down[prices.day == 0]).all()
     assert np.isfinite(prices.bid_up[prices.day > 0]).all()
+    paid = paid_prices(prices, "bid")
+    assert [bool(np.any(side[prices.day == 0])) for side in paid] == [False, False]
+    assert [bool(np.any(side[prices.day > 0])) for side in paid] == [True, True]
 
 
 def test_a_bid_is_paid_only_where_it_was_at_or_below_the_marginal():
