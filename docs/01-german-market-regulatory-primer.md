@@ -354,26 +354,32 @@ Detailed access notes, licences and known pitfalls: [`02-data-sources.md`](02-da
 
 ---
 
-## 9. Master statutory constants reference table
+## 9. Regulatory constants in the code
 
-The table below compiles every regulatory constant, levy, surcharge, and tax rate instantiated across the six portfolio packages, citing the underlying legal norm and temporal validity.
+The constants below are the ones the code holds: the symbol it uses, its default value, and
+the source its comment cites. Projects are named as at the top. The concession fee, and the
+KWKG and offshore levies as separate rates, which an earlier version of this table listed,
+are in no project.
 
-| Parameter / Constant | Code Symbol | Value | Statutory Source | Validity Period | Applied In |
-|---|---|---|---|---|---|
-| Value Added Tax | vat_rate | 19.0% | UStG § 12(1) | Ongoing (2024-2026) | P01, P03, P04 |
-| Electricity Tax | electricity_tax | 2.05 ct/kWh (0.0205 €/kWh) | StromStG § 3 | Ongoing (standard rate) | P01, P04 |
-| Concession Fee | concession_fee | 1.50 ct/kWh (0.0150 €/kWh) | KAV § 2(2) (standard municipal band) | Ongoing | P01, P04 |
-| KWKG Cogeneration Surcharge | kwkg_levy | 0.275 ct/kWh (0.00275 €/kWh) | KWKG § 26 / netztransparenz.de | 2024-2025 | P01, P04 |
-| Offshore Network Surcharge | offshore_levy | 0.656 ct/kWh (0.00656 €/kWh) | EnFG § 12 / netztransparenz.de | 2024-2025 | P01, P04 |
-| Residential Working Grid Fee | grid_working_fee | 8.50 ct/kWh (0.0850 €/kWh) | BNetzA Monitoring Report / DSO tariffs | 2024-2025 benchmark | P01, P04 |
-| Static Retail Surcharges Sum | static_adders_total | 15.05 ct/kWh (0.1937 €/kWh with VAT) | Statutory sum: StromStG + KAV + EnFG + KWKG + Grid | 2024-2025 | P01 (prosumer.market) |
-| Fixed Solar Export Feed-in Tariff | eeg_feedin_ref | 7.86 ct/kWh (0.0786 €/kWh) | EEG 2023 § 21(1) / § 48 (rooftop <= 10 kWp) | 2024-2025 | P01, P04 |
-| Industrial Pump Network Charge | network_charge_pump | 12.00 €/MWh | BNetzA standard industrial MV working price | 2024-2025 reference | P02 (psw.config) |
-| Pumped Storage Grid Fee Exemption | para_118_6_exempt | True (20-year operational holiday) | EnWG § 118(6) | Active (valid 2024-2026) | P02 (psw.config) |
-| SteuVE Minimum Power Floor | p_min_dim_kw | 4.20 kW per controllable asset | BNetzA BK6-22-300 / BK8-22/010-A | Effective 2024-01-01 | P03 (evc.config) |
-| § 14a Module 1 Flat Discount | mod1_flat_eur | 110.0 to 190.0 €/year (~150 €/a default) | BNetzA Module 1 Determination | Effective 2024-01-01 | P03 (evc.market) |
-| § 14a Module 2 Percentage Discount | mod2_discount_pct | 60.0% reduction on working price | BNetzA Module 2 Determination | Effective 2024-01-01 | P03 (evc.market) |
-| § 42b Collective Building Supply | internal_price_default | 18.00 ct/kWh (0.1800 €/kWh) | EnWG § 42b / EEG § 21 Mieterstrom | Effective 2024-01-01 | P04 (rec.config) |
-| Negative Price Curtailment Gate | negative_price_rule | 4h / 3h / 1h consecutive negative hours | EEG § 51 / Solarspitzengesetz 2025 | Vintage-dependent | P02 (hybrid.config) |
-| Imbalance Settlement Period | mtu_minutes | 15 minutes | StromNZV § 4 / SDAC 15-min implementation | Ongoing (DE-LU standard) | All projects |
-
+| Parameter | Code symbol | Value | Source, as the code cites it | Where |
+|---|---|---|---|---|
+| VAT | `vat`; `grid_vat` and `shared_vat` in A4 | 19 %; 0 % at A3's commercial depot | UStG § 12 (1); the depot reclaims it (UStG § 15) | 01, A3, A4 |
+| Electricity tax | `electricity_tax`; `grid_electricity_tax` in A4 | 2.05 ct/kWh | § 3 StromStG, standard rate, 2024/2025 | 01, A3, A4 |
+| Levies (KWKG, offshore network levy, § 19 StromNEV) as one figure | `levies`; `grid_levies` in A4 | 1.5 ct/kWh | 2024/2025 | 01, A3, A4 |
+| Network charge, energy component | `network_charge` in 01; `grid_network_charge` in A4; `network_energy` in A3 | 8.5 ct/kWh; 6.0 ct/kWh at A3's depot | DSO and BNetzA averages, 2024/2025 | 01, A3, A4 |
+| Feed-in tariff for small PV | `feed_in_tariff` | 7.86 ct/kWh | EEG 2023 § 48 (1) Nr. 1, partial feed-in, February 2025 (A4); a legacy option in 01 | 01, A4 |
+| Applicable value, onshore wind | `MarketConfig.anzulegender_wert_wind` | 73.5 EUR/MWh | the BNetzA ceiling of the 2025 onshore tenders (EEG 2023 § 36), as in 2024; not an award | 02 |
+| Applicable value, PV | `MarketConfig.anzulegender_wert_pv` | 68.0 EUR/MWh | the BNetzA ceiling of the 2025 ground-mounted solar tenders (§ 37), 73.7 EUR/MWh in 2024; not an award | 02 |
+| Direct marketing fee | `MarketConfig.direct_marketing_fee` | 3.0 EUR/MWh | a trader's management fee, 2024/2025 | 02 |
+| Negative-price rule | `negative_price_rule` | in 02, by vintage: `none`, `six_hour`, `four_hour`, `three_hour`, `two_hour`, `one_hour`, `new_2025` (section 2.2); in 01, `none` or `new_2025` | § 51 EEG, kept per vintage by § 100; BGBl. 2025 I Nr. 51 | 02, 01 |
+| § 14a guaranteed minimum power | `Para14aConfig.p_min_kw` in 01; `Para14aConfig.p_min_total_kw` in A3 | 4.2 kW | BNetzA BK6-22-300 / BK8-22/010-A, in force 1 January 2024 | 01, A3 |
+| § 14a Module 1, flat reduction | `module_1_annual_reduction` | 190 EUR/a | the same determination | 01, A3 |
+| § 14a Module 2, reduction | `module_2_reduction` | 60 % of the network charge's energy component | the same determination | 01, A3 |
+| § 14a Module 3, time-variable factors | `module_3_factors` | 0.4 / 1.0 / 1.9 (low / standard / high) | the same determination | 01, A3 |
+| Peak charge | `peak_charge_eur_kw_year` | 120 EUR/kW/a, on the billing period's highest quarter-hour | § 19 (2) StromNEV, 2024/2025 | A3 |
+| THG-Quote revenue | `thg_eur_kwh` | 6 ct per kWh charged | 38. BImSchV, 2024 | A3 |
+| Pumped-storage network-charge exemption | `para_118_6_exempt` | on | § 118 (6) EnWG | A2 |
+| Pump network charge, if the exemption lapses | `network_charge_pump` | 12 EUR/MWh | BNetzA monitoring report, 2024/2025 | A2 |
+| Mieterstrom surcharge | `mieterstrom_surcharge` | 2.61 ct/kWh, in the Mieterstrom regime | § 21 (3) / § 48a EEG, 2024/2025 | A4 |
+| Internal price of shared energy | `internal_price` | 20 ct/kWh under § 42b EnWG; 24 under Mieterstrom; 18 under energy sharing | an assumption per regime, not a statutory value | A4 |
+| Step length | `dt` | 0.25 h | the 15-minute market time unit (section 1.1) | every project |
