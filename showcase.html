@@ -2106,7 +2106,7 @@
       <div class="sec-header">
         <h2 class="sec-title"><span class="sec-num-badge">02</span> Utility Hybrid Wind+PV+BESS Plant Dispatch</h2>
         <p class="sec-summary">
-          A co-located plant of <strong>50 MW onshore wind</strong>, <strong>30 MWp PV</strong> and a <strong>20 MW / 40 MWh battery</strong> behind one <strong>60 MW grid connection</strong> in Germany; it is not a real site. The plant earns the <strong>day-ahead price</strong> plus the <strong>EEG market premium</strong>, computed per technology and paid as one blended rate, under the <strong>EEG §51 negative-price rule</strong> of each plant vintage. A benchmark ladder from B0 (no battery) to B3 (a rolling LP-MPC), whose optimisers are linear programs solved with PuLP and CBC, runs on Energy-Charts national wind and solar generation and day-ahead prices for the calendar years 2024 and 2025.
+          A co-located plant of <strong>50 MW onshore wind</strong>, <strong>30 MWp PV</strong> and a <strong>20 MW / 40 MWh battery</strong> behind one <strong>60 MW grid connection</strong> in Germany; it is not a real site. The plant earns the <strong>day-ahead price</strong> plus the <strong>EEG market premium</strong>, computed per technology and paid as one blended rate, under the <strong>EEG §51 negative-price rule</strong> of each plant vintage. A benchmark ladder from B0 (no battery) to B3 (a rolling LP-MPC), whose optimisers are linear programs solved with PuLP and CBC, runs on Energy-Charts national wind and solar generation and day-ahead prices: B0 to B2 over the calendar years 2024 and 2025, and B3 on two 30-day windows of 2025.
         </p>
         <div class="topology-strip">
           <span class="topo-node accent">50 MW Wind + 30 MWp PV (National Profiles)</span>
@@ -2123,15 +2123,15 @@
         <div class="data-col">
           <div class="metrics-strip">
             <div class="mini-metric">
-              <div class="mini-lbl">B3 Share of Gain, Jan / Jul 2025</div>
-              <div class="mini-val emerald">94.1 / 95.4%</div>
+              <div class="mini-lbl">B3 Share of Gain, Jan / Jul 2025, Synthetic Forecasts (Optimistic)</div>
+              <div class="mini-val amber">94.1 / 95.4%</div>
             </div>
             <div class="mini-metric">
-              <div class="mini-lbl">Battery's Own Value (B2), 2024 / 2025</div>
+              <div class="mini-lbl">Battery's Own Value at 60 MW, B2 Upper Bound, 2024 / 2025</div>
               <div class="mini-val cyan">1.24M / 1.46M EUR</div>
             </div>
             <div class="mini-metric">
-              <div class="mini-lbl">Quarter-Hours above 60 MW, 2024 / 2025</div>
+              <div class="mini-lbl">Quarter-Hours with Generation above 60 MW, 2024 / 2025</div>
               <div class="mini-val amber">0 / 0</div>
             </div>
             <div class="mini-metric">
