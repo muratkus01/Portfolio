@@ -48,20 +48,17 @@ CLASSIC_SCRIPT_PARSER = (
 def check_canvases_and_functions(html):
     """Checks 2: the simulator canvases and their functions; returns the function names."""
     # Projects 02, 03 and 04 were archived on 2026-10-09; see archive/README.md.
-    # The current P03 has no simulator canvas: its scenario grid swept synthetic forecast noise
-    # and was retired.
-    canvases = ['dispatchCanvas', 'p02-dispatchCanvas']
+    # The current P02 and P03 have no simulator canvas: their scenario grids were retired, P02's
+    # for a sweep on hourly prices read as quarter-hours and extrapolated from 14 days, P03's
+    # for sweeping synthetic forecast noise. Both publish CSVs in their reports/ folders.
+    canvases = ['dispatchCanvas']
     for c in canvases:
         assert f'id="{c}"' in html, f"Missing canvas {c}"
         print(f"Canvas OK: {c}")
 
     funcs = [
-        'drawDispatchCanvas', 'drawDispatchCanvasP02',
-        'selectDayRegime', 'selectDayRegimeP02',
-        'toggleChannel', 'toggleChannelP02',
-        'updateHud', 'updateHudP02',
-        'setupCanvasListeners', 'setupCanvasListenersP02',
-        'updateRepresentativeDaysForYear', 'getRegimes'
+        'drawDispatchCanvas', 'selectDayRegime', 'toggleChannel', 'updateHud',
+        'setupCanvasListeners', 'updateRepresentativeDaysForYear', 'getRegimes'
     ]
     for fn in funcs:
         assert f'function {fn}(' in html, f"Missing function {fn}"
