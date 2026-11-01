@@ -64,13 +64,20 @@ def paid_prices(prices: CapacityPrices, basis: str) -> tuple[np.ndarray, np.ndar
     """What a reservation is paid per step, EUR/MW/h, up and down.
 
     The auction pays as bid (BK6-15-158, Tenor 9a) and accepts bids from the lowest price up
-    (MfRRA § 20 (8)), so a bid is accepted where it is at or below the realised marginal, a
-    tie included. The battery's few MW are taken not to move the marginal.
+    (MfRRA § 20 (8)), so a bid below the realised marginal is accepted. A bid equal to it is
+    counted as accepted too, which is an assumption: § 20 (8)(c) settles equal prices by
+    lot, and a bid at the marginal may be accepted in part. The battery's few MW are taken
+    not to move the marginal.
+    For the settlement only. "bid" reads the realised marginal, which is the 09:30 award, so
+    B3 must not plan on it at its 09:00 gate: there it knows its bids (bid_up, bid_down) and
+    nothing of the award, prices day D's products at those bids, and counts only a missing
+    or zero bid as unpaid.
     prices: the window's CapacityPrices.
     basis: "bid", the bid where it was accepted, and 0 where it was not or where there is no
         bid (NaN, on the window's first day); or, as B2's sensitivities, "average", what the
         average accepted MW earned, or "marginal", the most any bid could have earned.
-    Returns (up, down), one price per step.
+    Returns (up, down), one price per step: new arrays on "bid", and the realised arrays of
+        `prices`, which are read-only, on "average" and "marginal".
     Raises ValueError for any other basis.
     """
     if basis == "bid":
