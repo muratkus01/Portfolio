@@ -70,8 +70,11 @@ no errors, section badges read 01, 02, 03, all three figures load.
 1. **Decide the auto-committer question above.** It affects everything else that gets
    committed here.
 
-2. **Make projects 02 and 03 commit their results.** This is the largest single gap in the
-   portfolio and the cheapest to close.
+2. ~~**Make projects 02 and 03 commit their results.** This is the largest single gap in the
+   portfolio and the cheapest to close.~~ **Done, noted 2026-11-02:** P02 commits its result
+   CSVs with `run_meta.csv` under `projects/02-*/reports/` (`e97812e`), P03 under
+   `projects/03-*/reports/`, the backtest in `validation/` and `test/` with a `run_meta.json`
+   each (`973e338`), and both READMEs cite them. The table is the state of 2026-10-31.
 
    | | README lines | figures embedded | CSVs in `reports/` | `reports/` cited |
    |---|---:|---:|---:|---:|
@@ -79,12 +82,12 @@ no errors, section badges read 01, 02, 03, all three figures load.
    | 02 Hybrid | 418 | 1 | **0** | once |
    | 03 Forecast | 421 | 1 | **0** | once |
 
-   Neither 02 nor 03 writes a single result file, so every number in their READMEs comes from
+   ~~Neither 02 nor 03 writes a single result file, so every number in their READMEs comes from
    a console run and cannot be checked by a reader. That is why the code walkthroughs could
    only list those numbers as unverified claims, and why a live run of
    `python -m f2b.cli policies --year 2025 --days 30` returned different figures than the P03
    README did before it was corrected. Add a CLI subcommand per project that writes what it
-   computes into `reports/`, then cite those files from the README.
+   computes into `reports/`, then cite those files from the README.~~
 
 3. **Project 03 does not forecast anything.** `src/f2b/forecast.py:76` is still `ar_noise`:
    the truth plus an AR(1) perturbation whose spread widens with lead time. The reported MAE,
@@ -639,10 +642,12 @@ Left alone on purpose: `archive/` keeps the numbers those projects had, so `arch
 and `projects/02-utility-hybrid` now coexist. `HANDOFF.md` entries before this date keep the old
 numbering, because they record what happened at the time.
 
-Still open for the two newer projects: neither commits a single result file. P01 has 51 CSVs
+~~Still open for the two newer projects: neither commits a single result file. P01 has 51 CSVs
 under `reports/` and cites them 16 times in its README; P02 and P03 have none and cite
 `reports/` once each. Every number in their READMEs comes from a console run, which is why
-Antigravity could only mark them as unverified claims in the walkthroughs.
+Antigravity could only mark them as unverified claims in the walkthroughs.~~ **Superseded,
+noted 2026-11-02:** both now commit their result CSVs and cite them from their READMEs; see
+next action 2 of "Starting point on the other machine" at the top.
 
 
 ## Open data-quality questions on P01, unanswered as of 2026-10-31
