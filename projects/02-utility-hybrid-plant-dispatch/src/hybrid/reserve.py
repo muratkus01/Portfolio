@@ -5,13 +5,40 @@ of them imports `afrr_data`, which reads regelleistung.net's files.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, fields
 
 import numpy as np
 
-# What a reservation can be paid on (`paid_prices`): B2 on any of them, as a sensitivity;
-# B3, which bids, always on "bid".
-PRICE_BASES = ("bid", "average", "marginal")
+# In config, beside the setting it validates (MarketConfig.afrr_price_basis), so that this
+# module may read config and config needs nothing from here.
+from .config import AFRR_PRICE_BASES as PRICE_BASES
+
+
+@dataclass(frozen=True)
+class ReserveRule:
+    """How much energy an aFRR reservation keeps in the battery, per reserved direction.
+
+    Positive reserve of r MW keeps max(r x hours_up, floor_mwh) MWh it can deliver; negative
+    reserve keeps max(r x hours_down, floor_mwh) MWh of room it can absorb (PQ conditions
+    §§ 1.6, 2.7.1-2.7.3; MarketConfig's afrr_* fields give the defaults and their reasons).
+    hours_up, hours_down: hours, finite and above 0, e.g. 4.0 and 1.0.
+    floor_mwh: MWh, finite and at least 0, e.g. 5.0, 15 minutes of a 20 MW battery; 0 drops
+        the floor, as B2 plans.
+    Raises ValueError for any other value.
+    """
+    hours_up: float
+    hours_down: float
+    floor_mwh: float
+
+    def __post_init__(self) -> None:
+        for name, zero_allowed in (("hours_up", False), ("hours_down", False),
+                                   ("floor_mwh", True)):
+            value = getattr(self, name)
+            bound = "at least 0" if zero_allowed else "above 0"
+            if not (math.isfinite(value) and (value >= 0 if zero_allowed else value > 0)):
+                raise ValueError(f"ReserveRule.{name} must be finite and {bound}, "
+                                 f"not {value!r}")
 
 
 @dataclass(frozen=True)

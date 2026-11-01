@@ -12,6 +12,7 @@ Sign convention:
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field, replace
 
 
@@ -87,18 +88,20 @@ class PlantConfig:
 # Negative-price rules the settlement implements, oldest vintage first.
 NEGATIVE_PRICE_RULES = ("none", "six_hour", "four_hour", "three_hour", "two_hour",
                         "one_hour", "new_2025")
+# What an aFRR reservation can be paid on (`reserve.paid_prices`): B2 on any of them, as a
+# sensitivity; B3, which bids, always on "bid".
+AFRR_PRICE_BASES = ("bid", "average", "marginal")
 
 
 @dataclass(frozen=True)
 class MarketConfig:
-    """EEG direct marketing, the negative-price rule, and imbalance settlement.
+    """EEG direct marketing, the negative-price rule, imbalance settlement and aFRR capacity.
 
-    Note on planned ancillary service extensions:
-    The following parameters are declared for planned battery aFRR co-bidding extensions
-    and are not yet active in energy-only direct marketing dispatch:
-    - afrr_enabled: switch for battery reserve bidding (currently False)
-    - afrr_capacity_eur_mw_h: expected reserve capacity clearing price
-    - afrr_block_steps: 4-hour reservation product block length (16 quarter-hours)
+    The afrr_* fields describe aFRR capacity reserved by the battery, Phase A: capacity in the
+    12 daily 4-hour products, positive ("up") and negative ("down"), without activation. They
+    set what a reservation is paid and how much energy it keeps in the battery. With
+    afrr_enabled off, as by default, no rung reserves aFRR and they change no result.
+    Raises ValueError for a setting outside what its rule allows.
     """
 
     # --- EEG market premium ---
@@ -127,10 +130,28 @@ class MarketConfig:
     imbalance_enabled: bool = True
     rebap_sigma: float = 55.0                # EUR/MWh, heavy-tailed around the spot price
 
-    # --- optional aFRR participation by the battery (declared for planned extension) ---
-    afrr_enabled: bool = False               # declared for planned aFRR extension; not yet active
-    afrr_capacity_eur_mw_h: float = 10.0     # declared for planned aFRR extension; not yet active
-    afrr_block_steps: int = 16               # declared for planned aFRR extension; not yet active
+    # --- aFRR capacity reserved by the battery (Phase A: no activation) ---
+    afrr_enabled: bool = False
+    # What B2 is paid for a reservation: "bid", B3's bid where it was accepted; or, as
+    # sensitivities, "average", the realised German average, or "marginal", the realised
+    # German marginal (`reserve.paid_prices`). B3 is always paid its bid.
+    afrr_price_basis: str = "bid"
+    # Hours of the reserved MW kept in the battery while a product is reserved. Up: 4 hours,
+    # what the battery delivers from store alone, as without grid charging no storage
+    # management secures 4 hours of positive delivery (PQ conditions v1.05 §§ 1.6, 2.7.2,
+    # 2.7.3); 1 hour is a sensitivity that needs such a concept. Down: 1 hour of room, as the
+    # battery's storage management sells energy and needs no grid charging (§ 2.7.1).
+    afrr_energy_hours_up: float = 4.0
+    afrr_energy_hours_down: float = 1.0
+    # At least 15 minutes of the PQ power, PlantConfig.bess_mw, per reserved direction: the
+    # second lower limit of § 2.7.1, applied per product as v1.06 § 2.7.2 states. 0 drops it.
+    afrr_floor_hours: float = 0.25
+    # EUR per MWh of reserve not held, charged on top of the cut of its capacity payment. It
+    # stands in for MfRRA's incentive component (§ 25 (2)(a)(i)(2)), whose intraday index
+    # the model does not load, and lies above every capacity and day-ahead price of 2024-2025
+    # (at most 3,783.56 EUR/MW/h and 936.28 EUR/MWh), so no plan profits from holding less
+    # than it sold.
+    afrr_shortfall_penalty_eur_mwh: float = 10_000.0
 
     # --- redispatch (§ 13a EnWG) ---
     redispatch_prob_per_step: float = 0.001
@@ -139,6 +160,18 @@ class MarketConfig:
     def __post_init__(self) -> None:
         if self.negative_price_rule not in NEGATIVE_PRICE_RULES:
             raise ValueError(f"unknown negative_price_rule {self.negative_price_rule!r}")
+        if self.afrr_price_basis not in AFRR_PRICE_BASES:
+            raise ValueError(f"unknown afrr_price_basis {self.afrr_price_basis!r}; it is one "
+                             f"of {AFRR_PRICE_BASES}")
+        # a band or a penalty of 0 would let a reservation hold no energy, or cost nothing
+        for name, zero_allowed in (("afrr_energy_hours_up", False),
+                                   ("afrr_energy_hours_down", False),
+                                   ("afrr_floor_hours", True),
+                                   ("afrr_shortfall_penalty_eur_mwh", False)):
+            value = getattr(self, name)
+            bound = "at least 0" if zero_allowed else "above 0"
+            if not (math.isfinite(value) and (value >= 0 if zero_allowed else value > 0)):
+                raise ValueError(f"{name} must be finite and {bound}, not {value!r}")
 
 
 @dataclass(frozen=True)

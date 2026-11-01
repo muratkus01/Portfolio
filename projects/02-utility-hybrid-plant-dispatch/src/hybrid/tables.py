@@ -29,16 +29,20 @@ PLANT_SETTINGS = ("wind_mw", "pv_mw", "bess_mw", "bess_mwh", "conn_mw", "soc_min
                   "grid_charging_allowed")
 MARKET_SETTINGS = ("eeg_enabled", "anzulegender_wert_wind", "anzulegender_wert_pv",
                    "direct_marketing_fee", "negative_price_rule")
+# The aFRR settings are recorded only where aFRR is enabled, as market_<name>, like B3's
+# below: with it off they change no result, and the rows of every run without aFRR keep the
+# columns they had.
+AFRR_SETTINGS = ("afrr_enabled", "afrr_price_basis", "afrr_energy_hours_up",
+                 "afrr_energy_hours_down", "afrr_floor_hours", "afrr_shortfall_penalty_eur_mwh")
 # B3's settings are recorded only where B3 ran, as b3_<name>: they change nothing for the
 # other rungs, whose rows in that run carry them as well.
 B3_SETTINGS = ("horizon_steps", "terminal_value", "terminal_price", "forecast_sigma",
                "forecast_rho", "forecast_price_scale", "seed")
 # Declared, but no command reads them, so a row that listed them would suggest they were
-# modelled: the ramp limit; the aFRR fields, as aFRR is not built yet; the redispatch fields,
-# as no command applies an order; and the reBAP fields, which settle nothing because no rung
-# commits a schedule (`baselines.run_ladder`).
-INERT_SETTINGS = ("ramp_mw_per_step", "afrr_enabled", "afrr_capacity_eur_mw_h",
-                  "afrr_block_steps", "redispatch_prob_per_step", "redispatch_depth",
+# modelled: the ramp limit; the redispatch fields, as no command applies an order; and the
+# reBAP fields, which settle nothing because no rung commits a schedule
+# (`baselines.run_ladder`).
+INERT_SETTINGS = ("ramp_mw_per_step", "redispatch_prob_per_step", "redispatch_depth",
                   "imbalance_enabled", "rebap_sigma")
 
 
@@ -66,7 +70,8 @@ def window_columns(inputs: str, year: int | None, steps: int, dt: float,
 
 
 def settings(run: RunConfig, with_b3: bool, plant: PlantConfig | None = None) -> dict:
-    """The settings a result ran with, as columns: plant_*, market_*, and b3_* where B3 ran.
+    """The settings a result ran with, as columns: plant_*, market_* (the aFRR ones only
+    where run.market.afrr_enabled is True), and b3_* where B3 ran.
 
     run: the run's settings. with_b3: whether B3 ran in it.
     plant: the plant the row's rung ran on (`baselines.rung_plant`), run.plant by default.
@@ -76,6 +81,8 @@ def settings(run: RunConfig, with_b3: bool, plant: PlantConfig | None = None) ->
     # the start soc_init_frac stands for, in MWh: None starts the battery at its minimum
     cols["plant_soc_init_mwh"] = plant.soc_init
     cols.update({f"market_{name}": getattr(run.market, name) for name in MARKET_SETTINGS})
+    if run.market.afrr_enabled:
+        cols.update({f"market_{name}": getattr(run.market, name) for name in AFRR_SETTINGS})
     if with_b3:
         cols.update({f"b3_{name}": getattr(run, name) for name in B3_SETTINGS})
     return cols

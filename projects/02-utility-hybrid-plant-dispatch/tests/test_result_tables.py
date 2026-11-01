@@ -537,8 +537,33 @@ def test_every_setting_is_recorded_or_named_inert():
     re-run from what it records; a new setting has to be put on one of the lists."""
     from hybrid import tables
 
-    recorded = set(tables.PLANT_SETTINGS) | set(tables.MARKET_SETTINGS) | set(tables.B3_SETTINGS)
+    recorded = (set(tables.PLANT_SETTINGS) | set(tables.MARKET_SETTINGS)
+                | set(tables.AFRR_SETTINGS) | set(tables.B3_SETTINGS))
     declared = {f.name for cls in (PlantConfig, MarketConfig, RunConfig) for f in fields(cls)}
     # the step length is a window column, and plant and market are recorded field by field
     assert recorded | set(tables.INERT_SETTINGS) | {"dt", "plant", "market"} == declared
     assert not recorded & set(tables.INERT_SETTINGS)
+
+
+def test_the_afrr_settings_are_recorded_only_where_afrr_is_enabled():
+    """A row records the aFRR settings as market_* columns where aFRR is enabled, and only
+    there, so that every table of a run without aFRR, the committed ones included, keeps the
+    columns it had. On 87ce39a MarketConfig has neither afrr_price_basis nor the energy
+    bands, so the settings cannot be recorded."""
+    from dataclasses import replace
+
+    from hybrid import tables
+
+    run = RunConfig()
+    off = tables.settings(run, with_b3=False)
+    on = tables.settings(run.with_(market=replace(run.market, afrr_enabled=True,
+                                                  afrr_price_basis="marginal")), with_b3=True)
+
+    assert not [col for col in off if col.startswith("market_afrr_")]
+    assert {col: value for col, value in on.items() if col.startswith("market_afrr_")} == {
+        "market_afrr_enabled": True, "market_afrr_price_basis": "marginal",
+        "market_afrr_energy_hours_up": 4.0, "market_afrr_energy_hours_down": 1.0,
+        "market_afrr_floor_hours": 0.25, "market_afrr_shortfall_penalty_eur_mwh": 10_000.0}
+    # beside the other market settings, before B3's
+    assert list(on) == (list(off) + [f"market_{name}" for name in tables.AFRR_SETTINGS]
+                        + [f"b3_{name}" for name in tables.B3_SETTINGS])

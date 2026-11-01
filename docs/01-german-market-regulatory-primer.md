@@ -387,7 +387,7 @@ are in no project.
 | Pumped-storage network-charge exemption | `para_118_6_exempt` | on | § 118 (6) EnWG | A2 |
 | Pump network charge, if the exemption lapses | `network_charge_pump` | 12 EUR/MWh | BNetzA monitoring report, 2024/2025 | A2 |
 | aFRR minimum bid | `afrr_min_bid_mw` | 5 MW; A2's RL environment offers nothing below it | the prequalification minimum bid size | A2 |
-| aFRR product block | `block_steps` in A2; `afrr_block_steps` in 02 | 16 quarter-hours (4 h) | the 4-hour product blocks of regelleistung.net | A2; declared in 02, which reads no aFRR setting |
+| aFRR product block | `block_steps` in A2 | 16 quarter-hours (4 h) | the 4-hour product blocks of regelleistung.net | A2; 02 sets no block length, as it takes the products from Berlin clock time (`afrr_data.capacity_prices`), so the 00-04 product lasts 3 or 5 hours on the daylight-saving days |
 | Mieterstrom surcharge | `mieterstrom_surcharge` | 2.61 ct/kWh, in the Mieterstrom regime | § 21 (3) / § 48a EEG, 2024/2025 | A4 |
 | Internal price of shared energy | `internal_price` | 20 ct/kWh under § 42b EnWG; 24 under Mieterstrom; 18 under energy sharing | an assumption per regime, not a statutory value | A4 |
 | Step length | `dt` | 0.25 h | the 15-minute market time unit (section 1.1) | every project |
