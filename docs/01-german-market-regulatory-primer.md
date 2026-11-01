@@ -59,7 +59,9 @@ and, worse, can create commitments it cannot honour later. Project 03 models par
 **sequential, nested** decision problem: a day-ahead position, intraday trades at the ID AEP
 index and imbalance settled at reBAP. **Not implemented in any active project:** the
 balancing capacity auctions, balancing energy activation and the intraday auctions. The
-archived pumped-storage project (A2) co-optimised aFRR capacity with day-ahead energy.
+archived pumped-storage project (A2) reserved aFRR capacity against its day-ahead dispatch:
+its benchmark ladder ran on a static offer of 15 % of the rating in every block, and its RL
+environment lets the agent choose the capacity per four-hour block.
 
 ### 1.3 Balancing (Regelleistung) products
 
@@ -331,8 +333,8 @@ Four design rules follow from the above and are applied consistently across the 
    `§118(6)` applicability and negative-price rules are configuration, so sensitivity to
    regulatory change is a first-class result rather than an obsolescence risk.
 4. **The baseline is a rolling-horizon MPC on the same forecasts.** It is an LP in
-   Projects 01 and 02; the archived pumped-storage project (A2) needed a MILP, with a binary
-   direction variable. Project 03 climbs a forecast ladder instead. See
+   Projects 01 and 02; the archived pumped-storage project (A2) needed a MILP, with binary
+   pump and turbine modes. Project 03 climbs a forecast ladder instead. See
    [`03-methodology-benchmark-ladder.md`](03-methodology-benchmark-ladder.md).
 
 ---
