@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -19,6 +20,20 @@ from hybrid.plant import simulate
 # Every output of the rungs on the LP's stand-in, recorded at a802748, the last commit before
 # the aFRR build (test_the_rungs_reproduce_their_golden_runs_on_a_stand_in_solver).
 GOLDENS = Path(__file__).with_name("goldens_a802748_standin.json")
+
+
+def _pinned(golden, rel: float):
+    """What a pinned value must equal: `golden` within `rel`, or, with the environment
+    variable P02_PINS_EXACT=1, `golden` itself, bit for bit.
+
+    The tolerance is for CI: np.sin, which builds the inputs, may round its last bit
+    differently on another platform. A run on the machine that recorded the goldens can ask
+    for bit-for-bit identity, which is what aFRR off promises.
+    golden: a number, or a list or dict of numbers, e.g. [0.0, 12.5] or {"net_revenue": 1.5}.
+    rel: the relative tolerance otherwise, e.g. 1e-12.
+    """
+    exact = os.environ.get("P02_PINS_EXACT") == "1"
+    return pytest.approx(golden, rel=0.0, abs=0.0) if exact else pytest.approx(golden, rel=rel)
 
 
 def window(n: int, seed: int = 0):
@@ -339,8 +354,16 @@ def _lp_terms(m: pulp.LpProblem) -> dict:
             "objective": (m.objective.constant, coefficients(m.objective))}
 
 
+def _solver_terms(solver, options: dict) -> tuple:
+    """How a model is handed to the solver: the solver's class, all its settings (messages,
+    time limit, options, threads and the rest) and any further arguments of LpProblem.solve."""
+    return type(solver), vars(solver), options
+
+
 def test_the_off_path_builds_todays_lp(monkeypatch):
-    """A pin: with aFRR off, solve_window hands the solver the LP it built at a802748.
+    """A pin: with aFRR off, solve_window hands the solver the LP it built at a802748, and
+    asks it to solve that LP as it did: CBC with its messages off, no time limit and no
+    options. With a time limit, CBC stops early and PuLP still reads "Optimal".
 
     The aFRR build moves the model into a builder of its own and adds reserve terms behind a
     switch. A recorder takes the solver's place, so the check needs no CBC and holds on every
@@ -348,8 +371,8 @@ def test_the_off_path_builds_todays_lp(monkeypatch):
     """
     built = []
 
-    def record(problem, *args, **kwargs):
-        built.append(problem)
+    def record(problem, solver=None, **options):
+        built.append((problem, solver, options))
         return problem.status
 
     monkeypatch.setattr(pulp.LpProblem, "solve", record)
@@ -363,8 +386,74 @@ def test_the_off_path_builds_todays_lp(monkeypatch):
                                export_cap=cap)
         case = f"export cap {cap is not None}, grid charging {grid}, terminal price {terminal}"
         assert len(built) == 1, case
+        problem, solver, options = built[0]
         frozen = _frozen_lp(wind, pv, eff, run.dt, run, 12.0, terminal, cap)
-        assert _lp_terms(built[0]) == _lp_terms(frozen), case
+        assert _lp_terms(problem) == _lp_terms(frozen), case
+        assert _solver_terms(solver, options) == _solver_terms(pulp.PULP_CBC_CMD(msg=False),
+                                                               {}), case
+
+
+def _frozen_plan(m: pulp.LpProblem, wind, pv):
+    """A frozen copy of how `baselines.solve_window` read a solved model at a802748: (battery
+    power, curtailment fraction) per step, or None unless the solve was optimal.
+
+    Never edit it to match the code: a difference means that the plan is read differently.
+    """
+    if pulp.LpStatus[m.status] != "Optimal":
+        return None
+    n = len(wind)
+    gen = np.asarray(wind, float) + np.asarray(pv, float)
+    var = m.variablesDict()
+    p_bat = np.array([(var[f"dis_{t}"].value() or 0.0) - (var[f"ch_{t}"].value() or 0.0)
+                      for t in range(n)])
+    used = np.array([var[f"g_{t}"].value() or 0.0 for t in range(n)])
+    curt_frac = np.where(gen > 1e-9, np.clip(1.0 - used / np.maximum(gen, 1e-9), 0, 1), 0.0)
+    return p_bat, curt_frac
+
+
+def test_the_off_path_reads_its_solution_as_it_did(monkeypatch):
+    """A pin: with aFRR off, solve_window turns a solved LP into its plan as it did at
+    a802748, and returns None where the solve is not optimal.
+
+    A fake solve takes CBC's place, so the check needs no CBC and holds on every platform. It
+    gives each variable a value set by its name, as CBC's solution does, and an optimal or an
+    infeasible status. Step 5 gets no values, which a802748 read as 0; step 2 has no
+    generation, whose curtailment it read as 0; the generation used lies below and above
+    what is available, so the curtailment fraction is clipped.
+    """
+    wind, pv, price = window(8, seed=3)
+    wind[2] = pv[2] = 0.0
+    run = RunConfig()
+    solved = []
+
+    def value(name: str) -> float:
+        # values with many digits, so that a plan read with any rounding differs
+        prefix, step = name.rsplit("_", 1)
+        t = int(step)
+        return {"g": (wind[t] + pv[t]) * (0.4 + 0.2 * t), "ch": 0.75 * t + wind[t] / 97.0,
+                "dis": 9.0 - 1.25 * t + 1.0 / (t + 3), "soc": 20.0, "exp": 30.0}[prefix]
+
+    def fake_solve(status):
+        def solve(problem, solver=None, **options):
+            problem.assignVarsVals({v.name: value(v.name) for v in problem.variables()
+                                    if not v.name.endswith("_5")})
+            problem.assignStatus(status)
+            solved.append(problem)
+            return problem.status
+        return solve
+
+    for status in (pulp.LpStatusOptimal, pulp.LpStatusInfeasible):
+        monkeypatch.setattr(pulp.LpProblem, "solve", fake_solve(status))
+        solved.clear()
+        plan = baselines.solve_window(wind, pv, price - 60.0, run.dt, run, 12.0)
+        assert len(solved) == 1
+        frozen = _frozen_plan(solved[0], wind, pv)
+        if status == pulp.LpStatusOptimal:
+            assert frozen is not None and plan is not None
+            assert plan[0].tolist() == frozen[0].tolist()
+            assert plan[1].tolist() == frozen[1].tolist()
+        else:
+            assert frozen is None and plan is None
 
 
 def _stand_in_solve_window(wind, pv, eff_price, dt, run, soc0, terminal_price=0.0,
@@ -451,7 +540,7 @@ def test_the_rungs_reproduce_their_golden_runs_on_a_stand_in_solver(monkeypatch)
     `_stand_in_runs`, one line per run: its name, then json.dumps of its outputs. Never
     re-record them to make this test pass. Its plans are not optimal, so B2 need not lead
     the ladder: the invariant is switched off here, and the other tests of this module keep
-    it.
+    it. Values agree at rel 1e-12, or bit for bit with P02_PINS_EXACT=1 (`_pinned`).
     """
     monkeypatch.setattr(baselines, "solve_window", _stand_in_solve_window)
     monkeypatch.setattr(baselines, "ladder_tolerance", lambda b2_revenue: float("inf"))
@@ -463,4 +552,4 @@ def test_the_rungs_reproduce_their_golden_runs_on_a_stand_in_solver(monkeypatch)
     for name, outputs in runs.items():
         assert list(outputs) == list(golden[name]), name
         for key, value in outputs.items():
-            assert value == pytest.approx(golden[name][key], rel=1e-12), f"{name}: {key}"
+            assert value == _pinned(golden[name][key], rel=1e-12), f"{name}: {key}"

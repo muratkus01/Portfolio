@@ -1,6 +1,8 @@
 """B3 rolling-horizon MPC for the hybrid plant, and the offline parts of the data layer."""
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -92,21 +94,33 @@ GOLDEN_B1_COST = {
 GOLDEN_B2_NET_EUR = 193862.48054459778
 
 
+def _pinned(golden, rel: float):
+    """`golden` within `rel`, or bit for bit with the environment variable P02_PINS_EXACT=1,
+    as in test_ladder_accounting.py: CI keeps the tolerance, a run on the machine that
+    recorded the goldens can ask for identity.
+
+    golden: a number or a dict of numbers. rel: the relative tolerance otherwise, e.g. 1e-12.
+    """
+    exact = os.environ.get("P02_PINS_EXACT") == "1"
+    return pytest.approx(golden, rel=0.0, abs=0.0) if exact else pytest.approx(golden, rel=rel)
+
+
 def test_afrr_off_reproduces_the_golden_ladder(ladder):
     """A pin: with aFRR off, the ladder earns what it earned at a802748, on CBC.
 
     B0 and B1 are pinned term by term at rel 1e-12: exact but for the last bits that np.sin,
     which builds the inputs, may round differently on another platform. B2 is pinned on its
-    net at rel 1e-7, as CBC's builds differ. Its spot revenue is not unique across optimal
-    vertices, so it is not pinned. B3 has no CBC golden: one of its 288 re-solves on another
-    optimal vertex would move it far more than any tight tolerance. The stand-in pins in
-    test_ladder_accounting.py carry B3.
+    net at rel 1e-7, as CBC's builds differ. With P02_PINS_EXACT=1, on the machine that
+    recorded them, all three are pinned bit for bit. B2's spot revenue is not unique across
+    optimal vertices, so it is not pinned. B3 has no CBC golden: one of its 288 re-solves on
+    another optimal vertex would move it far more than any tight tolerance. The stand-in pins
+    in test_ladder_accounting.py carry B3.
     """
     _, res = ladder
-    assert res["B0 no battery"]["cost"] == pytest.approx(GOLDEN_B0_COST, rel=1e-12)
-    assert res["B1 curtailment avoidance"]["cost"] == pytest.approx(GOLDEN_B1_COST, rel=1e-12)
-    assert res["B2 perfect foresight"]["cost"]["net_revenue"] == pytest.approx(
-        GOLDEN_B2_NET_EUR, rel=1e-7)
+    assert res["B0 no battery"]["cost"] == _pinned(GOLDEN_B0_COST, rel=1e-12)
+    assert res["B1 curtailment avoidance"]["cost"] == _pinned(GOLDEN_B1_COST, rel=1e-12)
+    assert res["B2 perfect foresight"]["cost"]["net_revenue"] == _pinned(GOLDEN_B2_NET_EUR,
+                                                                         rel=1e-7)
 
 
 def test_b3_plans_its_whole_horizon_on_the_premium_it_knows_now():
