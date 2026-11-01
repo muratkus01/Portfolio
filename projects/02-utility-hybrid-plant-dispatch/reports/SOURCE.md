@@ -5,6 +5,11 @@ on 31 October 2026. No CSV was edited by hand. For each experiment, `run_meta.cs
 commit it ran from (`git_commit`) and that the working tree had no uncommitted changes outside
 this folder (`git_dirty` is False).
 
+The two negprice experiments ran again on 1 November 2026, from a later commit, to add one
+column: `full_export_premium_by_technology_eur`. Every cell their tables held before is
+unchanged, and so is every row of `window_stats.csv`. They read the same cached responses, so
+their `input_sha256` rows are unchanged too.
+
 ## How the set was run
 
 The publish set is `PUBLISH_SET` in `src/hybrid/report.py`. This run split it into four parts
@@ -23,6 +28,13 @@ Each experiment writes its own table and replaces only its own rows in `window_s
 `run_meta.csv`, so the four parts add up to the whole set. `run_meta.csv` keeps each
 experiment's command (`command`) and the part it ran in (`argv`). To rerun the whole set in one
 process, run `python -m hybrid.cli report`; in series it takes about an hour.
+
+The rerun of 1 November 2026 ran two parts side by side, in the same way, for about 7 minutes each:
+
+```bash
+python -m hybrid.cli report --only negprice_2024
+python -m hybrid.cli report --only negprice_2025
+```
 
 Software: Python 3.12.10, numpy 2.5.4, pandas 3.1.0, PuLP 3.3.0 and the CBC binary that PuLP
 ships (section `environment` of `run_meta.csv`). The machine was a 4-core laptop (Intel Core
@@ -99,7 +111,7 @@ table includes intraday trading or a redispatch order either, and grid charging 
 | File | Rows | One row holds |
 |---|---:|---|
 | `sizing_2024.csv`, `sizing_2025.csv` | 20 each | one rung (B0, B1, B2, B2 no battery) at one connection, with the battery's value and the value of curtailing at low prices at that connection |
-| `negprice_2024.csv`, `negprice_2025.csv` | 30 each | one rung (B0, B1, B2) of one vintage under one negative-price rule of that year |
+| `negprice_2024.csv`, `negprice_2025.csv` | 30 each | one rung (B0, B1, B2) of one vintage under one negative-price rule of that year, with the premium that a plant exporting all of its generation would be paid per technology under that rule, as the law pays it, beside the blended rate every rung is settled on |
 | `negprice_2024_premium.csv`, `negprice_2025_premium.csv` | 13 each | one vintage and period: market value, premium and the plant's rate, for the recent vintage by year and the older one by month |
 | `decompose_2024.csv`, `decompose_2025.csv` | 8 each | one rung (B0, B1, B2, B2 no battery) at the 60 MW connection or at 200 MW, with the battery's value, the value of curtailing at low prices and the connection limit's effect on the battery's value |
 | `decompose_2024_conn-30.csv`, `decompose_2025_conn-30.csv` | 8 each | the same, with a 30 MW connection as built |

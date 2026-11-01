@@ -519,10 +519,10 @@ ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024-12 pv,111.57436346256699
 ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024 wind,64.43775687545524
 ladder_2025-07-01_30d,market_value_proxy_eur_mwh,2024 pv,46.28565466340612
 negprice_2024,run,command,negprice --year 2024 --full-year
-negprice_2024,run,argv,report --only sizing_2024 negprice_2024 decompose_2024 decompose_2024_conn-30
-negprice_2024,run,started_utc,2026-10-31T22:26:59+00:00
-negprice_2024,run,wall_time_s,404.9
-negprice_2024,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+negprice_2024,run,argv,report --only negprice_2024
+negprice_2024,run,started_utc,2026-11-01T00:19:38+00:00
+negprice_2024,run,wall_time_s,432.4
+negprice_2024,code,git_commit,e1c92678c66c543f11ff52cbd4b5aedff651bc9c
 negprice_2024,code,git_dirty,False
 negprice_2024,environment,python,3.12.10
 negprice_2024,environment,numpy,2.5.4
@@ -585,10 +585,10 @@ negprice_2024,market_value_proxy_eur_mwh,2024-12 pv,111.57436346256699
 negprice_2024,market_value_proxy_eur_mwh,2024 wind,64.43775687545524
 negprice_2024,market_value_proxy_eur_mwh,2024 pv,46.28565466340612
 negprice_2025,run,command,negprice --year 2025 --full-year
-negprice_2025,run,argv,report --only sizing_2025 negprice_2025 decompose_2025 decompose_2025_conn-30 b3_ablation_synthetic_demo
-negprice_2025,run,started_utc,2026-10-31T22:26:53+00:00
-negprice_2025,run,wall_time_s,406.7
-negprice_2025,code,git_commit,45ccf4fd0cce521e949228a144a9627342dafd62
+negprice_2025,run,argv,report --only negprice_2025
+negprice_2025,run,started_utc,2026-11-01T00:19:38+00:00
+negprice_2025,run,wall_time_s,431.5
+negprice_2025,code,git_commit,e1c92678c66c543f11ff52cbd4b5aedff651bc9c
 negprice_2025,code,git_dirty,False
 negprice_2025,environment,python,3.12.10
 negprice_2025,environment,numpy,2.5.4
