@@ -61,9 +61,8 @@ def test_curtailment_is_classified_by_cause():
     """Chosen and forced curtailment settle differently, so the split must follow the CAUSE.
 
     Regression test. Curtailment used to be labelled "chosen" whenever the controller asked
-    for it, even when the connection would have forced it anyway, which made a
-    perfect-foresight plan report 622 MWh of chosen curtailment over two negative-price
-    quarter-hours.
+    for it, even when the connection would have forced it anyway, so a plan's forced
+    curtailment counted as chosen. The first case below is that situation.
     """
     no_bess = dict(bess_mw=0.0, bess_mwh=1e-6)
 
