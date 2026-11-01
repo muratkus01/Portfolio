@@ -70,10 +70,15 @@ names.
    timestamp, licence and transformations.
 
 Projects 01 and 02 keep rules 1 and 3 in their own module layout: every rung of their ladder
-runs through the same plant, safety and market code. Rule 2 holds in Project 03, whose
-`ForecastStore` refuses a target before its issue; Project 02 has no forecast store. Rule 4
-holds in Projects 02 and 03 through their own commands instead of `make`; Project 01 marks
-the few numbers that come from one-off runs. None of the three commits its data (rule 5).
+runs through the same plant, safety and market code. Rule 2 holds in part in Project 03: its
+backtest tags every forecast with its issue step and audits each decision against it, but
+nothing makes the forecasts immutable. Project 02 has no forecast store. Rule 4 holds in
+part. Project 02 regenerates `reports/` with `python -m hybrid.cli report` and records input
+hashes in `run_meta.csv`, but its `docs/figures/` holds showcase illustrations drawn from
+synthetic shapes and fixed numbers, outside `reports/`. Project 03 writes its reports with
+`python -m f2b.cli backtest` and records the commit and package versions of each run but no
+input hashes, and its reBAP and ID AEP are downloaded by hand. Project 01 marks the few
+numbers that come from one-off runs. None of the three commits its data (rule 5).
 
 ## Dossier section checklist
 
