@@ -227,28 +227,32 @@ savings are measured against the same site without a battery.
 | **9.37 kWh** | **5.63 kW** | **4,349 €** | **-394.4 €** | **447.3 €/a** | **287** | **9.7 yr** | **10.3 %** | 10.8 % |
 | 12.00 kWh | 5.63 kW | 5,270 € | -458.1 € | 511.0 €/a | 273 | 10.3 yr | 9.7 % | 10.2 % |
 | 15.00 kWh | 5.63 kW | 6,320 € | -520.6 € | 573.5 €/a | 259 | 11.0 yr | 9.1 % | 9.5 % |
-| 15.00 kWh | 7.50 kW | 6,675 € | -533.0 € | 585.9 €/a | 261 | 11.4 yr | 8.8 % | 9.2 % |
+| 15.00 kWh | 7.50 kW | 6,675 € | -533.0 € | 585.9 €/a | 260 | 11.4 yr | 8.8 % | 9.2 % |
 
 Full sweep across all 20 configurations: [`reports/sizing_grid/sizing_grid.csv`](reports/sizing_grid/sizing_grid.csv).
 
 #### Sizing Insights
 
-1. **Return falls monotonically with size, savings do not.** Every step up in capacity buys
-   more absolute savings and a worse return: 5.0 kWh returns 13.3 % on capital, 9.37 kWh
-   returns 10.3 %, 15.0 kWh returns 9.1 %. Going from 9.37 to 15.0 kWh costs 1,970 EUR and
-   adds 126 EUR/a. The reason is visible in the cycle count, which falls from 316 to 260 full
-   equivalent cycles a year: a larger battery spends more of the German winter unused.
+1. **Return falls with size, savings do not.** At every inverter rating, each step up in
+   capacity buys more absolute savings and, with one exception, a worse return: at 7.5 kW,
+   7.5 kWh returns slightly more than 5.0 kWh (9.84 against 9.81 %). In the table above,
+   5.0 kWh with 3 kW returns 13.3 % on capital, 9.37 kWh with 5.63 kW 10.3 %, and 15.0 kWh
+   with 5.63 kW 9.1 %. Going from 9.37 to 15.0 kWh costs 1,970 EUR and adds 126 EUR/a. The
+   reason is visible in the cycle count, which falls from 316 to 260 full equivalent cycles
+   a year: a larger battery spends more of the German winter unused.
 2. **The inverter saturates early.** On a 9.37 kWh battery, going from 4.6 to 7.5 kW adds
-   8.8 EUR/a for 550 EUR of extra equipment. Anything from 4.6 kW upward captures nearly all
+   8.8 EUR/a for 551 EUR of extra equipment. Anything from 4.6 kW upward captures nearly all
    of the value for an 8 kWp array.
 3. **Who operates the battery costs less than how big it is.** Across all 20 configurations
    the deployable B3 realises 95 % of the perfect-foresight savings (94.5 to 96.1 %), a gap
-   of 0.4 to 0.8 points of ROCE. Choosing one size larger costs more return than the entire
-   distance between a real controller and a clairvoyant one.
+   of 0.4 to 0.8 points of ROCE. Each step down the table above, to the next larger battery,
+   costs more return than the entire distance between a real controller and a clairvoyant
+   one. At a fixed inverter that does not always hold: with 5.63 kW, going from 5.0 to
+   7.5 kWh costs only 0.3 points, and with 7.5 kW it raises the return by 0.03 points.
 4. **Sweet spot.** For an 8 kWp array and 3,221 kWh/a of consumption, 5 to 7.5 kWh of storage
-   with a 3 to 4.6 kW inverter maximises return (7.5 to 8.8 year payback, 11 to 13 % ROCE),
-   while the 9.37 kWh / 5.63 kW point trades about 3 points of ROCE for
-   139 EUR/a more absolute savings.
+   with a 3 to 4.6 kW inverter maximises return (7.5 to 8.9 year payback, 11 to 13 % ROCE),
+   while the 9.37 kWh / 5.63 kW point, against 5.0 kWh / 3 kW, trades about 3 points of ROCE
+   for 139 EUR/a more absolute savings.
 
 ### Aggregate household load per federal state
 
