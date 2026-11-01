@@ -2324,7 +2324,7 @@
             <button class="btn-copy" onclick="copyDynamicText('p03-cli-text')">Copy Command</button>
           </div>
           <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; margin-top: 8px;">
-            Refits the ladder on the training window and rewrites <code>reports/validation/</code> and <code>reports/frozen_config.json</code>, the B3 settings the test phase reads; LightGBM with three seeds is the slow step. Run <code>python -m f2b.cli build-data</code> first, and download reBAP and ID AEP by hand from netztransparenz.de into <code>data/raw/netztransparenz/</code> (P03 README, section 6). The test window was evaluated once: <code>backtest --phase test</code> refuses to overwrite <code>reports/test/</code>.
+            Refits the ladder on the training window and rewrites <code>reports/validation/</code> and <code>reports/frozen_config.json</code>, the B3 settings the test phase reads; LightGBM with three seeds is the slow step. Download reBAP and ID AEP by hand from netztransparenz.de into <code>data/raw/netztransparenz/</code> first, then run <code>python -m f2b.cli build-data</code> (P03 README, section 6). The test window was evaluated once: <code>backtest --phase test</code> refuses to overwrite <code>reports/test/</code>.
           </p>
         </div>
 
