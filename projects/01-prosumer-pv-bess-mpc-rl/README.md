@@ -70,11 +70,11 @@ Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kW
 
 | Rung | Controller | Net Cost (20.5m) | Net Cost (€/a) | Headroom % | Annual Cycles | Violations | Mean Solve | Payback | ROCE |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **B0** | PV only (no battery baseline) | +90.56 € | +52.89 € | 0.0 % (ref) | 0.0 | 0 | - | - | - |
+| **B0** | PV only (no battery baseline) | +90.56 € | +52.89 € | - | 0.0 | 0 | - | - | - |
 | **B1** | Rule-based self-consumption | -324.98 € | -189.80 € | 0.0 % (B1 ref) | 168.9 | 0 | < 1 ms | 17.9 yr | 5.6 % |
 | **B2** | Perfect foresight LP | -716.68 € | -418.57 € | 100.0 % | 298.2 | 0 | 4.2 s (yr) | 9.2 yr | 10.8 % |
 | **B3** | Deployable rolling MPC (realistic) | -675.27 € | -394.38 € | **89.4 %** | 287.5 | 0 | 5.9 ms ¹ | **9.7 yr** | **10.3 %** |
-| **RL** | Overhauled SAC (rescaled action, diff reward), median of 3 seeds | -451.82 € | -263.88 € | **32.4 %** | 267.8 | 0 | 1.2 ms | **13.7 yr** | **7.3 %** |
+| **RL** | Overhauled SAC (rescaled action, diff reward), seed 1, the median of 3 seeds by capture | -451.82 € | -263.88 € | **32.4 %** | 267.8 | 0 | 1.2 ms | **13.7 yr** | **7.3 %** |
 
 ¹ Solve time measured on an idle machine before the clock fix; the rerun CSV shows 19.5 ms because eight jobs shared four cores. The fix does not touch the controller.
 
@@ -198,7 +198,7 @@ With these two fixes applied, a 3-seed SAC evaluation was trained on 2024 and te
 
 - **Headroom Recovery:** Headroom recovery swung from **-7.3 %** to **+32.4 %** (range 31.7 % to 32.4 % across seeds), capturing an additional 127 EUR of economic value over the price-blind B1 heuristic. Before the HTW clock fix the same formulation reached 27.0 % (26.2 % to 32.3 %); one of those seeds already reached today's level, so with three seeds the change cannot be credited to the fix.
 - **Action Clipping:** Safety layer action clipping dropped from **77-82 % down to exactly 0.0 %** across all seeds.
-- **Physical Reliability:** Zero constraint violations across all 180,000 evaluated quarter-hours, verifying the safety layer guarantees.
+- **Physical Reliability:** Zero constraint violations across all 179,988 evaluated quarter-hours, verifying the safety layer guarantees.
 
 #### Which of the two changes did the work
 
