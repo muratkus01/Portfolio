@@ -90,23 +90,56 @@ is built around exactly this trade-off.
 
 Plants above the small-scale thresholds must sell their electricity through **direct
 marketing** (*Direktvermarktung*, EEG 2023 §§ 20 ff.) and receive a **market premium**
-(*Marktprämie*) equal to the difference between the applicable value (*anzulegender Wert*)
-and the monthly market value (*Monatsmarktwert*) of the technology. The plant is therefore
-exposed to the *shape* of its own generation against prices - an incentive to shift, curtail
-or store, not merely to maximise kWh.
+(*Marktprämie*): the applicable value (*anzulegender Wert*) minus the technology's market
+value, and nothing where the market value is higher. Plants commissioned or awarded before
+2023 are paid against the monthly market value (*Monatsmarktwert*); plants commissioned and,
+if tendered, awarded from 2023 on, against the annual market value (*Jahresmarktwert*)
+(EEG 2023 Anlage 1 Nr. 2). The market value is the day-ahead price weighted by the
+technology's national feed-in, a national figure that one plant cannot move. The plant is
+therefore exposed to the *shape* of its own generation against prices - an incentive to
+shift, curtail or store, not merely to maximise kWh.
+
+Project 02 implements both periods, per technology. Its market values are proxies computed
+from public generation data, not the values the TSOs publish, and it pays the plant one
+blended premium rate per period ([its README](../projects/02-utility-hybrid-plant-dispatch/README.md),
+section 0.3).
 
 ### 2.2 The negative-price rule
 
-Under EEG 2023 § 51, market-premium payments are suspended during extended periods of
-negative day-ahead prices. The threshold was progressively tightened, and the 2025
-*Solarspitzengesetz* (the act addressing PV feed-in peaks) removed remuneration for **new**
-plants in **any** quarter-hour with a negative day-ahead price, compensating operators by
-extending the remuneration period rather than by paying during those hours.
+§ 51 EEG removes the market premium during negative day-ahead prices, by a rule that
+depends on the plant's vintage: its commissioning date or, for a tendered plant, the bid
+date (*Gebotstermin*) of the tender that set its applicable value, where § 100 says so
+(§ 100 (1) EEG 2021; § 100 (1) and (46) EEG 2023). A plant tendered in 2020 and
+commissioned in 2022 keeps the six-hour rule; one tendered in 2024 and commissioned in 2026
+keeps the rule of the vintage from 2023 to 24 February 2025.
+
+Project 02 implements the rule of every vintage, as below. The statutes are those
+`hybrid/market.py` cites; the rule names are `MarketConfig.negative_price_rule`.
+
+| Vintage | The premium is removed | Statute | Rule in Project 02 |
+|---|---|---|---|
+| Before 2016 | never | § 24 (3) Nr. 1 EEG 2014; § 100 (1) EEG 2017 | `none` |
+| 2016 to 2020 | for the whole run of negative prices, once it lasts six hours | § 24 (1) EEG 2014 and § 51 (1) EEG 2017, kept by § 100 (2) Nr. 13 EEG 2021 | `six_hour` |
+| 2021 to 2022 | for the whole run, once it lasts four hours | § 51 (1) as in force on 31 December 2022, kept by § 100 (1) EEG 2023 | `four_hour` |
+| 1 January 2023 to 24 February 2025 | for the whole run, once it lasts a threshold that depends on the calendar year of the prices: four hours in 2023, three in 2024 and 2025, two in 2026, one from 2027 | § 51 (1) as in force on 24 February 2025, kept by § 100 (46) EEG 2023 | `four_hour` to `one_hour`, by year (`market.vintage_rules`) |
+| From 25 February 2025 | in every period with a negative price, whatever the run length | § 51 (1) as amended by the *Solarspitzengesetz* (BGBl. 2025 I Nr. 51) | `new_2025` |
+
+**The whole run.** Every rule with a threshold zeroes the applicable value "für den gesamten
+Zeitraum" of uninterrupted negative prices: once a run reaches the threshold, every hour of
+it loses the premium, not only the hours after the threshold. Runs are counted in calendar
+hours. From 1 October 2025, when the day-ahead products are quarter-hours, an hour counts as
+negative when the mean of its quarter-hour prices is negative (§ 100 (45) sentence 2
+EEG 2023).
+
+**Not implemented in any project:** the § 51a extension of the support period by the
+periods without a premium, and the small-plant exemptions of § 51 (2).
 
 **Consequence for modelling:** the revenue function is discontinuous in price and depends on
 plant vintage. Curtailment and storage charging become *rational* in negative-price
-quarter-hours rather than merely tolerated. Projects 01 and 05 model this switch explicitly,
-parameterised by commissioning date.
+quarter-hours rather than merely tolerated. Project 02 models the rule of every vintage, and
+runs each rule on the same prices as a sensitivity; a rule run on prices from before its
+vintage existed is a counterfactual. Project 01 has a two-way switch, no rule or the rule
+from 25 February 2025, off by default.
 
 ### 2.3 Remote controllability and feed-in management
 
