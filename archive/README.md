@@ -22,8 +22,8 @@ The pre-archive state of the repository is preserved at the tag
 
 ### `02-pumped-storage-rl-multimarket/` (package `psw`, 27 tests)
 
-A 300 MW / 2,400 MWh pumped-storage plant co-optimising day-ahead energy, aFRR capacity and a
-switchable grid-security objective, with mode-reversal wear and the §118(6) EnWG pumping
+A 300 MW / 2,400 MWh pumped-storage plant dispatched on day-ahead energy with a static aFRR
+capacity offer (15 % of the turbine and pump ratings in every block, not optimised) and a switchable grid-security objective, with mode-reversal wear and the §118(6) EnWG pumping
 network-charge exemption.
 
 **What it established.** The two-timescale action, a capacity commitment held across a
@@ -34,10 +34,12 @@ variable.
 
 **Why set aside.** Almost no employer in the target set operates a pumped-storage plant.
 Germany has roughly thirty, and essentially no new ones. The market knowledge transfers; the
-asset does not. The piece worth keeping is the aFRR capacity and energy co-optimisation, which
-should move into Project 05, where the asset class is one that the target companies actually
-own. Project 05 already declares `afrr_enabled`, `afrr_capacity_eur_mw_h` and
-`afrr_block_steps` for exactly that extension.
+asset does not. The piece worth keeping is the aFRR modelling: reservations held across
+four-hour blocks, settled apart from energy. It is planned for Project 02 (formerly 05), the
+hybrid plant, whose battery is an asset class the target companies actually own; there the
+capacity is to be co-optimised with the energy schedule rather than offered at a fixed share.
+Project 02 declares `afrr_enabled`, `afrr_capacity_eur_mw_h` and `afrr_block_steps` for that
+extension, which is not built yet.
 
 ### `03-smart-ev-charging-14a/` (package `evc`, 20 tests)
 
