@@ -1,7 +1,10 @@
 """
 run_overnight_simulations.py
 ============================
-Batch parameter sweep across all 6 portfolio projects.
+Batch parameter sweep behind the Project 01 sizing lookup in showcase.html (p01 only).
+
+Project 02 and Project 03 have no sweep here: each publishes its results as the CSVs in its
+own reports/ folder.
 
 Usage
 -----
@@ -75,14 +78,6 @@ def _load_pv_profile(year: int, kwp: float = 1.0) -> np.ndarray:
     raw = df[col].values.astype(float)
     raw = raw / raw.max() if raw.max() > 0 else raw
     return raw * kwp
-
-
-def _load_wind_profile(year: int, mw: float = 1.0) -> np.ndarray:
-    df = pd.read_parquet(DATAKIT / f"public_power_de_{year}.parquet")
-    col = [c for c in df.columns if "wind" in c.lower()][0]
-    raw = df[col].values.astype(float)
-    raw = raw / raw.max() if raw.max() > 0 else raw
-    return raw * mw
 
 
 def _load_load_profile(year: int, peak_kw: float = 4.0) -> np.ndarray:
@@ -226,91 +221,12 @@ def _p01_run(params: dict) -> dict:
 
 
 # ============================================================
-# P02: Pumped Storage Hydro
-# ============================================================
-# ============================================================
-def _p02_grid(smoke: bool) -> list:
-    poc_mw   = [40.0]       if smoke else [25.0, 30.0, 40.0, 50.0, 60.0]
-    pv_mw    = [30.0]       if smoke else [20.0, 30.0, 40.0, 50.0, 60.0]
-    bess_mwh = [20.0]       if smoke else [0.0, 10.0, 20.0, 30.0, 40.0]
-    years    = [2025]       if smoke else [2024, 2025]
-    return [{"poc_mw": p, "pv_mw": pv, "bess_mwh": b, "year": y}
-            for p, pv, b, y in itertools.product(poc_mw, pv_mw, bess_mwh, years)]
-
-
-def _p02_run(params: dict) -> dict:
-    sys.path.insert(0, str(ROOT / "projects" / "02-utility-hybrid-plant-dispatch" / "src"))
-    from hybrid.baselines import (
-        RunConfig as RC5, b0_no_battery, b1_curtailment_avoidance, b2_perfect,
-        b3_rolling, make_forecasts, effective_price, settle,
-    )
-
-    year     = params["year"]
-    poc_mw   = params["poc_mw"]
-    pv_mw    = params["pv_mw"]
-    bess_mwh = params["bess_mwh"]
-    wind_mw  = 40.0
-
-    price = _load_price(year)
-    wind  = _load_wind_profile(year, wind_mw)
-    pv    = _load_pv_profile(year, pv_mw)
-    n_days = 14
-    n_steps = n_days * 96
-    scale = 365.0 / n_days
-
-    price = price[:n_steps]; wind = wind[:n_steps]; pv = pv[:n_steps]
-
-    base_rc = RC5(dt=0.25, horizon_steps=48)
-    new_plant = dataclasses.replace(
-        base_rc.plant,
-        wind_mw=wind_mw,
-        pv_mw=pv_mw,
-        bess_mwh=bess_mwh,
-        bess_mw=bess_mwh / 2.0 if bess_mwh > 0 else 0.0,
-        conn_mw=poc_mw,
-    )
-    rc = dataclasses.replace(base_rc, plant=new_plant)
-
-    premium_rate = 73.5
-    eff = effective_price(price, rc.market, premium_rate)
-    rng = np.random.default_rng(rc.seed)
-    wind_fc, pv_fc, price_fc = make_forecasts(wind, pv, eff, rc, rng)
-
-    r_b0 = b0_no_battery(wind, pv, rc)
-    r_b1 = b1_curtailment_avoidance(wind, pv, rc)
-    # resolve_every=4 provides rapid parameter sweeps
-    r_b3 = b3_rolling(wind, pv, eff, wind_fc, pv_fc, price_fc, rc, resolve_every=4)
-
-    c_b0 = settle(r_b0, price, rc.dt, rc.plant, rc.market, premium_rate=premium_rate)
-    c_b1 = settle(r_b1, price, rc.dt, rc.plant, rc.market, premium_rate=premium_rate)
-    c_b3 = settle(r_b3, price, rc.dt, rc.plant, rc.market, premium_rate=premium_rate)
-
-    revenue   = float(c_b3["net_revenue"] * scale)
-    curtail   = float(c_b3["forced_curtail_mwh"] * scale)
-    neg_avoid = float(np.sum(r_b3["chosen_curtail"] * np.maximum(-price, 0.0)) * rc.dt * scale)
-    overplant = (wind_mw + pv_mw) / poc_mw
-    b1_rev = float(c_b1["net_revenue"] * scale)
-    b3_rev = revenue
-    lift_pct = float((b3_rev - b1_rev) / abs(b1_rev) * 100) if b1_rev != 0 else 0.0
-
-    return {
-        "eval_days": n_days,
-        "annualised": True,
-        "revenue_eur_per_year_extrapolated": revenue,
-        "curtail_mwh_per_year_extrapolated": curtail,
-        "neg_price_avoided_eur_per_year_extrapolated": neg_avoid,
-        "overplanting_factor": overplant,
-        "b1_revenue_eur_per_year_extrapolated": b1_rev,
-        "b3_revenue_eur_per_year_extrapolated": b3_rev,
-        "revenue_lift_pct": lift_pct,
-    }
-
-
-# ============================================================
 # Worker
 # ============================================================
+# Project 02 and Project 03 publish their results as the CSVs in their own reports/ folders,
+# so only the P01 sizing sweep runs here.
 PROJECT_RUNNERS = {
-    "p01": _p01_run, "p02": _p02_run,
+    "p01": _p01_run,
 }
 
 
@@ -345,14 +261,10 @@ def _run_scenario(task: tuple) -> dict:
 
 KEY_COLS = {
     "p01": ["pv_kwp", "bess_kwh", "inv_kw", "year"],
-    "p02": ["poc_mw", "pv_mw", "bess_mwh", "year"],
 }
 METRIC_COLS = {
     "p01": ["out_net_cost_eur", "out_self_consumption_frac", "out_grid_independence_frac",
             "out_b1_cost_eur", "out_b3_cost_eur", "out_gap_closure_frac"],
-    "p02": ["out_revenue_eur_per_year_extrapolated", "out_curtail_mwh_per_year_extrapolated", "out_overplanting_factor",
-            "out_b1_revenue_eur_per_year_extrapolated", "out_b3_revenue_eur_per_year_extrapolated", "out_revenue_lift_pct",
-            "out_neg_price_avoided_eur_per_year_extrapolated"],
 }
 
 
@@ -361,7 +273,7 @@ METRIC_COLS = {
 # ============================================================
 def build_tasks(smoke: bool, project_filter: str | None = None) -> list:
     grids = {
-        "p01": _p01_grid(smoke), "p02": _p02_grid(smoke),
+        "p01": _p01_grid(smoke),
     }
     if project_filter:
         grids = {project_filter: grids[project_filter]}
@@ -373,8 +285,7 @@ def build_tasks(smoke: bool, project_filter: str | None = None) -> list:
     return tasks
 
 
-def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None,
-              reset_p02: bool = False) -> None:
+def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None) -> None:
     tasks     = build_tasks(smoke, project_filter=project_filter)
     completed = _load_checkpoint()
     commit    = _get_git_commit()
@@ -389,12 +300,6 @@ def run_batch(smoke: bool, n_workers: int, project_filter: str | None = None,
             if "git_commit" not in df.columns:
                 df["git_commit"] = commit
             rows_by_proj[proj].extend(df.to_dict("records"))
-
-    if reset_p02 or project_filter == "p02":
-        log.info("Resetting P02 scenario cache and completed IDs for re-run.")
-        p02_sids = {_scenario_id("p02", p) for p in _p02_grid(smoke)}
-        completed.difference_update(p02_sids)
-        rows_by_proj["p02"] = []
 
     pending       = [t for t in tasks if t[2] not in completed]
     total         = len(tasks)
@@ -522,7 +427,6 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 4) - 1))
     ap.add_argument("--project", type=str, choices=list(PROJECT_RUNNERS), default=None,
                     help="Run scenarios only for a specific project")
-    ap.add_argument("--reset-p02", action="store_true", help="Force re-run of P02 scenarios")
     args = ap.parse_args()
 
     log.info("=" * 72)
@@ -534,5 +438,4 @@ if __name__ == "__main__":
     log.info("=" * 72)
 
     run_batch(smoke=args.smoke_test, n_workers=args.workers,
-              project_filter=args.project,
-              reset_p02=args.reset_p02)
+              project_filter=args.project)
