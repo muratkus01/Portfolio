@@ -48,14 +48,15 @@ def error_alignment(ladder: Ladder, df: pd.DataFrame, mask: np.ndarray,
     return pd.DataFrame(rows)
 
 
-def quality_vs_value(scores: pd.DataFrame, totals: pd.DataFrame) -> pd.DataFrame:
+def quality_vs_value(scores: pd.DataFrame, totals: pd.DataFrame,
+                     f3_seed: int = 0) -> pd.DataFrame:
     """Spearman correlation across rungs of forecast skill and net EUR, per policy.
 
     Skill is the negative day-ahead pinball loss, so +1 means the better forecast always
-    earns more and -1 that it always earns less. Only the first LightGBM seed takes part,
-    so one model is not counted three times.
+    earns more and -1 that it always earns less. Only one LightGBM seed takes part
+    (`f3_seed`), so one model is not counted three times.
     """
-    one = ~scores["rung"].str.match(r"F3 seed [1-9]")
+    one = ~scores["rung"].str.startswith("F3 seed") | (scores["rung"] == f"F3 seed {f3_seed}")
     skill = -scores[one & (scores["stage"] == "DA")].set_index("rung")["pinball"]
     rows = []
     for policy, group in totals[totals["rung"].isin(skill.index)].groupby("policy"):
@@ -63,6 +64,19 @@ def quality_vs_value(scores: pd.DataFrame, totals: pd.DataFrame) -> pd.DataFrame
         rows.append({"policy": policy, "rungs": int(eur.notna().sum()),
                      "spearman_skill_vs_eur": skill.rank().corr(eur.rank())})
     return pd.DataFrame(rows)
+
+
+def quality_vs_value_by_seed(scores: pd.DataFrame, totals: pd.DataFrame) -> pd.DataFrame:
+    """`quality_vs_value` once per LightGBM seed.
+
+    With five rungs, changing the F3 fit alone can move the rank correlation, so the spread
+    across seeds shows how much of its value rests on one fit.
+    """
+    seeds = sorted(int(r.rsplit(" ", 1)[1]) for r in scores["rung"].unique()
+                   if r.startswith("F3 seed"))
+    frames = [quality_vs_value(scores, totals, s).assign(f3_seed=s) for s in seeds]
+    return pd.concat(frames, ignore_index=True)[["policy", "f3_seed", "rungs",
+                                                 "spearman_skill_vs_eur"]]
 
 
 def liquidity_sweep(ladder: Ladder, df: pd.DataFrame, mask: np.ndarray, run: RunConfig,

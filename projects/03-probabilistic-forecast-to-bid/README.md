@@ -26,23 +26,28 @@ linear model catches up with LightGBM, and in the validation window passes it.
 **Whether that skill pays in euros changes with the window, and the difference stays within
 the noise.** Scheduling each forecast day-ahead and settling the rest at reBAP, the 2026 test
 window ranks the euros exactly as the skill: TSO forecast 28.96 M EUR, LightGBM 28.78 to
-28.79 M, linear 28.65 M, climatology 28.54 M, persistence 28.31 M (Spearman +1.0). The second
-half of 2025 does not (-0.4): climatology earned most and the TSO forecast least. In neither
+28.79 M, linear 28.65 M, climatology 28.54 M, persistence 28.31 M (Spearman +1.0 with every
+LightGBM seed). The second half of 2025 does not (-0.4 with LightGBM's first seed, -0.7 with
+the other two): climatology earned most and the TSO forecast least. In neither
 window does any forecast's day-ahead gain over climatology have a 90 % block-bootstrap
 interval that excludes zero; for the TSO forecast in 2026 it is +420,171 EUR (-106,521 to
 +1,233,049).
 [policies](reports/test/policies.csv), [value_of_forecast](reports/test/value_of_forecast.csv),
-[quality_vs_value](reports/test/quality_vs_value.csv)
+[quality_vs_value](reports/test/quality_vs_value.csv), per seed
+([validation](reports/validation/quality_vs_value_by_seed.csv),
+[test](reports/test/quality_vs_value_by_seed.csv))
 
 **Why.** For a day-ahead schedule `f`, the result against a perfect forecast is exactly
-`sum((y - f) * (reBAP - DA)) * dt`. It splits into a bias part, which pays a long schedule
-while reBAP averages above the day-ahead price (it did, by 4.31 and 4.42 EUR/MWh in the two
-windows), and an alignment part, which charges every error that runs with the system's
+`sum((y - f) * (reBAP - DA)) * dt`. It splits into a bias part, which pays a schedule below
+the output (the portfolio ends long and sells its surplus at reBAP) while reBAP averages above
+the day-ahead price (it did, by 4.31 and 4.42 EUR/MWh in the two windows), and an alignment
+part, which charges every error that runs with the system's
 imbalance. This portfolio is the German fleet in miniature, so the errors of a good forecast
 are the system's own errors: the TSO forecast's error correlates more strongly with the spread
 between reBAP and the day-ahead price than any other rung's (-0.1611 and -0.0650). In 2026 the
 size of the errors decided; in late 2025 climatology's large errors happened to run almost
-independently of that spread (-0.0165) while its long bias earned 96,233 EUR. Climatology
+independently of that spread (-0.0165) while scheduling below the output earned it 96,233 EUR.
+Climatology
 carries 129,432 MWh of imbalance in the test window, about 40 % of what the portfolio
 produced and nearly five times the TSO forecast's;
 no balance responsible party may schedule that way, so its euros are a warning about scoring
@@ -51,10 +56,10 @@ forecasts in euros alone, not a strategy. [error_alignment](reports/test/error_a
 **Trading every forecast revision intraday does not pay.** Policy B1, which follows each
 revision at the intraday index, loses money against scheduling once with every forecast that
 revises (climatology never does) in both windows at any half-spread from 0.5 EUR/MWh. With the TSO forecast and LightGBM it loses
-in 2026 even at zero cost: -87,261 EUR and -24,494 EUR (median of three seeds, -18,586 to
--30,053). The deadband rule B3, which trades only large revisions, gains at most 18,258 EUR
-(persistence, 2026, at zero cost) and loses 58,322 to 79,902 EUR with the TSO forecast in
-2026. [liquidity](reports/test/liquidity.csv)
+in 2026 even at a zero half-spread, where only the impact charge of 0.02 EUR/MWh per MW traded
+remains: -87,261 EUR and -24,494 EUR (median of three seeds, -18,586 to -30,053). The deadband
+rule B3, which trades only large revisions, gains at most 18,258 EUR (persistence, 2026, at a
+zero half-spread) and loses 58,322 to 79,902 EUR with the TSO forecast in 2026. [liquidity](reports/test/liquidity.csv)
 
 ![Pinball loss by decision stage, reliability of the day-ahead quantiles, and each forecast's day-ahead result against the perfect forecast split into bias and alignment](docs/figures/f2b_trading_benchmark.png)
 
@@ -62,7 +67,7 @@ in 2026 even at zero cost: -87,261 EUR and -24,494 EUR (median of three seeds, -
 
 ## 1. Setup
 
-### Portfolio and data
+### Portfolio, data and licences
 
 | | Source | Use |
 |---|---|---|
@@ -77,6 +82,12 @@ in 2026 even at zero cost: -87,261 EUR and -24,494 EUR (median of three seeds, -
 its missing share per window. The two timestamp conventions agree: forecast irradiance and
 measured PV correlate best at lag 0 (0.9833), forecast wind and measured wind too (0.8175)
 ([data_alignment](reports/data_alignment.csv)).
+
+Energy-Charts and Open-Meteo publish under CC BY 4.0; Energy-Charts' day-ahead prices name
+Bundesnetzagentur | SMARD.de as their source. No open-data licence was found for reBAP and
+ID AEP on netztransparenz.de, so those raw files are not redistributed, only results derived
+from them. Each source has a note: [Energy-Charts](data/raw/energy_charts/SOURCE.md),
+[Open-Meteo](data/raw/open_meteo/SOURCE.md), [netztransparenz](data/raw/netztransparenz/SOURCE.md).
 
 ### Decision stages
 
@@ -190,8 +201,9 @@ Day-ahead schedule against the perfect forecast, split exactly into bias and ali
 | F3 seed 0 | -0.0886 / -0.0607 | -1,144 / -19,927 | -310,780 / -490,528 | -311,925 / -510,455 |
 | F4 TSO forecast | -0.1611 / -0.0650 | -2,935 / +21,685 | -326,184 / -348,359 | -329,119 / -326,674 |
 
-A long schedule earns where reBAP averages above the day-ahead price, which it did in both
-windows. Every error is charged where it runs with the system: being long while the system is
+Scheduling below the output, so that the portfolio ends long, earns where reBAP averages above
+the day-ahead price, which it did in both windows. Every error is charged where it runs with the
+system: being long while the system is
 long settles at a low reBAP. A better forecast has smaller errors, but its remaining errors
 are the market's errors, because everyone forecasts the same weather; for this fleet-shaped
 portfolio they correlate with the spread more strongly than any other rung's, in both
@@ -201,7 +213,8 @@ size, alignment and the spread's volatility, and over half a year that product i
 
 ### 2.4 Intraday correction and liquidity
 
-B1 against B0, EUR, by intraday half-spread ([test](reports/test/liquidity.csv),
+B1 against B0, EUR, by intraday half-spread; the impact charge of 0.02 EUR/MWh per MW traded
+applies in every column, 0 included ([test](reports/test/liquidity.csv),
 [validation](reports/validation/liquidity.csv)):
 
 | | 0 | 0.5 | 1 | 3 | 6 EUR/MWh |
@@ -211,10 +224,11 @@ B1 against B0, EUR, by intraday half-spread ([test](reports/test/liquidity.csv),
 | F4 TSO forecast, validation | +8,600 | -704 | -10,008 | -47,224 | -103,047 |
 | F3 seed 0, validation | -15,580 | -46,103 | -76,627 | -198,720 | -381,861 |
 
-The forecast revisions are public, so by the time they are traded the intraday price already
-carries them. Persistence is the exception at zero cost (+57,592 EUR in validation, +20,602 in
-2026): its day-ahead forecast is so poor that correcting it is worth something, though not at
-0.5 EUR/MWh. The band of B3, tuned to the validation window, does not transfer: with the TSO
+A likely reason, not tested here: the forecast revisions are public, so by the time they are
+traded the intraday price already carries them, and settling every trade at the ID AEP, an
+index of the last trades before delivery, builds that in. Persistence is the exception at a
+zero half-spread (+57,592 EUR in validation, +20,602 in 2026): its day-ahead forecast is so
+poor that correcting it is worth something, though not at 0.5 EUR/MWh. The band of B3, tuned to the validation window, does not transfer: with the TSO
 forecast it loses 69,112 EUR against B0 in 2026 at 3 EUR/MWh, and for F1 to F3 the widest band
 on offer won, so B3 hardly trades at all.
 
@@ -246,7 +260,9 @@ not earn anything, and it is withdrawn.
    timestamps.
 4. **The look-ahead audit could not fail**: it only re-checked the store's own guard. It now
    counts forecasts read after their decision time, and a test shows it catches a cheating
-   stage.
+   stage. In the backtest every forecast is issued at its decision time by construction, so
+   there the audit can only catch a stage that decides after delivery; that the forecasts use
+   no data from after their decision time is what the information-set test of fix 9 checks.
 5. **The forecast store answered a lead beyond its horizon with another quarter-hour's
    forecast.** It raises now.
 6. **The newsvendor fractile was fitted on the window it was scored on**, and the synthetic
@@ -261,7 +277,9 @@ not earn anything, and it is withdrawn.
     overconfident on the window it was scored on. It now stops early and recalibrates on
     held-out training days.
 
-Each fix ships with a regression test that fails on the old code.
+Every fix that changes behaviour (1 to 6, 9 and 10) has a regression test that fails when the
+bug is put back; 7 and 8 are renames. The tests for 1 and 10 came later, after a review found
+them missing.
 
 ## 4. Limits of the evidence
 
@@ -271,15 +289,25 @@ Each fix ships with a regression test that fails on the old code.
   against the system and earn.
 - **PV is public feed-in**, without self-consumption, because the TSO forecasts forecast
   feed-in; its capacity factor is therefore low.
-- **The TSO forecasts carry no publication time.** The EU transparency rules make the
-  day-ahead forecast due by 18:00 on the day before delivery, after the 12:00 gate closure,
-  so F4 may hold information the other rungs could not have had. It is a benchmark, not a
-  competitor.
+- **The TSO forecasts carry no publication time.** The EU transparency rules (Regulation
+  543/2013, Art. 14(2)(d)) make the day-ahead forecast due by 18:00 on the day before
+  delivery, after the 12:00 gate closure, and require an intraday update by 08:00 on the
+  delivery day. ID-12h and ID-6h read that intraday forecast, which may not have existed yet
+  for any quarter-hour they decide before 08:00; ID-2h and ID-0.5h read the current
+  forecast, whose updates carry no time either. So F4's intraday scores and its B1 and B3
+  euros, like its day-ahead ones, may hold information the other rungs could not have had.
+  It is a benchmark, not a competitor.
 - **Every intraday trade clears at the ID AEP**, an index of the last trades before delivery.
   A trade decided twelve hours ahead would have met a different price, and the half-spread
   is an assumption, swept from 0 to 6 EUR/MWh.
 - **The weather is Open-Meteo's best-match model**, whose composition can change over time,
   and the six-hour publication delay is an assumption.
+- **The test run refits every rung on training and validation data together**, with the
+  deadband frozen from validation, so F2 and F3 forecast 2026 from six more months of data
+  than in the validation scores.
+- **The deadband grid gained the values 2 and 4 after a first validation run with real
+  prices** (commit 935a408), before the validation results here were written and before the
+  test window was run; 4, the new widest, won for F1 to F3.
 - **The history is short**: training from February 2024, one validation half-year, one test
   window of 287 days. The validation window contains the switch to quarter-hourly
   day-ahead products on 2025-10-01.
@@ -305,26 +333,31 @@ python -m pytest tests -q
 python -m f2b.cli build-data                   # Energy-Charts and Open-Meteo, cached
 python -m f2b.cli backtest --phase validation  # the slow step: LightGBM with three seeds
 python -m f2b.cli backtest --phase test        # once; refuses to overwrite reports/test/
+python -m f2b.cli derive                       # tables added after the runs, from their CSVs
+python -m f2b.cli fingerprint-inputs           # SHA-256 of both inputs, into reports/
 python ../../scripts/make_f2b_figure.py        # the figure, from the committed CSVs
 ```
 
-reBAP and ID AEP have to be downloaded by hand from netztransparenz.de (pages
+Before `build-data`, download reBAP and ID AEP by hand from netztransparenz.de (pages
 "Ausgleichsenergiepreis > reBAP" and "> Index Ausgleichsenergiepreis", time zone UTC, any
 number of overlapping files) into `data/raw/netztransparenz/`; the site exports at most about
 seven months of reBAP per file. `backtest --reuse-forecasts` revalues the cached forecasts
 without refitting. Each `run_meta.json` names the commit that made the forecasts and the one
-that valued them.
+that valued them; from the next run on it also records the numpy and scipy versions, the size,
+last change and SHA-256 of both inputs, and uncommitted changes in datakit as well as `src/`.
+For the committed runs, [inputs_sha256](reports/inputs_sha256.csv) holds those fingerprints:
+neither input has changed since 15:29 UTC on 31 October 2026, and the runs wrote their results
+at 16:25 and 16:54 UTC that day.
 
 The parametric-noise ablation keeps its four commands: `synthetic-policies`,
 `synthetic-forecast`, `synthetic-score-vs-value` and `synthetic-liquidity`.
 
-## 7. Data and licences
+Offline, the tests, `derive` and the figure run from what is committed. `build-data` fetches
+from Energy-Charts and Open-Meteo and the `synthetic-*` commands from Energy-Charts, unless
+their caches already hold the data; `backtest` and `fingerprint-inputs` read the dataset that
+`build-data` writes.
 
-Energy-Charts (Fraunhofer ISE) and Open-Meteo data are CC BY 4.0. reBAP and ID AEP are
-published by the four German TSOs on netztransparenz.de; the raw files are not redistributed,
-only results derived from them.
-
-## 8. Files
+## 7. Files
 
 | | |
 |---|---|

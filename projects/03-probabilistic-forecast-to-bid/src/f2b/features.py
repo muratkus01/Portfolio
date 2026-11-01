@@ -6,8 +6,9 @@ A row is one delivery step t of one decision stage, decided at step i. Its featu
   * the newest weather vintage already published at i for valid time t (`weather.py`),
   * deterministic calendar and sun geometry of t, and the lead time t - i.
 
-`tests/test_features.py` corrupts everything outside that information set and checks that
-every feature stays bit-identical: the leakage check the decision-stage audit cannot do.
+`tests/test_learned.py` (test_features_ignore_everything_after_the_information_set) corrupts
+everything outside that information set and checks that every feature stays bit-identical: the
+leakage check the decision-stage audit cannot do.
 """
 from __future__ import annotations
 

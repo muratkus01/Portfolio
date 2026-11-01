@@ -769,8 +769,9 @@ README, CITATION.cff, docs/02, docs/05, the other scripts, simulations/results).
   linear 3.16, climatology 7.29, persistence 7.71 (test).
 - Euros follow skill in the test window (Spearman +1.0) but not in validation (-0.4); no B0
   gain over climatology has a 90 % interval that excludes zero. `error_alignment.csv` explains
-  why: a long bias earns while reBAP averages above day-ahead, and every error that runs with
-  the system is charged; the fleet-shaped portfolio's errors are the system's errors.
+  why: scheduling below the output (ending long) earns while reBAP averages above day-ahead,
+  and every error that runs with the system is charged; the fleet-shaped portfolio's errors
+  are the system's errors.
 - Following every forecast revision intraday (B1) loses money from a half-spread of
   0.5 EUR/MWh with every forecast that revises, in both windows; in 2026 also at zero cost with
   the TSO forecast and LightGBM.
