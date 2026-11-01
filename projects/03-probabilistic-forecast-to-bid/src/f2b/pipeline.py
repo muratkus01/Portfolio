@@ -6,9 +6,11 @@
     backtest --phase test       refit on train + validation with the frozen settings and write
                                 reports/test/ for the 2026 window, once
     derive                      rebuild the tables added after a run from its committed CSVs
+    fingerprint-inputs          size, last change and SHA-256 of the two backtest inputs
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import platform
 import subprocess
@@ -150,7 +152,7 @@ def _forecasts(args, df: pd.DataFrame, weather_q: pd.DataFrame, run: RunConfig):
     ladder = fit_ladder(df, weather_q, run, args.phase, tuple(args.seeds))
     save_ladder(ladder, cache)
     made_by = {"git_commit": _git("rev-parse", "--short", "HEAD"),
-               "source_changes_uncommitted": bool(_git("status", "--porcelain", "--", "src")),
+               "source_changes_uncommitted": _uncommitted(),
                "f3_iterations": ladder.f3_iterations,
                "created_utc": datetime.now(timezone.utc).isoformat()}
     made_path.write_text(json.dumps(made_by, indent=2))
@@ -202,6 +204,40 @@ def cmd_derive(args) -> None:
         print(f"wrote {path.relative_to(PROJECT)}")
 
 
+def cmd_fingerprint_inputs(args) -> None:
+    """Write reports/inputs_sha256.csv for runs made before run_meta.json recorded inputs."""
+    fingerprints = input_fingerprints([dataset_path(), weather_path()])
+    rows = [{"file": name, **info} for name, info in fingerprints.items()]
+    path = REPORTS / "inputs_sha256.csv"
+    pd.DataFrame(rows).to_csv(path, index=False)
+    print(f"wrote {path.relative_to(PROJECT)}")
+
+
+def input_fingerprints(paths: list[Path]) -> dict[str, dict]:
+    """Size, last change and SHA-256 of each input file, keyed by file name.
+
+    Example: {"dataset_2024-01-01_2026-10-31.parquet": {"bytes": 9091370,
+    "modified_utc": "2026-10-31T15:29:05+00:00", "sha256": "3f1c..."}}
+    """
+    out = {}
+    for path in paths:
+        digest = hashlib.sha256()
+        with path.open("rb") as fh:
+            for block in iter(lambda: fh.read(1 << 20), b""):
+                digest.update(block)
+        stat = path.stat()
+        modified = datetime.fromtimestamp(stat.st_mtime, timezone.utc)
+        out[path.name] = {"bytes": stat.st_size,
+                          "modified_utc": modified.isoformat(timespec="seconds"),
+                          "sha256": digest.hexdigest()}
+    return out
+
+
+def _uncommitted() -> bool:
+    # datakit fetches every Energy-Charts series, so a change there can move results as well
+    return bool(_git("status", "--porcelain", "--", "src", "../../datakit"))
+
+
 def _git(*cmd: str) -> str:
     # check=False: outside a git checkout the fields stay empty instead of failing the run
     res = subprocess.run(["git", *cmd], cwd=PROJECT, capture_output=True, text=True,
@@ -211,10 +247,13 @@ def _git(*cmd: str) -> str:
 
 def _run_meta(args, steps: int, market: dict | None) -> dict:
     import lightgbm
+    import scipy
 
     return {"phase": args.phase, "splits": SPLITS, "seeds": list(args.seeds),
             "id_spread_eur_mwh": args.spread, "evaluated_steps": steps, "market": market,
             "git_commit": _git("rev-parse", "--short", "HEAD"),
-            "source_changes_uncommitted": bool(_git("status", "--porcelain", "--", "src")),
+            "source_changes_uncommitted": _uncommitted(),
             "python": platform.python_version(), "lightgbm": lightgbm.__version__,
-            "pandas": pd.__version__, "created_utc": datetime.now(timezone.utc).isoformat()}
+            "numpy": np.__version__, "scipy": scipy.__version__, "pandas": pd.__version__,
+            "inputs": input_fingerprints([dataset_path(), weather_path()]),
+            "created_utc": datetime.now(timezone.utc).isoformat()}

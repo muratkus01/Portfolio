@@ -210,3 +210,35 @@ def test_derive_rebuilds_the_seed_table_from_committed_csvs_alone(tmp_path, monk
     out = pd.read_csv(tmp_path / "validation" / "quality_vs_value_by_seed.csv")
     assert list(out.columns) == ["policy", "f3_seed", "rungs", "spearman_skill_vs_eur"]
     assert out["spearman_skill_vs_eur"].tolist() == pytest.approx([-0.5, 1.0])
+
+
+def test_input_fingerprints_hash_size_and_date_each_file(tmp_path):
+    import hashlib
+
+    from f2b.pipeline import input_fingerprints
+
+    a, b = tmp_path / "a.parquet", tmp_path / "b.parquet"
+    a.write_bytes(b"first input")
+    b.write_bytes(b"second, longer input")
+    got = input_fingerprints([a, b])
+    assert got["a.parquet"]["sha256"] == hashlib.sha256(b"first input").hexdigest()
+    assert got["b.parquet"]["bytes"] == len(b"second, longer input")
+    assert got["a.parquet"]["modified_utc"].endswith("+00:00")
+
+
+def test_fingerprint_inputs_writes_one_row_per_backtest_input(tmp_path, monkeypatch):
+    from argparse import Namespace
+
+    from f2b import pipeline
+
+    data, weather = tmp_path / "dataset.parquet", tmp_path / "weather.parquet"
+    data.write_bytes(b"d")
+    weather.write_bytes(b"w")
+    monkeypatch.setattr(pipeline, "dataset_path", lambda: data)
+    monkeypatch.setattr(pipeline, "weather_path", lambda: weather)
+    monkeypatch.setattr(pipeline, "REPORTS", tmp_path)
+    monkeypatch.setattr(pipeline, "PROJECT", tmp_path)
+    pipeline.cmd_fingerprint_inputs(Namespace())
+    out = pd.read_csv(tmp_path / "inputs_sha256.csv")
+    assert out["file"].tolist() == ["dataset.parquet", "weather.parquet"]
+    assert list(out.columns) == ["file", "bytes", "modified_utc", "sha256"]

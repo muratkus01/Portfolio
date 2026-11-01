@@ -322,6 +322,7 @@ python -m f2b.cli build-data                   # Energy-Charts and Open-Meteo, c
 python -m f2b.cli backtest --phase validation  # the slow step: LightGBM with three seeds
 python -m f2b.cli backtest --phase test        # once; refuses to overwrite reports/test/
 python -m f2b.cli derive                       # tables added after the runs, from their CSVs
+python -m f2b.cli fingerprint-inputs           # SHA-256 of both inputs, into reports/
 python ../../scripts/make_f2b_figure.py        # the figure, from the committed CSVs
 ```
 
@@ -330,7 +331,11 @@ reBAP and ID AEP have to be downloaded by hand from netztransparenz.de (pages
 number of overlapping files) into `data/raw/netztransparenz/`; the site exports at most about
 seven months of reBAP per file. `backtest --reuse-forecasts` revalues the cached forecasts
 without refitting. Each `run_meta.json` names the commit that made the forecasts and the one
-that valued them.
+that valued them; from the next run on it also records the numpy and scipy versions, the size,
+last change and SHA-256 of both inputs, and uncommitted changes in datakit as well as `src/`.
+For the committed runs, [inputs_sha256](reports/inputs_sha256.csv) holds those fingerprints:
+neither input has changed since 15:29 UTC on 31 October 2026, and the runs wrote their results
+at 16:25 and 16:54 UTC that day.
 
 The parametric-noise ablation keeps its four commands: `synthetic-policies`,
 `synthetic-forecast`, `synthetic-score-vs-value` and `synthetic-liquidity`.
