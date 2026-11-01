@@ -283,10 +283,14 @@ them missing.
   against the system and earn.
 - **PV is public feed-in**, without self-consumption, because the TSO forecasts forecast
   feed-in; its capacity factor is therefore low.
-- **The TSO forecasts carry no publication time.** The EU transparency rules make the
-  day-ahead forecast due by 18:00 on the day before delivery, after the 12:00 gate closure,
-  so F4 may hold information the other rungs could not have had. It is a benchmark, not a
-  competitor.
+- **The TSO forecasts carry no publication time.** The EU transparency rules (Regulation
+  543/2013, Art. 14(2)(d)) make the day-ahead forecast due by 18:00 on the day before
+  delivery, after the 12:00 gate closure, and require an intraday update by 08:00 on the
+  delivery day. ID-12h and ID-6h read that intraday forecast, which may not have existed yet
+  for any quarter-hour they decide before 08:00; ID-2h and ID-0.5h read the current
+  forecast, whose updates carry no time either. So F4's intraday scores and its B1 and B3
+  euros, like its day-ahead ones, may hold information the other rungs could not have had.
+  It is a benchmark, not a competitor.
 - **Every intraday trade clears at the ID AEP**, an index of the last trades before delivery.
   A trade decided twelve hours ahead would have met a different price, and the half-spread
   is an assumption, swept from 0 to 6 EUR/MWh.
