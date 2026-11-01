@@ -17,7 +17,7 @@ import pulp
 # may read config and config needs nothing from here.
 from .config import AFRR_MIN_ENERGY_HOURS as MIN_ENERGY_HOURS
 from .config import AFRR_PRICE_BASES as PRICE_BASES
-from .config import PlantConfig
+from .config import PlantConfig, RunConfig
 
 # B2 plans the energy and the export of what it reserves (R4-R6 in `add_reserve_terms`) on
 # r x (1 + PLAN_MARGIN), and is paid r. Its single plan is replayed open-loop through the
@@ -214,6 +214,34 @@ class ReserveSpec:
         if problem:
             raise ValueError(f"ReserveSpec: {problem}")
 
+    @classmethod
+    def decide_all(cls, block: np.ndarray, paid_up: np.ndarray, paid_down: np.ndarray,
+                   run: RunConfig, integer: bool, floor_mwh: float,
+                   margin: float) -> ReserveSpec:
+        """Every product of a window left to the plan, but those that pay nothing, fixed at 0.
+
+        block: per step, the window's product labels, increasing in time, e.g.
+            CapacityPrices.block. paid_up, paid_down: EUR/MW/h per step, one price per
+            product, e.g. `paid_prices(prices, "bid")`. run: dt, and the energy hours and
+            the penalty of run.market. integer, margin: as ReserveSpec takes them.
+        floor_mwh: the floor, MWh, e.g. 0.0, as B2 relaxes it.
+        Raises ValueError where a paid price changes within a product.
+        """
+        product = np.unique(np.asarray(block), return_inverse=True)[1].ravel()
+        first = np.unique(product, return_index=True)[1]
+        paid = [np.asarray(p, dtype=float) for p in (paid_up, paid_down)]
+        if any(not np.array_equal(p[first][product], p) for p in paid):
+            raise ValueError("a reservation is paid one price per product and direction")
+        up, down = (p[first] for p in paid)
+        market = run.market
+        return cls(fixed_up=np.where(up > 0, np.nan, 0.0),
+                   fixed_down=np.where(down > 0, np.nan, 0.0), paid_up=up, paid_down=down,
+                   hours=np.bincount(product) * run.dt, block=product,
+                   rule=ReserveRule(market.afrr_energy_hours_up,
+                                    market.afrr_energy_hours_down, floor_mwh),
+                   penalty=market.afrr_shortfall_penalty_eur_mwh, integer=integer,
+                   margin=margin)
+
 
 def _spec_problem(spec: ReserveSpec) -> str | None:
     """What does not fit in `spec`, in words, or None where everything does."""
@@ -260,6 +288,50 @@ class ReservePlan(NamedTuple):
     r_down: np.ndarray
     soc: np.ndarray
     objective: float
+
+
+def whole_megawatts(plan: ReservePlan, spec: ReserveSpec, soc0: float, floor_mwh: float,
+                    plant: PlantConfig) -> tuple[np.ndarray, np.ndarray]:
+    """A continuous plan's reservations as whole-MW bids under the floor could hold them.
+
+    Per product and direction the reservation is rounded down to whole MW, and set to 0
+    where that leaves less than 1 MW, or where the plan's state of charge misses the floor
+    at a step boundary of the product. Every limit of the plan is monotone in its
+    reservations and the floor is checked, so the plan's energy schedule holds the rounded
+    reservations too: they keep the rules of a whole-MW plan (B3's).
+    plan: the solved plan. spec: its products. soc0: energy stored at its start, MWh.
+    floor_mwh: the floor the rounded reservations keep, MWh, e.g. 5.0.
+    plant: the plant, for its state-of-charge limits and efficiencies.
+    Returns (up, down), MW per step of the plan.
+    """
+    edges = np.r_[soc0, plan.soc]
+    lowest, highest = np.full(len(spec.hours), np.inf), np.full(len(spec.hours), -np.inf)
+    # the state of charge is linear within a step, so its two ends bound it
+    np.minimum.at(lowest, spec.block, np.minimum(edges[:-1], edges[1:]))
+    np.maximum.at(highest, spec.block, np.maximum(edges[:-1], edges[1:]))
+    keeps_up = lowest >= plant.soc_min + floor_mwh / plant.eta_d
+    keeps_down = highest <= plant.soc_max - floor_mwh * plant.eta_c
+    # rounding down leaves 0 where less than 1 MW was reserved
+    return (np.where(keeps_up[spec.block], np.floor(plan.r_up), 0.0),
+            np.where(keeps_down[spec.block], np.floor(plan.r_down), 0.0))
+
+
+def rounding_bound(plan: ReservePlan, spec: ReserveSpec, soc0: float, floor_mwh: float,
+                   plant: PlantConfig) -> float:
+    """The capacity revenue a continuous plan without the floor loses when its reservations
+    are rounded as `whole_megawatts` rounds them, EUR.
+
+    The rounded plan keeps the whole-MW rules with the floor and the same energy schedule,
+    so the best whole-MW plan with the floor earns at least the continuous plan's objective
+    less this: an upper bound on what continuous MW and a relaxed floor overstate.
+    Arguments as for `whole_megawatts`; spec's paid prices and hours price the loss as the
+    plan's objective counts its capacity.
+    """
+    up, down = whole_megawatts(plan, spec, soc0, floor_mwh, plant)
+    first = np.unique(spec.block, return_index=True)[1]
+    lost = (spec.paid_up * (plan.r_up - up)[first]
+            + spec.paid_down * (plan.r_down - down)[first]) * spec.hours
+    return float(np.sum(lost))
 
 
 class _Held(NamedTuple):

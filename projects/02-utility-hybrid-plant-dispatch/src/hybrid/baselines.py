@@ -7,6 +7,9 @@ B3  rolling-horizon MPC      the deployable classical optimum, on forecasts
 
 "B2 no battery", B2 with the battery taken out, splits B2's gain over B0 into what curtailing
 at low prices earns, which needs no battery, and what the battery itself adds.
+
+With aFRR capacity prices (`run_ladder(afrr=...)`), B2 also reserves aFRR capacity
+(`afrr_rungs`); B0, B1 and "B2 no battery" never do.
 """
 from __future__ import annotations
 
@@ -19,6 +22,7 @@ import pulp
 from .config import MarketConfig, PlantConfig, RunConfig
 from .market import effective_price, premium_eligible, settle
 from .plant import battery_interval, simulate
+from .reserve import PLAN_MARGIN, CapacityPrices, Payment, paid_prices
 
 # Tolerance of the ladder invariant. PuLP reads CBC's solution with about eight significant
 # digits, so a rung that re-solves every step (B3) can beat the single plan of B2 by rounding
@@ -212,8 +216,23 @@ def default_terminal_price(eff_price: np.ndarray, run: RunConfig) -> float:
 
 
 # ------------------------------------------------------------------ B2 / B3
-def b2_perfect(wind, pv, eff_price, run: RunConfig,
-               export_cap=None) -> dict[str, np.ndarray]:
+def b2_perfect(wind, pv, eff_price, run: RunConfig, export_cap=None,
+               afrr: CapacityPrices | None = None) -> dict[str, np.ndarray]:
+    """Perfect foresight: one LP over the whole window, on the true generation and prices,
+    replayed through the safety layer.
+
+    wind, pv: available generation per step, MW. eff_price: effective price per step,
+    EUR/MWh (`market.effective_price`). run: the run's settings. export_cap: export limit per
+    step, MW, or None for the connection.
+    afrr: the window's aFRR capacity prices, or None, today's B2. With them B2 co-optimises
+        aFRR reservations with its schedule (`afrr_rungs.b2_reserve`).
+    Returns the dispatch arrays of `plant.simulate`. Raises RuntimeError where the LP is
+    infeasible.
+    """
+    if afrr is not None:
+        # imported here, as afrr_rungs builds on this module
+        from .afrr_rungs import b2_reserve
+        return b2_reserve(wind, pv, eff_price, run, afrr, export_cap)
     sol = solve_window(wind, pv, eff_price, run.dt, run, run.plant.soc_init,
                        terminal_price=0.0, export_cap=export_cap)
     if sol is None:
@@ -380,7 +399,8 @@ def _refuse_premium_on_grid_energy(name: str, res: dict[str, np.ndarray],
 def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
                rebap=None, export_cap=None, include_b3=True,
                progress=False, schedule=None, b3_premium_rate=None,
-               include_b2_no_battery=False) -> dict[str, dict]:
+               include_b2_no_battery=False,
+               afrr: CapacityPrices | None = None) -> dict[str, dict]:
     """Run every rung on the same window, settle it, and check the ladder invariant.
 
     wind, pv: available generation per step in MW, e.g. np.array([31.2, 29.8, ...]).
@@ -401,11 +421,19 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     export_cap: per-step export limit in MW (a redispatch order), or None for the connection.
     include_b2_no_battery: also run "B2 no battery" (`b2_no_battery`), planned and settled as
         B2 is; the invariant then holds it below B2 as well.
+    afrr: the window's aFRR capacity prices (`afrr_data.capacity_prices`), with
+        run.market.afrr_enabled; or None, with it off, for a ladder without aFRR. B2 then
+        reserves aFRR capacity paid on run.market.afrr_price_basis (`afrr_rungs.b2_reserve`),
+        and every rung is settled with the six aFRR terms of `market.settle`, on B2's
+        payment; B0, B1 and "B2 no battery" hold nothing, so they get 0 on them. A rung may
+        then out-earn B2 by PLAN_MARGIN times its own capacity revenue beyond the tolerance:
+        B2 plans its reservations with that margin, so it is a ceiling only up to it.
     Returns {rung name: dispatch arrays plus "cost" (the settlement) and "violations"}.
     Raises AssertionError when a rung beats perfect foresight B2 on revenue before imbalance,
     NotImplementedError when a rung charged grid energy while the market premium is paid, and
     ValueError when B3 runs on a premium_rate that changes within the window and no
-    b3_premium_rate is given.
+    b3_premium_rate is given. With aFRR, it also raises what
+    `afrr_rungs.refuse_what_afrr_cannot_run` raises, e.g. for B3, which does not bid yet.
     """
     from .plant import check_feasible
 
@@ -415,6 +443,14 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         raise ValueError("premium_rate changes within the window, so it is a realised value "
                          "B3 cannot know when it decides; pass b3_premium_rate, the rate B3 "
                          "knows in each step (e.g. market.planning_rates)")
+    # Every aFRR step is guarded, so that without aFRR the ladder calls its rungs and settles
+    # them with the arguments it always did.
+    if afrr is not None or run.market.afrr_enabled:
+        from .afrr_rungs import refuse_what_afrr_cannot_run  # it builds on this module
+        refuse_what_afrr_cannot_run(afrr, run, len(price), export_cap, include_b3)
+    b2_afrr = {} if afrr is None else {"afrr": afrr}
+    paid = ({} if afrr is None else
+            {"afrr": Payment(*paid_prices(afrr, run.market.afrr_price_basis), afrr.block)})
 
     rng = np.random.default_rng(run.seed)
     # The step length counts the hours of a negative-price run, so planning must use the one
@@ -424,7 +460,7 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     out = {
         "B0 no battery": b0_no_battery(wind, pv, run, export_cap),
         "B1 curtailment avoidance": b1_curtailment_avoidance(wind, pv, run, export_cap),
-        "B2 perfect foresight": b2_perfect(wind, pv, eff, run, export_cap),
+        "B2 perfect foresight": b2_perfect(wind, pv, eff, run, export_cap, **b2_afrr),
     }
     if include_b2_no_battery:
         out["B2 no battery"] = b2_no_battery(wind, pv, eff, run, export_cap)
@@ -455,7 +491,7 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     for name, r in out.items():
         _refuse_premium_on_grid_energy(name, r, premium_rate, run.market, run.dt)
         r["cost"] = settle(r, price, run.dt, run.plant, run.market,
-                           rebap=spread, schedule=schedule, premium_rate=premium_rate)
+                           rebap=spread, schedule=schedule, premium_rate=premium_rate, **paid)
         r["violations"] = check_feasible(r, rung_plant(name, run.plant))
 
     # Perfect foresight cannot lose to ANY other rung. Checking only B3 would have missed the
@@ -468,7 +504,12 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     b2 = before["B2 perfect foresight"]
     tol = ladder_tolerance(b2)
     for name, rev in before.items():
-        if name != "B2 perfect foresight" and rev > b2 + tol:
+        # B2 holds its reservations with PLAN_MARGIN to spare, so a rung that holds r MW
+        # without it earns at most that share of its capacity revenue more than B2 could by
+        # holding r / (1 + PLAN_MARGIN)
+        allowed = (tol if afrr is None
+                   else tol + PLAN_MARGIN * out[name]["cost"]["afrr_capacity_revenue"])
+        if name != "B2 perfect foresight" and rev > b2 + allowed:
             raise AssertionError(
                 f"ladder invariant violated: {name} ({rev:,.0f}) beats perfect foresight "
                 f"B2 ({b2:,.0f}) before imbalance - impossible, so something is wrong")
