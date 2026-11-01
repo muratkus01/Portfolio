@@ -104,18 +104,23 @@ def demo_01(real: bool) -> dict:
 
 
 def demo_05(real: bool) -> dict:
-    from hybrid.baselines import run_ladder
-    from hybrid.config import PlantConfig, RunConfig
+    """Run Project 02's ladder on the synthetic inputs of its committed B3 ablation.
 
-    run = RunConfig(dt=0.25, horizon_steps=48, plant=PlantConfig(conn_mw=40.0))
-    days = 3
-    n = days * 96
-    h = diurnal(n)
-    rng = np.random.default_rng(5)
-    wind = np.clip(30 + 18 * np.sin(np.arange(n) / 70) + 5 * rng.standard_normal(n), 0, 50)
-    pv = 30 * np.clip(np.sin(np.pi * (h - 6) / 12), 0, 1)
-    price = real_prices_eur_mwh(days) if real else synthetic_prices_eur_mwh(n, 5)
-    res = run_ladder(wind, pv, price, run, premium_rate=8.0)
+    hybrid.synthetic.demo_inputs() gives three synthetic days of wind, PV and prices for the
+    default plant behind a 40 MW connection. They go through the same hybrid.baselines.run_ladder
+    call that `python -m hybrid.cli b3-ablation --synthetic-demo` makes for its case of a 15 %
+    forecast error without a terminal value, so each rung's net revenue and forced curtailment
+    are that case's rows of P02's reports/b3_ablation_synthetic_demo.csv. The ablation has no
+    real-data version, so `real` is ignored and the headline says the inputs are synthetic.
+    Returns {"rows": [(label, value), ...], "headline": str}, like the other demos.
+    """
+    from hybrid import synthetic
+    from hybrid.baselines import run_ladder
+
+    demo = synthetic.demo_inputs()
+    # the ablation's case of a 15 % forecast error and no terminal value (RunConfig's defaults)
+    run = demo.run.with_(forecast_sigma=0.15, terminal_value=False)
+    res = run_ladder(demo.wind, demo.pv, demo.price, run, premium_rate=demo.premium_rate)
     r = {k: v["cost"] for k, v in res.items()}
     rows = [(k, f"{v['net_revenue']:10,.0f} EUR, {v['forced_curtail_mwh']:5.1f} MWh forced "
                 f"curtailment") for k, v in r.items()]
@@ -123,8 +128,9 @@ def demo_05(real: bool) -> dict:
     b3 = r["B3 rolling MPC"]["net_revenue"]
     return {
         "rows": rows,
-        "headline": f"80 MW of wind+PV behind a 40 MW connection; the battery under B3 adds "
-                    f"{(b3 - b0) / abs(b0) * 100:+.1f}% over the unhybridised plant",
+        "headline": f"synthetic inputs (hybrid.synthetic: 3 days, 80 MW behind 40 MW): B3 earns "
+                    f"{b3 - b0:+,.0f} EUR over B0, the plant without a battery; the 15% error, "
+                    "no terminal value case of P02's reports/b3_ablation_synthetic_demo.csv",
     }
 
 
