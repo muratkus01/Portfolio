@@ -25,8 +25,8 @@ from . import synthetic, tables
 from .baselines import ladder_tolerance, run_ladder
 from .config import NEGATIVE_PRICE_RULES, MarketConfig, PlantConfig, RunConfig
 from .data import describe, load_year, market_value_weights, to_plant
-from .market import (market_values, planning_rates, premium_rates, premium_table,
-                     rebap_series, vintage_rules)
+from .market import (market_values, planning_rates, premium_by_technology, premium_eligible,
+                     premium_rates, premium_table, rebap_series, vintage_rules)
 
 
 # The default plant, at MarketConfig's applicable values from the 2024/2025 tender ceilings, is
@@ -452,9 +452,16 @@ def cmd_negprice(args) -> None:
                              "chosen_curt_MWh": r["cost"]["chosen_curtail_mwh"]})
             if args.out:
                 table = premiums[label][0]
+                # Every rung is settled on the blended rate; beside it, what the law would pay
+                # a plant that exports all of its generation, as B0 does where the connection
+                # does not bind, so the table shows what the blend misstates.
+                by_technology = premium_by_technology(
+                    {"wind": wind, "pv": pv}, table, index, period,
+                    premium_eligible(price, run.market, run.dt), run.dt)
                 out += tables.rung_rows(res, run, _window_columns(args, index, run.dt),
                                         _premium_columns(index, table, period), vintage=label,
-                                        rule=rule, no_premium=_no_premium(table))
+                                        rule=rule, no_premium=_no_premium(table),
+                                        full_export_premium_by_technology_eur=by_technology)
     _print_negprice(args.year, by_vintage, rules, premiums, pd.DataFrame(rows))
     if args.out:
         _write(args, out)

@@ -15,6 +15,7 @@ import pytest
 import hybrid.baselines as baselines
 import hybrid.cli as cli
 from hybrid.config import MarketConfig, PlantConfig, RunConfig
+from hybrid.plant import simulate
 
 B0, B1, B2, B3 = ("B0 no battery", "B1 curtailment avoidance", "B2 perfect foresight",
                   "B3 rolling MPC")
@@ -213,6 +214,55 @@ def test_negprice_writes_each_vintages_premium_by_period(monkeypatch, tmp_path):
     rate = months["plant_rate_eur_mwh"]
     assert df.loc[df["vintage"] == older, "premium_rate_mean_eur_mwh"].to_numpy() == (
         pytest.approx((2 * rate["2025-01"] + rate["2025-02"]) / 3))
+
+
+def test_negprice_writes_the_premium_paid_per_technology(monkeypatch, tmp_path):
+    """Feature test: negprice settles every rung on one blended premium rate per period,
+    which pays each step the period's wind/PV mix. A rule suspends the premium in steps of
+    their own mix, so the blend misstates what the rule removes. negprice now also writes the
+    premium a plant that exports all of its generation is paid per technology, as the law pays.
+
+    At half the wind of `calendar_year` the plant never reaches 60 MW, so B0 exports all of
+    its generation. The price dips below zero at 13:00 for one quarter-hour: new_2025 suspends
+    that step, the hourly rules do not. PV makes more of the output then than over the day,
+    and its premium is the higher one, so per technology the rule removes more.
+    """
+    def half_wind(year: int, days: int | None = None, dt: float = 0.25) -> pd.DataFrame:
+        df = calendar_year(year, days, dt)
+        df["wind_cf"] *= 0.5
+        return df
+
+    def idle_b2(wind, pv, eff_price, run, export_cap=None):
+        # no CBC solve: the battery stays empty and nothing is curtailed, as B1 does here
+        n = len(wind)
+        return simulate(wind, pv, np.zeros(n), np.zeros(n), run.dt, run.plant,
+                        export_cap=export_cap)
+
+    monkeypatch.setattr(baselines, "b2_perfect", idle_b2)
+    df = result_table(monkeypatch, tmp_path, ["negprice", "--year", "2025", "--days", "1"],
+                      half_wind)
+    premium = pd.read_csv(tmp_path / "result_premium.csv").set_index("vintage")
+
+    day = half_wind(2025, 1)
+    wind, pv = 50.0 * day["wind_cf"].to_numpy(), 30.0 * day["pv_cf"].to_numpy()
+    dip = day["price_eur_mwh"].to_numpy() < 0
+    assert dip.sum() == 1
+    b0 = df[df["rung"] == B0].set_index(["vintage", "rule"])
+    assert (b0["forced_curtail_mwh"] == 0).all(), "B0 exports all of its generation"
+    for vintage, p in premium.iterrows():           # one period each: a day of January
+        def paid(mask, p=p):
+            return (np.sum(wind[mask]) * p["premium_wind_eur_mwh"]
+                    + np.sum(pv[mask]) * p["premium_pv_eur_mwh"]) * 0.25
+        exact = b0.loc[vintage, "full_export_premium_by_technology_eur"]
+        whole = paid(np.ones(len(dip), dtype=bool))
+        assert exact["none"] == pytest.approx(whole)
+        for rule in ("six_hour", "four_hour", "three_hour"):
+            assert exact[rule] == pytest.approx(whole), f"{vintage}, {rule}: one hour is short"
+        assert exact["new_2025"] == pytest.approx(whole - paid(dip))
+        # where nothing is suspended the blend is exact, and elsewhere it removes less
+        blended = b0.loc[vintage, "premium_revenue_eur"]
+        assert blended["none"] == pytest.approx(whole)
+        assert paid(dip) > blended["none"] - blended["new_2025"] > 0, vintage
 
 
 def test_decompose_splits_the_battery_from_curtailing_at_low_prices(monkeypatch, tmp_path,

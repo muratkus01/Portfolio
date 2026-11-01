@@ -280,6 +280,39 @@ def premium_rates(index: pd.DatetimeIndex, table: pd.DataFrame,
     return table[column].reindex(_period_labels(index, period)).to_numpy()
 
 
+def premium_by_technology(energy: dict[str, np.ndarray], table: pd.DataFrame,
+                          index: pd.DatetimeIndex, period: str, eligible: np.ndarray,
+                          dt: float) -> float:
+    """The premium paid per technology, as the law pays it: each technology's own premium on
+    its own export, in the steps where the premium is payable (Anlage 1 Nr. 3.1, 4.1).
+
+    `settle` pays one blended rate per period instead (`premium_table`). On a plant that
+    exports all of its available generation the two agree only where every step is paid: a
+    negative-price rule suspends the premium in steps whose wind/PV mix is their own, not the
+    period's. B0 exports all of its generation wherever the connection does not bind, so there
+    this is what the law would pay B0.
+
+    Parameters
+    ----------
+    energy : export per technology on `index`, MW per step, e.g. {"wind": np.array([31.2,
+        ...]), "pv": np.array([0.0, ...])}; the available generation of a plant that exports
+        all of it.
+    table : `premium_table(...)` on `index`, with a "premium_<tech>" column per technology.
+    index, period : the steps' timestamps, and "month" or "year", as the table was built.
+    eligible : per step, whether the premium is payable (`premium_eligible`).
+    dt : step length in hours.
+
+    Returns
+    -------
+    float, EUR over the steps of `index`.
+    """
+    total = 0.0
+    for tech, export in energy.items():
+        rate = premium_rates(index, table, period, f"premium_{tech}")
+        total += float(np.sum((np.asarray(export, dtype=float) * rate)[eligible]) * dt)
+    return total
+
+
 def planning_rates(index: pd.DatetimeIndex, monthly: pd.DataFrame) -> np.ndarray:
     """The plant's premium rate a controller can know in each step: the realised rate of the
     Berlin calendar month before the step's month.
