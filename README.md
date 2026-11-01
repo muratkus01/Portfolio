@@ -1,6 +1,6 @@
 # ⚡ AI for Renewable Energy Systems: Applied Research Portfolio
 
-> Three engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems: strictly grounded in actual German market designs, grid codes, and regulatory frameworks.
+> Three engineering research projects applying **reinforcement learning, model predictive control, mathematical optimization (MILP), and probabilistic forecasting** to European power systems: strictly grounded in actual German market designs and regulatory frameworks.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![Live Showcase](https://img.shields.io/badge/Live_Showcase-GitHub_Pages-6c63ff.svg)](https://muratkus01.github.io/Portfolio/showcase.html)
