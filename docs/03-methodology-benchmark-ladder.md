@@ -3,8 +3,11 @@
 The single most common failure mode in applied RL-for-energy work is a **weak baseline**.
 A learned policy that beats a naive rule set has demonstrated nothing: classical
 optimisation has solved dispatch problems in this domain for decades, and any credible claim
-must be made against that state of practice. This document defines the evaluation ladder
-used identically across all six projects.
+must be made against that state of practice. This document defines the evaluation ladder.
+The portfolio has three active projects, and three more archived in `archive/` since
+2026-10-09. Projects 01 and 02 climb the ladder with controllers. Project 03 adapts it to
+forecasts: its rungs are forecasts, each traded by the same rules. Each project's README
+states the rungs it uses.
 
 ---
 
@@ -106,7 +109,7 @@ Motivated only where B3 has structural weaknesses that learning can exploit:
 1. **Distributional value.** MILP-MPC optimises against a point forecast (or a small scenario
    tree). A learned policy can internalise the full predictive distribution and the
    asymmetric cost of errors — this is the dominant effect where imbalance prices are
-   heavy-tailed (Projects 02, 05, 06).
+   heavy-tailed (Project 02 names this as future work; no active project tests it yet).
 2. **Non-convexity and non-linearity.** Degradation, efficiency surfaces, comfort models and
    behavioural response are approximated away in a MILP. A learned policy is not restricted
    to the linearisation.
@@ -116,8 +119,8 @@ Motivated only where B3 has structural weaknesses that learning can exploit:
    counterparty behaviour) that a hand-built model does not encode.
 
 If none of these apply to a given problem, the honest conclusion is that MPC is the right
-answer and the project reports that. **Two of the six projects explicitly include "MPC wins"
-as an acceptable outcome.**
+answer and the project reports that. **Project 02 stops at B3 for this reason, and Project
+01 reports that its learned policy stays far behind B3.**
 
 ---
 
