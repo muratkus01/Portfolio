@@ -336,18 +336,27 @@ def test_simulate_refuses_reservations_it_cannot_read():
 
 
 def test_the_afrr_settings_refuse_what_their_rules_do_not_allow():
-    """MarketConfig and ReserveRule refuse a basis nobody is paid on, bands of 0 hours or
-    less, a negative floor, a penalty of 0 and values that are not finite; a floor of 0,
-    which B2 plans with, is allowed."""
+    """MarketConfig and ReserveRule refuse a basis nobody is paid on, a band shorter than the
+    60 minutes of the marketed power that PQ § 2.7.1 sets as FRR's lower limit, a negative
+    floor, a penalty of 0 and values that are not finite. A band of 1 hour each way, as the
+    positive band's sensitivity has, and a floor of 0, which B2 plans with, are allowed.
+    The slack of the safety layer is sized on that hour: at half an hour, 10 MW of negative
+    reserve following their band counted 1.05e-4 MW, above TOL, as not held."""
     for kwargs in ({"afrr_price_basis": "minimum"}, {"afrr_energy_hours_up": 0.0},
-                   {"afrr_energy_hours_down": -1.0}, {"afrr_floor_hours": -0.25},
-                   {"afrr_floor_hours": float("nan")}, {"afrr_energy_hours_up": float("inf")},
+                   {"afrr_energy_hours_up": 0.99}, {"afrr_energy_hours_down": 0.0},
+                   {"afrr_energy_hours_down": 0.5}, {"afrr_energy_hours_down": -1.0},
+                   {"afrr_floor_hours": -0.25}, {"afrr_floor_hours": float("nan")},
+                   {"afrr_energy_hours_up": float("inf")},
                    {"afrr_shortfall_penalty_eur_mwh": 0.0}):
         with pytest.raises(ValueError, match=next(iter(kwargs))):
             MarketConfig(**kwargs)
-    for args in ((0.0, 1.0, 5.0), (4.0, float("nan"), 5.0), (4.0, 1.0, -1.0)):
+    for args in ((0.0, 1.0, 5.0), (4.0, 0.5, 5.0), (0.75, 1.0, 0.0), (4.0, float("nan"), 5.0),
+                 (4.0, 1.0, -1.0)):
         with pytest.raises(ValueError, match="ReserveRule"):
             ReserveRule(*args)
+    shortest = MarketConfig(afrr_energy_hours_up=1.0, afrr_energy_hours_down=1.0)
+    assert ReserveRule(shortest.afrr_energy_hours_up, shortest.afrr_energy_hours_down,
+                       0.0) == ReserveRule(1.0, 1.0, 0.0)
     assert MarketConfig(afrr_floor_hours=0.0).afrr_floor_hours == ReserveRule(4, 1, 0).floor_mwh
 
 

@@ -30,7 +30,8 @@ from .reserve import ReserveRule
 TOL = 1e-4
 # Slack, in MWh, that lets a plan sitting exactly on an energy band be followed despite
 # rounding. It is worth at most TOL_SOC / (0.95 x hours) MW of reserve, about half of TOL at
-# 1 hour, so following such a plan never counts as reserve not held.
+# 1 hour, the shortest band a ReserveRule allows, so following such a plan never counts as
+# reserve not held.
 TOL_SOC = 5e-5
 
 

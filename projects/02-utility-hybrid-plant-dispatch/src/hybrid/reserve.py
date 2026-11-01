@@ -11,8 +11,9 @@ from typing import NamedTuple
 
 import numpy as np
 
-# In config, beside the setting it validates (MarketConfig.afrr_price_basis), so that this
-# module may read config and config needs nothing from here.
+# In config, beside the settings they validate (MarketConfig.afrr_*), so that this module
+# may read config and config needs nothing from here.
+from .config import AFRR_MIN_ENERGY_HOURS as MIN_ENERGY_HOURS
 from .config import AFRR_PRICE_BASES as PRICE_BASES
 
 
@@ -23,7 +24,8 @@ class ReserveRule:
     Positive reserve of r MW keeps max(r x hours_up, floor_mwh) MWh it can deliver; negative
     reserve keeps max(r x hours_down, floor_mwh) MWh of room it can absorb (PQ conditions
     §§ 1.6, 2.7.1-2.7.3; MarketConfig's afrr_* fields give the defaults and their reasons).
-    hours_up, hours_down: hours, finite and above 0, e.g. 4.0 and 1.0.
+    hours_up, hours_down: hours, finite and at least MIN_ENERGY_HOURS (1 hour, the 60 minutes
+        of PQ § 2.7.1), e.g. 4.0 and 1.0.
     floor_mwh: MWh, finite and at least 0, e.g. 5.0, 15 minutes of a 20 MW battery; 0 drops
         the floor, as B2 plans.
     Raises ValueError for any other value.
@@ -33,12 +35,13 @@ class ReserveRule:
     floor_mwh: float
 
     def __post_init__(self) -> None:
-        for name, zero_allowed in (("hours_up", False), ("hours_down", False),
-                                   ("floor_mwh", True)):
+        # the safety layer reads its rule from here, and its slack on the bands (plant.TOL_SOC)
+        # would count as reserve not held on a band shorter than MIN_ENERGY_HOURS
+        for name, least in (("hours_up", MIN_ENERGY_HOURS), ("hours_down", MIN_ENERGY_HOURS),
+                            ("floor_mwh", 0.0)):
             value = getattr(self, name)
-            bound = "at least 0" if zero_allowed else "above 0"
-            if not (math.isfinite(value) and (value >= 0 if zero_allowed else value > 0)):
-                raise ValueError(f"ReserveRule.{name} must be finite and {bound}, "
+            if not (math.isfinite(value) and value >= least):
+                raise ValueError(f"ReserveRule.{name} must be finite and at least {least:g}, "
                                  f"not {value!r}")
 
 

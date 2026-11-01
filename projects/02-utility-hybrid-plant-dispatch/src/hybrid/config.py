@@ -91,6 +91,11 @@ NEGATIVE_PRICE_RULES = ("none", "six_hour", "four_hour", "three_hour", "two_hour
 # What an aFRR reservation can be paid on (`reserve.paid_prices`): B2 on any of them, as a
 # sensitivity; B3, which bids, always on "bid".
 AFRR_PRICE_BASES = ("bid", "average", "marginal")
+# The shortest energy band, in hours of the reserved MW: PQ conditions v1.05 § 2.7.1 set 60
+# minutes of the marketed power as the lower limit for FRR. The safety layer's slack on the
+# bands (plant.TOL_SOC) is sized on it, so that following a band is never counted as reserve
+# not held.
+AFRR_MIN_ENERGY_HOURS = 1.0
 
 
 @dataclass(frozen=True)
@@ -140,7 +145,8 @@ class MarketConfig:
     # what the battery delivers from store alone, as without grid charging no storage
     # management secures 4 hours of positive delivery (PQ conditions v1.05 §§ 1.6, 2.7.2,
     # 2.7.3); 1 hour is a sensitivity that needs such a concept. Down: 1 hour of room, as the
-    # battery's storage management sells energy and needs no grid charging (§ 2.7.1).
+    # battery's storage management sells energy and needs no grid charging (§ 2.7.1). Neither
+    # may be shorter than AFRR_MIN_ENERGY_HOURS.
     afrr_energy_hours_up: float = 4.0
     afrr_energy_hours_down: float = 1.0
     # At least 15 minutes of the PQ power, PlantConfig.bess_mw, per reserved direction: the
@@ -163,14 +169,16 @@ class MarketConfig:
         if self.afrr_price_basis not in AFRR_PRICE_BASES:
             raise ValueError(f"unknown afrr_price_basis {self.afrr_price_basis!r}; it is one "
                              f"of {AFRR_PRICE_BASES}")
-        # a band or a penalty of 0 would let a reservation hold no energy, or cost nothing
-        for name, zero_allowed in (("afrr_energy_hours_up", False),
-                                   ("afrr_energy_hours_down", False),
-                                   ("afrr_floor_hours", True),
-                                   ("afrr_shortfall_penalty_eur_mwh", False)):
+        # a band below PQ's 60 minutes, or a penalty of 0, would let a reservation keep too
+        # little energy, or let reserve not held cost nothing
+        for name, least, inclusive in (
+                ("afrr_energy_hours_up", AFRR_MIN_ENERGY_HOURS, True),
+                ("afrr_energy_hours_down", AFRR_MIN_ENERGY_HOURS, True),
+                ("afrr_floor_hours", 0.0, True),
+                ("afrr_shortfall_penalty_eur_mwh", 0.0, False)):
             value = getattr(self, name)
-            bound = "at least 0" if zero_allowed else "above 0"
-            if not (math.isfinite(value) and (value >= 0 if zero_allowed else value > 0)):
+            if not (math.isfinite(value) and (value >= least if inclusive else value > least)):
+                bound = f"at least {least:g}" if inclusive else f"above {least:g}"
                 raise ValueError(f"{name} must be finite and {bound}, not {value!r}")
 
 
