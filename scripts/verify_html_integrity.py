@@ -9,11 +9,15 @@ Verify showcase.html integrity:
 6. Check that every inline script parses the way a browser parses it: a classic script with
    node's vm.Script, a module with `node --check` (skipped, with a note, when node is not on
    PATH).
+7. Check that Project 02's figures on the page, copied by hand, still equal the committed CSVs
+   they cite: its ladder and sizing tables and its tiles, and the hero's market console, which
+   shows window_stats.csv.
 
 Usage: python scripts/verify_html_integrity.py [page.html]
 The page defaults to showcase.html in the repository root. Image paths are resolved against
 the repository root, where showcase.html lives. A failed check raises AssertionError.
 """
+import csv
 import itertools
 import json
 import re
@@ -43,6 +47,14 @@ CLASSIC_SCRIPT_PARSER = (
     "try { new vm.Script(fs.readFileSync(file, 'utf8'), { filename: file }); }"
     "catch (e) { console.error(String(e.stack).split('\\n    at ')[0]); process.exit(1); }"
 )
+
+# Check 7 reads Project 02's committed reports. The ladder table has one column per window,
+# and its rows run B0 to B3, then B3's share, then the premium.
+P02_REPORTS = ROOT / 'projects' / '02-utility-hybrid-plant-dispatch' / 'reports'
+P02_LADDER_WINDOWS = ('2025-01-01_30d', '2025-07-01_30d')
+P02_RUNGS = ('B0 no battery', 'B1 curtailment avoidance', 'B2 perfect foresight', 'B3 rolling MPC')
+P02_SIZING_TITLE = "Connection Size: The Battery's Own Value and Curtailing at Low Prices"
+P02_LADDER_TITLE = 'Benchmark Ladder (Energy-Charts Data, Synthetic Forecasts)'
 
 
 def check_canvases_and_functions(html):
@@ -176,8 +188,126 @@ def check_js_syntax(html):
     print(f"JS syntax OK: {len(scripts)} inline script(s) parse as the browser parses them")
 
 
+def p02_csv(name):
+    """Rows of a P02 report as dicts of strings, e.g. p02_csv('sizing_2024.csv')[0]['conn_mw'] == '20.0'."""
+    with open(P02_REPORTS / name, newline='', encoding='utf-8') as f:
+        return list(csv.DictReader(f))
+
+
+def eur(value):
+    """A CSV amount as the page prints it, e.g. eur('1094990.3') == '1,094,990 EUR'."""
+    return f"{float(value):,.0f} EUR"
+
+
+def table_cells(html, title):
+    """Cell texts, tags stripped, of each body row of the first table after `title`.
+
+    e.g. [['20 MW', '4.00', '1,094,990 EUR', ...], ...] for the sizing table.
+    """
+    start = html.index(title)
+    body = html[html.index('<tbody>', start):html.index('</tbody>', start)]
+    return [[re.sub(r'<[^>]+>', '', cell).strip() for cell in re.findall(r'<td[^>]*>(.*?)</td>', row, flags=re.S)]
+            for row in re.findall(r'<tr>(.*?)</tr>', body, flags=re.S)]
+
+
+def p02_ladder_columns():
+    """The ladder table's columns as the page should print them, one list per window.
+
+    Each holds B0 to B3's net revenue, B3's share of the B1-to-B2 gain, and the premium every
+    rung is settled on / the one B3 planned on, e.g. [..., '94.1%', '1.48 / 0.00 EUR/MWh'].
+    """
+    columns = []
+    for window in P02_LADDER_WINDOWS:
+        rows = {r['rung']: r for r in p02_csv(f'ladder_{window}.csv')}
+        b0, b1, b2, b3 = (float(rows[rung]['net_revenue_eur']) for rung in P02_RUNGS)
+        mpc = rows['B3 rolling MPC']
+        premium = (f"{float(mpc['premium_rate_mean_eur_mwh']):.2f} / "
+                   f"{float(mpc['b3_premium_rate_mean_eur_mwh']):.2f} EUR/MWh")
+        columns.append([eur(v) for v in (b0, b1, b2, b3)] + [f"{(b3 - b1) / (b2 - b1) * 100:.1f}%", premium])
+    return columns
+
+
+def p02_sizing_rows():
+    """The sizing table's rows as the page should print them, keyed by the connection in MW.
+
+    e.g. {20.0: ['4.00', '1,094,990 EUR', '124,552 EUR', '1,298,361 EUR', '138,351 EUR'], ...}:
+    overbuild, then the battery's own value and the value of curtailing at low prices in 2024
+    and in 2025. Every rung of a connection repeats both values, so any of its rows serves.
+    """
+    years = [{float(r['conn_mw']): r for r in p02_csv(f'sizing_{y}.csv')} for y in ('2024', '2025')]
+    assert years[0].keys() == years[1].keys(), "sizing_2024.csv and sizing_2025.csv sweep different connections"
+    return {conn: [f"{float(years[0][conn]['overbuild']):.2f}"]
+            + [eur(y[conn][col]) for y in years for col in ('battery_value_eur', 'chosen_curtailment_value_eur')]
+            for conn in sorted(years[0])}
+
+
+def p02_tiles():
+    """The four P02 tiles as the page should print them, e.g. ['94.1 / 95.4%', '1.24M / 1.46M EUR', '0 / 0', '0']."""
+    stats = {r['window']: r for r in p02_csv('window_stats.csv')}
+    as_built = float(stats['2024']['connection_mw'])
+    value = [next(float(r['battery_value_eur']) for r in p02_csv(f'sizing_{y}.csv') if float(r['conn_mw']) == as_built)
+             for y in ('2024', '2025')]
+    shares = [column[4] for column in p02_ladder_columns()]
+    violations = sum(int(r['violations']) for f in sorted(P02_REPORTS.glob('*.csv'))
+                     for r in p02_csv(f.name) if 'violations' in r)
+    return [f"{shares[0][:-1]} / {shares[1]}", f"{value[0] / 1e6:.2f}M / {value[1] / 1e6:.2f}M EUR",
+            f"{int(stats['2024']['steps_over_connection'])} / {int(stats['2025']['steps_over_connection'])}",
+            str(violations)]
+
+
+def check_p02_figures(html):
+    """Check 7, part 1: P02's ladder and sizing tables and its tiles equal the CSVs."""
+    ladder = table_cells(html, P02_LADDER_TITLE)
+    for j, want in enumerate(p02_ladder_columns()):
+        got = [row[1 + j] for row in ladder]
+        assert got == want, f"P02 ladder, {P02_LADDER_WINDOWS[j]}: the page shows {got}, the CSV gives {want}"
+    sizing = p02_sizing_rows()
+    page = {float(row[0].split()[0]): row[1:] for row in table_cells(html, P02_SIZING_TITLE)}
+    assert page == sizing, f"P02 sizing table: the page shows {page}, sizing_2024/2025.csv give {sizing}"
+    section = html[html.index('<section id="p02"'):]
+    strip = section[section.index('class="metrics-strip"'):]
+    tiles = re.findall(r'<div class="mini-val[^"]*">([^<]*)</div>', strip)[:4]
+    assert tiles == p02_tiles(), f"P02 tiles: the page shows {tiles}, the CSVs give {p02_tiles()}"
+    print(f"P02 figures OK: the ladder table ({len(P02_LADDER_WINDOWS)} windows), the sizing table "
+          f"({len(sizing)} connections) and the 4 tiles equal the CSVs in its reports/")
+
+
+def market_console_figures(year):
+    """The hero console's figures for `year`, from window_stats.csv, keyed as in YEAR_CONFIG.
+
+    e.g. {'label': '2025: 365 Days, 35,040 Quarter-Hours', 'spotMean': '89.32 EUR/MWh', ...}.
+    """
+    row = next(r for r in p02_csv('window_stats.csv') if r['window'] == year)
+    # The peak cell's fixed text says 80 MW installed and 0 quarter-hours above a 60 MW connection.
+    fixed = (float(row['installed_mw']), float(row['connection_mw']), int(row['steps_over_connection']))
+    assert fixed == (80.0, 60.0, 0), f"window_stats.csv, {year}: update the console's peak cell, it says {fixed}"
+    return {'label': f"{year}: {float(row['days']):.0f} Days, {float(row['steps']):,.0f} Quarter-Hours",
+            'spotMean': f"{float(row['mean_price_eur_mwh']):.2f} EUR/MWh",
+            'negQuarterHours': f"{float(row['negative_price_quarter_hours']):,.0f}",
+            'peakGen': f"{float(row['peak_generation_mw']):.1f} MW"}
+
+
+def check_market_console(html):
+    """Check 7, part 2: YEAR_CONFIG's market figures, and the console's markup, equal window_stats.csv."""
+    config = html[html.index('const YEAR_CONFIG = {'):]
+    for year in ('2024', '2025'):
+        m = re.search(rf"'{year}': \{{\s*market: \{{(.*?)\}}", config, flags=re.S)
+        assert m, f"YEAR_CONFIG['{year}'] has no market entry"
+        for key, value in market_console_figures(year).items():
+            assert f"{key}: '{value}'" in m.group(1), f"YEAR_CONFIG['{year}'].market.{key} should be '{value}'"
+    # 2024's prices were hourly, so its count of negative quarter-hours is four times the hours.
+    hours = float(market_console_figures('2024')['negQuarterHours'].replace(',', '')) / 4
+    assert f"so {hours:,.0f} hours'" in config, f"YEAR_CONFIG['2024'].market.negSub should give {hours:,.0f} hours"
+    # The page opens on 2025, and the markup shows its figures before the script runs.
+    shown = market_console_figures('2025')
+    for el_id, key in (('market-year-tag', 'label'), ('mkt-spot-mean', 'spotMean'),
+                       ('mkt-neg-qh', 'negQuarterHours'), ('mkt-peak-gen', 'peakGen')):
+        assert f'id="{el_id}">{shown[key]}<' in html, f"#{el_id} should show 2025's '{shown[key]}'"
+    print("Market console OK: its 2024 and 2025 figures equal window_stats.csv")
+
+
 def verify(page=ROOT / 'showcase.html'):
-    """Run checks 1 to 6 on `page`; raises AssertionError at the first failure."""
+    """Run checks 1 to 7 on `page`; raises AssertionError at the first failure."""
     with open(page, 'r', encoding='utf-8') as f:
         html = f.read()
 
@@ -192,6 +322,8 @@ def verify(page=ROOT / 'showcase.html'):
     check_onclick(html, funcs)
     check_p01_cube_keys(html)
     check_js_syntax(html)
+    check_p02_figures(html)
+    check_market_console(html)
     print("ALL HTML INTEGRITY CHECKS PASSED!")
 
 
