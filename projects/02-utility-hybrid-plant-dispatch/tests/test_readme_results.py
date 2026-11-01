@@ -234,11 +234,11 @@ def test_the_negprice_table_quotes_its_csv(year):
     header, rows = table(f"Negative-price rule, calendar year {year}")
     recent, older = dict.fromkeys(d["vintage"])
     assert "recent" in recent and "older" in older
-    assert header == ["Rule", f"Plants that carry it in {year}", "Recent: B0 EUR",
-                      "Recent: B2 EUR", "Recent: B2 chosen curtailment MWh", "Older: B0 EUR",
-                      "Older: B2 EUR", "Older: B2 chosen curtailment MWh"]
+    assert header == ["Rule", "Vintage that carries it", "Recent: B0 EUR", "Recent: B2 EUR",
+                      "Recent: B2 chosen curtailment MWh", "Older: B0 EUR", "Older: B2 EUR",
+                      "Older: B2 chosen curtailment MWh"]
     rules = list(dict.fromkeys(d["rule"]))
-    carried = {rule: vintage for vintage, rule in vintage_rules(year).items()}
+    carried = {rule: _as_carried_in(vintage, year) for vintage, rule in vintage_rules(year).items()}
     assert len(rows) == len(rules)
     for cells, rule in zip(rows, rules):
         want = [rule, carried[rule]]
@@ -295,6 +295,15 @@ def test_the_per_technology_table_quotes_the_negprice_csvs():
     assert f"from {lo:.0f} % more ({low}) to {hi:.0f} % more ({high})" in text
     quoted = re.findall(r"(\d+) % to (\d+) %", text)
     assert quoted and set(quoted) == {(f"{lo:.0f}", f"{hi:.0f}")}, quoted
+
+
+def _as_carried_in(vintage: str, year: int) -> str:
+    """A vintage as the negprice tables name it: one that begins after the evaluated year, as
+    "from 25 Feb 2025" does in 2024, is marked a counterfactual there."""
+    begins = re.fullmatch(r"from .* (\d{4})", vintage)
+    if begins and int(begins.group(1)) > year:
+        return f"{vintage} (counterfactual in {year})"
+    return vintage
 
 
 def test_the_ladder_table_quotes_its_csvs():

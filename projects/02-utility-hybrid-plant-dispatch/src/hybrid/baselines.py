@@ -167,7 +167,9 @@ def default_terminal_price(eff_price: np.ndarray, run: RunConfig) -> float:
     charge to a bound, because its slope is the right marginal value at one SoC level only. If
     a terminal value is needed (short horizons, long storage cycles), it should be concave and
     SoC-dependent: piecewise linear, fitted from perfect-foresight shadow prices on a
-    separate training window. The same finding holds for Project 01.
+    separate training window. Project 01 met a similar failure with a value set at the retail
+    import price; it now values stored energy at a monthly price fitted on a past year from
+    such shadow prices, which has not been tried here.
     """
     if not run.terminal_value:
         return 0.0

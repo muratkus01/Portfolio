@@ -86,8 +86,9 @@ Section `source_url` of `run_meta.csv` names every request. datakit fetched the 
   fleet of the same month. The monthly fleet figure reads as the fleet at the month's end.
   National factors are far smoother than a single site, and they understate what a new plant
   produces.
-- The market values. A proxy: the day-ahead price weighted by national generation, following
-  EEG 2023 Anlage 1. The TSOs publish the values the premium is settled on, and this project
+- The market values. A proxy: the day-ahead price weighted by national feed-in, following
+  EEG 2023 Anlage 1, through capacity factors, so an annual value weighs the months slightly
+  differently from their feed-in. The TSOs publish the values the premium is settled on, and this project
   does not load them. Section `market_value_proxy_eur_mwh` of `run_meta.csv` holds the proxy by
   technology, month and year.
 - The applicable values. 73.5 EUR/MWh for wind and 68.0 EUR/MWh for PV, the Bundesnetzagentur's

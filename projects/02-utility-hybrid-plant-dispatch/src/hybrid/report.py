@@ -39,9 +39,11 @@ REPORTS_DIR = PROJECT_DIR / "reports"
 # 2025; B3 at the default plant on 30-day windows from 1 January and 1 July 2025; and the B3
 # ablation on the showcase's synthetic inputs.
 # decompose runs at the default 60 MW and at 30 MW. On national factors the plant's
-# generation never reaches 60 MW in either year, so there the connection limit's effect is 0
-# by construction; 30 MW is the widest connection of the sizing sweep that it exceeds in both,
-# as the B0 rows' forced curtailment shows.
+# generation never reaches 60 MW in either year, so there the connection limit's effect is 0:
+# by construction where peak generation plus the battery's 20 MW stays below 60 MW, as in
+# 2025, and because B2 never needs the headroom in 2024. 30 MW is the widest connection of
+# the sizing sweep that the generation exceeds in both, as the B0 rows' forced curtailment
+# shows.
 PUBLISH_SET = (
     "sizing --year 2024 --full-year",
     "sizing --year 2025 --full-year",
