@@ -11,12 +11,12 @@ converted to the package's UTC index on ingestion.
 PV timing. The PV column (`PV_Bayern_*`) is one hour early relative to load and prices.
 Its source, a company ERA5 model export (`MODELLING_ERA5_KWH`, timestamps in UTC), is
 correct and centred on solar noon; during data preparation its UTC timestamps were written
-into the CET column one to one (8778 of 8784 hours identical under that reading, the other
-six differ only at dawn and dusk). `load_thesis_year(correct_pv_timing=True)` moves PV one
-hour later. The default keeps the published data, so the thesis results still reproduce;
-the correction lowers the optimized scenario's annual profit by about 2 % (1039.0 to 1018.2
-EUR) and leaves the conclusions unchanged. The 2025/2026 data (`data.pv`) is generated with
-correct timing.
+into the CET column one to one (under that reading the two series are identical in almost
+every hour; the few that differ lie at dawn and dusk).
+`load_thesis_year(correct_pv_timing=True)` moves PV one hour later. The default keeps the
+published data, so the thesis results still reproduce; the correction lowers the optimized
+scenario's annual profit by about 2 % (1039.0 to 1018.2 EUR) and leaves the conclusions
+unchanged. The 2025/2026 data (`data.pv`) is generated with correct timing.
 """
 from __future__ import annotations
 
