@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime
 import importlib.util
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -59,10 +60,11 @@ def _dispatch(n: int, **reserve: np.ndarray) -> dict[str, np.ndarray]:
             "forced_curtail": zeros, **reserve}
 
 
-def _settle(res: dict[str, np.ndarray], afrr: Payment | None = None) -> dict[str, float]:
+def _settle(res: dict[str, np.ndarray], afrr: Payment | None = None,
+            market: MarketConfig = MARKET) -> dict[str, float]:
     """settle at a day-ahead price of 50 EUR/MWh and no premium."""
     n = len(res["export"])
-    return settle(res, np.full(n, 50.0), DT, PLANT, MARKET, premium_rate=0.0, afrr=afrr)
+    return settle(res, np.full(n, 50.0), DT, PLANT, market, premium_rate=0.0, afrr=afrr)
 
 
 def test_capacity_revenue_is_price_times_mw_times_hours():
@@ -144,7 +146,8 @@ def test_reserve_not_held_is_charged_per_product_with_its_payment_cut():
     3 MW one in a NEG product paid 7 EUR/MW/h adds its own 12 MWh, 84 EUR of cut and
     120,000 EUR of penalty. The 5 MW that positive reserve's headroom curtailed for an hour
     are reported as 5 MWh and charged nothing here: their energy is missing from the
-    export the energy terms are paid on."""
+    export the energy terms are paid on. The penalty is the setting's: at 20,000 EUR/MWh the
+    same 20 MWh cost twice as much, and the cut and the MWh do not change."""
     n, block = 48, np.repeat(np.arange(3), 16)
     short_up, short_down = np.zeros(n), np.zeros(n)
     short_up[[5, 9]] = 2.0, 1.0                     # both in product 0
@@ -152,14 +155,19 @@ def test_reserve_not_held_is_charged_per_product_with_its_payment_cut():
     res = _dispatch(n, afrr_up=np.full(n, 6.0), afrr_down=np.full(n, 4.0),
                     afrr_deficit_up=short_up, afrr_deficit_down=short_down,
                     reserve_curtail=np.where(np.arange(n) < 4, 5.0, 0.0))
+    payment = Payment(np.full(n, 15.0), np.full(n, 7.0), block)
 
-    c = _settle(res, Payment(np.full(n, 15.0), np.full(n, 7.0), block))
+    c = _settle(res, payment)
+    dearer = _settle(res, payment, replace(MARKET, afrr_shortfall_penalty_eur_mwh=20_000.0))
 
     assert (c["afrr_shortfall_up_mwh"], c["afrr_shortfall_down_mwh"]) == (8.0, 12.0)
     assert c["afrr_capacity_cut"] == pytest.approx(120.0 + 84.0)
     assert c["afrr_shortfall_cost"] == pytest.approx(10_000 * 20.0)
     assert c["afrr_capacity_revenue"] == pytest.approx((15.0 * 6.0 + 7.0 * 4.0) * 12.0)
     assert c["afrr_reserve_curtail_mwh"] == 5.0
+    assert dearer["afrr_shortfall_cost"] == pytest.approx(20_000 * 20.0)
+    unchanged = ("afrr_capacity_cut", "afrr_shortfall_up_mwh", "afrr_shortfall_down_mwh")
+    assert [dearer[k] for k in unchanged] == [c[k] for k in unchanged]
 
 
 def test_b3_is_paid_its_bid_only_where_it_was_accepted():
@@ -206,10 +214,13 @@ def test_off_settlement_keeps_todays_keys():
 
 def test_reserve_held_is_never_settled_without_its_payment():
     """A dispatch that holds reservations is refused without afrr=, so that its capacity and
-    its reserve not held cannot drop out of a settlement unnoticed."""
-    res = _dispatch(4, afrr_up=np.ones(4), afrr_down=np.zeros(4))
-    with pytest.raises(ValueError, match="holds aFRR reservations"):
-        _settle(res)
+    its reserve not held cannot drop out of a settlement unnoticed. That includes a dispatch
+    whose reservations are all 0 MW: every rung of an aFRR run is settled with its six aFRR
+    terms, so that no row of its table lacks them."""
+    for up in (np.ones(4), np.zeros(4)):
+        res = _dispatch(4, afrr_up=up, afrr_down=np.zeros(4))
+        with pytest.raises(ValueError, match="holds aFRR reservations"):
+            _settle(res)
 
 
 def test_settle_refuses_a_payment_it_cannot_read():
