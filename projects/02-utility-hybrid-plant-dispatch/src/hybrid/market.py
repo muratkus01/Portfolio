@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from .config import MarketConfig, PlantConfig
+from .reserve import Payment, product_shortfall
 
 # Hours of uninterrupted negative prices after which § 51 EEG removes the premium for the
 # WHOLE run, by rule. § 100 keeps a plant on the version of § 51 that applied when it was
@@ -351,7 +352,8 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
            plant: PlantConfig, market: MarketConfig,
            rebap: np.ndarray | None = None,
            schedule: np.ndarray | None = None,
-           premium_rate: float | np.ndarray | None = None) -> dict[str, float]:
+           premium_rate: float | np.ndarray | None = None,
+           afrr: Payment | None = None) -> dict[str, float]:
     """Decompose the plant's revenue. All values EUR over the evaluated period.
 
     `premium_rate` (EUR/MWh) is EXOGENOUS and must be supplied by the caller: one rate, or
@@ -392,12 +394,30 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
     rebap, schedule : imbalance price per step (EUR/MWh) and the committed export (MW); the
         deviation is settled only when both are given.
     premium_rate : market premium, EUR/MWh, one rate or one per step.
+    afrr : what the rung is paid for aFRR capacity (`reserve.Payment`), or None to settle no
+        aFRR. With it, the MW the rung held ("afrr_up", "afrr_down" in `res`; a rung without
+        them, as B0 and B1, held none) are paid price x MW x hours per quarter-hour, so the
+        3- and 5-hour products of the daylight-saving days pay 3 and 5 hours. Reserve not held
+        ("afrr_deficit_up", "afrr_deficit_down") counts per product at its largest shortfall
+        (`reserve.product_shortfall`): its capacity payment is cut, as MfRRA § 11 (2)(a)
+        cuts it, and market.afrr_shortfall_penalty_eur_mwh is charged per MWh.
 
     Returns
     -------
     dict of EUR terms ("spot_revenue", "premium_revenue", "marketing_fee", "degradation_cost",
-    "imbalance_cost", "import_cost", "net_revenue") and MWh totals.
+    "imbalance_cost", "import_cost", "net_revenue") and MWh totals; with `afrr`, then
+    "afrr_capacity_revenue", "afrr_capacity_cut" and "afrr_shortfall_cost" (EUR, all in
+    net_revenue), "afrr_shortfall_up_mwh", "afrr_shortfall_down_mwh" and
+    "afrr_reserve_curtail_mwh".
+
+    Raises
+    ------
+    ValueError when `res` holds aFRR reservations and `afrr` is None, as their capacity and
+    the reserve not held would go unsettled, and for a payment `_afrr_terms` cannot read.
     """
+    if afrr is None and "afrr_up" in res:
+        raise ValueError("res holds aFRR reservations, so settle needs afrr=, what the rung "
+                         "is paid for them (reserve.Payment)")
     price = np.asarray(price, dtype=float)
     export = res["export"]
 
@@ -426,7 +446,7 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
 
     net = (spot_revenue + premium_revenue - marketing_fee - degradation - imbalance_cost
            - import_cost)
-    return {
+    out = {
         "spot_revenue": spot_revenue,
         "premium_revenue": premium_revenue,
         "marketing_fee": marketing_fee,
@@ -437,6 +457,43 @@ def settle(res: dict[str, np.ndarray], price: np.ndarray, dt: float,
         "chosen_curtail_mwh": float(np.sum(res["chosen_curtail"]) * dt),
         "forced_curtail_mwh": float(np.sum(res["forced_curtail"]) * dt),
         "export_mwh": float(np.sum(export) * dt),
+    }
+    if afrr is not None:
+        terms = _afrr_terms(res, afrr, dt, market)
+        out["net_revenue"] = (net + terms["afrr_capacity_revenue"] - terms["afrr_capacity_cut"]
+                              - terms["afrr_shortfall_cost"])
+        out.update(terms)
+    return out
+
+
+def _afrr_terms(res: dict[str, np.ndarray], afrr: Payment, dt: float,
+                market: MarketConfig) -> dict[str, float]:
+    """The aFRR capacity leg of `settle`, in its keys' order: EUR terms, then MWh.
+
+    res, dt, market: as `settle` takes them. afrr: what the rung is paid.
+    Raises ValueError unless afrr holds one finite price of at least 0 EUR/MW/h per step in
+    each direction and one product per step.
+    """
+    n = len(res["export"])
+    up, down = (np.asarray(prices, dtype=float) for prices in (afrr.up, afrr.down))
+    if (any(p.shape != (n,) or not np.all(np.isfinite(p)) or np.any(p < 0) for p in (up, down))
+            or np.shape(afrr.block) != (n,)):
+        raise ValueError(f"afrr holds one finite price of at least 0 EUR/MW/h per step and "
+                         f"direction, and one product per step, for the {n} steps")
+    zeros = np.zeros(n)
+    # a rung that holds no reserve, as B0 and B1, carries none of these arrays
+    held_up, held_down = (np.asarray(res.get(key, zeros), dtype=float)
+                          for key in ("afrr_up", "afrr_down"))
+    short_up, mwh_up = product_shortfall(res.get("afrr_deficit_up", zeros), afrr.block, dt)
+    short_down, mwh_down = product_shortfall(res.get("afrr_deficit_down", zeros), afrr.block,
+                                             dt)
+    return {
+        "afrr_capacity_revenue": float(np.sum(up * held_up + down * held_down) * dt),
+        "afrr_capacity_cut": float(np.sum(up * short_up + down * short_down) * dt),
+        "afrr_shortfall_cost": market.afrr_shortfall_penalty_eur_mwh * (mwh_up + mwh_down),
+        "afrr_shortfall_up_mwh": mwh_up,
+        "afrr_shortfall_down_mwh": mwh_down,
+        "afrr_reserve_curtail_mwh": float(np.sum(res.get("reserve_curtail", zeros)) * dt),
     }
 
 

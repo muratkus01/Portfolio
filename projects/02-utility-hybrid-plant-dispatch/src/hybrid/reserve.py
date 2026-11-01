@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, fields
+from typing import NamedTuple
 
 import numpy as np
 
@@ -116,3 +117,39 @@ def paid_prices(prices: CapacityPrices, basis: str) -> tuple[np.ndarray, np.ndar
     if basis == "marginal":
         return prices.marginal_up, prices.marginal_down
     raise ValueError(f"unknown aFRR price basis {basis!r}; it is one of {PRICE_BASES}")
+
+
+class Payment(NamedTuple):
+    """What one rung is paid for aFRR capacity, per 15-minute step, and each step's product.
+
+    up, down: EUR/MW/h per step, e.g. `paid_prices(prices, "bid")`; 0 where nothing is paid.
+    block: the step's product, e.g. CapacityPrices.block, so that reserve not held is
+        charged per product (`product_shortfall`).
+    """
+    up: np.ndarray
+    down: np.ndarray
+    block: np.ndarray
+
+
+def product_shortfall(deficit: np.ndarray, block: np.ndarray,
+                      dt: float) -> tuple[np.ndarray, float]:
+    """Reserve not held, per product: each step gets its product's largest shortfall.
+
+    A product is sold for all its hours, so a shortfall in any of its steps counts for the
+    whole product. MfRRA prices the MWh not available per quarter-hour (§ 25 (2)(a)(i)(2));
+    charging the product's largest shortfall for all of it charges at least as much.
+    deficit: MW not held per step, e.g. `plant.simulate`'s "afrr_deficit_up".
+    block: the step's product, any labels, e.g. [0, 0, ..., 1, ...].
+    dt: step length, h, e.g. 0.25.
+    Returns (per step, the MW its product did not hold; the MWh not held, which is that
+    array's sum times dt). Raises ValueError unless deficit and block have one shape.
+    """
+    deficit, block = np.asarray(deficit, dtype=float), np.asarray(block)
+    if deficit.shape != block.shape:
+        raise ValueError(f"deficit {deficit.shape} and block {block.shape} must hold one "
+                         "value per step each")
+    labels, product = np.unique(block, return_inverse=True)
+    peak = np.zeros(len(labels))
+    np.maximum.at(peak, product, deficit)
+    per_step = peak[product]
+    return per_step, float(np.sum(per_step) * dt)
