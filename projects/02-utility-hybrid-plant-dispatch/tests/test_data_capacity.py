@@ -116,10 +116,11 @@ def test_pv_factor_is_total_solar_generation_over_the_months_dc_fleet(energy_cha
     assert june["pv_cf"].to_numpy() == pytest.approx(30_000 / 80_000)
 
 
-def test_total_solar_is_cached_under_the_tag_datakit_total_power_uses(energy_charts):
-    """The stand-in for datakit.total_power must request the same URL under the same cache
-    tag, so that the two share one cache file and the later swap fetches nothing and moves no
-    number. Nothing pinned the tag before."""
+def test_total_solar_comes_from_datakit_total_power(energy_charts):
+    """Total solar generation is fetched through datakit.total_power, under its cache tag.
+
+    A private stand-in with the same URL and tag served until datakit gained total_power, so
+    the swap shares the cache and moves no number."""
     requests = energy_charts()
     load_year(2024)
     assert (f"{datakit.EC}/total_power?country=de&start=2024-01-01&end=2025-01-01",

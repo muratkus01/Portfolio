@@ -32,36 +32,6 @@ if str(_DATAKIT) not in sys.path:
 _GW_TO_MW = 1000.0
 
 
-def _total_power(start: str, end: str, country: str = "de") -> pd.DataFrame:
-    """Generation by production type INCLUDING self-consumption, MW, from Energy-Charts.
-
-    public_power counts feed-in to the public grid, so its 'Solar' leaves out the rooftop
-    output used on site, which the installed PV fleet still counts. total_power counts it. A
-    stand-in for datakit.total_power, which another branch adds and which will replace this
-    helper: it calls the same endpoint through datakit's own plumbing with the same cache tag,
-    so the two share one cache file and give the same numbers.
-
-    Args:
-        start, end: dates as Energy-Charts takes them, e.g. "2024-01-01" and "2025-01-01".
-        country: Energy-Charts country code, e.g. "de".
-
-    Returns:
-        Frame on a UTC index, one column per production type, e.g. 'Solar', 'Wind onshore'.
-    """
-    import datakit
-
-    # datakit loads as a package (repo root on the path) or as a module (its folder on the
-    # path), and only the module that defines public_power carries the private _get_json.
-    plumbing = sys.modules[datakit.public_power.__module__]
-    url = f"{datakit.EC}/total_power?country={country}&start={start}&end={end}"
-    p = plumbing._get_json(url, datakit.DEFAULT_CACHE, f"total_power_{country}_{start}_{end}",
-                           "CC BY 4.0 (Energy-Charts)")
-    idx = pd.to_datetime(p["unix_seconds"], unit="s", utc=True)
-    cols = {s["name"] if isinstance(s["name"], str) else s["name"][0]:
-            np.asarray(s["data"], dtype=float) for s in p["production_types"]}
-    return pd.DataFrame(cols, index=pd.DatetimeIndex(idx, name="timestamp")).sort_index()
-
-
 def _capacity_by_month(index: pd.DatetimeIndex) -> pd.DataFrame:
     """Installed German onshore wind and PV (DC) capacity for the month of each timestamp.
 
@@ -156,7 +126,7 @@ def load_year(year: int, days: int | None = None,
     new_year = pd.Timestamp(end, tz="Europe/Berlin")
     power = datakit.public_power(start, end)
     power = power[power.index < new_year]
-    total = _total_power(start, end)
+    total = datakit.total_power(start, end)
     total = total[total.index < new_year]
     price = datakit.day_ahead_price(start, end)
 
