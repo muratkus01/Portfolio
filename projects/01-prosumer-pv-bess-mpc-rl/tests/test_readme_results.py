@@ -711,9 +711,15 @@ def test_the_aggregate_load_checks_quote_their_reports():
 
 def test_the_aggregate_load_descriptions_quote_their_reports():
     """The table's last four rows: peak-to-mean, the residual, the states, and the
-    normal-weather energy."""
+    normal-weather energy; and, above the table, the peak-to-mean of a single home."""
     folder, text = "aggregate_load/", prose()
     meta = report(folder + "fit_meta.csv", index_col="key")["value"]
+    homes = report("htw_household_features.csv", index_col=0)["peak_to_mean"]
+    # with an odd number of homes the median is one home's own value
+    assert len(homes) == int(meta["households"]) and len(homes) % 2 == 1
+    assert (f"one measured household (peak-to-mean {homes.median():.1f} at 15 minutes)"
+            in text)
+    assert f"fitted once to the mean of the {meta['households']} HTW households of 2010" in text
     ins = report(folder + "insample_2010.csv", index_col="source")
     peak = ins["peak_to_mean"]
     assert (f"model {peak['model']:.2f}, measured {meta['households']}-household mean "
