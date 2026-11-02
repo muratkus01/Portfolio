@@ -688,6 +688,12 @@ def cmd_b3_ablation(args) -> None:
 # exceeds in both years, as decompose's --conn 30; and the plant as built. A module constant,
 # so that no list-valued option can enter an experiment's name.
 _AFRR_CONNECTIONS = (20.0, 30.0, 60.0)
+# How far ahead B3's re-plans see, hours, below which afrr adds a note. A re-plan must store a
+# reserved product's energy before the product starts, from the plant's own generation alone,
+# as aFRR allows no grid charging, so it may need to see the product many hours ahead, across
+# a night: plans of 4 hours miss an award that plans of a day, the default, hold
+# (test_afrr_b3.py::test_b3_holds_an_award_only_where_its_plans_see_it_in_time).
+_AFRR_REPLAN_HOURS = 24.0
 
 
 class _AfrrCase(NamedTuple):
@@ -801,7 +807,9 @@ def _print_afrr_window(args, prices: dict) -> None:
     """Print the afrr command's window, what B2 is paid, the positive band, the window's
     capacity prices and how often the bid rule is accepted (`tables.afrr_price_columns`):
     a property of the rule and the prices, not of what B3 offered, which the table of each
-    connection gives as B3's MW-hours bid and held."""
+    connection gives as B3's MW-hours bid and held. Where B3 runs on re-plans that see less
+    than _AFRR_REPLAN_HOURS ahead, a note says that reserve not held can then come from that
+    horizon."""
     print(f"aFRR capacity reserved by the battery, without activation (Phase A), "
           f"{_window_text(args)}")
     print(f"B2 is paid on {args.basis!r}, B3 its accepted bids; positive reserve keeps "
@@ -816,6 +824,11 @@ def _print_afrr_window(args, prices: dict) -> None:
           + ("in no product: the window has no day after the first" if shares[0] is None else
              f"in {shares[0]:.1%} of the up and {shares[1]:.1%} of the down products after "
              "the first day"))
+    hours = args.horizon * RunConfig().dt
+    if not args.fast and hours < _AFRR_REPLAN_HOURS:
+        print(f"note: B3 re-plans {hours:g} h ahead, less than a day, so it can see a reserved "
+              "product too late to store its energy: reserve not held may then come from the "
+              "horizon rather than from B3's rules")
 
 
 def _print_afrr(plant: PlantConfig, rows: list[dict], values: dict) -> None:

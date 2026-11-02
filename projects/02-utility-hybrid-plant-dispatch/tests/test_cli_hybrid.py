@@ -401,6 +401,20 @@ def test_b3s_share_is_empty_where_b2_gains_nothing_from_afrr(monkeypatch, tmp_pa
     assert df[["afrr_up_bid_accepted_share", "afrr_down_bid_accepted_share"]].isna().all().all()
 
 
+@pytest.mark.parametrize("argv, noted", [
+    (["--horizon", "8"], True), ([], False), (["--horizon", "8", "--fast"], False),
+], ids=["B3 on 2 hours", "B3 on the default day", "no B3"])
+def test_the_afrr_command_notes_a_re_plan_horizon_shorter_than_a_day(monkeypatch, tmp_path,
+                                                                     capsys, argv, noted):
+    """Feature test: the afrr command ran B3 on any --horizon without a word, though a re-plan
+    must store a reserved product's energy before the product starts, and one that sees less
+    than a day ahead can see it too late (test_afrr_b3.py: plans of 4 hours miss an award that
+    plans of 24 hours hold). It now says so where B3 runs on less than a day, and only there."""
+    afrr_table(monkeypatch, tmp_path, ["--days", "1", *argv])
+    out = capsys.readouterr().out
+    assert ("note: B3 re-plans 2 h ahead, less than a day" in out) is noted
+
+
 @pytest.mark.parametrize("argv, error, message", [
     (["--up-hours", "0.5"], SystemExit, "at least 1 hour of its MW"),
     (["--basis", "median"], SystemExit, "invalid choice: 'median'"),
