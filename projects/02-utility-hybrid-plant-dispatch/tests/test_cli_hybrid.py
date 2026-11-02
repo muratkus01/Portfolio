@@ -302,7 +302,8 @@ def assert_afrr_reservations(on: pd.DataFrame, fast: bool) -> None:
 def assert_window_prices(df: pd.DataFrame) -> None:
     """The table holds no product's own capacity price, only one value per window of each
     aggregate: per direction the mean and median of the realised German average over the
-    window's 12 products, and the share of the 6 products bid for whose bid was accepted."""
+    window's 12 products, and how often the bid rule is accepted over the 6 products after
+    the first day."""
     assert {column for column in df.columns if "afrr" in column and "price" in column} == {
         "afrr_price_basis", "market_afrr_price_basis", *WINDOW_PRICES[:4]}
     assert (df[WINDOW_PRICES].nunique() == 1).all(), "one value for the whole window"
@@ -361,6 +362,23 @@ def test_the_afrr_b3_without_afrr_is_ladders_b3(monkeypatch, tmp_path):
     assert {"b3_premium_rate_mean_eur_mwh", "b3_forecast_price_scale", "b3_seed"} <= set(
         theirs.columns)
     pd.testing.assert_frame_equal(mine[theirs.columns], theirs, check_exact=True)
+
+
+@pytest.mark.parametrize("days, shares", [
+    ("2", "in 83.3% of the up and 100.0% of the down products after the first day"),
+    ("1", "in no product: the window has no day after the first"),
+], ids=["two days", "one day"])
+def test_the_afrr_printout_gives_the_accepted_share_to_the_bid_rule(monkeypatch, tmp_path,
+                                                                     capsys, days, shares):
+    """Regression test: the window's accepted share was printed as that of "B3's bids", also
+    with --fast, where B3 never runs. It counts every product after the window's first day,
+    whatever MW B3 offered there, so it is how often the bid rule is accepted: a bid at the
+    same product's average of the day before, at or below the realised marginal."""
+    afrr_table(monkeypatch, tmp_path, ["--days", days, "--fast"])
+    out = capsys.readouterr().out
+    assert "B3's bids" not in out
+    assert ("the bid rule, each product's average of the day before, is accepted (at or below "
+            f"the realised marginal) {shares}\n") in out
 
 
 def test_b3s_share_is_empty_where_b2_gains_nothing_from_afrr(monkeypatch, tmp_path):

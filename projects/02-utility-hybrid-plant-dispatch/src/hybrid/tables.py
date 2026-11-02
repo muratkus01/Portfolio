@@ -169,10 +169,11 @@ def _afrr_columns(rung: str, r: dict, dt: float, with_b3: bool) -> dict:
 
 def _b3_afrr_columns(r: dict, dt: float) -> dict:
     """B3's aFRR bids and gates as columns, from its dispatch `r`, or all empty where r = {}:
-    the MW-hours it bid per direction before each award; its gates, one per day it bid for
-    (afrr_committed_days), and of them those not solved, which bid nothing; the re-plans that
-    held reserve and were not solved; and the mean and maximum seconds of a gate's solve,
-    empty on a window with no gate. dt: step length in hours."""
+    the MW-hours it bid per direction before each award; its gates (afrr_committed_days), one
+    per day after the window's first, each counted whether its plan was solved and whether it
+    bid any MW; of them those not solved, which bid nothing; the re-plans that held reserve
+    and were not solved; and the mean and maximum seconds of a gate's solve, empty on a
+    window with no gate. dt: step length in hours."""
     if not r:
         return dict.fromkeys(("afrr_bid_up_mw_h", "afrr_bid_down_mw_h", "afrr_committed_days",
                               "afrr_commit_failures", "afrr_replan_failures",
@@ -190,10 +191,13 @@ def _b3_afrr_columns(r: dict, dt: float) -> dict:
 def afrr_price_columns(prices: CapacityPrices) -> dict:
     """A window's aFRR capacity prices as columns, one value each for the whole window: per
     direction the mean and the median, over the window's products, of the realised German
-    average (EUR/MW/h), then per direction the share of the products B3 bid for whose bid was
-    accepted, at or below the realised marginal, as `reserve.paid_prices` accepts it; empty
-    where it bid for none, as on a window of one day. Block-level prices stay out of the
-    tables, as the repository commits none.
+    average (EUR/MW/h), then per direction how often the bid rule is accepted. That is the
+    share of the window's products after its first day, the ones with a bid price (the same
+    product's German average of the day before), whose bid price is at or below the realised
+    marginal, as `reserve.paid_prices` accepts it. It describes the rule and the prices, not
+    what a rung offered: it is the same whatever MW B3 bid, none included, and in a run
+    without B3. Empty on a window of one day, which has no product with a bid price.
+    Block-level prices stay out of the tables, as the repository commits none.
 
     prices: the window's CapacityPrices (`afrr_data.capacity_prices`).
     """
@@ -205,9 +209,9 @@ def afrr_price_columns(prices: CapacityPrices) -> dict:
     for name in ("up", "down"):
         bid = getattr(prices, f"bid_{name}")[first]
         marginal = getattr(prices, f"marginal_{name}")[first]
-        bid_for = np.isfinite(bid)
+        priced = np.isfinite(bid)
         cols[f"afrr_{name}_bid_accepted_share"] = (
-            float(np.mean(bid[bid_for] <= marginal[bid_for])) if bid_for.any() else None)
+            float(np.mean(bid[priced] <= marginal[priced])) if priced.any() else None)
     return cols
 
 

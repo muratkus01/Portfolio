@@ -798,8 +798,10 @@ def _afrr_values(ladders: dict[str, dict]) -> dict:
 
 
 def _print_afrr_window(args, prices: dict) -> None:
-    """Print the afrr command's window, what B2 is paid, the positive band, and the window's
-    capacity prices and bids accepted (`tables.afrr_price_columns`)."""
+    """Print the afrr command's window, what B2 is paid, the positive band, the window's
+    capacity prices and how often the bid rule is accepted (`tables.afrr_price_columns`):
+    a property of the rule and the prices, not of what B3 offered, which the table of each
+    connection gives as B3's MW-hours bid and held."""
     print(f"aFRR capacity reserved by the battery, without activation (Phase A), "
           f"{_window_text(args)}")
     print(f"B2 is paid on {args.basis!r}, B3 its accepted bids; positive reserve keeps "
@@ -809,9 +811,11 @@ def _print_afrr_window(args, prices: dict) -> None:
                     f"{prices[f'afrr_{name}_price_median_eur_mw_h']:.2f}"
                     for name in ("up", "down")))
     shares = [prices[f"afrr_{name}_bid_accepted_share"] for name in ("up", "down")]
-    print("B3's bids, each product's average of the day before, accepted in "
-          + ("no product: no day after the first" if shares[0] is None else
-             f"{shares[0]:.1%} of the up and {shares[1]:.1%} of the down products"))
+    print("the bid rule, each product's average of the day before, is accepted (at or below "
+          "the realised marginal) "
+          + ("in no product: the window has no day after the first" if shares[0] is None else
+             f"in {shares[0]:.1%} of the up and {shares[1]:.1%} of the down products after "
+             "the first day"))
 
 
 def _print_afrr(plant: PlantConfig, rows: list[dict], values: dict) -> None:
