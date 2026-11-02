@@ -265,12 +265,13 @@ Full sweep across all 20 configurations: [`reports/sizing_grid/sizing_grid.csv`]
 2. **The inverter saturates early.** On a 9.37 kWh battery, going from 4.6 to 7.5 kW adds
    8.8 EUR/a for 551 EUR of extra equipment. Anything from 4.6 kW upward captures nearly all
    of the value for an 8 kWp array.
-3. **Who operates the battery costs less than how big it is.** Across all 20 configurations
-   the deployable B3 realises 95 % of the perfect-foresight savings (94.5 to 96.1 %), a gap
-   of 0.4 to 0.8 points of ROCE. Each step down the table above, to the next larger battery,
-   costs more return than the entire distance between a real controller and a clairvoyant
-   one. At a fixed inverter that does not always hold: with 5.63 kW, going from 5.0 to
-   7.5 kWh costs only 0.3 points, and with 7.5 kW it raises the return by 0.03 points.
+3. **Along the table, who operates the battery costs less than how big it is.** Across all
+   20 configurations the deployable B3 realises 95 % of the perfect-foresight savings (94.5
+   to 96.1 %), a gap of 0.4 to 0.8 points of ROCE. Each step down the table above, to the
+   next larger battery, costs more return than the gap to perfect foresight at both of its
+   sizes. With the inverter held fixed, that fails in 8 of the 16 steps to the next larger
+   battery, including all four at 7.5 kW: with 5.63 kW, going from 5.0 to 7.5 kWh costs only
+   0.3 points, and with 7.5 kW it raises the return by 0.03 points.
 4. **Sweet spot.** For an 8 kWp array and 3,221 kWh/a of consumption, 5 to 7.5 kWh of storage
    with a 3 to 4.6 kW inverter maximises return (7.5 to 8.9 year payback, 11 to 13 % ROCE),
    while the 9.37 kWh / 5.63 kW point, against 5.0 kWh / 3 kW, trades about 3 points of ROCE

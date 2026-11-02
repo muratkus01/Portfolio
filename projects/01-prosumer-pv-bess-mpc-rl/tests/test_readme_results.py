@@ -54,7 +54,7 @@ FIRST_RL = "6fbba1a"            # the first RL result: clipped action, total-cos
 STATE_NAMES = {"BE": "Berlin", "BB": "Brandenburg", "HB": "Bremen", "HH": "Hamburg",
                "MV": "Mecklenburg-Western Pomerania", "NI": "Lower Saxony",
                "SH": "Schleswig-Holstein", "TH": "Thuringia"}
-WORDS = {3: "three", 8: "eight"}
+WORDS = {3: "three", 4: "four", 8: "eight"}
 
 
 def readme() -> str:
@@ -554,8 +554,9 @@ def test_the_sizing_insights_on_size_and_inverter_quote_the_sizing_grid():
 
 
 def test_the_sizing_insights_on_control_and_the_sweet_spot_quote_the_sizing_grid():
-    """Insights 3 and 4: B3 against B2 in every configuration, and the configurations with
-    the highest return."""
+    """Insights 3 and 4: B3 against B2 in every configuration, against the step to a larger
+    battery along the table and at a fixed inverter, and the configurations with the highest
+    return."""
     b3, b2 = sizing("b3"), sizing("b2")
     roce = b3["roce_pct"]
     ratio = 100 * b3["annual_savings_eur"] / b2["annual_savings_eur"]
@@ -567,6 +568,16 @@ def test_the_sizing_insights_on_control_and_the_sweet_spot_quote_the_sizing_grid
     for a, b in pairwise(SIZING_ROWS):
         if b[0] > a[0]:               # a step down the table to the next larger battery
             assert roce[a] - roce[b] > max(gap[a], gap[b]), (a, b)
+    # the same comparison with the inverter held fixed, one capacity step at a time
+    inverters = sorted(set(b3.index.get_level_values(1)))
+    steps = [((a, kw), (b, kw)) for kw in inverters
+             for a, b in pairwise(sorted(b3.xs(kw, level=1).index))]
+    fails = [(a, b) for a, b in steps if not roce[a] - roce[b] > max(gap[a], gap[b])]
+    top = [(a, b) for a, b in steps if a[1] == inverters[-1]]
+    assert all(step in fails for step in top)
+    assert (f"With the inverter held fixed, that fails in {len(fails)} of the {len(steps)} steps "
+            f"to the next larger battery, including all {WORDS[len(top)]} at {inverters[-1]} kW"
+            ) in text
     small = roce[(5.0, 5.63)] - roce[(7.5, 5.63)]
     assert small < gap[(5.0, 5.63)]
     assert (f"with 5.63 kW, going from 5.0 to 7.5 kWh costs only {small:.1f} points, and with "
