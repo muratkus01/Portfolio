@@ -3,8 +3,12 @@
 The single most common failure mode in applied RL-for-energy work is a **weak baseline**.
 A learned policy that beats a naive rule set has demonstrated nothing: classical
 optimisation has solved dispatch problems in this domain for decades, and any credible claim
-must be made against that state of practice. This document defines the evaluation ladder
-used identically across all six projects.
+must be made against that state of practice. This document defines the evaluation ladder.
+The portfolio has three active projects, and three more archived in `archive/` since
+2026-10-09. Projects 01 and 02 climb the ladder with controllers. Neither has historical
+operation to compare with: their B0 is the same site without a battery, so neither runs the
+B1 validation gate below. Project 03 adapts the ladder to forecasts: its rungs are forecasts,
+each traded by the same rules. Each project's README states the rungs it uses.
 
 ---
 
@@ -14,15 +18,15 @@ used identically across all six projects.
 |------|------|----------------------|------|
 | **B0** | Historical reality | — (observed) | What the asset/site actually did. The commercial reference. |
 | **B1** | Rule-based replica | Same signals as the incumbent controller | **Model validation.** Reproduces the incumbent logic inside the digital model. |
-| **B2** | Perfect-foresight MILP | Full horizon known exactly | **Theoretical ceiling.** Values the flexibility itself, not the controller. |
-| **B3** | Rolling-horizon MILP-MPC | Realistic forecasts, re-solved each step | **Deployable classical optimum.** The bar a learned policy must clear. |
+| **B2** | Perfect-foresight optimum | Full horizon known exactly | **Theoretical ceiling.** Values the flexibility itself, not the controller. A linear program in Projects 01 and 02, a MILP in the archived pumped-storage project A2. |
+| **B3** | Rolling-horizon MPC | Forecasts, re-solved each step | **Deployable classical optimum.** The bar a learned policy must clear. Projects 01 and 02 solve it as a linear program every quarter-hour: 01 on what a home system knows when it decides, 02 on synthetic forecasts and the true negative-price mask. Project 03's B3 is a deadband trading rule, not an MPC. |
 | **RL** | Learned policy | Same observations as B3 | Must beat **B3** out of sample. |
 
 ```mermaid
 flowchart LR
     B0["B0<br/>Historical reality"] --> B1["B1<br/>Rule-based replica"]
-    B1 -->|"validates the<br/>digital model"| B2["B2<br/>Perfect-foresight MILP"]
-    B2 -->|"theoretical<br/>ceiling"| B3["B3<br/>Rolling-horizon MILP-MPC"]
+    B1 -->|"validates the<br/>digital model"| B2["B2<br/>Perfect-foresight optimum"]
+    B2 -->|"theoretical<br/>ceiling"| B3["B3<br/>Rolling-horizon MPC"]
     B3 -->|"the bar to beat"| RL["Learned policy<br/>PPO / SAC"]
     B2 -.->|"headroom"| RL
 ```
@@ -56,40 +60,46 @@ inside the simulation and compares the result against B0.
 inside a model that does not reproduce reality produces numbers, not findings. This gate is
 the reason the ladder starts where it does.
 
-## B2 — Perfect-foresight MILP: the ceiling
+## B2 — Perfect foresight: the ceiling
 
-A single mixed-integer linear program over the whole evaluation horizon with exact knowledge
-of prices, generation and demand. B2 is **not achievable** and is not a controller — it
-measures the value of the *flexibility asset* under ideal information.
+A single optimisation over the whole evaluation horizon with exact knowledge of prices,
+generation and demand: a linear program in Projects 01 and 02, a mixed-integer linear program
+(MILP) in the archived pumped-storage project A2. B2 is **not achievable** and is not a
+controller — it measures the value of the *flexibility asset* under ideal information.
 
 Its purpose is to normalise: an RL policy that earns 3 % more than B3 means something very
 different when the total headroom `B2 − B3` is 4 % versus 40 %.
 
-MILP formulation conventions used throughout: linearised efficiency curves via SOS2 or
-piecewise-linear segments, binary commitment and mode variables (charge/discharge, pump/turbine)
-with mutual exclusion, minimum up/down times, ramp constraints, and cyclic or terminal-value
-boundary conditions on storage state.
+Formulation conventions differ by project. Projects 01 and 02 solve their ladders without
+binary variables; Project 01's `baselines/milp.py` explains why its battery needs none, and
+switches them on only to reproduce the thesis model. The archived A2 keeps binary pump and
+turbine modes that exclude each other, with per-mode ramp limits. No project uses
+piecewise-linear efficiency curves or minimum up and down times.
 
-## B3 — Rolling-horizon MILP-MPC: the real competitor
+## B3 — Rolling-horizon MPC: the real competitor
 
-The same MILP, but solved repeatedly in receding-horizon fashion on the **same imperfect
-forecasts the learned policy sees**:
+The same model as B2, but solved repeatedly in receding-horizon fashion on the **same
+imperfect forecasts the learned policy sees**:
 
 ```
 for each decision step t (every 15 min, or every market gate):
     1. observe the true system state x(t)
     2. obtain forecasts over horizon H  (prices, generation, demand, availability)
-    3. solve MILP over [t, t+H] with terminal value function on storage state
+    3. solve the B2 model over [t, t+H], with a terminal value on storage state if used
     4. apply only the first control action u(t)
     5. advance the true system one step; discard the rest of the plan
 ```
 
 Design choices that must be reported, because they determine how strong B3 is:
 
-- **Horizon H.** Projects here use 1–3 days (96–288 steps at 15 min). Longer horizons value
-  storage better but cost solve time and depend on forecasts that are worse.
+- **Horizon H.** Project 01 plans until the last published price, 11 to 35 h ahead; Project
+  02 plans 24 h (96 steps at 15 min), and the archived A2 48 h (192 steps). Longer horizons
+  value storage better but cost solve time and depend on forecasts that are worse.
 - **Terminal value.** Without one, the controller empties the storage at the horizon end.
   Options: cyclic constraint, a fitted terminal value function, or a shadow price on end-state.
+  Project 01 uses one per month, fitted on its 2024 training year from the perfect-foresight
+  LP's shadow prices. Project 02's B3 runs without one: on synthetic inputs a linear one made
+  it hoard energy and fall below B1.
 - **Re-solve frequency.** Every step is the honest configuration; less frequent re-solving
   weakens the baseline.
 - **Forecast parity.** B3 and the RL policy **must** consume forecasts from the same model
@@ -103,21 +113,21 @@ its configuration is reported in full.
 
 Motivated only where B3 has structural weaknesses that learning can exploit:
 
-1. **Distributional value.** MILP-MPC optimises against a point forecast (or a small scenario
+1. **Distributional value.** An MPC optimises against a point forecast (or a small scenario
    tree). A learned policy can internalise the full predictive distribution and the
    asymmetric cost of errors — this is the dominant effect where imbalance prices are
-   heavy-tailed (Projects 02, 05, 06).
+   heavy-tailed (Project 02 names this as future work; no active project tests it yet).
 2. **Non-convexity and non-linearity.** Degradation, efficiency surfaces, comfort models and
-   behavioural response are approximated away in a MILP. A learned policy is not restricted
-   to the linearisation.
+   behavioural response are approximated away in a linear model. A learned policy is not
+   restricted to the linearisation.
 3. **Computation at decision time.** A trained policy evaluates in milliseconds; a 288-step
    MILP with binaries may not close in the gate time of a continuous intraday market.
 4. **Latent structure.** Recurring, unmodelled patterns (site behaviour, local congestion,
    counterparty behaviour) that a hand-built model does not encode.
 
 If none of these apply to a given problem, the honest conclusion is that MPC is the right
-answer and the project reports that. **Two of the six projects explicitly include "MPC wins"
-as an acceptable outcome.**
+answer and the project reports that. **Project 02 stops at B3 for this reason, and Project
+01 reports that its learned policy stays far behind B3.**
 
 ---
 

@@ -17,7 +17,7 @@
 ## 🎯 60-Second Executive Quickstart
 
 ### 🌐 Interactive Web Showcase
-Explore the three projects' results, sensitivity sweeps and 15-minute dispatch profiles directly in your browser:  
+Explore the three projects' results directly in your browser, with sensitivity sweeps for Projects 01 and 02 and one real 15-minute dispatch day of Project 01 (the page's interactive day is illustrative, not a model run):  
 👉 **[muratkus01.github.io/Portfolio/showcase.html](https://muratkus01.github.io/Portfolio/showcase.html)**
 
 ### 💻 Local Execution
@@ -70,7 +70,7 @@ flowchart TB
 
 | # | Project Dossier | Core Method | Asset / Scale | Regulatory Framework | Quickstart Command |
 |:---:|---|---|---|---|---|
-| **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Fast LP-MPC + Rescaled SAC RL | 8 kWp PV, 9.37 kWh BESS, 5.63 kW Inverter | §14a / §41a EnWG, EEG 2023 | `prosumer rolling-eval` |
+| **01** | [**Prosumer PV+BESS Energy Management**](projects/01-prosumer-pv-bess-mpc-rl/) | Fast LP-MPC + Rescaled SAC RL | 8 kWp PV, 9.37 kWh BESS, 5.63 kW Inverter | §41a EnWG dynamic tariff. §14a EnWG modules and dimming and the §51 EEG negative-price rule are options in the code, off in every published run (`para_14a_module` and `negative_price_rule` are `"none"`) | `prosumer rolling-eval` |
 | **02** | [**Utility Hybrid Wind+PV+BESS Plant**](projects/02-utility-hybrid-plant-dispatch/) | Benchmark ladder from B0 (no battery) to B3, an LP rolling MPC on synthetic forecasts; the negative-price rule of each EEG vintage (the whole run loses the premium once it reaches the vintage's threshold, and from 25 Feb 2025 every negative period does); the market premium per technology on proxy market values, paid as one blended plant rate, which understates what a rule removes. Stops at B3 by design | 50 MW onshore wind + 30 MWp PV + 20 MW / 40 MWh battery behind one 60 MW connection; national capacity factors, not a real site | EEG §51 negative-price rule by vintage, EEG 2023 market premium | `python -m hybrid.cli ladder --year 2025 --start 01-01 --days 30` |
 | **03** | [**Probabilistic Forecast-to-Bid**](projects/03-probabilistic-forecast-to-bid/) | Quantile forecast ladder (climatology to LightGBM, TSO forecast as benchmark), settled at real day-ahead, intraday (ID AEP) and reBAP prices | 200 MW wind + 100 MW PV, fleet-shaped | German single-price reBAP | `python -m f2b.cli backtest --phase validation` |
 
@@ -84,15 +84,15 @@ charging under §14a EnWG, and cooperative energy sharing in renewable energy co
 
 ---
 
-## 🛡️ Bugs the Invariants Caught
+## 🛡️ Invariants and the Bugs Found While Building
 
-Every project checks structural physical, electrical, and market invariants, at runtime or in its tests. Each invariant caught, or now guards against, a real defect. Most of these defects would otherwise have produced plausible but invalid results:
+Every project checks structural physical, electrical, and market invariants, at runtime or in its tests. Each row lists the checks a project runs and the real defects found while building it, and says when a check did not find them. Most of these defects would otherwise have produced plausible but invalid results:
 
-| Project | Invariant | What It Caught |
+| Project | Invariant | Defects Found |
 |:---:|---|---|
-| **01** | B2 <= B3 <= B1; zero violations under random actions | Linear terminal storage valuation priced stored energy at full retail import, driving MPC to buy from the grid at every horizon boundary. Continuous action clipping truncated policy outputs at 80% (resolved via action rescaling). |
+| **01** | B2 <= B3 in net cost (`run_ladder` raises, though the published rolling evaluation does not call it; the tests also check B2 <= B1); zero violations under random actions. B3 <= B1 is not checked, and Project 01 records a fixed-tariff week where B3 loses to B1 | Found while building, not by these checks. A terminal value that priced stored energy at the full retail import price made the MPC buy from the grid at every horizon end, to bank value it could never realise. The safety layer clipped 77 to 82 % of the original SAC agent's actions, but Project 01's ablation (`reports/rl_ablation_*`) shows that feasible action rescaling, which removes the clipping, makes no reliable difference on its own: the differential reward is what made the agent learn (median capture of the B1 to B2 gap from -7.3 % to +27.0 %), and rescaling adds about 5 points on top. |
 | **02** | No rung beats perfect foresight (B2) on revenue before imbalance, beyond solver rounding (`run_ladder` raises); zero violations under random actions; regression tests against the statute and the settlement | Found in the rebuild, each now pinned by a test. The six-hour rule kept the premium for the first 23 quarter-hours of a negative-price run, where §51 removes it for the whole run; a test had pinned the wrong rule, and that test, `test_six_hour_rule_removes_the_premium_for_the_whole_run`, now pins the statute's. Every battery rung started half full, so the battery sold energy it never bought and counted it as its value (`test_no_rung_earns_from_energy_it_never_bought`). B3 planned on a premium built from the mean of the window's prices, later ones included, and its price-forecast error was sized on their spread; it now plans on the previous month's realised rate, with the error sized on the previous year's prices (`test_later_prices_do_not_change_b3s_earlier_decisions`). Two defects were latent and moved no published number. Imbalance was never settled, because `run_ladder` dropped the schedule whenever reBAP was given (`test_a_deviation_from_the_committed_schedule_is_settled_at_rebap`); no rung commits a schedule yet, so imbalance is still 0 in every table. Grid imports were free: a stand-in rung that bought grid energy and sold it back beat B2 and tripped the ladder invariant (`test_grid_imports_are_paid_at_the_day_ahead_price`). One stopped valid runs: the invariant's absolute 1e-3 EUR tolerance tripped on solver rounding when B3 matched B2 under perfect forecasts; it is now 1e-6 of B2, at least 1e-3 EUR (`test_perfect_forecasts_do_not_trip_the_ladder_invariant`). Found before the rebuild: a market value derived from the plant's own export put B2 below B0, which the invariant, now on every rung, would have caught at once (`test_premium_rate_is_exogenous`); and B3 applied a curtailment planned on forecast generation to the true generation, discarding energy the connection could take (`test_rolling_mpc_beats_the_rule_based_baseline`). |
-| **03** | No forecast read after its decision time (an audit that can fail); features unchanged when everything outside their information set is corrupted | The information-set test caught a PV feature that wrapped around to the end of the series on the first day. Found during the rebuild and now guarded by the audit and its tests: day-ahead positions read forecasts issued after the 12:00 gate closure for every quarter-hour delivered after noon, and the old audit only re-checked the store's own guard, so it could not fail. The rebuild also found that the old model set the intraday price equal to the day-ahead price. |
+| **03** | Features unchanged when everything outside their information set is corrupted: the information-set test, which checks that the forecasts use no data from after their decision time; a look-ahead audit, which in the backtest can catch only a stage that decides after delivery, because every forecast is issued at its decision time by construction | The information-set test caught a PV feature that wrapped around to the end of the series on the first day. Found during the rebuild, each now with a regression test that fails when the bug is put back: day-ahead positions read forecasts issued after the 12:00 gate closure for every quarter-hour delivered after noon; the old audit only re-checked the store's own guard, so it could not fail (a test now shows the new one catches a stage that reads late forecasts); and the old model set the intraday price equal to the day-ahead price. |
 
 The archived projects ([`archive/README.md`](archive/README.md)) carry the number of their folder, prefixed with A:
 
@@ -110,7 +110,7 @@ Every method is measured against simpler rungs on the same data and against a pe
 
 | Rung | Controller | Purpose & Criterion |
 |:---:|---|---|
-| **B0** | Historical / Status-Quo | Baseline uncoordinated or unhedged reference. |
+| **B0** | No Battery | The same site without storage: PV only in Project 01; in Project 02 the same generation, curtailed only when it must be. Neither project replays historical operation. |
 | **B1** | Rule-Based Expert Baseline | Industry-standard heuristic (e.g. greedy self-consumption, threshold shaving). |
 | **B2** | Perfect-Foresight Optimization | Theoretical performance ceiling over the entire simulation horizon. |
 | **B3** | Rolling-Horizon MPC | **The classical benchmark** under imperfect lookahead. Deployable in Project 01, where it plans only on what a home system knows when it decides. In Project 02 it plans on synthetic forecasts and knows the true negative-price mask, so its recovery there is optimistic. |

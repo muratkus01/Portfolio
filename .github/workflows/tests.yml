@@ -33,7 +33,7 @@ jobs:
           pip install -e "archive/03-smart-ev-charging-14a[dev]"
           pip install -e "archive/04-energy-sharing-rec[dev]"
           pip install -e "projects/02-utility-hybrid-plant-dispatch[dev]"
-          pip install -e "projects/03-probabilistic-forecast-to-bid[dev]"
+          pip install -e "projects/03-probabilistic-forecast-to-bid[dev,forecast]"
 
       - name: Run full portfolio test suite
         run: |

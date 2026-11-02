@@ -62,7 +62,7 @@ equivalents and the meaning as used in this portfolio.
 |--------|---------|------|
 | Erneuerbare-Energien-Gesetz (EEG) | Renewable Energy Sources Act | Support framework for renewables |
 | Energiewirtschaftsgesetz (EnWG) | Energy Industry Act | Market and grid regulation |
-| Pumpspeicherkraftwerk (PSW) | Pumped-storage power plant | Project 02's asset |
+| Pumpspeicherkraftwerk (PSW) | Pumped-storage power plant | Asset of the archived pumped-storage project (A2, `archive/02-pumped-storage-rl-multimarket/`) |
 | Oberbecken / Unterbecken | Upper / lower reservoir | Storage state variable |
 | Fallhöhe | Head | Determines specific energy per m³ |
 | Turbinenbetrieb / Pumpbetrieb | Turbine / pump mode | Mutually exclusive operating modes |
