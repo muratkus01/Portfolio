@@ -404,10 +404,12 @@ def add_reserve_terms(m: pulp.LpProblem, v: dict, spec: ReserveSpec, plant: Plan
     for all of it, and it is at least what is sunk of the product: once a fixed reservation
     falls short, the plan may move the state of charge within that shortfall for the rest of
     the product at no further cost. The safety layer lets the battery move no further past a
-    band than it already is (`plant.battery_interval`), so a replay may not follow such a
-    move, and then holds more than its plan needs and earns less than the plan's objective.
-    Export short of a negative reservation it does follow: the layer never forces a
-    discharge. Decisions have no slack, so for them the two agree.
+    band than it already is (`plant.battery_interval`), but for a discharge that brings
+    export up to a negative reservation (`plant.dispatch_step`), so a replay may refuse such
+    a move. It then holds more of that band than its plan needs and earns less than the
+    plan's objective, and where the move was to prepare a later product, that product may
+    hold less. Export short of a negative reservation it does follow: the layer never forces
+    a discharge. Decisions have no slack, so for them the two agree.
     m, v: the model and its variables (`baselines._energy_lp`). spec: the reservations, one
         product per step of the model. plant: the plant the model was built for.
     soc0: energy stored at the start, MWh. cap: export limit per step, MW.

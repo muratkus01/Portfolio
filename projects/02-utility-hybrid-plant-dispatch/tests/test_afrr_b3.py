@@ -617,6 +617,29 @@ def test_b3_curtails_as_planned_before_a_negative_product(monkeypatch):
     assert short_mwh()[0] > 10.0
 
 
+def test_b3_dips_below_its_positive_band_to_keep_its_negative_reserve():
+    """B3 holds 4 MW up and 20 MW down from 04:00 to 20:00 on day 1, as much as both bands
+    allow together, so its battery sits on the positive band, and its plans count on 30 MW of
+    wind. At 18:00 the wind blows at 12 MW for one step. The plan made then, on the truth,
+    discharges 8 MW so that export still covers the 20 MW down, and dips below the positive
+    band for that quarter-hour, which leaves 0.5 MW of the 4 not held; the safety layer
+    follows it. On 980b3b8 the layer refused every discharge below the band, and 7.9998 MW
+    of the negative reservation were not held, charged for all of its product."""
+    n = 60 + 96
+    hour = (9 + np.arange(n) / 4) % 24
+    price = np.where(hour >= 17, 120.0, 50.0)          # an evening peak keeps energy stored
+    forecast = np.full(n, 30.0)
+    truth = np.where(np.arange(n) == 132, 12.0, forecast)          # 18:00 on day 1
+    res = b3_rolling(truth, np.zeros(n), price, forecast, np.zeros(n), price,
+                     _run().with_(horizon_steps=96), resolve_every=12,
+                     afrr=_prices(n, 25.0, 25.0, start_h=9))
+
+    assert (res["afrr_up"][132], res["afrr_down"][132]) == (4.0, 20.0)
+    assert res["export"][132] == pytest.approx(20.0, abs=1e-6)
+    assert not np.any(res["afrr_deficit_down"])
+    assert 0.0 < res["afrr_deficit_up"].max() <= 0.5 + 1e-9
+
+
 def test_planned_curtailment_is_executed_only_from_a_fresh_plan(three_days):
     """In the step a plan holding reserve is made in, on the true generation, B3 curtails as
     the plan does, also at a non-negative price. In the steps that follow it, with

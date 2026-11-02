@@ -11,8 +11,10 @@ with curtailment as an explicit decision variable, because *self-chosen* curtail
 An aFRR reservation (`Reservation`) restricts the battery and the export and never forces
 them, the rule of the archived pumped-storage project: it keeps power headroom, the
 connection headroom of positive reserve, and the energy band of each reserved direction as
-far as physics allows. What a step could not hold is measured as reserve not held, for the
-settlement to charge; it is not counted as a broken limit.
+far as physics allows. Where a step holds both directions and export falls short of the
+negative reservation, export comes first: the battery may discharge past positive reserve's
+band as far as that export needs. What a step could not hold is measured as reserve not
+held, for the settlement to charge; it is not counted as a broken limit.
 """
 from __future__ import annotations
 
@@ -73,6 +75,8 @@ def battery_interval(soc: float, dt: float, cfg: PlantConfig,
     over eta_d); negative reserve keeps headroom the other way and the room its band needs
     below soc_max (the band times eta_c). A state of charge already past a band may stay or
     move back, never further, so 0 MW stays in the interval: restrict, never force.
+    `dispatch_step` widens the interval for one move: a discharge past positive reserve's
+    band that the export of negative reserve needs.
     """
     lo = max(-cfg.bess_mw, -(cfg.soc_max - soc) / (cfg.eta_c * dt))
     hi = min(cfg.bess_mw, (soc - cfg.soc_min) * cfg.eta_d / dt)
@@ -118,6 +122,26 @@ def _reserve_not_held(s0: float, s1: float, export: float, reserve: Reservation,
     return (up if up >= TOL else 0.0), (down if down >= TOL else 0.0)
 
 
+def _export_discharge(gen: float, soc: float, dt: float, cfg: PlantConfig,
+                      reserve: Reservation, limit: float) -> float:
+    """MW the battery may discharge, past positive reserve's band if need be, so that export
+    covers the negative reservation: what export lacks of it, within the connection headroom
+    of positive reserve (`limit`, MW), the battery's power headroom and its state of charge.
+    At most 0 where export lacks nothing.
+
+    gen: generation after the controller's curtailment, MW. soc: stored energy at the start
+    of the step, MWh. dt: step length, h. cfg: the plant. reserve: the step's reservation.
+    A negative call is served by exporting less, so export short of the reservation leaves
+    every MW it lacks not held, while a dip of x MW for one step below positive reserve's
+    band leaves it short only by the energy the dip takes, r_up x x dt / need with need the
+    band's MWh: at most x / 16 at the 4-hour band. Refusing the dip, as the band alone
+    would, can cost up to 16 times the reserve the plan chose to lose, so where the two meet
+    in a step the layer lets the proposal through that far, and still forces nothing.
+    """
+    short = min(reserve.down, limit) - gen
+    return min(short, cfg.bess_mw - reserve.up, (soc - cfg.soc_min) * cfg.eta_d / dt)
+
+
 def dispatch_step(wind_avail: float, pv_avail: float, soc: float, p_bat_proposed: float,
                   curtail_frac: float, dt: float, cfg: PlantConfig,
                   export_cap: float | None = None,
@@ -135,10 +159,12 @@ def dispatch_step(wind_avail: float, pv_avail: float, soc: float, p_bat_proposed
 
     `reserve`, the step's aFRR reservation or None, adds: the battery keeps its headroom and
     bands (`battery_interval`); it charges only from export above the negative reservation,
-    as a negative call is served by exporting less and must never draw from the grid; export
-    keeps the positive reservation's MW free below the connection, and the curtailment that
-    alone forces is "reserve_curtail", apart from forced and chosen; and "afrr_deficit_up"
-    and "afrr_deficit_down" give the MW not held (`_reserve_not_held`).
+    as a negative call is served by exporting less and must never draw from the grid, and it
+    may discharge to bring export up to that reservation also past positive reserve's band,
+    where the step holds both (`_export_discharge`); export keeps the positive reservation's
+    MW free below the connection, and the curtailment that alone forces is
+    "reserve_curtail", apart from forced and chosen; and "afrr_deficit_up" and
+    "afrr_deficit_down" give the MW not held (`_reserve_not_held`).
     """
     cap = cfg.conn_mw if export_cap is None else min(cfg.conn_mw, export_cap)
     # what a positive call would add to the export must fit under the connection as well
@@ -155,6 +181,8 @@ def dispatch_step(wind_avail: float, pv_avail: float, soc: float, p_bat_proposed
     if reserve is not None and reserve.down > 0:
         # charge only from export above the negative reservation, never forced to discharge
         lo = max(lo, min(0.0, reserve.down - gen))
+        if reserve.up > 0:
+            hi = max(hi, _export_discharge(gen, soc, dt, cfg, reserve, limit))
     p_bat = float(np.clip(p_bat_proposed, lo, hi))
 
     export = gen + p_bat

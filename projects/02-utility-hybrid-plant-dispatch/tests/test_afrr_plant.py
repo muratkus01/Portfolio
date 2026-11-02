@@ -236,6 +236,45 @@ def test_negative_reserve_never_draws_from_the_grid():
     assert (short["p_bat"], short["export"], short["afrr_deficit_down"]) == (0.0, 5.0, 1.0)
 
 
+def test_negative_reserves_export_comes_before_positive_reserves_band():
+    """A step that holds both directions, with less generation than the negative reservation:
+    3 MW up and 10 MW down, the battery on its 4-hour positive band, 5 MW of wind. Discharging
+    5 MW keeps export at the 10 MW a negative call is served from, and leaves the positive
+    reservation short by the energy the dip takes, 3 x 5 x 0.25 / 12 = 0.3125 MW. The band
+    alone lets the battery discharge nothing, which left 5 MW of negative reserve not held,
+    16 times as much: on 980b3b8 the battery idled. The layer lets through no more than that
+    export needs and still forces nothing: 8 MW proposed give 5, none proposed stays none,
+    below the band it may dip too, with 10 MW of wind the band holds as before, and export
+    counts after the controller's own curtailment. The discharge keeps the battery's
+    minimum, positive reserve's power headroom (20 MW down on 1 MW of wind: 17 MW, not 19),
+    and its connection headroom where both reservations together exceed the connection, as
+    no plan sells them."""
+    both, band = Reservation(3.0, 10.0, RULE), _up_band(3.0)
+    assert battery_interval(band, DT, CFG, both)[1] < 1e-3
+    held = dispatch_step(5.0, 0.0, band, 5.0, 0.0, DT, CFG, reserve=both)
+    assert (held["p_bat"], held["export"], held["afrr_deficit_down"]) == (5.0, 10.0, 0.0)
+    assert held["afrr_deficit_up"] == pytest.approx(3.0 * 5.0 * DT / 12.0, rel=1e-9)
+
+    assert dispatch_step(5.0, 0.0, band, 8.0, 0.0, DT, CFG, reserve=both)["p_bat"] == 5.0
+    idle = dispatch_step(5.0, 0.0, band, 0.0, 0.0, DT, CFG, reserve=both)
+    assert (idle["p_bat"], idle["export"], idle["afrr_deficit_down"]) == (0.0, 5.0, 5.0)
+    assert dispatch_step(5.0, 0.0, band - 0.3, 5.0, 0.0, DT, CFG, reserve=both)["p_bat"] == 5.0
+    windy = dispatch_step(10.0, 0.0, band, 5.0, 0.0, DT, CFG, reserve=both)
+    assert windy["p_bat"] < 1e-3 and windy["afrr_deficit_up"] == 0.0
+    curtailed = dispatch_step(10.0, 0.0, band, 5.0, 0.5, DT, CFG, reserve=both)
+    assert (curtailed["p_bat"], curtailed["export"]) == (5.0, 10.0)
+
+    empty = dispatch_step(5.0, 0.0, CFG.soc_min + 0.5, 5.0, 0.0, DT, CFG, reserve=both)
+    assert empty["p_bat"] == pytest.approx(0.5 * CFG.eta_d / DT, rel=1e-12)
+    assert empty["soc"] == pytest.approx(CFG.soc_min, abs=1e-12)
+    deep = dispatch_step(1.0, 0.0, band, 19.0, 0.0, DT, CFG,
+                         reserve=Reservation(3.0, 20.0, RULE))
+    assert (deep["p_bat"], deep["export"]) == (17.0, 18.0)
+    tight = dispatch_step(5.0, 0.0, band, 15.0, 0.0, DT, PlantConfig(conn_mw=20.0),
+                          reserve=Reservation(3.0, 18.0, RULE))
+    assert (tight["p_bat"], tight["export"], tight["reserve_curtail"]) == (12.0, 17.0, 0.0)
+
+
 def test_reserve_not_held_is_measured_at_both_ends_of_a_step(monkeypatch):
     """A reservation holds at every instant of its step, and the state of charge is linear in
     it, so reserve not held is measured at both ends. The start counts where a step begins
