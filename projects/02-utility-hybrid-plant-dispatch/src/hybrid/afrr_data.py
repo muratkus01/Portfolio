@@ -55,13 +55,15 @@ RULE_YEARS = (2024, 2025)
 # governs). The PQ conditions went from v1.04 to v1.05 during 2024. Both set alike what the
 # model reads from them: a storage unit keeps for FRR at least 60 minutes of its marketed power
 # and 15 minutes of its PQ power, and only the 60 minutes where its storage management secures
-# four hours of delivery.
+# four hours of delivery. BK6-23-333 approves the German and Czech TSOs' joint procurement and
+# exchange of aFRR capacity, which began on 3 September 2025 (BK6-25-033), so it governs no
+# delivery day of 2024.
 RULE_DOCUMENTS = (
     ("PQ conditions for FCR, aFRR and mFRR, v1.04", "3 June 2022", (2024,)),
     ("PQ conditions for FCR, aFRR and mFRR, v1.05", "5 July 2024", (2024, 2025)),
     ("MfRRA, reading version", "8 December 2022", (2024, 2025)),
     ("BNetzA BK6-15-158", "13 June 2017", (2024, 2025)),
-    ("BNetzA BK6-23-333", "5 November 2024", (2024, 2025)),
+    ("BNetzA BK6-23-333", "5 November 2024", (2025,)),
 )
 GATE = datetime.time(9, 0)      # Berlin; bids for day D close at 09:00 on D-1, MfRRA § 20 (3)
 AWARD = datetime.time(9, 30)    # Berlin; awards are known by 09:30 on D-1, MfRRA § 20 (3)(c)

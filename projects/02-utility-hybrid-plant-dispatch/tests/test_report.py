@@ -263,7 +263,9 @@ def test_run_meta_records_the_afrr_source_and_rules(stand_ins, monkeypatch, tmp_
     """Feature test: an aFRR experiment rests on a regelleistung.net results file and on rule
     documents checked for its year. run_meta names, for each experiment that read such a file,
     its URL and SHA-256, and the documents of that year: in 2024 the PQ conditions changed
-    from v1.04 to v1.05. Another experiment of the same report gains no section."""
+    from v1.04 to v1.05, and BK6-23-333 governs 2025 only, as the procurement with the Czech
+    TSO that it approved began on 3 September 2025. Another experiment of the same report
+    gains no section."""
     fixtures = _load_afrr_fixtures()
     files = {year: fixtures.capacity_results(year) for year in (2024, 2025)}
     monkeypatch.setattr(cli, "load_capacity_results", lambda year, cache_dir=None: files[year])
@@ -290,7 +292,9 @@ def test_run_meta_records_the_afrr_source_and_rules(stand_ins, monkeypatch, tmp_
                            "BNetzA BK6-15-158": "13 June 2017",
                            "BNetzA BK6-23-333": "5 November 2024"}
     assert rules[2024] == {"PQ conditions for FCR, aFRR and mFRR, v1.04": "3 June 2022",
-                           **rules[2025]}
+                           "PQ conditions for FCR, aFRR and mFRR, v1.05": "5 July 2024",
+                           "MfRRA, reading version": "8 December 2022",
+                           "BNetzA BK6-15-158": "13 June 2017"}
 
 
 def test_afrr_experiments_are_named_after_their_options():
