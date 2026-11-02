@@ -110,13 +110,14 @@ predates the quarter-hour day-ahead market), while the evening peak reaches **40
 around 21:00.
 
 - **Morning (06:00 to 11:00).** B1 charges on the first PV surplus and is full by 08:30. B3
-  leaves the battery empty: it entered the day at 6 % and stays there, because surplus in
-  the morning is still worth 12 ct/kWh on export while the evening peak is worth far more
-  to displace.
+  leaves the battery empty: it entered the day at 6 % and is at 0.2 % or less from 06:00 to
+  11:00, because surplus in the morning is still worth 12 ct/kWh on export while the
+  evening peak is worth far more to displace.
 - **Midday (11:00 to 17:00).** B1 is already full and exports 46.0 kWh over the day, of
   which **33.0 kWh earn nothing at all**. B3 waits until the export price has collapsed to
-  zero and only then charges, taking 8.9 kWh of otherwise worthless surplus and reaching
-  full charge at 17:45. Its zero-price export is 24.3 kWh, about a quarter less than B1's.
+  zero and charges almost only then: 8.8 kWh of otherwise worthless surplus, and a last
+  0.2 kWh at 17:45, when it reaches full charge. Its zero-price export is 24.3 kWh, about a
+  quarter less than B1's.
 - **Evening (18:00 to 23:00).** B3 discharges 6.1 kWh into the expensive hours, at up to the
   full 5.63 kW inverter rating during the 40 ct peak. B1, having spent the day full and
   trickled into its own base load, contributes only 0.8 kWh there.
@@ -124,8 +125,9 @@ around 21:00.
   retail import price never drops below 19 ct/kWh, since taxes, levies and network charges
   dominate the spot component. Grid arbitrage does not pay for a German household.
 - **Result for the day:** -1.76 EUR for B3 against -0.75 EUR for B1 (negative is revenue,
-  battery wear included), a difference of about 1 EUR on a single summer day, earned purely
-  by *when* the battery is used rather than by using it more.
+  battery wear included), a difference of about 1 EUR on a single summer day. It is earned
+  by *when* the battery is used, which also lets B3 use it more: B3 discharges 6.8 kWh over
+  the day, B1 1.7 kWh.
 
 ### How much of the perfect-foresight gain does a deployable controller capture?
 

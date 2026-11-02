@@ -50,7 +50,9 @@ def day_stats(df: pd.DataFrame, day: str = "2025-06-18", warmup_days: int = 3) -
         15-minute index, from 2024 (the terminal values are fitted on it) to past `day`.
     day: the local date to report, e.g. "2025-06-18".
     warmup_days: days B3 runs before `day`, so it enters the day as in continuous operation.
-    Returns {README quantity: value}, rounded as the README prints it.
+    Returns {README quantity: value}: energies, prices and shares to one decimal; grid
+    charging, powers and costs to two. The README rounds the prices and B3's state of charge
+    at 00:00 further, to whole cents and a whole per cent.
     """
     run, dt = EXTENSION_RUN, EXTENSION_RUN.dt
     train = df[df.index < pd.Timestamp("2025-01-01").tz_localize(LOCAL_TZ)]
@@ -73,6 +75,8 @@ def day_stats(df: pd.DataFrame, day: str = "2025-06-18", warmup_days: int = 3) -
     # charging beyond the PV surplus can only come from the grid
     surplus = np.maximum(pv[m] - load[m], 0)
     grid_charge = lambda r: float(np.sum(np.maximum(r["p_ch"][m] - surplus, 0) * dt))
+    # the LP can leave round-off far below a watt-hour; count only real charging
+    late_charge = (b3["p_ch"][m] * dt > 1e-6) & ~zero_exp
     return {
         "zero export price": ", ".join(f"{a:%H:%M}-{b + pd.Timedelta('15min'):%H:%M}"
                                        for a, b in _runs(clock, zero_exp)) or "none",
@@ -88,9 +92,15 @@ def day_stats(df: pd.DataFrame, day: str = "2025-06-18", warmup_days: int = 3) -
         "B1 zero-price export kWh": round(float(b1["p_exp"][m][zero_exp].sum() * dt), 1),
         "B3 zero-price export kWh": round(float(b3["p_exp"][m][zero_exp].sum() * dt), 1),
         "B3 charge in zero-price hours kWh": round(float(b3["p_ch"][m][zero_exp].sum() * dt), 1),
+        "B3 charge outside zero-price hours kWh": round(
+            float(b3["p_ch"][m][~zero_exp].sum() * dt), 1),
+        "B3 charge outside zero-price hours at": ", ".join(
+            f"{t:%H:%M}" for t in clock[late_charge]) or "none",
         "B3 evening discharge kWh": round(float(b3["p_dis"][m][evening].sum() * dt), 1),
         "B3 evening max discharge kW": round(float(b3["p_dis"][m][evening].max()), 2),
         "B1 evening discharge kWh": round(float(b1["p_dis"][m][evening].sum() * dt), 1),
+        "B3 discharge whole day kWh": round(float(b3["p_dis"][m].sum() * dt), 1),
+        "B1 discharge whole day kWh": round(float(b1["p_dis"][m].sum() * dt), 1),
         "grid charging kWh B1/B3": (round(grid_charge(b1), 2), round(grid_charge(b3), 2)),
         "day cost EUR B3 (with wear)": round(float(_step_costs(b3, pi, pe, run)[m].sum()), 2),
         "day cost EUR B1 (with wear)": round(float(_step_costs(b1, pi, pe, run)[m].sum()), 2),
@@ -105,7 +115,7 @@ def main() -> None:
     args = p.parse_args()
     print(f"example day {args.day}, {args.data}")
     for key, value in day_stats(load_dataset(args.data), args.day).items():
-        print(f"  {key:36s} {value}")
+        print(f"  {key:38s} {value}")
 
 
 if __name__ == "__main__":
