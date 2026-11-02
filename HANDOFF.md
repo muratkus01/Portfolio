@@ -804,14 +804,82 @@ README, CITATION.cff, docs/02, docs/05, the other scripts, simulations/results).
 1. ~~Murat's OK to push `quality/p03`; rebase on origin/main first (no file overlap with the
    other session's commits as of 7ee3bfa).~~ **Done, noted 2026-11-02:** merged with GitHub
    `main` instead of rebased (`5ed7d2c`, `4d5a7be`), then pushed.
-2. The other session's shared-files pass needs P03's wording: root README row and invariants
-   table, showcase section, demo_06. Sent to it when this lands.
+2. ~~The other session's shared-files pass needs P03's wording: root README row and invariants
+   table, showcase section, demo_06. Sent to it when this lands.~~ **Done, noted 2026-11-02:**
+   the shared-file pass applied it (root README row, showcase wording, demo 03).
 3. Not built, deliberately: price and reBAP forecasting, decision-focused learning, an RL
    trading policy, a regional (not fleet-shaped) portfolio. A second test window must be a new,
    later window, never a rerun of this one.
 
+## P01, P02 and shared files: state on 2026-11-02 (Claude Code on EIM-MUK, session "RL Simulation")
+
+### On GitHub main with this commit
+- **P01:** the claims pass and the answers to the four data-quality questions
+  (`projects/01-*/docs/data-quality-answers-2026-10-31.md`). The 2026-11-01 review fixes are in too:
+  - the sizing text now matches `reports/sizing_grid/sizing_grid.csv`;
+  - a year split of B3 and RL (`reports/year_split/`);
+  - `tests/test_readme_results.py` pins the README numbers to the CSVs;
+  - EEG, 14a EnWG and ladder claims are scoped to what the code does.
+- **P02 rebuilt** (EEG negative-price rules per vintage, realised market values, B3 planning on the previous month's premium). The `report` command writes the committed CSVs with `run_meta.csv`, and `tests/test_readme_results.py` pins the README to them.
+- **P02 aFRR Phase A code** (design commits C0 to C9): it covers
+  - the regelleistung.net results parser and loader, pinned by SHA-256;
+  - products, gates and awards in Berlin time;
+  - reserve terms in the window LP and B2 co-optimisation;
+  - B3 bidding at the 09:00 gate and taking the 09:30 award;
+  - the safety layer and the `afrr` command.
+
+  It is off by default and bit-identical when off, which the tests prove against goldens recorded before the build.
+- **Publish driver** `scripts/publish_p02.py`. It reruns every P02 table at one commit, refuses a dirty tree or a result that doesn't reproduce, installs the README and SOURCE.md rows from `scripts/publish_p02_readme_rows.md`, runs the suite, and commits. `PUBLISH_SET` already lists the ten aFRR experiments; their CSVs do not exist yet, and the tests accept all ten or none.
+- **Shared files:**
+  - root README and docs/02, 03 and 07 claims corrected;
+  - `datakit/README.md` fixed;
+  - CI installs P03's forecast extra;
+  - the showcase's P03 wording matches P03's README;
+  - the thesis-sensitivity tab is generated from code (`scripts/wire_thesis_sensitivity_to_showcase.py`, `projects/01-*/reports/thesis_sensitivity_parametric.csv`).
+- **Identity rewrite.** On 2026-11-01 the committer of the 43 commits from 3517bd3 to e85c143 changed from the work identity to muratkus01, and main was force-pushed from d67289b to 7a17737. A bundle of the old refs is at `C:/Users/MuratKus.AzureAD/Archive/portfolio-before-rewrite-2026-11-01.bundle`. The recorded P02 and P03 commits are unchanged.
+
+The six improvements of the 2026-10-31 handoff:
+1. the auto-committer: open, owner decision;
+2. P02 and P03 result files: done;
+3. P03 learned forecaster: done, by the Quality session;
+4. P02 aFRR: Phase A code done, results next;
+5. P02 RL rung: decided, P02 stops at B3;
+6. P01 data-quality questions: answered.
+
+### Next, in order
+1. **P02 results run.** Rerun all 21 experiments, the 11 published ones plus the ten aFRR ones, at main's tip, in a clean checkout:
+   - **Inputs:** use the input cache that matches every committed hash. It also holds 2023 Energy-Charts data and the two regelleistung.net files, in `C:/Users/MuratKus.AzureAD/worktrees/afrr/datakit/cache` on EIM-MUK (gitignored). Energy-Charts revised `installed_de_monthly.json` on 2026-11-01, so a fresh download will not reproduce the committed tables.
+   - **Preflight:** run `python scripts/publish_p02.py --preflight-only` first (about 10 s).
+   - **Run:** then `python scripts/publish_p02.py`. With 7 parts it takes about 2 to 2.5 h on EIM-MUK; the four aFRR 30-day windows dominate. A run started 2026-11-02 at 07:47 was stopped on request after 50 minutes, and nothing was written.
+2. **After the run:**
+   - the README key results for aFRR (design C11);
+   - the showcase's aFRR numbers (C12);
+   - `reports/SOURCE.md`'s prose (date, number of parts, minutes);
+   - put the two new 2024 window rows in date order.
+
+   The README must say:
+   - the accepted share is the bid rule's, over products after the first day;
+   - `afrr_committed_days` counts gates, failed ones included;
+   - the MW means are time-weighted.
+
+   Never quote solve times.
+3. **P02 review items:**
+   - B3's 94.1 % and 95.4 % rest on forecast seed 0: add `--seed` to `ladder` and seeds 1 and 2 per window, or say the spread is unknown;
+   - README section 0 on co-location (around line 385) needs a source.
+
+### Open decisions for Murat
+- Open decision for Murat: repository visibility (details kept locally, outside the repository).
+- The Obsidian auto-committer. The vault backup 591d0ad added the TaskNotes plugin and a `TaskNotes/` folder to the repository.
+- P01's headline B3 number (89.4 % over the whole period; the year split is in the P01 README).
+- Licence lines: the CC BY-NC aggregate-load coefficients, and the licence lines of the slp, thesis and mastr `SOURCE.md` files.
+- The showcase's thesis-sensitivity tab, now true but labelled a parametric stand-in: keep, drop or rebuild. Also, where its old numbers came from.
+- The Teaching session's import/export binary (local branch `wip/rolling-horizon-lesson`), the showcase's day-widget price data, and committing the TSOs' official market values.
+- GitHub Pages is not enabled, so every "Deploy GitHub Pages" run fails at configure-pages.
+- Renaming the folder `MasterThesis` to `Portfolio` waits for you.
+
 ## ▶️ Next Concrete Actions (in order)
 
+0. **Current list, 2026-11-02:** see "Next, in order" in the section above. Items 1, 2 and 4 below predate the renumbering of 2026-10-31.
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
 2. **Project 04 Multi-Agent REC Extension:** Implement multi-member peer-to-peer sharing, local marginal pricing, and cooperative game-theoretic cost allocation (Owen core excess).
 3. ~~**Project 02 RL Policy Evaluation:** Validate trained PPO dispatch against multi-market balancing price volatility.~~ **Dropped, noted 2026-11-02:** the PPO belonged to the pumped-storage project, P02 before the renumbering, archived on 2026-10-09 (`archive/README.md`). Today's P02, the hybrid plant, has no learned policy and stops at B3.
@@ -902,3 +970,4 @@ reaches a figure, a README or the showcase unless it traces to a committed CSV.
 - 2026-10-31 · Claude Code · Projekte auf 01, 02, 03 umnummeriert: projects/05-utility-hybrid-plant-dispatch -> 02, projects/06-probabilistic-forecast-to-bid -> 03, inklusive Abbildungsnamen, Parquet-Namen, Cube-Keys, Labels und Figure-Nummern (515 Ersetzungen allein in showcase.html). Paketnamen hybrid und f2b unverändert. Archivierte Szenario-Parquets nach archive/<projekt>/results/ verschoben, damit p02 und p03 frei wurden. Dabei gefunden und behoben: der Runner hatte nach dem Umbenennen doppelte _p02_run und _p03_run Definitionen und doppelte Registry-Keys, die Python still auffrisst; die archivierten Hälften zeigten ohnehin seit 2026-10-09 auf verschobene Pfade. Verifiziert: 295 passed / 6 skipped, Integritätscheck grün, showcase.py 3 von 3, Browser-Konsole fehlerfrei, Badges 01/02/03.
 - 2026-10-31 · Claude Code · Vier offene Datenqualitätsfragen von Murat in den Abschnitt "Open data-quality questions on P01" geschrieben, statt sie aus dem Gedächtnis zu beantworten: Preisauflösung und der Wechsel auf 15-Minuten-MTU am 01.10.2025, Skalierung vom Haushalt auf Bundesland und Bund (Zeitreihe mal N wäre die Obergrenze bei perfekter Gleichzeitigkeit, Skalare sind unkritisch), und die Schritte der beiden neuen Pipelines pv_states und aggregate_load. Die billigste und zuerst zu beantwortende Frage: ob pv_states und aggregate_load überhaupt in national_impact einspeisen oder ein gebauter, aber nicht angeschlossener Zweig sind. Ein gestarteter Audit wurde auf Murats Wunsch nach wenigen Minuten abgebrochen, es gibt also keine Befunde, nur die Fragen. Keine Codeänderung in diesem Schritt.
 - 2026-10-31 · Claude Code · Handoff für den Wechsel auf das Firmen-Laptop geschrieben: Abschnitt "Starting point on the other machine" ganz oben, mit der Tabelle was per git reist und was nicht (Study/JobVorbereitung reist NICHT, kein Remote und kein Commit), der offenen Entscheidung zum Obsidian-Git-Auto-Commit in diesem öffentlichen Repo, dem verifizierten Stand nach der Umnummerierung und sechs Next Actions nach Wirkung sortiert.
+- 2026-11-02 · Claude Code · EIM-MUK: the P02 rebuild, shared passes A and B, the 2026-11-01 review fixes, the aFRR Phase A code (C0-C9), the publish driver and the C10 preparation are on GitHub main. The results run was stopped on request and is the next step (section "P01, P02 and shared files: state on 2026-11-02").
