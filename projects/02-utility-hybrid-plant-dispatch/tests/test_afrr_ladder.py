@@ -628,16 +628,6 @@ def test_afrr_refuses_what_it_cannot_settle():
                       afrr=prices)[B2]["cost"]["afrr_capacity_revenue"] > 0
 
 
-def test_afrr_refuses_b3_until_its_bids_are_built():
-    """B3 does not bid aFRR capacity yet, so a ladder with aFRR refuses to run it, rather
-    than run it without reserve beside a B2 that reserves. Replaced by B3's tests once it
-    bids."""
-    wind, pv, price = _window(96)
-    with pytest.raises(NotImplementedError, match="B3 does not bid aFRR capacity yet"):
-        run_ladder(wind, pv, price, _afrr_run(), 8.0, include_b3=True,
-                   afrr=_capacity(96, 10.0, 10.0))
-
-
 def test_the_ladder_allows_a_rung_the_margin_on_its_capacity_revenue(monkeypatch):
     """B2 holds its reservations with PLAN_MARGIN to spare, so the invariant lets a rung
     out-earn it by that share of the rung's own capacity revenue, beyond the usual

@@ -8,8 +8,8 @@ B3  rolling-horizon MPC      the deployable classical optimum, on forecasts
 "B2 no battery", B2 with the battery taken out, splits B2's gain over B0 into what curtailing
 at low prices earns, which needs no battery, and what the battery itself adds.
 
-With aFRR capacity prices (`run_ladder(afrr=...)`), B2 also reserves aFRR capacity
-(`afrr_rungs`); B0, B1 and "B2 no battery" never do.
+With aFRR capacity prices (`run_ladder(afrr=...)`), B2 also reserves aFRR capacity, and B3
+bids it at each day's gate (`afrr_rungs`); B0, B1 and "B2 no battery" never do.
 """
 from __future__ import annotations
 
@@ -254,7 +254,8 @@ def b2_no_battery(wind, pv, eff_price, run: RunConfig,
 
 def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
                export_cap=None, resolve_every: int = 1,
-               progress: bool = False, premium=None) -> dict[str, np.ndarray]:
+               progress: bool = False, premium=None,
+               afrr: CapacityPrices | None = None) -> dict[str, np.ndarray]:
     """Rolling-horizon MPC on forecast generation and prices.
 
     wind, pv: available generation per step in MW. eff_price: effective price per step in
@@ -264,9 +265,16 @@ def b3_rolling(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run: RunConfig,
         there. eff_price and price_fc then carry each step's own rate. A plan made in step t
         prices its whole horizon at rate[t]: a later step's rate can be one B3 cannot know yet
         at t, such as the realised value of the month t lies in, which sets next month's rate.
+    afrr: the window's aFRR capacity prices, or None, today's B3. With them B3 bids aFRR
+        capacity at each gate and re-plans around its awards (`afrr_rungs.b3_reserve`).
     Returns the dispatch arrays of `plant.simulate`, plus per re-solve "solve_time_s" and
     "terminal_price_eur_mwh", the value the plan put on stored energy (0 without one).
     """
+    if afrr is not None:
+        # imported here, as afrr_rungs builds on this module
+        from .afrr_rungs import b3_reserve
+        return b3_reserve(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run, afrr, premium,
+                          export_cap, resolve_every, progress)
     cfg = run.plant
     n = len(wind)
     soc = cfg.soc_init
@@ -424,16 +432,18 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     afrr: the window's aFRR capacity prices (`afrr_data.capacity_prices`), with
         run.market.afrr_enabled; or None, with it off, for a ladder without aFRR. B2 then
         reserves aFRR capacity paid on run.market.afrr_price_basis (`afrr_rungs.b2_reserve`),
-        and every rung is settled with the six aFRR terms of `market.settle`, on B2's
-        payment; B0, B1 and "B2 no battery" hold nothing, so they get 0 on them. A rung may
-        then out-earn B2 by PLAN_MARGIN times its own capacity revenue beyond the tolerance:
-        B2 plans its reservations with that margin, so it is a ceiling only up to it.
+        B3 bids it at each gate and is paid its accepted bids (`afrr_rungs.b3_reserve`), and
+        every rung is settled with the six aFRR terms of `market.settle`: B3 on its bids, the
+        others on B2's payment; B0, B1 and "B2 no battery" hold nothing, so they get 0 on
+        them. A rung may then out-earn B2 by PLAN_MARGIN times its own capacity revenue
+        beyond the tolerance: B2 plans its reservations with that margin, so it is a ceiling
+        only up to it.
     Returns {rung name: dispatch arrays plus "cost" (the settlement) and "violations"}.
     Raises AssertionError when a rung beats perfect foresight B2 on revenue before imbalance,
     NotImplementedError when a rung charged grid energy while the market premium is paid, and
     ValueError when B3 runs on a premium_rate that changes within the window and no
     b3_premium_rate is given. With aFRR, it also raises what
-    `afrr_rungs.refuse_what_afrr_cannot_run` raises, e.g. for B3, which does not bid yet.
+    `afrr_rungs.refuse_what_afrr_cannot_run` raises, e.g. for B3 on the "average" basis.
     """
     from .plant import check_feasible
 
@@ -448,9 +458,11 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     if afrr is not None or run.market.afrr_enabled:
         from .afrr_rungs import refuse_what_afrr_cannot_run  # it builds on this module
         refuse_what_afrr_cannot_run(afrr, run, len(price), export_cap, include_b3)
-    b2_afrr = {} if afrr is None else {"afrr": afrr}
+    with_afrr = {} if afrr is None else {"afrr": afrr}
     paid = ({} if afrr is None else
             {"afrr": Payment(*paid_prices(afrr, run.market.afrr_price_basis), afrr.block)})
+    # B3 bids, so it is paid its accepted bids, whatever B2 is paid
+    paid_b3 = {} if afrr is None else {"afrr": Payment(*paid_prices(afrr, "bid"), afrr.block)}
 
     rng = np.random.default_rng(run.seed)
     # The step length counts the hours of a negative-price run, so planning must use the one
@@ -460,7 +472,7 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     out = {
         "B0 no battery": b0_no_battery(wind, pv, run, export_cap),
         "B1 curtailment avoidance": b1_curtailment_avoidance(wind, pv, run, export_cap),
-        "B2 perfect foresight": b2_perfect(wind, pv, eff, run, export_cap, **b2_afrr),
+        "B2 perfect foresight": b2_perfect(wind, pv, eff, run, export_cap, **with_afrr),
     }
     if include_b2_no_battery:
         out["B2 no battery"] = b2_no_battery(wind, pv, eff, run, export_cap)
@@ -480,7 +492,7 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
         rate = np.broadcast_to(np.asarray(plan, dtype=float), (len(price),))
         out["B3 rolling MPC"] = b3_rolling(wind, pv, eff_b3, wind_fc, pv_fc, price_fc, run,
                                            export_cap, progress=progress,
-                                           premium=(rate, eligible))
+                                           premium=(rate, eligible), **with_afrr)
         out["B3 rolling MPC"]["price_error_scale_eur_mwh"] = price_error_scale(eff_b3, run)
 
     # Single-price settlement pays spot on the committed schedule and reBAP on the deviation.
@@ -491,7 +503,8 @@ def run_ladder(wind, pv, price, run: RunConfig, premium_rate: float,
     for name, r in out.items():
         _refuse_premium_on_grid_energy(name, r, premium_rate, run.market, run.dt)
         r["cost"] = settle(r, price, run.dt, run.plant, run.market,
-                           rebap=spread, schedule=schedule, premium_rate=premium_rate, **paid)
+                           rebap=spread, schedule=schedule, premium_rate=premium_rate,
+                           **(paid_b3 if name == "B3 rolling MPC" else paid))
         r["violations"] = check_feasible(r, rung_plant(name, run.plant))
 
     # Perfect foresight cannot lose to ANY other rung. Checking only B3 would have missed the
