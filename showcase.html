@@ -1526,7 +1526,7 @@
             <!-- Tab 2: Regulatory Mechanics -->
             <div id="p01-pane-reg" class="proj-pane">
               <h4>German Regulatory Framework: §14a & §41a EnWG</h4>
-              <p>Under statutory German energy law (§41a EnWG), large electricity suppliers must offer dynamic spot retail tariffs linked directly to the EPEX SPOT Day-Ahead hourly/quarter-hourly clearing price. This exposes residential consumers to wholesale price volatility, creating economic incentives for automated price arbitrage.</p>
+              <p>Under statutory German energy law (§41a EnWG), every electricity supplier must offer a dynamic spot retail tariff since 1 January 2025, linked directly to the EPEX SPOT Day-Ahead hourly/quarter-hourly clearing price. This exposes residential consumers to wholesale price volatility, creating economic incentives for automated price arbitrage.</p>
               <p>Under §14a EnWG (effective January 2024), Distribution System Operators (DSOs) possess the legal right to dynamically throttle controllable consumer devices (Steuerbare Verbrauchseinrichtungen - SteuVE) including home batteries and heat pumps down to a 4.2 kW safety ceiling during grid congestion, while granting fixed or volumetric network charge reductions (Module 1-3).</p>
               <p>No published P01 result applies §14a: the tariff used has no network-charge module and no dimming.</p>
             </div>
@@ -1551,12 +1551,12 @@
 
             <!-- Tab 5: Master Thesis Sensitivity Analysis -->
             <div id="p01-pane-sens" class="proj-pane">
-              <h4>Master Thesis Sensitivity Methodology (Table 3-4 & Chapter 8)</h4>
-              <p>The thesis implements two systematic sensitivity analyses to isolate asset sizing boundaries:</p>
-              <p>&bull; <strong>Type 1: 3D Grid Reduction (1,016 Feasible Configs):</strong> The full parameter space of PV (2-15 kWp), BESS (2-15 kWh), and Inverter (2-15 kW) spans 2,744 combinations. Three physical coupling criteria (PVS ratio &isin; [0.5, 2.0], EPR &isin; [0.5, 2.0], and Inverter Loading IL &isin; [0.5, 2.0]) eliminate unphysical oversizing, pruning the domain to exactly 1,016 feasible configurations.</p>
-              <p>&bull; <strong>Balance-of-System (BoS) CAPEX Model (Table 3-2):</strong> CAPEX = 1,400 &middot; P<sub>pv</sub> + 650 &middot; E<sub>bess</sub> + 300 &middot; P<sub>inv</sub> + 1,200 EUR.</p>
-              <p>&bull; <strong>Top Economic Configuration:</strong> Optimal balance achieved at <strong>15 kWp PV / 8 kWh BESS / 8 kW Inverter</strong> with CAPEX 29,800 EUR, Net Cost -1,475.98 EUR/yr, Net Savings 2,108.98 EUR/yr, ROCE 7.08%, Self-Consumption 45.4%, and Self-Sufficiency 78.4%.</p>
-              <p>&bull; <strong>Type 2: Targeted Sensitivity Analysis:</strong> Evaluates 2D BESS-Inverter matrices for fixed PV capacities (5, 10, 15 kWp). Confirms optimal battery capacity sweet spots (4-5 kWh for 5 kWp PV, 6-8 kWh for 10 kWp PV, and 8-10 kWh for 15 kWp PV). BESS expansion beyond 10 kWh encounters diminishing returns where additional storage CAPEX exceeds incremental summer spot arbitrage gains.</p>
+              <h4>Thesis Sizing Sensitivity: the Grid, the Cost Model and a Parametric Stand-In</h4>
+              <p><code>prosumer.experiments.sensitivity</code> ranks system sizes by ROCE, the yearly optimisation profit divided by CAPEX, on the thesis's size grid and with its cost model. It runs no dispatch for any size: it takes the profit from hand-set formulas, so its values below are not results of the thesis model. Its comments say the formulas were calibrated to values in the thesis; that has not been checked here.</p>
+              <p>&bull; <strong>Type 1, grid reduction:</strong> PV 2 to 15 kWp, BESS 2 to 15 kWh and inverter 2 to 15 kW in steps of 1 give 2,744 combinations. Three sizing ratios, PV/BESS, BESS/inverter and PV/inverter, each between 0.5 and 2.0, keep exactly 1,016 (<code>tests/test_thesis_sensitivity.py</code>).</p>
+              <p>&bull; <strong>Cost model:</strong> CAPEX = 130 &middot; P<sub>pv</sub> + 350 &middot; E<sub>bess</sub> + 190 &middot; P<sub>inv</sub> + 5,935 EUR, the last term for the meter, energy management system, mounting, electrical work and labour. For the reference system it gives 11,324.2 EUR, the CAPEX the thesis published (<code>tests/reference/thesis_2024_yearly_summary.csv</code>).</p>
+              <p>&bull; <strong>Rankings:</strong> the Type 1 formula ranks 15 kWp / 8 kWh / 8 kW first. Type 2 holds PV at 5, 10 or 15 kWp, with a formula of its own for each; they peak at 10 kWh and 5 kW for 5 and for 10 kWp, and at 8 kWh and 8 kW for 15 kWp. The two functions use different formulas and give the same ROCE only at 15 kWp / 8 kWh / 8 kW, and at 5 and 10 kWp Type 1 ranks other sizes first. All values: <code>reports/thesis_sensitivity_parametric.csv</code> in the P01 folder, written by <code>scripts/wire_thesis_sensitivity_to_showcase.py</code>.</p>
+              <p>A real sweep would run the package's thesis MILP, which reproduces the thesis's reference system (<code>tests/test_thesis_reproduction.py</code>), once for each size. No such sweep is committed.</p>
             </div>
 
             <!-- Tab 6: Germany-Wide System-Level Impact -->
@@ -1766,16 +1766,16 @@
         <div class="sim-header-row">
           <div class="sim-card-title">
             <span class="pulse-dot"></span>
-            <span>Master Thesis Empirical Findings (FH OOE Wels, Dec 2025)</span>
+            <span>Master Thesis Sizing Grid and Home-Storage Fleet (FH OOE Wels, Dec 2025)</span>
           </div>
           <span class="sim-card-badge">FH OOE Master Thesis</span>
-          <span class="sim-card-badge cyan">Pure Wholesale Spot Floored</span>
+          <span class="sim-card-badge">Sizing views: a parametric stand-in, not a simulation</span>
           <span class="sim-card-badge emerald">1,016 Feasible Sizing Grid</span>
         </div>
 
         <div style="display: flex; gap: 8px; margin: 16px 0 20px; flex-wrap: wrap;">
           <button class="gallery-btn active" id="p01-tbtn-sens1" onclick="selectThesisView('sens1')">Type 1 Grid Reduction (1,016 Configs)</button>
-          <button class="gallery-btn" id="p01-tbtn-sens2" onclick="selectThesisView('sens2')">Type 2 Scale Sweet Spots (Heatmaps)</button>
+          <button class="gallery-btn" id="p01-tbtn-sens2" onclick="selectThesisView('sens2')">Type 2 Fixed-PV Grids (Heatmaps)</button>
           <button class="gallery-btn" id="p01-tbtn-national" onclick="selectThesisView('national')">Germany-Wide System Impact (16 States)</button>
         </div>
 
@@ -1793,21 +1793,21 @@
               <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">PVS, EPR, IL in [0.5, 2.0]</div>
             </div>
             <div class="sim-res-box">
-              <div class="sim-res-lbl">BoS CAPEX Model</div>
-              <div class="sim-res-val emerald">Table 3-2</div>
-              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">1400*Ppv + 650*Ebess + 300*Pinv + 1200</div>
+              <div class="sim-res-lbl">CAPEX Model, Thesis Reference System</div>
+              <div class="sim-res-val emerald">11,324.2 EUR</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">130*Ppv + 350*Ebess + 190*Pinv + 5935</div>
             </div>
             <div class="sim-res-box">
-              <div class="sim-res-lbl">Global ROCE Optimum</div>
-              <div class="sim-res-val emerald">7.08% ROCE</div>
-              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">PV 15 kWp / BESS 8 kWh / Inv 8 kW</div>
+              <div class="sim-res-lbl">Ranked First by the Type 1 Formula</div>
+              <div class="sim-res-val emerald" id="p01-sens1-best">-</div>
+              <div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;" id="p01-sens1-best-size">-</div>
             </div>
           </div>
 
           <div class="table-card" style="margin-bottom: 16px;">
             <div class="table-title">
-              <span>Top Economic Configurations Ranked by ROCE (Table 8-1)</span>
-              <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.76rem;">Wholesale Floored at 0 EUR/MWh</span>
+              <span>Top 5 of 1,016 Sizes by the Type 1 Formula's ROCE</span>
+              <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.76rem;">Parametric stand-in, not a simulation</span>
             </div>
             <table class="ladder-tbl">
               <thead>
@@ -1816,80 +1816,18 @@
                   <th>PV (kWp)</th>
                   <th>BESS (kWh)</th>
                   <th>Inverter (kW)</th>
-                  <th>BoS CAPEX</th>
-                  <th>Net Cost</th>
-                  <th>Annual Savings</th>
+                  <th>CAPEX</th>
+                  <th>Profit per Year</th>
                   <th>ROCE (%)</th>
-                  <th>Self-Cons.</th>
-                  <th>Self-Suff.</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr style="background: rgba(16, 185, 129, 0.08); font-weight: 600;">
-                  <td><span class="sim-card-badge emerald" style="font-size:0.7rem; padding:2px 6px;">#1 Optimal</span></td>
-                  <td>15.0</td>
-                  <td>8.0</td>
-                  <td>8.0</td>
-                  <td>29,800 EUR</td>
-                  <td class="emerald">-1,475.98 EUR</td>
-                  <td>2,108.98 EUR</td>
-                  <td class="emerald" style="font-family: var(--font-mono); font-weight: 700;">7.08%</td>
-                  <td>45.4%</td>
-                  <td>78.4%</td>
-                </tr>
-                <tr>
-                  <td>#2</td>
-                  <td>15.0</td>
-                  <td>8.0</td>
-                  <td>9.0</td>
-                  <td>30,100 EUR</td>
-                  <td class="emerald">-1,481.56 EUR</td>
-                  <td>2,114.56 EUR</td>
-                  <td style="font-family: var(--font-mono);">7.03%</td>
-                  <td>45.4%</td>
-                  <td>78.4%</td>
-                </tr>
-                <tr>
-                  <td>#3</td>
-                  <td>15.0</td>
-                  <td>9.0</td>
-                  <td>8.0</td>
-                  <td>30,450 EUR</td>
-                  <td class="emerald">-1,507.03 EUR</td>
-                  <td>2,140.03 EUR</td>
-                  <td style="font-family: var(--font-mono);">7.03%</td>
-                  <td>47.0%</td>
-                  <td>81.3%</td>
-                </tr>
-                <tr>
-                  <td>#4</td>
-                  <td>15.0</td>
-                  <td>9.0</td>
-                  <td>9.0</td>
-                  <td>30,750 EUR</td>
-                  <td class="emerald">-1,513.19 EUR</td>
-                  <td>2,146.19 EUR</td>
-                  <td style="font-family: var(--font-mono);">6.98%</td>
-                  <td>47.0%</td>
-                  <td>81.3%</td>
-                </tr>
-                <tr>
-                  <td>#5</td>
-                  <td>15.0</td>
-                  <td>7.0</td>
-                  <td>8.0</td>
-                  <td>29,150 EUR</td>
-                  <td class="emerald">-1,431.10 EUR</td>
-                  <td>2,064.10 EUR</td>
-                  <td style="font-family: var(--font-mono);">7.08%</td>
-                  <td>43.6%</td>
-                  <td>75.3%</td>
-                </tr>
+              <tbody id="p01-sens1-tbody">
+                <!-- Populated by JavaScript from THESIS_SENSITIVITY -->
               </tbody>
             </table>
           </div>
           <p style="font-size: 0.82rem; color: var(--text-sub); line-height: 1.6;">
-            Negative net cost indicates net operating revenue under wholesale spot market direct export. The 15_8_8 configuration achieves the global ROCE maximum (7.08%), striking the optimal balance between high PV generation and storage degradation amortization.
+            ROCE here is the Type 1 formula's yearly profit divided by CAPEX. No size was simulated: <code>prosumer.experiments.sensitivity</code> computes the profit from hand-set formulas. All 1,016 sizes are in <code>reports/thesis_sensitivity_parametric.csv</code> in the P01 folder, written by <code>scripts/wire_thesis_sensitivity_to_showcase.py</code>, which also writes the values this card shows.
           </p>
         </div>
 
@@ -1897,7 +1835,7 @@
         <div id="p01-tview-sens2" class="thesis-view-panel" style="display: none;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
             <div style="font-size:0.86rem; color:var(--text-sub);">
-              Select fixed solar array scale to inspect BESS vs Inverter 2D sensitivity matrix:
+              Pick a fixed PV size to see the Type 2 formula's ROCE for every feasible BESS and inverter pair:
             </div>
             <div style="display:flex; gap:6px;">
               <button class="day-btn" id="p01-btn-pv5" onclick="selectSens2Pv(5)">5 kWp PV (Small)</button>
@@ -1912,30 +1850,31 @@
               <div class="sim-res-val cyan" id="p01-sens2-scale">15 kWp PV</div>
             </div>
             <div class="sim-res-box">
-              <div class="sim-res-lbl">Storage Sweet Spot</div>
-              <div class="sim-res-val emerald" id="p01-sens2-bess">8.0 kWh BESS</div>
+              <div class="sim-res-lbl">BESS at the Formula's Peak</div>
+              <div class="sim-res-val emerald" id="p01-sens2-bess">-</div>
             </div>
             <div class="sim-res-box">
-              <div class="sim-res-lbl">Inverter Sweet Spot</div>
-              <div class="sim-res-val emerald" id="p01-sens2-inv">8.0 kW Inverter</div>
+              <div class="sim-res-lbl">Inverter at the Formula's Peak</div>
+              <div class="sim-res-val emerald" id="p01-sens2-inv">-</div>
             </div>
             <div class="sim-res-box">
-              <div class="sim-res-lbl">Optimal ROCE</div>
-              <div class="sim-res-val emerald" id="p01-sens2-roce">7.08% ROCE</div>
+              <div class="sim-res-lbl">Highest ROCE of the Formula</div>
+              <div class="sim-res-val emerald" id="p01-sens2-roce">-</div>
             </div>
           </div>
 
           <div class="table-card" style="margin-bottom: 14px;">
             <div class="table-title">
               <span id="p01-sens2-matrix-title">BESS (kWh) vs Inverter (kW) ROCE Matrix (15 kWp PV)</span>
-              <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.74rem;">Feasible Range (ROCE %)</span>
+              <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 0.74rem;">Type 2 formula, ROCE %</span>
             </div>
             <div id="p01-sens2-matrix-container" style="overflow-x: auto;">
-              <!-- Dynamically populated 2D heatmap matrix -->
+              <!-- Populated by JavaScript from THESIS_SENSITIVITY -->
             </div>
           </div>
-          <p id="p01-sens2-note" style="font-size: 0.82rem; color: var(--text-sub); line-height: 1.6;">
-            Key Insight: For 15 kWp PV, the sweet spot lies at 8 kWh BESS and 8 kW Inverter. Expanding BESS capacity past 10 kWh yields diminishing returns because summer PV self-consumption saturates, while incremental storage CAPEX cannot be amortized during winter months.
+          <p id="p01-sens2-note" style="font-size: 0.82rem; color: var(--text-sub); line-height: 1.6;"></p>
+          <p style="font-size: 0.82rem; color: var(--text-sub); line-height: 1.6;">
+            No size was simulated: the Type 2 function has its own hand-set profit formula for each of the three PV sizes, not the Type 1 formula, so a cell here and the same size in Type 1 have the same ROCE only at 15 kWp / 8 kWh / 8 kW. A dash marks a pair outside the sizing ratios. Source: the <code>type2_roce_pct</code> column of <code>reports/thesis_sensitivity_parametric.csv</code> in the P01 folder.
           </p>
         </div>
 
@@ -2295,7 +2234,7 @@
             </div>
             <div class="mini-metric">
               <div class="mini-lbl">Skill vs B0 Euros, Test / Val.</div>
-              <div class="mini-val amber">+1.0 / -0.4</div>
+              <div class="mini-val amber">+1.0 / -0.4 to -0.7</div>
             </div>
             <div class="mini-metric">
               <div class="mini-lbl">B0 Gains Beyond Noise</div>
@@ -2322,7 +2261,7 @@
               </tbody>
             </table>
             <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; padding: 10px 20px 12px;">
-              Each forecast's day-ahead median is scheduled once (policy B0) and what is left settles at reBAP; DA pinball is the pinball loss at the day-ahead gate, lower is better. The test window was evaluated once, with every setting frozen beforehand. In it the B0 euros rank exactly as the skill (Spearman +1.0 across the five rungs, with LightGBM seed 0). In the validation half-year, 2025-07-02 to 2025-12-29, they do not (-0.4, and more negative with seed 1 or 2, which earned less than persistence there): climatology earned the most (15,295,413 EUR) and the TSO forecast the least (15,055,372 EUR). In neither window does any forecast's day-ahead (B0) gain over climatology have a 90% block-bootstrap interval that excludes zero. Climatology carries 129,432 MWh of imbalance against 26,989 MWh for the TSO forecast; no balance responsible party may schedule that way, so its euros are a warning about scoring forecasts in euros alone, not a strategy. LightGBM seeds 1 and 2: pinball 2.40 and 2.41 MW, B0 28,790,925 and 28,790,914 EUR. Sources in the P03 folder: <code>reports/test/forecast_by_stage.csv</code>, <code>policies.csv</code>, <code>value_of_forecast.csv</code> and <code>quality_vs_value.csv</code>, and the same files in <code>reports/validation/</code>.
+              Each forecast's day-ahead median is scheduled once (policy B0) and what is left settles at reBAP; DA pinball is the pinball loss at the day-ahead gate, lower is better. The test window was evaluated once, with every setting frozen beforehand. In it the B0 euros rank exactly as the skill (Spearman +1.0 across the five rungs, with every LightGBM seed). In the validation half-year, 2025-07-02 to 2025-12-29, they do not (-0.4 with LightGBM seed 0, -0.7 with seeds 1 and 2, which earned less than persistence there): climatology earned the most (15,295,413 EUR) and the TSO forecast the least (15,055,372 EUR). In neither window does any forecast's day-ahead (B0) gain over climatology have a 90% block-bootstrap interval that excludes zero. Climatology carries 129,432 MWh of imbalance against 26,989 MWh for the TSO forecast; no balance responsible party may schedule that way, so its euros are a warning about scoring forecasts in euros alone, not a strategy. LightGBM seeds 1 and 2: pinball 2.40 and 2.41 MW, B0 28,790,925 and 28,790,914 EUR. Sources in the P03 folder: <code>reports/test/forecast_by_stage.csv</code>, <code>policies.csv</code>, <code>value_of_forecast.csv</code>, <code>quality_vs_value.csv</code> and <code>quality_vs_value_by_seed.csv</code>, and the same files in <code>reports/validation/</code>.
             </p>
           </div>
 
@@ -2352,15 +2291,15 @@
               <h4>German Day-Ahead, Intraday and reBAP Settlement</h4>
               <p>Every quarter-hour is decided at the day-ahead gate closure, 12:00 Europe/Berlin on the day before delivery (a lead of 12 to 35.75 hours, 36.75 on the 25-hour day when the clocks go back), and again 12, 6, 2 and 0.5 hours before delivery, never before the intraday market opens at 16:00 the day before. Day-ahead products are hourly until 2025-09-30 and quarter-hourly after.</p>
               <p>Intraday trades clear at the ID AEP: the volume-weighted price of the last 500 MW traded in continuous intraday for each quarter-hour, published by the four German TSOs on netztransparenz.de. A trade decided twelve hours ahead would have met a different price, and the half-spread is an assumption, swept from 0 to 6 EUR/MWh. What is left settles at the quality-assured reBAP, which had one price for short and long positions in every quarter-hour downloaded. With one price for both directions the newsvendor critical-fractile argument has no basis, so the NV policy is kept only as an ablation.</p>
-              <p>The TSO forecasts carry no publication time. The EU transparency rules make the day-ahead forecast due by 18:00 on the day before delivery, after the 12:00 gate closure, so F4 may hold information the other rungs could not have had: it is a benchmark, not a competitor. The portfolio is a price taker.</p>
+              <p>The TSO forecasts carry no publication time. The EU transparency rules (Regulation 543/2013, Art. 14(2)(d)) make the day-ahead forecast due by 18:00 on the day before delivery, after the 12:00 gate closure, and require an intraday update by 08:00 on the delivery day. ID-12h and ID-6h read that intraday forecast, which may not have existed yet for any quarter-hour they decide before 08:00; ID-2h and ID-0.5h read the current forecast, whose updates carry no time either. So F4's intraday scores and euros, like its day-ahead ones, may hold information the other rungs could not have had: it is a benchmark, not a competitor. The portfolio is a price taker.</p>
             </div>
 
             <!-- Tab 3: Invariant Guards -->
             <div id="p03-pane-inv" class="proj-pane">
-              <h4>No Look-Ahead: Checks That Can Fail</h4>
-              <p><strong>Information sets:</strong> a forecast for delivery step t decided at step i sees measured output up to one hour before i, the newest weather run already published at i (a run is taken as public six hours after it was made, an assumption), and the calendar and sun position of t. A test corrupts everything outside that set and requires identical features.</p>
-              <p><strong>Look-ahead audit:</strong> it counts forecasts read after their decision time, and a test shows that it catches a cheating stage. The old audit only re-checked the forecast store's own guard, so it could not fail.</p>
-              <p><strong>Errors found and fixed in the rebuild:</strong> day-ahead positions read forecasts issued after the 12:00 gate closure for every quarter-hour delivered after noon (a fixed 24-hour lead); a PV seasonal-persistence feature wrapped around to the end of the series on the first day of data, so it read the future (the information-set test caught it); the forecast store answered a lead beyond its horizon with another quarter-hour's forecast; and the reported "CRPS" was twice the mean pinball loss over the levels 0.1 to 0.9, so the scores now report the pinball loss under its own name. Each fix ships with a regression test that fails on the old code.</p>
+              <h4>No Look-Ahead: Information Sets, Decision Times and Fixes</h4>
+              <p><strong>Information sets:</strong> a forecast for delivery step t decided at step i sees measured output up to one hour before i, the newest weather run already published at i (a run is taken as public six hours after it was made, an assumption), and the calendar and sun position of t. A test corrupts everything outside that set and requires identical features. This test is what keeps later data out of the forecasts.</p>
+              <p><strong>Decision-stage audit:</strong> it counts forecasts read after their decision time, and a test shows that it catches a cheating stage. In the backtest every forecast is issued at its decision time by construction, so there the audit can only catch a stage that decides after delivery. The first version only re-checked the forecast store's own guard.</p>
+              <p><strong>Errors found and fixed in the rebuild:</strong> day-ahead positions read forecasts issued after the 12:00 gate closure for every quarter-hour delivered after noon (a fixed 24-hour lead); a PV seasonal-persistence feature wrapped around to the end of the series on the first day of data, so it read the future (the information-set test caught it); the forecast store answered a lead beyond its horizon with another quarter-hour's forecast; and the reported "CRPS" was twice the mean pinball loss over the levels 0.1 to 0.9, so the scores now report the pinball loss under its own name. Every fix that changes behaviour has a regression test that fails when the bug is put back; the CRPS fix is a rename. Two of those tests, for the published prices and for LightGBM's early stopping on held-out days, came later, after a review found them missing (P03 README, section 3).</p>
               <p><strong>Withdrawn:</strong> an earlier version of this page showed a large intraday trading gain of a "stochastic deadband MPC" over 30 days. It came from a model in which the intraday price equalled the day-ahead price, reBAP was synthetic and the forecasts were the realised output plus hand-set noise, and it is withdrawn.</p>
             </div>
 
@@ -2376,7 +2315,7 @@
               <p><strong>Policies:</strong> B0 schedules the day-ahead median and never corrects. B1 trades to the newest median at every intraday stage. B3 trades only the part of a revision beyond k times the stage's q90 - q10 band (k = 4 for F1 to F3 and 1 for F4, from the validation window):</p>
               <div class="formula-box">&Delta;Q<sub>s</sub> = sign(&delta;<sub>s</sub>) &middot; max( |&delta;<sub>s</sub>| - k &middot; (q90<sub>s</sub> - q10<sub>s</sub>), 0 ),   &delta;<sub>s</sub> = q50<sub>s</sub> - Q<sup>pos</sup></div>
               <p>NV schedules one quantile, 0.533, chosen from the imbalance-cost asymmetry of the training data (an ablation). REF schedules the realised output: the perfect forecast.</p>
-              <p><strong>Intraday result:</strong> following every revision (B1) loses money against scheduling once with every forecast that revises, in both windows, at every half-spread from 0.5 EUR/MWh; with the TSO forecast it loses 87,261 EUR in 2026 even at zero cost. A likely reason: the revisions are public, and every trade here clears at the ID AEP, an index of the last trades before delivery, so the price already carries them. B3's band, tuned on the validation window, does not transfer: with the TSO forecast it loses 69,112 EUR against B0 in 2026 at a half-spread of 3 EUR/MWh. Sources: <code>reports/test/liquidity.csv</code> and <code>policies.csv</code>, and <code>reports/validation/liquidity.csv</code>.</p>
+              <p><strong>Intraday result:</strong> following every revision (B1) loses money against scheduling once with every forecast that revises, in both windows, at every half-spread from 0.5 EUR/MWh; with the TSO forecast it loses 87,261 EUR in 2026 even at a zero half-spread, where only the impact charge of 0.02 EUR/MWh per MW traded remains. A likely reason, not tested here: the revisions are public, so by the time they are traded the intraday price already carries them, and settling every trade at the ID AEP, an index of the last trades before delivery, builds that in. B3's band, tuned on the validation window, does not transfer: with the TSO forecast it loses 69,112 EUR against B0 in 2026 at a half-spread of 3 EUR/MWh. Sources: <code>reports/test/liquidity.csv</code> and <code>policies.csv</code>, and <code>reports/validation/liquidity.csv</code>.</p>
             </div>
           </div>
 
@@ -2385,7 +2324,7 @@
             <button class="btn-copy" onclick="copyDynamicText('p03-cli-text')">Copy Command</button>
           </div>
           <p style="font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; margin-top: 8px;">
-            Refits the ladder on the training window and rewrites <code>reports/validation/</code> and <code>reports/frozen_config.json</code>, the B3 settings the test phase reads; LightGBM with three seeds is the slow step. Run <code>python -m f2b.cli build-data</code> first, and download reBAP and ID AEP by hand from netztransparenz.de into <code>data/raw/netztransparenz/</code> (P03 README, section 6). The test window was evaluated once: <code>backtest --phase test</code> refuses to overwrite <code>reports/test/</code>.
+            Refits the ladder on the training window and rewrites <code>reports/validation/</code> and <code>reports/frozen_config.json</code>, the B3 settings the test phase reads; LightGBM with three seeds is the slow step. Download reBAP and ID AEP by hand from netztransparenz.de into <code>data/raw/netztransparenz/</code> first, then run <code>python -m f2b.cli build-data</code> (P03 README, section 6). The test window was evaluated once: <code>backtest --phase test</code> refuses to overwrite <code>reports/test/</code>.
           </p>
         </div>
 
@@ -3408,8 +3347,13 @@
 
     
     // =========================================================================
-    // PROJECT 01 MASTER THESIS EMPIRICAL EXTENSIONS (SENSITIVITY & NATIONAL)
+    // PROJECT 01 MASTER THESIS VIEWS (PARAMETRIC SIZING STAND-IN & NATIONAL FLEET)
     // =========================================================================
+    // Set by scripts/wire_thesis_sensitivity_to_showcase.py from
+    // projects/01-prosumer-pv-bess-mpc-rl/reports/thesis_sensitivity_parametric.csv; rerun the
+    // script rather than edit the line. A type1_top row is [rank, PV kWp, BESS kWh, inverter kW,
+    // CAPEX EUR, profit EUR, ROCE %], a type2 cell [BESS kWh, inverter kW, ROCE %].
+    const THESIS_SENSITIVITY = {"type1_top":[[1,15,8,8,12205.0,1115.81,9.14],[2,15,9,8,12555.0,1127.39,8.98],[3,15,8,9,12395.0,1100.81,8.88],[4,14,7,7,11535.0,1021.48,8.86],[5,15,10,8,12905.0,1138.89,8.83]],"type2":{"5":[[3,3,1.79],[3,4,1.92],[3,5,2.06],[3,6,1.65],[4,3,2.03],[4,4,2.15],[4,5,2.27],[4,6,1.88],[4,7,1.5],[4,8,1.13],[5,3,2.24],[5,4,2.35],[5,5,2.47],[5,6,2.08],[5,7,1.71],[5,8,1.35],[5,9,1.01],[5,10,0.67],[6,3,2.42],[6,4,2.53],[6,5,2.64],[6,6,2.26],[6,7,1.9],[6,8,1.55],[6,9,1.21],[6,10,0.89],[7,4,2.69],[7,5,2.79],[7,6,2.42],[7,7,2.07],[7,8,1.73],[7,9,1.4],[7,10,1.08],[8,4,2.83],[8,5,2.93],[8,6,2.57],[8,7,2.22],[8,8,1.89],[8,9,1.57],[8,10,1.26],[9,5,3.05],[9,6,2.7],[9,7,2.37],[9,8,2.04],[9,9,1.73],[9,10,1.42],[10,5,3.16],[10,6,2.82],[10,7,2.5],[10,8,2.18],[10,9,1.87],[10,10,1.58]],"10":[[5,5,5.68],[5,6,5.23],[5,7,4.79],[5,8,4.37],[5,9,3.97],[5,10,3.58],[6,5,5.75],[6,6,5.31],[6,7,4.89],[6,8,4.48],[6,9,4.08],[6,10,3.7],[6,11,3.33],[6,12,2.98],[7,5,5.8],[7,6,5.37],[7,7,4.96],[7,8,4.57],[7,9,4.18],[7,10,3.81],[7,11,3.45],[7,12,3.11],[7,13,2.77],[7,14,2.44],[8,5,5.84],[8,6,5.43],[8,7,5.03],[8,8,4.65],[8,9,4.27],[8,10,3.91],[8,11,3.56],[8,12,3.22],[8,13,2.89],[8,14,2.57],[8,15,2.27],[9,5,5.88],[9,6,5.48],[9,7,5.09],[9,8,4.72],[9,9,4.35],[9,10,4.0],[9,11,3.66],[9,12,3.33],[9,13,3.01],[9,14,2.69],[9,15,2.39],[10,5,5.91],[10,6,5.52],[10,7,5.14],[10,8,4.78],[10,9,4.42],[10,10,4.08],[10,11,3.75],[10,12,3.42],[10,13,3.11],[10,14,2.8],[10,15,2.51],[11,6,5.56],[11,7,5.19],[11,8,4.83],[11,9,4.49],[11,10,4.15],[11,11,3.83],[11,12,3.51],[11,13,3.2],[11,14,2.9],[11,15,2.61],[12,6,5.59],[12,7,5.23],[12,8,4.88],[12,9,4.54],[12,10,4.22],[12,11,3.9],[12,12,3.59],[12,13,3.29],[12,14,3.0],[12,15,2.71],[13,7,5.26],[13,8,4.93],[13,9,4.6],[13,10,4.28],[13,11,3.97],[13,12,3.66],[13,13,3.37],[13,14,3.08],[13,15,2.8],[14,7,5.29],[14,8,4.96],[14,9,4.64],[14,10,4.33],[14,11,4.03],[14,12,3.73],[14,13,3.44],[14,14,3.16],[14,15,2.89],[15,8,5.0],[15,9,4.69],[15,10,4.38],[15,11,4.08],[15,12,3.79],[15,13,3.51],[15,14,3.24],[15,15,2.97]],"15":[[8,8,9.14],[8,9,8.82],[8,10,8.52],[8,11,8.22],[8,12,7.93],[8,13,7.65],[8,14,7.37],[8,15,7.11],[9,8,8.92],[9,9,8.61],[9,10,8.32],[9,11,8.03],[9,12,7.75],[9,13,7.48],[9,14,7.21],[9,15,6.96],[10,8,8.71],[10,9,8.41],[10,10,8.13],[10,11,7.85],[10,12,7.58],[10,13,7.32],[10,14,7.06],[10,15,6.81],[11,8,8.51],[11,9,8.22],[11,10,7.95],[11,11,7.68],[11,12,7.42],[11,13,7.17],[11,14,6.92],[11,15,6.68],[12,8,8.32],[12,9,8.04],[12,10,7.78],[12,11,7.52],[12,12,7.27],[12,13,7.02],[12,14,6.78],[12,15,6.55],[13,8,8.14],[13,9,7.87],[13,10,7.62],[13,11,7.37],[13,12,7.12],[13,13,6.88],[13,14,6.65],[13,15,6.42],[14,8,7.97],[14,9,7.71],[14,10,7.46],[14,11,7.22],[14,12,6.98],[14,13,6.75],[14,14,6.53],[14,15,6.31],[15,8,7.8],[15,9,7.56],[15,10,7.31],[15,11,7.08],[15,12,6.85],[15,13,6.62],[15,14,6.41],[15,15,6.19]]}};
     const THESIS_STATES_DATA = {
       '2024': [
         { name: 'Bayern', code: 'BY', units: 237322, cap_kwh: 8.96, mwh: 2126, p_kw: 5.53, mw: 1312 },
@@ -3477,7 +3421,8 @@
         if (panel) panel.style.display = (k === viewKey) ? 'block' : 'none';
       });
       if (viewKey === 'sens2') {
-        renderSens2Matrix(15);
+        // Through selectSens2Pv, so the highlighted PV button matches the matrix it reopens on.
+        selectSens2Pv(15);
       } else if (viewKey === 'national') {
         renderNationalFleet(currentThesisNationalYear);
       }
@@ -3491,6 +3436,29 @@
       renderSens2Matrix(pvKw);
     }
 
+    // Type 1: the five sizes the stand-in's formula ranks highest, and the first one in a tile.
+    function renderSens1() {
+      const top = THESIS_SENSITIVITY.type1_top;
+      const tbody = document.getElementById('p01-sens1-tbody');
+      if (tbody) {
+        tbody.innerHTML = top.map(([rank, pv, bess, inv, capex, profit, roce]) => {
+          const first = (rank === 1) ? ' style="background: rgba(16, 185, 129, 0.08); font-weight: 600;"' : '';
+          return `<tr${first}><td>#${rank}</td><td>${pv}</td><td>${bess}</td><td>${inv}</td>`
+            + `<td>${capex.toLocaleString('en-US')} EUR</td>`
+            + `<td>${profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR</td>`
+            + `<td style="font-family: var(--font-mono);">${roce.toFixed(2)}%</td></tr>`;
+        }).join('');
+      }
+      if (!top.length) return;
+      const [, pv, bess, inv, , , roce] = top[0];
+      const bestEl = document.getElementById('p01-sens1-best');
+      const sizeEl = document.getElementById('p01-sens1-best-size');
+      if (bestEl) bestEl.innerText = `${roce.toFixed(2)}% ROCE`;
+      if (sizeEl) sizeEl.innerText = `PV ${pv} kWp / BESS ${bess} kWh / Inv ${inv} kW`;
+    }
+
+    // Type 2: the stand-in's ROCE for each feasible BESS and inverter pair at one PV size. A pair
+    // with no cell lies outside the sizing ratios.
     function renderSens2Matrix(pvKw) {
       const container = document.getElementById('p01-sens2-matrix-container');
       const titleEl = document.getElementById('p01-sens2-matrix-title');
@@ -3503,62 +3471,39 @@
       if (titleEl) titleEl.innerText = `BESS (kWh) vs Inverter (kW) ROCE Matrix (${pvKw} kWp PV)`;
       if (scaleEl) scaleEl.innerText = `${pvKw} kWp PV`;
 
-      // Preset sweet spots and ranges
-      let sweetBess, sweetInv, sweetRoce, noteText;
-      let bessRange, invRange, baseRoce;
+      const cells = THESIS_SENSITIVITY.type2[String(pvKw)] || [];
+      if (!cells.length) return;
+      // The first highest cell in BESS-then-inverter order, as the Python function picks it.
+      const best = cells.reduce((a, c) => (c[2] > a[2] ? c : a), cells[0]);
+      const low = Math.min(...cells.map(c => c[2]));
+      const roceAt = new Map(cells.map(([bess, inv, roce]) => [`${bess}|${inv}`, roce]));
+      const bessRange = [...new Set(cells.map(c => c[0]))].sort((a, b) => a - b);
+      const invRange = [...new Set(cells.map(c => c[1]))].sort((a, b) => a - b);
 
-      if (pvKw === 5) {
-        sweetBess = 4.0; sweetInv = 4.0; sweetRoce = '5.21%';
-        bessRange = [2, 3, 4, 5, 6, 8, 10];
-        invRange = [2, 3, 4, 5, 6, 8];
-        baseRoce = 5.21;
-        noteText = 'Key Insight: For 5 kWp PV, optimal balance is 4-5 kWh BESS and 4 kW Inverter (5.21% ROCE). Storage past 6 kWh suffers sharp capital degradation.';
-      } else if (pvKw === 10) {
-        sweetBess = 8.0; sweetInv = 8.0; sweetRoce = '6.42%';
-        bessRange = [4, 5, 6, 7, 8, 9, 10, 12];
-        invRange = [4, 5, 6, 7, 8, 9, 10];
-        baseRoce = 6.42;
-        noteText = 'Key Insight: For 10 kWp PV, sweet spot is 8 kWh BESS and 8 kW Inverter (6.42% ROCE). Provides robust winter coverage with high summer export utilization.';
-      } else {
-        sweetBess = 8.0; sweetInv = 8.0; sweetRoce = '7.08%';
-        bessRange = [4, 6, 7, 8, 9, 10, 12, 15];
-        invRange = [4, 6, 7, 8, 9, 10, 12, 15];
-        baseRoce = 7.08;
-        noteText = 'Key Insight: For 15 kWp PV, sweet spot lies at 8 kWh BESS and 8 kW Inverter (7.08% ROCE). Beyond 10 kWh, summer self-consumption saturates while winter solar surplus remains scarce.';
-      }
-
-      if (bessEl) bessEl.innerText = `${sweetBess.toFixed(1)} kWh BESS`;
-      if (invEl) invEl.innerText = `${sweetInv.toFixed(1)} kW Inverter`;
-      if (roceEl) roceEl.innerText = sweetRoce;
-      if (noteEl) noteEl.innerText = noteText;
+      if (bessEl) bessEl.innerText = `${best[0]} kWh BESS`;
+      if (invEl) invEl.innerText = `${best[1]} kW Inverter`;
+      if (roceEl) roceEl.innerText = `${best[2].toFixed(2)}% ROCE`;
+      if (noteEl) noteEl.innerText = `For ${pvKw} kWp, the Type 2 formula gives its highest ROCE, ${best[2].toFixed(2)}%, at ${best[0]} kWh and ${best[1]} kW (marked *).`;
 
       if (!container) return;
 
       let html = '<table class="ladder-tbl" style="text-align:center; font-family:var(--font-mono); font-size:0.75rem;">';
-      html += '<thead><tr><th>BESS \ Inv</th>';
+      html += '<thead><tr><th>BESS \\ Inv</th>';
       invRange.forEach(inv => { html += `<th>${inv} kW</th>`; });
       html += '</tr></thead><tbody>';
 
       bessRange.forEach(bess => {
         html += `<tr><td style="font-weight:700; background:rgba(255,255,255,0.03);">${bess} kWh</td>`;
         invRange.forEach(inv => {
-          const pvs = bess / pvKw;
-          const epr = bess / inv;
-          const il = pvKw / inv;
-          const isFeasible = (pvs >= 0.5 && pvs <= 2.0 && epr >= 0.5 && epr <= 2.0 && il >= 0.5 && il <= 2.0);
-
-          if (!isFeasible) {
+          const roce = roceAt.get(`${bess}|${inv}`);
+          if (roce === undefined) {
             html += '<td style="color:var(--text-muted); opacity:0.35;">-</td>';
+          } else if (bess === best[0] && inv === best[1]) {
+            html += `<td style="background:rgba(16,185,129,0.25); color:var(--emerald-bright); font-weight:800; border:1px solid var(--emerald);">${roce.toFixed(2)}%*</td>`;
           } else {
-            const dist = Math.sqrt(Math.pow((bess - sweetBess) / sweetBess, 2) + Math.pow((inv - sweetInv) / sweetInv, 2));
-            const roce = Math.max(3.2, baseRoce - dist * 1.8);
-            const isOptimal = (Math.abs(bess - sweetBess) < 0.1 && Math.abs(inv - sweetInv) < 0.1);
-            if (isOptimal) {
-              html += `<td style="background:rgba(16,185,129,0.25); color:var(--emerald-bright); font-weight:800; border:1px solid var(--emerald);">${roce.toFixed(2)}%*</td>`;
-            } else {
-              const alpha = Math.max(0.08, 0.22 - dist * 0.1);
-              html += `<td style="background:rgba(6,182,212,${alpha.toFixed(2)}); color:var(--text-main);">${roce.toFixed(2)}%</td>`;
-            }
+            // Shade by where the cell lies between the lowest and the highest value at this PV size.
+            const alpha = 0.08 + 0.14 * (roce - low) / ((best[2] - low) || 1);
+            html += `<td style="background:rgba(6,182,212,${alpha.toFixed(2)}); color:var(--text-main);">${roce.toFixed(2)}%</td>`;
           }
         });
         html += '</tr>';
@@ -3636,6 +3581,7 @@
       updateHud(scrubberIdx);
 
       // Initialize Master Thesis Sensitivity & National Fleet
+      renderSens1();
       renderSens2Matrix(15);
       renderNationalFleet('2026');
     });
