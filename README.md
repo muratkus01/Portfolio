@@ -110,7 +110,7 @@ Every method is measured against simpler rungs on the same data and against a pe
 
 | Rung | Controller | Purpose & Criterion |
 |:---:|---|---|
-| **B0** | Historical / Status-Quo | Baseline uncoordinated or unhedged reference. |
+| **B0** | No Battery | The same site without storage: PV only in Project 01; in Project 02 the same generation, curtailed only when it must be. Neither project replays historical operation. |
 | **B1** | Rule-Based Expert Baseline | Industry-standard heuristic (e.g. greedy self-consumption, threshold shaving). |
 | **B2** | Perfect-Foresight Optimization | Theoretical performance ceiling over the entire simulation horizon. |
 | **B3** | Rolling-Horizon MPC | **The classical benchmark** under imperfect lookahead. Deployable in Project 01, where it plans only on what a home system knows when it decides. In Project 02 it plans on synthetic forecasts and knows the true negative-price mask, so its recovery there is optimistic. |

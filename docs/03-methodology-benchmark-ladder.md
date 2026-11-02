@@ -5,9 +5,10 @@ A learned policy that beats a naive rule set has demonstrated nothing: classical
 optimisation has solved dispatch problems in this domain for decades, and any credible claim
 must be made against that state of practice. This document defines the evaluation ladder.
 The portfolio has three active projects, and three more archived in `archive/` since
-2026-10-09. Projects 01 and 02 climb the ladder with controllers. Project 03 adapts it to
-forecasts: its rungs are forecasts, each traded by the same rules. Each project's README
-states the rungs it uses.
+2026-10-09. Projects 01 and 02 climb the ladder with controllers. Neither has historical
+operation to compare with: their B0 is the same site without a battery, so neither runs the
+B1 validation gate below. Project 03 adapts the ladder to forecasts: its rungs are forecasts,
+each traded by the same rules. Each project's README states the rungs it uses.
 
 ---
 
