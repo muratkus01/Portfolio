@@ -72,9 +72,9 @@ different when the total headroom `B2 − B3` is 4 % versus 40 %.
 
 Formulation conventions differ by project. Projects 01 and 02 solve their ladders without
 binary variables; Project 01's `baselines/milp.py` explains why its battery needs none, and
-switches them on only to reproduce the thesis model. The archived A2 keeps binary pump and turbine modes that
-exclude each other, with per-mode ramp limits. No project uses piecewise-linear efficiency
-curves or minimum up and down times.
+switches them on only to reproduce the thesis model. The archived A2 keeps binary pump and
+turbine modes that exclude each other, with per-mode ramp limits. No project uses
+piecewise-linear efficiency curves or minimum up and down times.
 
 ## B3 — Rolling-horizon MPC: the real competitor
 
