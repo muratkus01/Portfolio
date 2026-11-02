@@ -70,8 +70,11 @@ no errors, section badges read 01, 02, 03, all three figures load.
 1. **Decide the auto-committer question above.** It affects everything else that gets
    committed here.
 
-2. **Make projects 02 and 03 commit their results.** This is the largest single gap in the
-   portfolio and the cheapest to close.
+2. ~~**Make projects 02 and 03 commit their results.** This is the largest single gap in the
+   portfolio and the cheapest to close.~~ **Done, noted 2026-11-02:** P02 commits its result
+   CSVs with `run_meta.csv` under `projects/02-*/reports/` (`e97812e`), P03 under
+   `projects/03-*/reports/`, the backtest in `validation/` and `test/` with a `run_meta.json`
+   each (`973e338`), and both READMEs cite them. The table is the state of 2026-10-31.
 
    | | README lines | figures embedded | CSVs in `reports/` | `reports/` cited |
    |---|---:|---:|---:|---:|
@@ -79,19 +82,23 @@ no errors, section badges read 01, 02, 03, all three figures load.
    | 02 Hybrid | 418 | 1 | **0** | once |
    | 03 Forecast | 421 | 1 | **0** | once |
 
-   Neither 02 nor 03 writes a single result file, so every number in their READMEs comes from
+   ~~Neither 02 nor 03 writes a single result file, so every number in their READMEs comes from
    a console run and cannot be checked by a reader. That is why the code walkthroughs could
    only list those numbers as unverified claims, and why a live run of
    `python -m f2b.cli policies --year 2025 --days 30` returned different figures than the P03
    README did before it was corrected. Add a CLI subcommand per project that writes what it
-   computes into `reports/`, then cite those files from the README.
+   computes into `reports/`, then cite those files from the README.~~
 
-3. **Project 03 does not forecast anything.** `src/f2b/forecast.py:76` is still `ar_noise`:
+3. ~~**Project 03 does not forecast anything.** `src/f2b/forecast.py:76` is still `ar_noise`:
    the truth plus an AR(1) perturbation whose spread widens with lead time. The reported MAE,
    RMSE and CRPS values therefore restate the noise parameters rather than measuring a model.
    The plan for replacing it is `docs/09-learned-forecast-layer.md`, and it is also priority 2
    in `Jobsuche/bewerbung/skill_matrix.md`. Until it is built, do not claim a trained
-   forecaster anywhere.
+   forecaster anywhere.~~ **Superseded, noted 2026-11-02:** P03 now forecasts.
+   `src/f2b/models.py` holds the ladder F0 to F3, fitted on training rows (climatology,
+   persistence, linear quantile regression, LightGBM), and the published TSO forecast as the
+   benchmark F4; see "Project 03 rebuilt on real data" below. The noise model survives only as
+   the labelled `synthetic-*` ablation (`forecast.build_store`).
 
 4. **Project 02's aFRR parameters are inert.** `afrr_enabled`, `afrr_capacity_eur_mw_h` and
    `afrr_block_steps` appear 6 times in `src/hybrid/config.py` and 0 times in every other
@@ -100,7 +107,10 @@ no errors, section badges read 01, 02, 03, all three figures load.
    onto an asset class the target employers actually own.
 
 5. **Project 02 has no RL rung.** The portfolio's methodological spine ends in RL and this
-   project stops at B3. Either build it or say in the README that it deliberately stops there.
+   project stops at B3. ~~Either build it or say in the README that it deliberately stops
+   there.~~ **Decided, noted 2026-11-02:** Murat decided that P02 stops at B3 (`d7b2aa5`); RL
+   there is future work, conditional on a day-ahead schedule settled at reBAP. The README says
+   so at the top (`a1249af`).
 
 6. The four open P01 data-quality questions are in their own section below, added by the P01
    session as `c49da2c`.
@@ -639,10 +649,12 @@ Left alone on purpose: `archive/` keeps the numbers those projects had, so `arch
 and `projects/02-utility-hybrid` now coexist. `HANDOFF.md` entries before this date keep the old
 numbering, because they record what happened at the time.
 
-Still open for the two newer projects: neither commits a single result file. P01 has 51 CSVs
+~~Still open for the two newer projects: neither commits a single result file. P01 has 51 CSVs
 under `reports/` and cites them 16 times in its README; P02 and P03 have none and cite
 `reports/` once each. Every number in their READMEs comes from a console run, which is why
-Antigravity could only mark them as unverified claims in the walkthroughs.
+Antigravity could only mark them as unverified claims in the walkthroughs.~~ **Superseded,
+noted 2026-11-02:** both now commit their result CSVs and cite them from their READMEs; see
+next action 2 of "Starting point on the other machine" at the top.
 
 
 ## Open data-quality questions on P01, unanswered as of 2026-10-31
@@ -745,7 +757,9 @@ Murat split the 2026-10-31 work by project: this session owned `projects/03-*`,
 `docs/09-learned-forecast-layer.md`, `scripts/make_f2b_figure.py` and additions to `datakit`;
 the "RL Simulation" session owns P02, P01 and the shared public files (showcase, root
 README, CITATION.cff, docs/02, docs/05, the other scripts, simulations/results). Branch
-`quality/p03`, worktree `Vaults/Portfolio-quality`, based on 4c13a4a; nothing pushed.
+`quality/p03`, worktree `Vaults/Portfolio-quality`, based on 4c13a4a; ~~nothing pushed.~~
+**Superseded, noted 2026-11-02:** pushed; GitHub `main` holds the branch through the merges
+`5ed7d2c` and `4d5a7be`.
 
 ### What changed
 - An audit (2026-10-31) found the old P03 headline (B3 beats B1 by 286,110 EUR) came from a
@@ -787,8 +801,9 @@ README, CITATION.cff, docs/02, docs/05, the other scripts, simulations/results).
 `data/raw/netztransparenz/`, `datakit/cache/`. LightGBM 4.7.0 was added to the shared venv.
 
 ### Open
-1. Murat's OK to push `quality/p03`; rebase on origin/main first (no file overlap with the
-   other session's commits as of 7ee3bfa).
+1. ~~Murat's OK to push `quality/p03`; rebase on origin/main first (no file overlap with the
+   other session's commits as of 7ee3bfa).~~ **Done, noted 2026-11-02:** merged with GitHub
+   `main` instead of rebased (`5ed7d2c`, `4d5a7be`), then pushed.
 2. The other session's shared-files pass needs P03's wording: root README row and invariants
    table, showcase section, demo_06. Sent to it when this lands.
 3. Not built, deliberately: price and reBAP forecasting, decision-focused learning, an RL
@@ -799,7 +814,7 @@ README, CITATION.cff, docs/02, docs/05, the other scripts, simulations/results).
 
 1. **Projects 04 and 06 Ergonomics:** Review and refine documentation, docstrings, and CLI arguments for Project 04 (Renewable Energy Community) and Project 06 (Probabilistic Forecast-to-Bid).
 2. **Project 04 Multi-Agent REC Extension:** Implement multi-member peer-to-peer sharing, local marginal pricing, and cooperative game-theoretic cost allocation (Owen core excess).
-3. **Project 02 RL Policy Evaluation:** Validate trained PPO dispatch against multi-market balancing price volatility.
+3. ~~**Project 02 RL Policy Evaluation:** Validate trained PPO dispatch against multi-market balancing price volatility.~~ **Dropped, noted 2026-11-02:** the PPO belonged to the pumped-storage project, P02 before the renumbering, archived on 2026-10-09 (`archive/README.md`). Today's P02, the hybrid plant, has no learned policy and stops at B3.
 4. **CI Verification:** Verify GitHub Actions CI workflow status on push.
 
 ---
