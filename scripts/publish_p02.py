@@ -10,41 +10,48 @@ and a person must look before any table is replaced.
 
     python scripts/publish_p02.py                   the whole set, as many parts as CPUs
     python scripts/publish_p02.py --workers 6       at most 6 parts side by side
+    python scripts/publish_p02.py --preflight-only  every check before the run, in seconds
     python scripts/publish_p02.py --only decompose_2024 --no-remote-check
                                                     a check of one experiment, publishes nothing
 
 Run it in a clean checkout of --branch (default p02-afrr) at that branch's tip on the remote.
 It prints a short summary and exits with 1 at the first failure, with reports/ as committed:
 
-1. Preflight. A clean working tree; HEAD on --branch and at its tip on the remote, so that the
-   commit the tables record is pushed; Python 3.12, exactly PINS and pytest; numpy on the code
-   path and PuLP calling the CBC binary of the machine the committed tables come from (an
-   x86-64 CPU with AVX2, Windows); hybrid and datakit imported from this checkout; no Obsidian
-   vault whose Obsidian-Git commits on its own holds the clone; Energy-Charts and
-   regelleistung.net answer; README rows for every new experiment (below). Each year of
-   Energy-Charts data the set reads is loaded here once, so that parts running side by side
-   never download one file at the same time.
+1. Preflight. A clean working tree, also as git sees it when the parts record it; HEAD on
+   --branch and at its tip on the remote, so that the commit the tables record is pushed;
+   Python 3.12, exactly PINS and pytest; numpy on the code path and PuLP calling the CBC
+   binary of the machine the committed tables come from (an x86-64 CPU with AVX2, Windows);
+   hybrid and datakit imported from this checkout; no Obsidian vault whose Obsidian-Git
+   commits or pulls on its own holds the clone; Energy-Charts and regelleistung.net answer;
+   README rows for every new experiment (below). Then every input the set reads is loaded
+   once, one after another, so that parts running side by side never download one file at the
+   same time: each Energy-Charts frame run_meta.csv records must hash as recorded, or the run
+   could not reproduce the committed tables and stops here, in seconds rather than after the
+   run; regelleistung.net's aFRR files are checked against their pins by their loader.
+   --preflight-only stops after this step.
 2. Run. The experiments of PUBLISH_SET, read when the driver runs, in parts side by side: one
    `python -m hybrid.cli report --only ...` process per part, writing into a new staging folder
    in the temp folder, with one log per part. Parts are packed longest first, each experiment
-   into the part with the least work so far, as run_meta.csv's wall times estimate it (a new
-   experiment counts as the median), so the B3 ladders get parts of their own and the cheaper
-   experiments share the others. hybrid.report runs a part's experiments in PUBLISH_SET's
-   order. A part that fails stops the others.
+   into the part with the least work so far, as run_meta.csv's wall times estimate it, else
+   ESTIMATED_MINUTES, else the longest recorded time, so the longest experiments get parts of
+   their own and the cheaper ones share the others. hybrid.report runs a part's experiments in
+   PUBLISH_SET's order. A part that fails stops the others.
 3. Check. Each fresh experiment records HEAD and git_dirty False. Each committed table equals
    its fresh one cell for cell, as text, apart from TIMING_COLUMNS; window_stats.csv row for
    row; run_meta.csv apart from RUN_META_EXCLUDED. Differences are printed (file, column, first
    rows) and stop the run.
-4. New tables, in the set but not committed, take their README rows from --template. Without a
-   new table or window nothing is written: "nothing new".
+4. New tables, in the set but not committed, take their README rows from --template. A run of
+   the whole set always goes on to the install, new tables or not, because its point is that
+   run_meta.csv then records one commit for every table. A check with --only installs nothing:
+   it ends with "nothing new" where it found nothing new.
 5. Install. The fresh tables, run_meta.csv and window_stats.csv go into reports/, the
    template's rows into README.md and reports/SOURCE.md; the P02 suite must pass, or every file
    goes back to its committed state; then one commit, and the push command is printed. The
    driver never pushes.
 
-The template (default scripts/publish_p02_readme_rows.md) is markdown. Each line that starts
-with "|" is a table row, added to the table its "## " heading names; every other line is a
-note. The headings and the rows they take:
+The template (default scripts/publish_p02_readme_rows.md) is markdown, read only when the run
+adds a table or a window. Each line that starts with "|" is a table row, added to the table its
+"## " heading names; every other line is a note. The headings and the rows they take:
 
     ## How each table is made
         README.md's table of that caption: one row per new experiment, as the README tests
@@ -76,12 +83,12 @@ import platform
 import re
 import shlex
 import shutil
-import statistics
 import subprocess
 import sys
 import tempfile
 import textwrap
 import time
+import traceback
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -120,7 +127,23 @@ NUMPY_PATH = "X86_V3"
 HOSTS = ("https://api.energy-charts.info/", "https://www.regelleistung.net/")
 # The portfolio's public identity for its commits, whatever this machine's git config holds.
 IDENTITY = ("-c", "user.name=muratkus01", "-c", "user.email=muratkus01@hotmail.com")
-SUBJECT = "feat(p02): publish the aFRR ablation and rerun every table at one commit"
+# The default subjects: of a run that adds tables, and of one that only reruns the committed.
+SUBJECT_NEW = "feat(p02): publish the aFRR ablation and rerun every table at one commit"
+SUBJECT_RERUN = "chore(p02): rerun every table of the publish set at one commit"
+# Minutes of experiments that run_meta.csv records no wall time for yet, so that the packing
+# gives the long ones parts of their own. These are aFRR Phase A's estimates (its design,
+# section 7.3: on the 4-core work laptop, four parts side by side, as run_meta's wall times
+# were measured); a name that is not in the set is ignored, and a recorded wall time wins.
+ESTIMATED_MINUTES = {
+    "afrr_2024-01-01_30d": 77, "afrr_2024-07-01_30d": 77,
+    "afrr_2025-01-01_30d": 77, "afrr_2025-07-01_30d": 77,
+    "afrr_2024_fast": 5, "afrr_2025_fast": 5,
+    "afrr_2024_fast_up-hours-1": 5, "afrr_2025_fast_up-hours-1": 5,
+    "afrr_2025_fast_basis-average": 5, "afrr_2025_fast_basis-marginal": 5,
+}
+# The Energy-Charts loads run_meta.csv records, as hybrid.cli labels them, e.g.
+# "load_year(2025, days=30, dt=0.25)"; the driver repeats each to check its hash.
+LOAD_CALL = re.compile(r"load_year\((\d{4}), days=(None|\d+), dt=([0-9.]+)\)")
 
 # Columns that measure the machine, not the plant: a rerun on another machine, or with other
 # parts sharing its cores, changes them while every result stays the same. The check leaves
@@ -202,6 +225,7 @@ class Context:
     env: dict[str, str]
     committed: dict
     plan: dict[str, str]
+    total: int                                  # the experiments of the whole publish set
     template: dict[str, list[str]]
 
 
@@ -224,6 +248,18 @@ def git(*args: str, check: bool = True) -> str:
 def rel(path: Path) -> str:
     """path from the repository's root, with forward slashes, as git names it."""
     return path.resolve().relative_to(ROOT).as_posix()
+
+
+def parse_command(parser: argparse.ArgumentParser, command: str) -> argparse.Namespace:
+    """A PUBLISH_SET command line parsed by hybrid.cli's parser, e.g. for "ladder --year 2025
+    --days 30" a namespace with cmd "ladder" and year 2025.
+
+    Raises Refusal where it does not parse; argparse would end the driver without a summary.
+    """
+    try:
+        return parser.parse_args(shlex.split(command))
+    except SystemExit as err:
+        raise Refusal(f"hybrid.cli does not parse the publish set's command {command!r}") from err
 
 
 def read_csv(path: Path):
@@ -312,7 +348,7 @@ def check_tree(args: argparse.Namespace) -> tuple[str, str | None, str]:
         listed = "\n".join(f"    {line}" for line in changes[:10])
         more = f"\n    ... and {len(changes) - 10} more" if len(changes) > 10 else ""
         raise Refusal("the working tree has changes, so the tables would record git_dirty "
-                      f"True; commit or remove them first:\n{listed}{more}")
+                      f"True; the run needs a clean checkout:\n{listed}{more}")
     head = git("rev-parse", "HEAD")
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
     if branch == "HEAD":
@@ -343,11 +379,13 @@ def check_remote(head: str, branch: str | None, skip: bool) -> tuple[str | None,
         "origin" if "origin" in remotes else remotes[0])
     tip = git("ls-remote", remote, f"refs/heads/{branch}").split()
     if not tip:
-        raise Refusal(f"{remote} has no branch {branch}: push it first, so that the commit "
-                      "the tables record can be found")
+        raise Refusal(f"{remote} has no branch {branch}, so nobody could find the commit the "
+                      "tables would record")
     if tip[0] != head:
-        raise Refusal(f"HEAD {head[:7]} is not {remote}/{branch}'s tip {tip[0][:7]}: pull "
-                      "or push until they agree")
+        raise Refusal(f"HEAD {head[:7]} is not {remote}/{branch}'s tip {tip[0][:7]}, so the "
+                      f"tables would record a commit that is not the pushed tip; check out "
+                      f"the tip: git fetch {remote}, then git checkout -B {branch} "
+                      f"{remote}/{branch}")
     return remote, f"{remote}/{branch} is at HEAD"
 
 
@@ -396,12 +434,13 @@ def _auto_commit(vault: Path) -> str:
     if "obsidian-git" not in enabled:
         return ""
     # autoSaveInterval commits (and syncs) every N minutes, autoPushInterval and
-    # autoPullInterval push and pull, autoBackupAfterFileChange commits after an edit
+    # autoPullInterval push and pull, autoBackupAfterFileChange commits after an edit, and
+    # autoPullOnBoot pulls when Obsidian starts, which may be during the run
     active = []
     for key, value in settings.items():
         interval = key.endswith("Interval") and isinstance(value, (int, float)) and value > 0
-        on_change = key.endswith("AfterFileChange") and value is True
-        if key.startswith("auto") and (interval or on_change):
+        on_event = key.endswith(("AfterFileChange", "OnBoot")) and value is True
+        if key.startswith("auto") and (interval or on_event):
             active.append(f"{key}={value}")
     return ", ".join(active)
 
@@ -416,10 +455,11 @@ def check_obsidian() -> str:
     for folder in held:
         auto = _auto_commit(folder)
         if auto:
-            raise Refusal(f"{folder} is an Obsidian vault whose Obsidian-Git commits on its own "
-                          f"({auto}); clone the repository outside every vault")
+            raise Refusal(f"{folder} is an Obsidian vault whose Obsidian-Git commits or pulls "
+                          f"on its own ({auto}); the run needs a clone outside every vault")
     if held:
-        return f"{held[0]} is an Obsidian vault, but Obsidian-Git does not commit on its own"
+        return (f"{held[0]} is an Obsidian vault, but Obsidian-Git does not commit or pull on "
+                "its own")
     return "no Obsidian vault holds the clone"
 
 
@@ -445,10 +485,25 @@ def check_versions() -> str:
     return f"Python {version}, " + ", ".join(f"{name} {v}" for name, v in found.items())
 
 
+def cpu_name() -> str:
+    """The CPU's name, e.g. "Intel(R) Core(TM) i7-10510U CPU @ 1.80GHz", from Windows'
+    registry, else what platform knows; for the summary and the commit's body."""
+    try:
+        import winreg
+
+        key = r"HARDWARE\DESCRIPTION\System\CentralProcessor\0"
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key) as handle:
+            return str(winreg.QueryValueEx(handle, "ProcessorNameString")[0]).strip()
+    except (ImportError, OSError):                     # not Windows, or no such key
+        return platform.processor() or platform.machine()
+
+
 def check_machine() -> str:
     """Refuses a machine that computes other digits than the one the committed tables come
     from: numpy on another code path than NUMPY_PATH, or PuLP calling another CBC binary than
-    the one PuLP ships and run_meta.csv records. Returns a note."""
+    the one PuLP ships and run_meta.csv records, or a CBC binary that is not there. Returns a
+    note."""
+    import pulp
     from numpy.lib import introspect
 
     from hybrid.provenance import environment
@@ -464,7 +519,29 @@ def check_machine() -> str:
     if not cbc.startswith("pulp/") or cbc not in recorded:
         raise Refusal(f"PuLP calls the CBC {cbc!r}, the committed tables {sorted(recorded)}: "
                       "another solver build can move last digits; use Windows on x86-64")
-    return f"{platform.machine()}, numpy on {path}, CBC {cbc}"
+    # the path above is where PuLP expects its binary, whether or not the file is there
+    if not pulp.PULP_CBC_CMD(msg=False).available():
+        raise Refusal(f"PuLP's CBC binary {cbc} is missing or cannot run (removed by a virus "
+                      "scanner?); reinstall PuLP")
+    return f"{cpu_name()} ({platform.machine()}), numpy on {path}, CBC {cbc}"
+
+
+def check_recorded_state(head: str) -> str:
+    """Refuses unless the parts will record head and git_dirty False: they ask git through
+    hybrid.provenance, without the core.longpaths the driver's own git calls pass, so in a
+    clone whose paths are too long for Windows they would see changes that the driver does not.
+
+    head: the commit to run. Returns a note.
+    """
+    from hybrid.provenance import git_state
+
+    state = git_state(P02)
+    if state != {"git_commit": head, "git_dirty": "False"}:
+        raise Refusal(f"the parts would record commit {state['git_commit'][:7]} and git_dirty "
+                      f"{state['git_dirty']}, not {head[:7]} and False: git without "
+                      "core.longpaths sees another state (paths too long for Windows?); the "
+                      "run needs a clone at a short path, e.g. ~/worktrees/portfolio-run")
+    return "the parts will record HEAD and git_dirty False"
 
 
 def part_env() -> dict[str, str]:
@@ -512,34 +589,102 @@ def probe_hosts(skip: bool) -> str:
     return ", ".join(answers)
 
 
-def prefetch_inputs(plan: dict[str, str], meta) -> str:
-    """Load each calendar year of Energy-Charts data the plan reads, one after another, from
-    datakit's cache or the API. datakit writes a download into its cache without a lock, so
-    parts that start side by side on an empty cache would download one file at once.
+def planned_loads(plan: dict[str, str], meta) -> dict[str, tuple[int, int | None, float]]:
+    """The Energy-Charts loads the plan's experiments make, by the label run_meta.csv gives
+    them: the load_year calls it records for the committed experiments, and for a new one its
+    year and the year before, whole, as B3 reads the year before its window.
 
-    plan: {experiment: command}. meta: the committed run_meta.csv, whose source_url rows name
-    the years each committed experiment read, e.g. 2024 for a 2025 ladder.
-    Returns a note. Raises Refusal where a year cannot be loaded.
+    plan: {experiment: command}. meta: the committed run_meta.csv.
+    Returns e.g. {"load_year(2025, days=30, dt=0.25)": (2025, 30, 0.25), ...}.
     """
-    from hybrid import cli, data
+    from hybrid import cli
+    from hybrid.config import RunConfig
 
-    parser = cli.build_parser()
-    years = set()
-    for command in plan.values():
-        args = parser.parse_args(shlex.split(command))
+    loads = {}
+    rows = meta[(meta["section"] == "input_sha256") & meta["experiment"].isin(list(plan))]
+    for label in rows["item"]:
+        match = LOAD_CALL.fullmatch(label)
+        if match:
+            year, days, dt = match.groups()
+            loads[label] = (int(year), None if days == "None" else int(days), float(dt))
+    parser, dt = cli.build_parser(), RunConfig().dt
+    for name in sorted(set(plan) - set(meta["experiment"])):
+        args = parse_command(parser, plan[name])
         year = getattr(args, "year", None)
         if isinstance(year, int) and not getattr(args, "synthetic_demo", False):
-            years.add(year)
-    sources = meta[(meta["section"] == "source_url") & meta["experiment"].isin(list(plan))]
-    years |= {int(item.split()[0]) for item in sources["item"]}
-    for year in sorted(years):
+            for each in (year - 1, year):
+                loads.setdefault(f"load_year({each}, days=None, dt={dt})", (each, None, dt))
+    return loads
+
+
+def prefetch_inputs(plan: dict[str, str], meta) -> str:
+    """Load every Energy-Charts frame the plan reads, one after another, from datakit's cache
+    or the API, and refuse where a frame the committed tables were computed from now hashes
+    otherwise. datakit writes a download into its cache without a lock, so parts that start
+    side by side on an empty cache would download one file at once. And Energy-Charts revises
+    its data: a cache filled on another day than the committed tables' would fail the check
+    after the run, which costs the whole run, while this costs seconds.
+
+    plan: {experiment: command}. meta: the committed run_meta.csv.
+    Returns a note. Raises Refusal where a frame cannot be loaded or hashes otherwise.
+    """
+    from hybrid import data
+    from hybrid.provenance import frame_sha256
+
+    loads = planned_loads(plan, meta)
+    rows = meta[meta["section"] == "input_sha256"]
+    recorded: dict[str, set[str]] = {}
+    for label, value in zip(rows["item"], rows["value"]):
+        recorded.setdefault(label, set()).add(value)
+    differ = []
+    for label, call in sorted(loads.items()):
         try:
-            data.load_year(year)
+            frame = data.load_year(*call)
         except (OSError, ValueError) as err:           # no network and no cache, or bad data
-            raise Refusal(f"Energy-Charts data for {year} cannot be loaded: {err}") from err
-    if not years:
+            raise Refusal(f"Energy-Charts data {label} cannot be loaded: {err}") from err
+        if label in recorded and recorded[label] != {frame_sha256(frame)}:
+            differ.append(label)
+    if differ:
+        raise Refusal("Energy-Charts data differ from the data the committed tables were "
+                      f"computed from, so the run could not reproduce them: {'; '.join(differ)}. "
+                      "datakit/cache holds other responses; it needs a copy of the cache of "
+                      "the machine that computed the tables")
+    if not loads:
         return "no Energy-Charts data to load"
-    return f"Energy-Charts {', '.join(map(str, sorted(years)))} loaded once, before the parts start"
+    years = ", ".join(map(str, sorted({call[0] for call in loads.values()})))
+    new = sum(label not in recorded for label in loads)
+    return (f"Energy-Charts {years} loaded once, before the parts start; "
+            f"{_count(len(loads) - new, 'frame')} hash as run_meta.csv records"
+            + (f", and {new} that no committed table read are new" if new else ""))
+
+
+def prefetch_afrr(plan: dict[str, str]) -> str:
+    """Load regelleistung.net's aFRR capacity results of each year an afrr experiment of the
+    plan reads, one after another, for the reason prefetch_inputs gives; their loader checks
+    each file against its pinned SHA-256 (aFRR Phase A's design, section 2.5).
+
+    plan: {experiment: command}. Returns a note, "" where no afrr experiment is planned.
+    Raises Refusal where the loader is missing or a year cannot be loaded.
+    """
+    from hybrid import cli
+
+    parser = cli.build_parser()
+    parsed = [parse_command(parser, command) for command in plan.values()]
+    years = sorted({args.year for args in parsed if args.cmd == "afrr"})
+    if not years:
+        return ""
+    try:
+        from hybrid.afrr_data import load_capacity_results
+    except ImportError as err:
+        raise Refusal("the set holds afrr experiments, but the driver finds no "
+                      f"hybrid.afrr_data.load_capacity_results to load their data: {err}") from err
+    for year in years:
+        try:
+            load_capacity_results(year)
+        except (OSError, ValueError) as err:           # no network and no cache, or a new file
+            raise Refusal(f"regelleistung.net's aFRR results for {year} cannot be loaded: "
+                          f"{err}") from err
+    return f"regelleistung.net {', '.join(map(str, years))} loaded once and match their pins"
 
 
 # ----------------------------------------------------------------------------------- plan
@@ -586,22 +731,37 @@ def planned_windows(plan: dict[str, str]) -> set[str]:
     from hybrid import cli
 
     parser = cli.build_parser()
-    return {cli.window_label(parser.parse_args(shlex.split(command))) for command in plan.values()}
+    return {cli.window_label(parse_command(parser, command)) for command in plan.values()}
 
 
-def pack_parts(plan: dict[str, str], meta, workers: int) -> list[tuple[list[str], float]]:
-    """Split the plan into at most `workers` parts of about equal length: longest first, each
-    experiment into the part with the least work so far. The work of an experiment is the wall
-    time run_meta.csv records for it; a new experiment counts as the median of those.
+def experiment_costs(plan: dict[str, str], meta) -> tuple[dict[str, float], list[str]]:
+    """Each experiment's expected seconds: the wall time run_meta.csv records for it, else its
+    ESTIMATED_MINUTES, else the longest wall time recorded, an estimate that errs long, so that
+    an unknown experiment gets a part of its own rather than a share of a long one.
 
-    plan: {experiment: command}. meta: the committed run_meta.csv. workers: e.g. 8.
-    Returns (experiments in PUBLISH_SET's order, estimated seconds) per part, longest first.
+    plan: {experiment: command}. meta: the committed run_meta.csv.
+    Returns ({experiment: seconds}, the experiments without a recorded wall time).
     """
     walls = meta[(meta["section"] == "run") & (meta["item"] == "wall_time_s")]
-    known = {name: float(value) for name, value in zip(walls["experiment"], walls["value"])
-             if name in plan}
-    guess = statistics.median(known.values()) if known else 60.0
-    cost = {name: known.get(name, guess) for name in plan}
+    recorded = {name: float(value) for name, value in zip(walls["experiment"], walls["value"])}
+    longest = max(recorded.values(), default=600.0)
+    cost = {}
+    for name in plan:
+        if name in recorded:
+            cost[name] = recorded[name]
+        else:
+            cost[name] = 60.0 * ESTIMATED_MINUTES[name] if name in ESTIMATED_MINUTES else longest
+    return cost, [name for name in plan if name not in recorded]
+
+
+def pack_parts(plan: dict[str, str], cost: dict[str, float],
+               workers: int) -> list[tuple[list[str], float]]:
+    """Split the plan into at most `workers` parts of about equal length: longest first, each
+    experiment into the part with the least work so far.
+
+    plan: {experiment: command}. cost: experiment_costs(). workers: e.g. 8.
+    Returns (experiments in PUBLISH_SET's order, estimated seconds) per part, longest first.
+    """
     count = max(1, min(workers, len(plan)))
     names: list[list[str]] = [[] for _ in range(count)]
     loads = [0.0] * count
@@ -641,6 +801,13 @@ def read_template(path: Path) -> dict[str, list[str]]:
     return rows
 
 
+def planned_additions(plan: dict[str, str], committed: dict) -> tuple[list[str], list[str]]:
+    """What the plan would add to reports/: (experiments without a committed table, windows
+    window_stats.csv does not hold), e.g. (["afrr_2024_fast"], ["2024-01-01_30d"])."""
+    new = [name for name in plan if f"{name}.csv" not in committed["tables"]]
+    return new, sorted(planned_windows(plan) - set(committed["windows"]["window"]))
+
+
 def check_template(template: dict[str, list[str]], path: Path, plan: dict[str, str],
                    committed: dict) -> str:
     """Refuses, before the run, a template that cannot cover what the plan adds: a new
@@ -650,8 +817,7 @@ def check_template(template: dict[str, list[str]], path: Path, plan: dict[str, s
     template: read_template(path). plan: {experiment: command}. committed: committed_state().
     Returns a note.
     """
-    new = [name for name in plan if f"{name}.csv" not in committed["tables"]]
-    windows = sorted(planned_windows(plan) - set(committed["windows"]["window"]))
+    new, windows = planned_additions(plan, committed)
     if not new and not windows:
         return "nothing new is planned" + (f"; {path.name} is not used" if template else "")
     if not template:
@@ -890,13 +1056,14 @@ def compared_meta(meta):
     return meta[keep]
 
 
-def check_reproduction(fresh: Path, committed: dict, full: bool) -> tuple[list[str], str]:
+def check_reproduction(fresh: Path, committed: dict,
+                       full: bool) -> tuple[list[str], str, int]:
     """Compare each committed table the run wrote again, and the rows of window_stats.csv and
     run_meta.csv it wrote again, with the fresh ones.
 
     fresh: the folder the run wrote. committed: committed_state(). full: the whole set ran, so
     a committed table it did not write differs too.
-    Returns (one line per difference, a note on what was compared).
+    Returns (one line per difference, a note on what was compared, the tables compared).
     """
     written = {path.name for path in fresh.glob("*.csv")} - set(SUPPORT)
     again = sorted(committed["tables"] & written)
@@ -915,7 +1082,7 @@ def check_reproduction(fresh: Path, committed: dict, full: bool) -> tuple[list[s
     return diffs, (f"{len(again)} committed tables reproduced apart from "
                    f"{', '.join(sorted(TIMING_COLUMNS))}; window_stats.csv for {len(shared)} "
                    f"windows; run_meta.csv for {len(ran)} experiments, apart from commit, "
-                   "versions, part, start and wall time")
+                   "versions, part, start and wall time"), len(again)
 
 
 def new_results(fresh: Path, committed: dict) -> dict[str, list[str]]:
@@ -1050,6 +1217,8 @@ def install(ctx: Context, fresh: Path, stage: Path, message: tuple[str, str]) ->
                 shutil.copyfile(path, target)
         apply_rows(ctx.template, fresh)
         git("add", "--", *[rel(path) for path in touched])
+        if not git("diff", "--cached", "--name-only"):
+            raise Refusal("the install changed no file, so there is nothing to commit")
         result = run_tests(stage, ctx.env)
         git(*IDENTITY, "commit", "-q", "-m", message[0], "-m", message[1])
     except BaseException:
@@ -1058,17 +1227,23 @@ def install(ctx: Context, fresh: Path, stage: Path, message: tuple[str, str]) ->
     return result
 
 
-def commit_message(ctx: Context, parts: int, new: dict[str, list[str]],
+def commit_message(ctx: Context, parts: int, minutes: float, new: dict[str, list[str]],
                    subject: str, full: bool) -> tuple[str, str]:
-    """The commit's subject and body: what ran, where, and what is new."""
+    """The commit's subject and body: what ran, where and how long, and what is new.
+
+    parts: the number of parts. minutes: how long they ran. new: new_results().
+    """
     what = ("the whole publish set" if full
             else f"{_count(len(ctx.plan), 'experiment')} of the publish set")
     body = (f"Rerun {what} at {ctx.head[:7]}, in {_count(parts, 'parallel part')} on "
-            f"{os.cpu_count()} CPUs, so that every table it wrote and run_meta.csv record that "
-            "one commit. Every committed table reproduced cell for cell apart from its timing "
-            "columns, and so did every committed row of window_stats.csv and run_meta.csv apart "
-            f"from commit, versions, part, start and wall time. New tables: "
-            f"{', '.join(new['tables'])}.")
+            f"{cpu_name()} ({os.cpu_count()} logical CPUs), Python "
+            f"{platform.python_version()}, in {minutes:.0f} min, so that every table it wrote "
+            "and run_meta.csv record that one commit. Every committed table reproduced cell for "
+            "cell apart from its timing columns, and so did every committed row of "
+            "window_stats.csv and run_meta.csv apart from commit, versions, part, start and "
+            "wall time.")
+    if new["tables"]:
+        body += f" New tables: {', '.join(new['tables'])}."
     if new["windows"]:
         body += f" New windows: {', '.join(new['windows'])}."
     return subject, textwrap.fill(body, 72)
@@ -1084,52 +1259,70 @@ def preflight(args: argparse.Namespace, summary: Summary) -> Context:
     summary.add("obsidian", check_obsidian())
     summary.add("python", check_versions())
     summary.add("machine", check_machine())
+    summary.add("recorded", check_recorded_state(head))
     env = part_env()
     summary.add("imports", check_imports(env))
     committed = committed_state()
     plan = select_plan(args.only, committed)
     template = read_template(args.template)
     summary.add("template", check_template(template, args.template, plan, committed))
+    if not any(planned_additions(plan, committed)):
+        template = {}                   # nothing new: the rows of a template are not used
     summary.add("network", probe_hosts(args.no_network_check))
     summary.add("inputs", prefetch_inputs(plan, committed["meta"]))
-    return Context(head, branch, remote, env, committed, plan, template)
+    afrr = prefetch_afrr(plan)
+    if afrr:
+        summary.add("aFRR data", afrr)
+    from hybrid import report                   # once check_versions has checked its imports
+
+    total = len(report.experiments())
+    return Context(head, branch, remote, env, committed, plan, total, template)
 
 
-def run_set(ctx: Context, args: argparse.Namespace, summary: Summary) -> tuple[Path, int]:
+def run_set(ctx: Context, args: argparse.Namespace,
+            summary: Summary) -> tuple[Path, int, float]:
     """Run the plan in parts into a new staging folder, noting each part.
-    Returns (the folder the parts wrote, the number of parts). Raises Refusal where one failed."""
-    parts = pack_parts(ctx.plan, ctx.committed["meta"], args.workers)
+    Returns (the folder the parts wrote, the number of parts, the minutes they ran).
+    Raises Refusal where one failed."""
+    cost, unrecorded = experiment_costs(ctx.plan, ctx.committed["meta"])
+    parts = pack_parts(ctx.plan, cost, args.workers)
     scope = "the whole publish set" if not args.only else "a part of the set (--only)"
+    guessed = (f"; {_count(len(unrecorded), 'experiment')} without a recorded wall time "
+               "estimated" if unrecorded else "")
     summary.add("plan", f"{_count(len(ctx.plan), 'experiment')}, {scope}, in "
                 f"{_count(len(parts), 'part')} side by side; {os.cpu_count()} CPUs "
-                f"({platform.platform()}); the longest part about {parts[0][1] / 60:.0f} min")
+                f"({platform.platform()}); the longest part about {parts[0][1] / 60:.0f} min, "
+                f"as the recorded wall times estimate it{guessed}")
     for number, (names, seconds) in enumerate(parts, 1):
-        print(f"    part {number}  ~{seconds / 60:4.1f} min  {' '.join(names)}")
+        print(f"    part {number}  ~{seconds / 60:4.1f} min  {' '.join(names)}", flush=True)
     stage = Path(tempfile.mkdtemp(prefix="publish_p02_"))
     if stage.resolve().is_relative_to(ROOT):
         raise Refusal(f"the temp folder {stage} lies in the clone; set TEMP to a folder outside it")
     summary.add("staging", f"{stage} (logs/, {STAGED}/)")
+    started = time.monotonic()
     runs = run_parts([names for names, _ in parts], stage, ctx.env)
     for part in runs:
         summary.add(f"part {part.number}",
                     f"{part.minutes:5.1f} min  {part.status:<8} {' '.join(part.names)}")
     if any(part.status != "ok" for part in runs):
         raise Refusal(failure_report(runs))
-    return stage, len(parts)
+    return stage, len(parts), (time.monotonic() - started) / 60
 
 
 def publish(args: argparse.Namespace, summary: Summary) -> str:
     """Preflight, run, check and install, as the docstring of this script says.
     Returns the result line."""
     ctx = preflight(args, summary)
-    stage, parts = run_set(ctx, args, summary)
+    if args.preflight_only:
+        return "preflight passed (--preflight-only); nothing was run or written"
+    stage, parts, minutes = run_set(ctx, args, summary)
     fresh = stage / STAGED
     others = sorted(path.name for path in fresh.iterdir() if path.suffix != ".csv")
     if others:
         raise Refusal(f"the run wrote files that are not tables, which the driver would not "
                       f"install: {others}")
     check_provenance(read_csv(fresh / "run_meta.csv"), ctx.plan, ctx.head)
-    diffs, checked = check_reproduction(fresh, ctx.committed, full=not args.only)
+    diffs, checked, compared = check_reproduction(fresh, ctx.committed, full=not args.only)
     if diffs:
         shown = "\n".join(diffs[:20]) + (f"\n... and {len(diffs) - 20} more" if len(diffs) > 20
                                           else "")
@@ -1137,19 +1330,25 @@ def publish(args: argparse.Namespace, summary: Summary) -> str:
                       f"written:\n{shown}")
     summary.add("check", checked)
     new = new_results(fresh, ctx.committed)
-    if not any(new.values()):
-        return "nothing new: every committed result reproduced, and nothing was written"
     if args.only and not args.allow_partial:
-        raise Refusal(f"--only ran a part of the set, and a part is never published: its tables "
-                      f"would record another commit than the others. New: {new}")
+        if any(new.values()):
+            raise Refusal(f"--only ran a part of the set, and a part is never published: its "
+                          f"tables would record another commit than the others. New: {new}")
+        return (f"nothing new: the {_count(compared, 'committed table')} this check of "
+                f"{len(ctx.plan)} of the set's {ctx.total} experiments wrote reproduced; "
+                "nothing was written")
+    # The whole set goes on to the install even where nothing is new: the point of the run is
+    # that run_meta.csv then records this one commit for every table.
     check_new_tables(ctx.template, new, fresh)
-    summary.add("new", f"tables {new['tables']}, windows {new['windows']}")
-    message = commit_message(ctx, parts, new, args.message, full=not args.only)
+    if any(new.values()):
+        summary.add("new", f"tables {new['tables']}, windows {new['windows']}")
+    subject = args.message or (SUBJECT_NEW if new["tables"] else SUBJECT_RERUN)
+    message = commit_message(ctx, parts, minutes, new, subject, full=not args.only)
     summary.add("tests", install(ctx, fresh, stage, message))
     commit = git("rev-parse", "--short", "HEAD")
     push = (f"Push it with: git push {ctx.remote} {ctx.branch}." if ctx.remote and ctx.branch
             else "No remote branch was checked, so there is no push command.")
-    return (f"committed {commit} \"{args.message}\"; nothing is pushed yet. {push} SOURCE.md's "
+    return (f"committed {commit} \"{subject}\"; nothing is pushed yet. {push} SOURCE.md's "
             "prose still describes the run before this one.")
 
 
@@ -1174,26 +1373,36 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="the branch HEAD must be on (default: %(default)s)")
     parser.add_argument("--template", type=Path, default=TEMPLATE,
                         help="the README rows of new tables (default: %(default)s)")
-    parser.add_argument("--message", default=SUBJECT, help="the commit's subject")
+    parser.add_argument("--message", help=f"the commit's subject (default: {SUBJECT_NEW!r} "
+                        f"where the run adds tables, else {SUBJECT_RERUN!r})")
     parser.add_argument("--no-network-check", action="store_true",
                         help="probe no host, where the caches hold every input")
+    parser.add_argument("--preflight-only", action="store_true",
+                        help="run every check before the run, the template's and the inputs' "
+                        "hashes included, then stop: seconds, and nothing is written")
     parser.add_argument("--only", nargs="+", metavar="EXPERIMENT",
-                        help="run these experiments only: a check, which publishes nothing new")
+                        help="run these experiments only: a check, which publishes nothing")
     test = parser.add_argument_group("to test the driver, never for the published run")
     test.add_argument("--no-remote-check", action="store_true",
                       help="do not compare HEAD with the remote branch's tip")
     test.add_argument("--allow-detached", action="store_true", help="accept a detached HEAD")
     test.add_argument("--allow-partial", action="store_true",
-                      help="publish what --only ran, whose tables then record another commit")
+                      help="publish what --only ran, as a run of the whole set would, though "
+                      "its tables then record another commit than the others")
     args = parser.parse_args(argv)
-    if len(args.message) > 72 or args.workers < 1:
+    if (args.message and len(args.message) > 72) or args.workers < 1:
         parser.error("--message takes at most 72 characters, and --workers at least 1")
     return args
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Publish, then print the summary. Returns the exit status: 0 for a commit or nothing
-    new, 1 when the driver stopped."""
+    """Publish, then print the summary. Returns the exit status: 0 for a commit, a check that
+    found nothing new or a passed preflight; 1 when the driver stopped."""
+    for stream in (sys.stdout, sys.stderr):
+        # A pipe or a file gets Windows' ANSI code page, so one character outside it, in a
+        # log tail say, would end the driver before its summary.
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
     args = parse_args(argv)
     summary = Summary()
     status = 1
@@ -1204,6 +1413,12 @@ def main(argv: list[str] | None = None) -> int:
         summary.add("STOPPED", str(stop), show=False)
     except KeyboardInterrupt:
         summary.add("STOPPED", "interrupted (Ctrl+C); the parts were stopped", show=False)
+    except Exception as err:            # a bug or a state no check foresaw: still a summary
+        sys.stdout.flush()
+        traceback.print_exc()
+        sys.stderr.flush()
+        summary.add("STOPPED", f"unexpected {type(err).__name__}: {err}; the traceback is "
+                    "printed above the summary", show=False)
     finally:
         summary.add("reports", reports_state(), show=False)
         summary.print()
