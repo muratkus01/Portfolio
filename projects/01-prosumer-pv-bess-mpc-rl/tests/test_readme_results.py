@@ -783,8 +783,10 @@ def _tracked() -> tuple[set[str], str]:
     this project's folder in the same form, e.g. "projects/01-prosumer-pv-bess-mpc-rl/"."""
     try:
         root = Path(_git("rev-parse", "--show-toplevel").strip())
-        files = set(_git("ls-files", cwd=root).splitlines())
         prefix = _git("rev-parse", "--show-prefix").strip()
+        # the company PV exports are under NDA: no listing of the repository includes them
+        restricted = f":(exclude){prefix}data/raw/thesis_pv"
+        files = set(_git("ls-files", "--", ".", restricted, cwd=root).splitlines())
     except (OSError, subprocess.CalledProcessError) as err:
         pytest.skip(f"git is not available: {err}")
     return files, prefix
