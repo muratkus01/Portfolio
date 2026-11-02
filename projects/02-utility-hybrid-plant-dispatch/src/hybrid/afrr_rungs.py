@@ -159,7 +159,9 @@ def b3_reserve(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray, wind_fc:
     and "terminal_price_eur_mwh" per re-plan as `b3_rolling` returns them, and
     "afrr_bid_up" and "afrr_bid_down", the MW bid per step before the award;
     "afrr_commit_solve_time_s", the seconds of each gate's solve; "afrr_commit_failures", the
-    gates whose plan was not solved to optimality, which bid nothing.
+    gates whose plan was not solved to optimality, which bid nothing; and
+    "afrr_replan_failures", the re-plans that held reserve and were not solved, after which
+    B3 idled until its next plan.
     Raises ValueError where a day B3 bids for has no bid price.
     """
     cfg, n = run.plant, len(wind)
@@ -203,7 +205,8 @@ def b3_reserve(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray, wind_fc:
                terminal_price_eur_mwh=np.array(terminal_prices),
                afrr_bid_up=book.bid_up.copy(), afrr_bid_down=book.bid_down.copy(),
                afrr_commit_solve_time_s=np.array(book.gate_seconds),
-               afrr_commit_failures=book.failures)
+               afrr_commit_failures=book.failures,
+               afrr_replan_failures=book.replan_failures)
     return res
 
 
@@ -217,7 +220,8 @@ def _replan(t: int, soc: float, truth: tuple, forecasts: tuple, premium, book: _
     truth: (wind, pv, eff_price) per step of the window; forecasts: their forecasts.
     Appends the solve's seconds and the plan's terminal price to the two lists.
     Returns (battery power, curtailment fraction) per step of the horizon, zeros where the
-    plan is not solved, as today's B3 idles then; and whether the plan holds reserve.
+    plan is not solved, as today's B3 idles then; and whether the plan holds reserve. A plan
+    that holds reserve and is not solved is counted in book.replan_failures.
     """
     run = book.run
     stop = min(t + run.horizon_steps, len(truth[0]))
@@ -232,6 +236,11 @@ def _replan(t: int, soc: float, truth: tuple, forecasts: tuple, premium, book: _
         plan = solve_window_reserve(w, s, pr, run.dt, run, soc, book.spec(t, stop),
                                     terminal_price=terminal_prices[-1], export_cap=ec)
         sol = None if plan is None else (plan.p_bat, plan.curt)
+        if plan is None:
+            # every fixed reservation has its slack, so such a plan is always feasible, and
+            # one not solved is the solver's failure; B3 idles while it holds reserve, which
+            # is reported rather than hidden
+            book.replan_failures += 1
     else:
         sol = baselines.solve_window(w, s, pr, run.dt, run, soc,
                                      terminal_price=terminal_prices[-1], export_cap=ec)
@@ -294,7 +303,7 @@ class _Book:
         self.bid_up, self.bid_down = np.zeros(n), np.zeros(n)
         self.sunk_up, self.sunk_down = np.zeros(len(self.hours)), np.zeros(len(self.hours))
         self.gate_seconds: list[float] = []
-        self.failures = 0
+        self.failures, self.replan_failures = 0, 0
 
     def reserves(self, start: int, stop: int) -> bool:
         """Whether B3 holds or has bid reserve in any step from start to stop - 1."""

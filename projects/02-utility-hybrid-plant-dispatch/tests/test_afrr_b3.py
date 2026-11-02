@@ -414,6 +414,29 @@ def test_a_gate_whose_plan_is_not_proven_optimal_bids_nothing_and_is_counted(mon
     assert not np.any(res["afrr_up"]) and not np.any(res["afrr_down"])
 
 
+def test_b3_counts_the_re_plans_that_hold_reserve_and_fail(monkeypatch):
+    """A re-plan that holds reserve has slack on every fixed reservation, so it is always
+    feasible, and one not solved to optimality is the solver's failure: B3 then idles until
+    its next plan, as today's B3 does, while it holds reserve, and the result counts it, so
+    that it is reported rather than hidden. A re-plan that holds nothing is today's plan,
+    whose failures today's B3 does not count. Here every re-plan fails; of the four, those
+    at 09:00 and 09:30 on day 1 hold day 1's reservations, and only they count."""
+    solve, failed = afrr_rungs.solve_window_reserve, []
+
+    def failing_replans(*args, **kwargs):
+        if args[6].integer:
+            return solve(*args, **kwargs)
+        failed.append(args[6])
+        return None
+
+    monkeypatch.setattr(afrr_rungs, "solve_window_reserve", failing_replans)
+    monkeypatch.setattr(baselines, "solve_window", lambda *args, **kwargs: None)
+    args, prices = _gate_window(2, 30.0, 50.0, 20.0, 5.0)
+    res = b3_rolling(*args, resolve_every=10 ** 6, afrr=prices)
+
+    assert len(failed) == 2 and res["afrr_replan_failures"] == 2
+    assert res["afrr_commit_failures"] == 0 and np.any(res["afrr_up"][prices.day == 1])
+
 def test_b3_refuses_to_bid_for_a_day_without_bid_prices():
     """B3 bids each product at its bid price, so a day it bids for must have one: a missing
     bid price for the next day stops the run, naming the day."""
