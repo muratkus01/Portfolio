@@ -347,8 +347,9 @@ def test_the_household_sweep_quotes_its_csv():
             f"{b3.median():.1f} % (middle half {b3.quantile(0.25):.1f} to "
             f"{b3.quantile(0.75):.1f} %, range {b3.min():.1f} to {b3.max():.1f} %)") in text
     assert (f"H31, likely with an instantaneous electric water heater, reaches "
-            f"{h31[PERFECT]:.1f} % with perfect forecasts but {h31[B3]:.1f} % with the "
-            f"standard-profile load forecast") in text
+            f"{h31[PERFECT]:.1f} % with perfect forecasts, {h31[PERFECT_PV]:.1f} % with the "
+            f"standard-profile load forecast and {h31[B3]:.1f} % as deployed, with the PV "
+            f"forecast as well.") in text
 
 
 def test_the_clock_fix_comparisons_quote_the_tables_from_before_it():

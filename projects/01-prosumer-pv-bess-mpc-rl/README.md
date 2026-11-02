@@ -153,7 +153,8 @@ half 84.8 to 88.3 %, range 76.8 to 91.2 %). The clock fix moved the median by +1
 (85.2 % before), H28 by +1.5 and H31 by +1.3, and no household by more than +3.6 or
 -1.8, so the ranking of households is essentially unchanged. Households with high peaks
 capture less: H31, likely with an instantaneous electric water heater, reaches 97.9 % with
-perfect forecasts but 86.1 % with the standard-profile load forecast.
+perfect forecasts, 88.8 % with the standard-profile load forecast and 86.1 % as deployed,
+with the PV forecast as well.
 
 ### What is the quarter-hour day-ahead market worth?
 
