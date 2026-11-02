@@ -148,8 +148,10 @@ def test_b3_bids_whole_megawatts_and_nothing_on_the_first_day(three_days):
 def test_b3_learns_its_award_at_half_past_nine(three_days, monkeypatch):
     """B3 bids at 09:00 and learns at 09:30 which bids won. Where the next day's bids are
     rejected instead of accepted, its dispatch is the same until the award, step for step,
-    and so are its bids; from the award on, a rejected product holds nothing, as B3 executes
-    its steps and in its result, while the accepted ones hold what was bid."""
+    and so are the bids it made before, for day 1; from the award on, a rejected product
+    holds nothing, as B3 executes its steps and in its result, while the accepted ones hold
+    what was bid. Day 2's bids come from a gate that starts from what each run did after the
+    award, so they may differ."""
     case, prices = three_days, three_days["prices"]
     rejected = tuple(range(6, 12))                       # all of day 1's products
     executed = []
@@ -168,7 +170,7 @@ def test_b3_learns_its_award_at_half_past_nine(three_days, monkeypatch):
     day1 = prices.day == 1
     for direction in ("up", "down"):
         bid = res[f"afrr_bid_{direction}"]
-        assert np.array_equal(other[f"afrr_bid_{direction}"], bid), direction
+        assert np.array_equal(other[f"afrr_bid_{direction}"][day1], bid[day1]), direction
         assert not np.any(other[f"afrr_{direction}"][day1]), direction
         assert not any(getattr(executed[t], direction) for t in np.flatnonzero(day1))
         accepted = day1 & ~np.isin(prices.block, (9, 14))
@@ -227,10 +229,10 @@ def test_b3_plans_as_energy_only_b3_until_its_first_gate(three_days, monkeypatch
 def test_b3_honours_its_award_in_its_final_simulation(three_days):
     """B3's result holds what it was awarded: its bids where they were accepted, and nothing
     where they were rejected or on the first day; and its final simulation, with those
-    reservations, reproduces the dispatch it executed, step for step. On this window a
-    re-simulation of the battery power B3 applied would not, where it discharged into an
-    export the connection had to curtail. Negative control: a re-simulation without the
-    reservations, the archived project's bug, does not either."""
+    reservations, reproduces the dispatch it executed, step for step. It re-runs the
+    proposals, as the safety layer need not give back a battery power it applied when that
+    power is proposed again (`afrr_rungs.b3_reserve`). Negative control: a re-simulation
+    without the reservations, the archived project's bug, does not reproduce it."""
     case, prices = three_days, three_days["prices"]
     res, executed = case["res"], case["executed"]
     for direction in ("up", "down"):
@@ -246,10 +248,6 @@ def test_b3_honours_its_award_in_its_final_simulation(three_days):
     proposed, curtail = ([step[key] for step in executed] for key in ("proposed", "curtail_frac"))
     unreserved = simulate(case["wind"], case["pv"], proposed, curtail, DT, PLANT)
     assert not all(np.array_equal(unreserved[key], res[key]) for key in DISPATCH[:7])
-    applied = simulate(case["wind"], case["pv"], res["p_bat"], curtail, DT, PLANT,
-                       reserve_up=res["afrr_up"], reserve_down=res["afrr_down"],
-                       rule=RULE)
-    assert not np.array_equal(applied["p_bat"], res["p_bat"])
 
 
 def test_b3_reservations_are_constant_within_each_product(three_days):
