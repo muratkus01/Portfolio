@@ -45,6 +45,10 @@ REPORTS_DIR = PROJECT_DIR / "reports"
 # 2025, and because B2 never needs the headroom in 2024. 30 MW is the widest connection of
 # the sizing sweep that the generation exceeds in both, as the B0 rows' forced curtailment
 # shows.
+# afrr runs the ladder without aFRR capacity and with it at 20, 30 and 60 MW: B2 over the
+# full years with the default 4-hour positive band, with a 1-hour band, and in 2025 paid the
+# German average or marginal price instead of its bids; and B3 on the 2025 windows, whose
+# first ten days chose its rules, and on the 2024 windows, which played no part in that.
 PUBLISH_SET = (
     "sizing --year 2024 --full-year",
     "sizing --year 2025 --full-year",
@@ -57,6 +61,16 @@ PUBLISH_SET = (
     "ladder --year 2025 --start 01-01 --days 30",
     "ladder --year 2025 --start 07-01 --days 30",
     "b3-ablation --synthetic-demo",
+    "afrr --year 2024 --full-year --fast",
+    "afrr --year 2025 --full-year --fast",
+    "afrr --year 2024 --full-year --fast --up-hours 1",
+    "afrr --year 2025 --full-year --fast --up-hours 1",
+    "afrr --year 2025 --full-year --fast --basis average",
+    "afrr --year 2025 --full-year --fast --basis marginal",
+    "afrr --year 2025 --start 01-01 --days 30",
+    "afrr --year 2025 --start 07-01 --days 30",
+    "afrr --year 2024 --start 01-01 --days 30",
+    "afrr --year 2024 --start 07-01 --days 30",
 )
 
 

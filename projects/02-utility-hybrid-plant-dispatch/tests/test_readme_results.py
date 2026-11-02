@@ -29,6 +29,14 @@ B0, B1, B2, B3 = ("B0 no battery", "B1 curtailment avoidance", "B2 perfect fores
 DECOMPOSE = ("decompose_2024.csv", "decompose_2024_conn-30.csv", "decompose_2025.csv",
              "decompose_2025_conn-30.csv")
 LADDER = ("ladder_2025-01-01_30d.csv", "ladder_2025-07-01_30d.csv")
+# The aFRR experiments' tables. scripts/publish_p02.py adds them to reports/ all in one commit,
+# with their rows in the README's tables of commands and windows, which the tests below check
+# as they check every table's; before that run reports/ holds none of them. They join TABLES
+# with the README's aFRR section, which quotes their results and is written after that run.
+AFRR = ("afrr_2024_fast.csv", "afrr_2025_fast.csv", "afrr_2024_fast_up-hours-1.csv",
+        "afrr_2025_fast_up-hours-1.csv", "afrr_2025_fast_basis-average.csv",
+        "afrr_2025_fast_basis-marginal.csv", "afrr_2025-01-01_30d.csv",
+        "afrr_2025-07-01_30d.csv", "afrr_2024-01-01_30d.csv", "afrr_2024-07-01_30d.csv")
 # Each result table, by the caption on the line above it, and the CSVs that caption links.
 TABLES = {
     "Windows of the tables": ("window_stats.csv",),
@@ -107,6 +115,14 @@ def assert_row(cells: list[str], expected: list, where: str) -> None:
         unit = 10.0 ** -len(text.partition(".")[2])
         assert abs(value - want) <= unit / 2 + 1e-9 * abs(want), (
             f"{where}: {cell!r} does not print {want}")
+
+
+def afrr_tables() -> tuple[str, ...]:
+    """The aFRR tables reports/ holds: all of AFRR once they are published, else none. A part
+    of them would be a publish run that installed only some, or a table deleted since."""
+    held = tuple(name for name in AFRR if (REPORTS / name).is_file())
+    assert held in ((), AFRR), f"reports/ holds {len(held)} of the {len(AFRR)} aFRR tables"
+    return held
 
 
 def window_name(row: pd.Series) -> str:
@@ -361,7 +377,8 @@ def test_no_row_breaks_a_limit_or_settles_imbalance_or_imports():
     """The README says so of every table: no rung commits a schedule or buys grid energy."""
     tables = [pd.read_csv(path) for path in sorted(REPORTS.glob("*.csv"))]
     rungs = [d for d in tables if "violations" in d.columns]
-    assert len(rungs) == 11
+    # the eleven energy-only experiments' tables, and the aFRR ones once they are published
+    assert len(rungs) == 11 + len(afrr_tables())
     for d in rungs:
         assert (d["violations"] == 0).all()
         assert (d["imbalance_cost_eur"] == 0).all() and (d["import_cost_eur"] == 0).all()

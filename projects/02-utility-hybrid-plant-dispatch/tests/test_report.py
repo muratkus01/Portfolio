@@ -329,6 +329,10 @@ def test_the_publish_set_is_the_one_the_readme_needs():
     assert list(report.experiments()) == [
         "sizing_2024", "sizing_2025", "negprice_2024", "negprice_2025", "decompose_2024",
         "decompose_2025", "decompose_2024_conn-30", "decompose_2025_conn-30",
-        "ladder_2025-01-01_30d", "ladder_2025-07-01_30d", "b3_ablation_synthetic_demo"]
+        "ladder_2025-01-01_30d", "ladder_2025-07-01_30d", "b3_ablation_synthetic_demo",
+        "afrr_2024_fast", "afrr_2025_fast", "afrr_2024_fast_up-hours-1",
+        "afrr_2025_fast_up-hours-1", "afrr_2025_fast_basis-average",
+        "afrr_2025_fast_basis-marginal", "afrr_2025-01-01_30d", "afrr_2025-07-01_30d",
+        "afrr_2024-01-01_30d", "afrr_2024-07-01_30d"]
     assert report.REPORTS_DIR.parent.name == "02-utility-hybrid-plant-dispatch"
 
