@@ -131,17 +131,17 @@ Portfolio/
 ├── CLAUDE.md                          ← Assistant instructions & quickstart guide
 ├── datakit/                           ← Shared market data loaders & spot price connectors
 ├── docs/                              ← Energy market primers, regulatory guides & math
-├── projects/                          ← The three active projects (428 tests)
-│   ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (187 tests; data tests skip without the gitignored data)
+├── projects/                          ← The three active projects (461 tests)
+│   ├── 01-prosumer-pv-bess-mpc-rl/    ← Package: prosumer (213 tests; data tests skip without the gitignored data)
 │   ├── 02-utility-hybrid-plant-dispatch/ ← Package: hybrid (180 tests, all offline)
-│   └── 03-probabilistic-forecast-to-bid/ ← Package: f2b (61 tests)
+│   └── 03-probabilistic-forecast-to-bid/ ← Package: f2b (68 tests)
 └── archive/                           ← Set aside 2026-10-09, still tested (88 tests)
     ├── 02-pumped-storage-rl-multimarket/ ← Package: psw (27 tests)
     ├── 03-smart-ev-charging-14a/      ← Package: evc (20 tests)
     └── 04-energy-sharing-rec/         ← Package: rec (41 tests)
 ```
 
-Test counts as `pytest --collect-only` gave them on 2026-11-01: 516 in all. Started without the gitignored data and with network access, the full suite gave 476 passed and 40 skipped, all 40 of them Project 01's data tests. Project 01's tests download two public inputs from GitHub when they are missing: the BDEW H0 table and the thesis input year. CI, which does not install LightGBM, skips one more.
+Test counts as `pytest --collect-only` gave them on 2026-11-02: 549 in all. Started without the gitignored data and with network access, the full suite gave 509 passed and 40 skipped, all 40 of them Project 01's data tests. Project 01's tests download two public inputs from GitHub when they are missing: the BDEW H0 table and the thesis input year. CI installs Project 03's forecast extra, so it runs the LightGBM test as well.
 
 ---
 

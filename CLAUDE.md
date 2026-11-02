@@ -14,16 +14,16 @@ projects live in `projects/`; three earlier ones were archived on 2026-10-09 and
 ## 🚀 Portfolio Projects & Test Suite
 
 The three active projects, all structured packages with full test suites:
-- `projects/01-prosumer-pv-bess-mpc-rl/` (`prosumer`, 187 tests)
+- `projects/01-prosumer-pv-bess-mpc-rl/` (`prosumer`, 213 tests)
 - `projects/02-utility-hybrid-plant-dispatch/` (`hybrid`, 180 tests)
-- `projects/03-probabilistic-forecast-to-bid/` (`f2b`, 61 tests)
+- `projects/03-probabilistic-forecast-to-bid/` (`f2b`, 68 tests)
 
 Archived, still built and still tested, but not shown in `showcase.html`:
 - `archive/02-pumped-storage-rl-multimarket/` (`psw`, 27 tests)
 - `archive/03-smart-ev-charging-14a/` (`evc`, 20 tests)
 - `archive/04-energy-sharing-rec/` (`rec`, 41 tests)
 
-Run everything, active and archived (516 tests, 2026-11-01: started without the gitignored data and with network access, 476 passed and 40 skipped with LightGBM installed; Project 01's tests download the BDEW H0 table and the thesis input year from GitHub when they are missing; CI does not install LightGBM and skips one more):
+Run everything, active and archived (549 tests, 2026-11-02: started without the gitignored data and with network access, 509 passed and 40 skipped with LightGBM installed; Project 01's tests download the BDEW H0 table and the thesis input year from GitHub when they are missing; CI installs the forecast extra, so it runs the LightGBM test too):
 ```bash
 pytest -q
 ```
