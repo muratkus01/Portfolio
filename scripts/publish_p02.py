@@ -8,7 +8,8 @@ step, so that every table names the same reachable commit. A run that does not r
 is committed publishes nothing: the code, the environment or Energy-Charts' data has changed,
 and a person must look before any table is replaced.
 
-    python scripts/publish_p02.py                   the whole set, as many parts as CPUs
+    python scripts/publish_p02.py                   the whole set, in as many parts as the
+                                                    CPUs and the RAM allow (default_workers)
     python scripts/publish_p02.py --workers 6       at most 6 parts side by side
     python scripts/publish_p02.py --preflight-only  every check before the run, in seconds
     python scripts/publish_p02.py --only decompose_2024 --no-remote-check
@@ -141,6 +142,10 @@ ESTIMATED_MINUTES = {
     "afrr_2024_fast_up-hours-1": 5, "afrr_2025_fast_up-hours-1": 5,
     "afrr_2025_fast_basis-average": 5, "afrr_2025_fast_basis-marginal": 5,
 }
+# RAM per part, for the default of --workers. Measured on 2 November 2026: a full-year
+# decompose part peaks at about 0.57 GB, and its CBC runs at 0.14 GB; the aFRR models are
+# larger. 2 GB per part leaves the rest of the machine its share.
+GB_PER_PART = 2.0
 # The Energy-Charts loads run_meta.csv records, as hybrid.cli labels them, e.g.
 # "load_year(2025, days=30, dt=0.25)"; the driver repeats each to check its hash.
 LOAD_CALL = re.compile(r"load_year\((\d{4}), days=(None|\d+), dt=([0-9.]+)\)")
@@ -653,8 +658,8 @@ def prefetch_inputs(plan: dict[str, str], meta) -> str:
         return "no Energy-Charts data to load"
     years = ", ".join(map(str, sorted({call[0] for call in loads.values()})))
     new = sum(label not in recorded for label in loads)
-    return (f"Energy-Charts {years} loaded once, before the parts start; "
-            f"{_count(len(loads) - new, 'frame')} hash as run_meta.csv records"
+    return (f"Energy-Charts {years} loaded once, before the parts start; the hashes of "
+            f"{_count(len(loads) - new, 'frame')} match run_meta.csv"
             + (f", and {new} that no committed table read are new" if new else ""))
 
 
@@ -732,6 +737,35 @@ def planned_windows(plan: dict[str, str]) -> set[str]:
 
     parser = cli.build_parser()
     return {cli.window_label(parse_command(parser, command)) for command in plan.values()}
+
+
+def total_ram_gb() -> float | None:
+    """The machine's RAM in GB, as Windows reports it; None elsewhere."""
+    try:
+        import ctypes
+
+        class Status(ctypes.Structure):
+            """GlobalMemoryStatusEx's MEMORYSTATUSEX: two DWORDs, then seven byte counts."""
+            _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong)] + [
+                (name, ctypes.c_ulonglong) for name in (
+                    "total", "available", "page_total", "page_available", "virtual_total",
+                    "virtual_available", "extended_available")]
+
+        status = Status(length=ctypes.sizeof(Status))
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return status.total / 2**30
+    except (AttributeError, OSError):                  # not Windows: no windll
+        pass
+    return None
+
+
+def default_workers() -> int:
+    """Parts side by side unless --workers says otherwise: one per logical CPU, and no more
+    than the RAM holds at GB_PER_PART each, where Windows reports the RAM. E.g. 7 on 8 CPUs
+    with 15.7 GB."""
+    cpus = os.cpu_count() or 1
+    ram = total_ram_gb()
+    return max(1, min(cpus, int(ram // GB_PER_PART))) if ram else cpus
 
 
 def experiment_costs(plan: dict[str, str], meta) -> tuple[dict[str, float], list[str]]:
@@ -1079,10 +1113,11 @@ def check_reproduction(fresh: Path, committed: dict,
                            compared_meta(meta), ["experiment", "section", "item"])
     shared = set(windows["window"]) & set(committed["windows"]["window"])
     ran = set(meta["experiment"]) & set(committed["meta"]["experiment"])
-    return diffs, (f"{len(again)} committed tables reproduced apart from "
-                   f"{', '.join(sorted(TIMING_COLUMNS))}; window_stats.csv for {len(shared)} "
-                   f"windows; run_meta.csv for {len(ran)} experiments, apart from commit, "
-                   "versions, part, start and wall time"), len(again)
+    return diffs, (f"{_count(len(again), 'committed table')} reproduced apart from "
+                   f"{', '.join(sorted(TIMING_COLUMNS))}; window_stats.csv for "
+                   f"{_count(len(shared), 'window')}; run_meta.csv for "
+                   f"{_count(len(ran), 'experiment')}, apart from commit, versions, part, start "
+                   "and wall time"), len(again)
 
 
 def new_results(fresh: Path, committed: dict) -> dict[str, list[str]]:
@@ -1289,8 +1324,9 @@ def run_set(ctx: Context, args: argparse.Namespace,
     scope = "the whole publish set" if not args.only else "a part of the set (--only)"
     guessed = (f"; {_count(len(unrecorded), 'experiment')} without a recorded wall time "
                "estimated" if unrecorded else "")
+    side = " side by side" if len(parts) > 1 else ""
     summary.add("plan", f"{_count(len(ctx.plan), 'experiment')}, {scope}, in "
-                f"{_count(len(parts), 'part')} side by side; {os.cpu_count()} CPUs "
+                f"{_count(len(parts), 'part')}{side}; {os.cpu_count()} CPUs "
                 f"({platform.platform()}); the longest part about {parts[0][1] / 60:.0f} min, "
                 f"as the recorded wall times estimate it{guessed}")
     for number, (names, seconds) in enumerate(parts, 1):
@@ -1334,9 +1370,9 @@ def publish(args: argparse.Namespace, summary: Summary) -> str:
         if any(new.values()):
             raise Refusal(f"--only ran a part of the set, and a part is never published: its "
                           f"tables would record another commit than the others. New: {new}")
-        return (f"nothing new: the {_count(compared, 'committed table')} this check of "
-                f"{len(ctx.plan)} of the set's {ctx.total} experiments wrote reproduced; "
-                "nothing was written")
+        return (f"nothing new: this check ran {len(ctx.plan)} of the set's {ctx.total} "
+                f"experiments, and the {_count(compared, 'committed table')} it wrote "
+                "reproduced; nothing was written")
     # The whole set goes on to the install even where nothing is new: the point of the run is
     # that run_meta.csv then records this one commit for every table.
     check_new_tables(ctx.template, new, fresh)
@@ -1367,8 +1403,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """The options; see --help. argv: e.g. ["--workers", "6"], or None for the command line."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--workers", type=int, default=os.cpu_count() or 1,
-                        help="parts side by side, at most (default: the CPUs, %(default)s)")
+    parser.add_argument("--workers", type=int, default=default_workers(),
+                        help="parts side by side, at most (default: one per logical CPU and "
+                        f"at most one per {GB_PER_PART:g} GB of RAM, here %(default)s)")
     parser.add_argument("--branch", default="p02-afrr",
                         help="the branch HEAD must be on (default: %(default)s)")
     parser.add_argument("--template", type=Path, default=TEMPLATE,
