@@ -5,11 +5,13 @@ that omission is stated rather than papered over with a synthetic stand-in.
 
 The invariant that must hold on every window:
 
-    net_cost(B2)  <=  net_cost(B3)  <=  net_cost(B1)
+    net_cost(B2)  <=  net_cost(B3)
 
-B2 has perfect foresight, so nothing can beat it; B3 is the deployable classical optimum and
-should beat a price-blind heuristic. If this ordering is ever violated, there is a bug - it is
-the cheapest and most effective invariant in the whole project, and `run_ladder` checks it.
+B2 has perfect foresight, so nothing can beat it. If this ordering is ever violated, there is
+a bug - it is the cheapest and most effective invariant in the whole project, and `run_ladder`
+checks it. B3 is expected to beat the price-blind B1 as well, but that is not an invariant and
+is not checked: B3 plans on forecasts, and forecast error can make it lose to B1 without any
+bug (the August week in section 0 of the Project 01 README).
 """
 from __future__ import annotations
 
@@ -207,7 +209,7 @@ def run_ladder(load: np.ndarray, pv: np.ndarray, price_import: np.ndarray,
 
 
 def _check_ordering(out: dict[str, dict], tol: float = 1e-6) -> None:
-    """Assert B2 <= B3 <= B1 in net cost. A violation means a bug, not a result."""
+    """Assert B2 <= B3 in net cost. A violation means a bug, not a result; B1 is not checked."""
     cost = {k: v["cost"]["net_cost"] for k, v in out.items()}
     if "B2 perfect foresight" in cost and "B3 rolling MPC" in cost:
         if cost["B2 perfect foresight"] > cost["B3 rolling MPC"] + tol:

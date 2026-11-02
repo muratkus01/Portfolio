@@ -19,8 +19,12 @@ The thesis optimised one household over 2024 at hourly resolution with perfect f
 This extension asks what a controller that could actually be deployed achieves, and what the
 switch of the EPEX day-ahead market to quarter-hour products on 1 October 2025 is worth.
 The main results below come from committed scripts and committed CSVs in `reports/` (for
-Gate 0, a committed test and its reference CSV). Solve times, the example-day numbers and a
-few supporting checks come from one-off runs; the checks are marked.
+Gate 0, a committed test and its reference CSV). Each CSV's commit is in
+`git log -- reports/`, and [`tests/test_readme_results.py`](tests/test_readme_results.py)
+checks the numbers this page takes from them. Solve times and a few supporting checks come
+from one-off runs; the checks are marked. The example-day numbers and the spread of the RL
+step cost come from the scripts in [`scripts/`](scripts/), which need the gitignored H28
+dataset.
 
 ```bash
 pip install -e ".[rl,data,dev]"
@@ -29,6 +33,7 @@ prosumer rolling-eval --data <household>    # B1 / B2 / B3 variants, train 2024,
 prosumer household-sweep                    # the deployable B3 for 73 measured households
 prosumer quarter-hour-study                 # value of quarter-hour prices after 2025-10-01
 prosumer rl-eval                            # SAC on the same information set as B3
+prosumer year-split                         # 2025 against 2026 over the same months, from the CSVs
 prosumer sizing                             # battery capacity x inverter power grid sweep
 ```
 
@@ -67,16 +72,29 @@ Full benchmark ladder evaluated on household H28 (3,221 kWh/a, 8 kWp PV, 9.37 kW
 
 | Rung | Controller | Net Cost (20.5m) | Net Cost (€/a) | Headroom % | Annual Cycles | Violations | Mean Solve | Payback | ROCE |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **B0** | PV only (no battery baseline) | +90.56 € | +52.89 € | 0.0 % (ref) | 0.0 | 0 | - | - | - |
+| **B0** | PV only (no battery baseline) | +90.56 € | +52.89 € | - | 0.0 | 0 | - | - | - |
 | **B1** | Rule-based self-consumption | -324.98 € | -189.80 € | 0.0 % (B1 ref) | 168.9 | 0 | < 1 ms | 17.9 yr | 5.6 % |
 | **B2** | Perfect foresight LP | -716.68 € | -418.57 € | 100.0 % | 298.2 | 0 | 4.2 s (yr) | 9.2 yr | 10.8 % |
 | **B3** | Deployable rolling MPC (realistic) | -675.27 € | -394.38 € | **89.4 %** | 287.5 | 0 | 5.9 ms ¹ | **9.7 yr** | **10.3 %** |
-| **RL** | Overhauled SAC (rescaled action, diff reward), median of 3 seeds | -451.82 € | -263.88 € | **32.4 %** | 267.8 | 0 | 1.2 ms | **13.7 yr** | **7.3 %** |
+| **RL** | Overhauled SAC (rescaled action, diff reward), seed 1, the median of 3 seeds by capture | -451.82 € | -263.88 € | **32.4 %** | 267.8 | 0 | 1.2 ms | **13.7 yr** | **7.3 %** |
 
 ¹ Solve time measured on an idle machine before the clock fix; the rerun CSV shows 19.5 ms because eight jobs shared four cores. The fix does not touch the controller.
 
 - **B3 Headroom Recovery:** The deployable rolling MPC captures **89.4 %** of the theoretical perfect-foresight ceiling (350 of 392 EUR headroom over B1) using only published prices, NWP irradiance forecasts, and standard load profiles. Zero constraint violations across all 59,996 quarter-hours.
 - **Economic Return:** Adding a battery under B3 dispatch turns an annual electricity expense of +52.89 EUR/a (PV only) into a net revenue of -394.38 EUR/a, an annual gain of **447.27 EUR/a**. Against the marginal CAPEX of 4,349 EUR (350 EUR/kWh storage plus 190 EUR/kW inverter) that is a **9.7-year simple payback** and **10.3 % return on capital**, against 17.9 years and 5.6 % for the price-blind rule-based operation. Perfect foresight would reach 9.2 years and 10.8 %, so the entire remaining control gap is worth about half a point of return.
+
+#### The same months in 2025 and 2026
+
+The test period holds January to September twice: in 2025 with hourly day-ahead prices, in
+2026 with quarter-hour prices and only until 17 September. Over those months the B1 to B2
+gap is 157 EUR in 2025 and 217 EUR in 2026, and B3 captures 87.2 % and 92.7 % of it. The
+three RL seeds capture 27.8 to 29.2 % in 2025 and 49.5 to 50.6 % in 2026, and over the whole
+of 2025 only 9.7 to 10.2 % (B3: 85.4 %). Every RL seed costs more than B1 in each of the 7
+months from October to February (January and February 2025, October 2025 to February 2026)
+and less in each of the other 14; B3 costs less than B1 in all 21 months. The split cannot
+separate the market design from the year. `prosumer year-split` computes it from the monthly
+cost CSVs of the H28 rolling evaluation and the RL run
+([year_split](reports/year_split/year_split.csv)).
 
 ### Operational dispatch: 24-hour summer day comparison
 
@@ -85,19 +103,21 @@ The figure below isolates the physical dispatch of the price-blind rule-based he
 ![example day dispatch](docs/figures/example_day_dispatch.png)
 
 This is a real run of both controllers, warmed up over the three preceding days, on the
-project's own tariff. On this day the export price falls to **0 ct/kWh between 11:00 and
+project's own tariff ([`scripts/example_day_stats.py`](scripts/example_day_stats.py) prints
+every number below). On this day the export price falls to **0 ct/kWh between 11:00 and
 17:00** (16 quarter-hours of negative spot price, which are four hourly products: the day
 predates the quarter-hour day-ahead market), while the evening peak reaches **40 ct/kWh**
 around 21:00.
 
 - **Morning (06:00 to 11:00).** B1 charges on the first PV surplus and is full by 08:30. B3
-  leaves the battery empty: it entered the day at 6 % and stays there, because surplus in
-  the morning is still worth 12 ct/kWh on export while the evening peak is worth far more
-  to displace.
+  leaves the battery empty: it entered the day at 6 % and is at 0.2 % or less from 06:00 to
+  11:00, because surplus in the morning is still worth 12 ct/kWh on export while the
+  evening peak is worth far more to displace.
 - **Midday (11:00 to 17:00).** B1 is already full and exports 46.0 kWh over the day, of
   which **33.0 kWh earn nothing at all**. B3 waits until the export price has collapsed to
-  zero and only then charges, taking 8.9 kWh of otherwise worthless surplus and reaching
-  full charge at 17:45. Its zero-price export is 24.3 kWh, about a quarter less than B1's.
+  zero and charges almost only then: 8.8 kWh of otherwise worthless surplus, and a last
+  0.2 kWh at 17:45, when it reaches full charge. Its zero-price export is 24.3 kWh, about a
+  quarter less than B1's.
 - **Evening (18:00 to 23:00).** B3 discharges 6.1 kWh into the expensive hours, at up to the
   full 5.63 kW inverter rating during the 40 ct peak. B1, having spent the day full and
   trickled into its own base load, contributes only 0.8 kWh there.
@@ -105,8 +125,9 @@ around 21:00.
   retail import price never drops below 19 ct/kWh, since taxes, levies and network charges
   dominate the spot component. Grid arbitrage does not pay for a German household.
 - **Result for the day:** -1.76 EUR for B3 against -0.75 EUR for B1 (negative is revenue,
-  battery wear included), a difference of about 1 EUR on a single summer day, earned purely
-  by *when* the battery is used rather than by using it more.
+  battery wear included), a difference of about 1 EUR on a single summer day. It is earned
+  by *when* the battery is used, which also lets B3 use it more: B3 discharges 6.8 kWh over
+  the day, B1 1.7 kWh.
 
 ### How much of the perfect-foresight gain does a deployable controller capture?
 
@@ -132,7 +153,8 @@ half 84.8 to 88.3 %, range 76.8 to 91.2 %). The clock fix moved the median by +1
 (85.2 % before), H28 by +1.5 and H31 by +1.3, and no household by more than +3.6 or
 -1.8, so the ranking of households is essentially unchanged. Households with high peaks
 capture less: H31, likely with an instantaneous electric water heater, reaches 97.9 % with
-perfect forecasts but 86.1 % with the standard-profile load forecast.
+perfect forecasts, 88.8 % with the standard-profile load forecast and 86.1 % as deployed,
+with the PV forecast as well.
 
 ### What is the quarter-hour day-ahead market worth?
 
@@ -159,7 +181,7 @@ The preliminary RL benchmark (Soft Actor-Critic trained on 2024 data and tested 
 1. **Dead Gradient from Action Clipping (77 to 82 % clipping rate):** In raw action formulations where the policy outputs a normalized battery power setpoint $a \in [-1, 1]$ scaled to $[-P_{max}, P_{max}]$, the physical state of charge and grid limits frequently prevent the requested action. The safety layer clipped 77 to 82 % of actions. When actions are clipped by an external projection, policy gradient updates produce zero or misdirected gradient steps. This was the obvious suspect; the ablation below shows it was the lesser of the two problems, and that removing the clipping without fixing the reward makes no reliable difference.
 2. **Uncontrollable term in the step reward:** The raw reward was the total step electricity cost:
    $$r_t = - \left( c_{imp}(t) \cdot p_{imp}(t) - c_{exp}(t) \cdot p_{exp}(t) \right) \Delta t$$
-   Most of that cost is set by household load and irradiance, which the battery cannot influence. Measured once on the test period (no committed script), the no-battery step cost has a standard deviation of 4.4 ct while the battery's own contribution under B1 dispatch has 2.9 ct, so the uncontrollable part adds noise of roughly one and a half times the signal the agent is trying to learn from. It does not swamp the signal, but it does make credit assignment harder than it needs to be.
+   Most of that cost is set by household load and irradiance, which the battery cannot influence. Measured on the test period ([`scripts/step_cost_spread.py`](scripts/step_cost_spread.py)), the no-battery step cost has a standard deviation of 4.4 ct while the battery's own contribution under B1 dispatch has 2.9 ct, so the uncontrollable part adds noise of roughly one and a half times the signal the agent is trying to learn from. It does not swamp the signal, but it does make credit assignment harder than it needs to be.
 
 #### Implemented Solutions
 
@@ -181,7 +203,7 @@ With these two fixes applied, a 3-seed SAC evaluation was trained on 2024 and te
 
 - **Headroom Recovery:** Headroom recovery swung from **-7.3 %** to **+32.4 %** (range 31.7 % to 32.4 % across seeds), capturing an additional 127 EUR of economic value over the price-blind B1 heuristic. Before the HTW clock fix the same formulation reached 27.0 % (26.2 % to 32.3 %); one of those seeds already reached today's level, so with three seeds the change cannot be credited to the fix.
 - **Action Clipping:** Safety layer action clipping dropped from **77-82 % down to exactly 0.0 %** across all seeds.
-- **Physical Reliability:** Zero constraint violations across all 180,000 evaluated quarter-hours, verifying the safety layer guarantees.
+- **Physical Reliability:** Zero constraint violations across all 179,988 evaluated quarter-hours, verifying the safety layer guarantees.
 
 #### Which of the two changes did the work
 
@@ -227,28 +249,33 @@ savings are measured against the same site without a battery.
 | **9.37 kWh** | **5.63 kW** | **4,349 €** | **-394.4 €** | **447.3 €/a** | **287** | **9.7 yr** | **10.3 %** | 10.8 % |
 | 12.00 kWh | 5.63 kW | 5,270 € | -458.1 € | 511.0 €/a | 273 | 10.3 yr | 9.7 % | 10.2 % |
 | 15.00 kWh | 5.63 kW | 6,320 € | -520.6 € | 573.5 €/a | 259 | 11.0 yr | 9.1 % | 9.5 % |
-| 15.00 kWh | 7.50 kW | 6,675 € | -533.0 € | 585.9 €/a | 261 | 11.4 yr | 8.8 % | 9.2 % |
+| 15.00 kWh | 7.50 kW | 6,675 € | -533.0 € | 585.9 €/a | 260 | 11.4 yr | 8.8 % | 9.2 % |
 
 Full sweep across all 20 configurations: [`reports/sizing_grid/sizing_grid.csv`](reports/sizing_grid/sizing_grid.csv).
 
 #### Sizing Insights
 
-1. **Return falls monotonically with size, savings do not.** Every step up in capacity buys
-   more absolute savings and a worse return: 5.0 kWh returns 13.3 % on capital, 9.37 kWh
-   returns 10.3 %, 15.0 kWh returns 9.1 %. Going from 9.37 to 15.0 kWh costs 1,970 EUR and
-   adds 126 EUR/a. The reason is visible in the cycle count, which falls from 316 to 260 full
-   equivalent cycles a year: a larger battery spends more of the German winter unused.
+1. **Return falls with size, savings do not.** At every inverter rating, each step up in
+   capacity buys more absolute savings and, with one exception, a worse return: at 7.5 kW,
+   7.5 kWh returns slightly more than 5.0 kWh (9.84 against 9.81 %). In the table above,
+   5.0 kWh with 3 kW returns 13.3 % on capital, 9.37 kWh with 5.63 kW 10.3 %, and 15.0 kWh
+   with 5.63 kW 9.1 %. Going from 9.37 to 15.0 kWh costs 1,970 EUR and adds 126 EUR/a. The
+   reason is visible in the cycle count, which falls from 316 to 260 full equivalent cycles
+   a year: a larger battery spends more of the German winter unused.
 2. **The inverter saturates early.** On a 9.37 kWh battery, going from 4.6 to 7.5 kW adds
-   8.8 EUR/a for 550 EUR of extra equipment. Anything from 4.6 kW upward captures nearly all
+   8.8 EUR/a for 551 EUR of extra equipment. Anything from 4.6 kW upward captures nearly all
    of the value for an 8 kWp array.
-3. **Who operates the battery costs less than how big it is.** Across all 20 configurations
-   the deployable B3 realises 95 % of the perfect-foresight savings (94.5 to 96.1 %), a gap
-   of 0.4 to 0.8 points of ROCE. Choosing one size larger costs more return than the entire
-   distance between a real controller and a clairvoyant one.
+3. **Along the table, who operates the battery costs less than how big it is.** Across all
+   20 configurations the deployable B3 realises 95 % of the perfect-foresight savings (94.5
+   to 96.1 %), a gap of 0.4 to 0.8 points of ROCE. Each step down the table above, to the
+   next larger battery, costs more return than the gap to perfect foresight at both of its
+   sizes. With the inverter held fixed, that fails in 8 of the 16 steps to the next larger
+   battery, including all four at 7.5 kW: with 5.63 kW, going from 5.0 to 7.5 kWh costs only
+   0.3 points, and with 7.5 kW it raises the return by 0.03 points.
 4. **Sweet spot.** For an 8 kWp array and 3,221 kWh/a of consumption, 5 to 7.5 kWh of storage
-   with a 3 to 4.6 kW inverter maximises return (7.5 to 8.8 year payback, 11 to 13 % ROCE),
-   while the 9.37 kWh / 5.63 kW point trades about 3 points of ROCE for
-   139 EUR/a more absolute savings.
+   with a 3 to 4.6 kW inverter maximises return (7.5 to 8.9 year payback, 11 to 13 % ROCE),
+   while the 9.37 kWh / 5.63 kW point, against 5.0 kWh / 3 kW, trades about 3 points of ROCE
+   for 139 EUR/a more absolute savings.
 
 ### Aggregate household load per federal state
 
@@ -431,7 +458,8 @@ Full detail: [`../../docs/01-german-market-regulatory-primer.md`](../../docs/01-
 | Instrument | How it enters the model |
 |---|---|
 | **`§41a EnWG`** (from 1 Jan 2025) | Every supplier must offer a **dynamic tariff**. The tariff is the spot price plus supplier margin, taxes, levies and network charges: the price signal the controller optimises against |
-| **EEG 2023 feed-in / direct marketing** | Feed-in remuneration for surplus export, with the **negative-price rule** (`§51 EEG`, tightened by the 2025 Solarspitzengesetz for new plants) as a vintage-dependent switch |
+| **`§14a EnWG`** (controllable devices) | Not applied in any result on this page. The code has the network-charge modules 1 to 3 (`TariffConfig.para_14a_module`) and a synthetic dimming process (`Para14aConfig`), but every run here keeps `para_14a_module="none"` and dimming off. Of the commands, only the measured-week ones expose them (`prosumer ladder --module`, `prosumer modules`, `train_rl.py --para-14a`) |
+| **EEG 2023 feed-in / direct marketing** | Only as a fixed rate, and only in the superseded section 0 (7.86 ct/kWh). Every result outside section 0 pays export at the thesis EP_sell, max(0, 1.19 x spot - 0.01) EUR/kWh, so nothing when the spot price is negative. The code has the **negative-price rule** (`§51 EEG`, tightened by the 2025 Solarspitzengesetz for new plants) as a switch, `TariffConfig.negative_price_rule` (`"none"` or `"new_2025"`), but every run here keeps the default `"none"`; with EP_sell the rule would change nothing |
 | **Feed-in limitation for new small PV** | Without intelligent metering, new small PV faces a 60 %-of-capacity export cap: a direct driver of battery value. Not modelled here: no result applies an export cap, and the thesis household has no export limit |
 | **MsbG / iMSys / SMGW** | Defines the actuation path: control at 15-minute granularity through the smart meter gateway's CLS channel, not continuous-time actuation |
 | **Network charges, levies, VAT** | Determine the retail-vs-export spread that the battery arbitrages |
@@ -586,5 +614,5 @@ where `c_imp(t)` is the full dynamic retail price, `c_exp(t)` is the export reve
 | **Physical** | Constant one-way efficiency of 0.945 (0.894 round trip) and a linear wear cost of 0.0544 EUR per discharged kWh (the thesis C_MBCC), ambient temperature invariant. | Aligns with standard residential LFP battery datasheets; keeps the dispatch problem a linear program (a MILP runs only in Gates 0 and 1). | Omits thermal derating, calendar aging acceleration at high state-of-charge, and non-linear degradation knee effects. |
 | **Market** | Price-taker status; dynamic retail import tariff reflects EPEX Spot hourly/15-min price plus static statutory adders and taxes. | Residential household consumption (~3,221 kWh/a) exerts zero market power on the DE-LU wholesale market. | Omits retailer-specific risk hedging collars, monthly fixed base fees, and dynamic grid fee variations. |
 | **Data** | 73 HTW Berlin empirical residential load profiles; Munich PV generation synthesized via pvlib using Open-Meteo NWP forecasts. | High-fidelity open benchmark dataset (15-minute smart-meter data, published refined to 1 s; the 1-minute files are averaged back to 15 min); transparent reproducibility without NDA data. | NWP irradiance forecast errors exhibit different auto-correlation structures than real-time on-site sky-camera or pyranometer telemetry. |
-| **Regulatory** | EnWG Section 41a dynamic tariff pass-through; export remunerated at max(0, 1.19 x day-ahead spot - 0.01) EUR/kWh (the thesis EP_sell), so zero when the spot is negative; among the results on this page, only the superseded section 0 uses the fixed EEG rate (7.86 ct/kWh). | Enforces current German legislative framework (EnWG Section 41a, EEG 2023/2024 direct marketing rules). | Assumes fully operational intelligent metering system (iMSys smart meter gateway) without communication loss or latency. |
+| **Regulatory** | EnWG Section 41a dynamic tariff pass-through; export remunerated at max(0, 1.19 x day-ahead spot - 0.01) EUR/kWh (the thesis EP_sell), so zero when the spot is negative; among the results on this page, only the superseded section 0 uses the fixed EEG rate (7.86 ct/kWh). | Reproduces the thesis's retail prices (EP_buy, EP_sell), recovered exactly from its published data: a spot-indexed tariff of the kind EnWG Section 41a requires suppliers to offer. No §14a EnWG or EEG rule is applied; the only EEG element is the fixed rate of the superseded section 0 (section 2). | Assumes fully operational intelligent metering system (iMSys smart meter gateway) without communication loss or latency. |
 

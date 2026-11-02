@@ -48,6 +48,14 @@ def test_cli_sensitivity_runs(capsys):
     assert "Optimal Sweet Spot" in out
 
 
+def test_cli_year_split_runs_on_the_committed_reports(tmp_path, capsys):
+    from pathlib import Path
+    reports = Path(__file__).resolve().parents[1] / "reports"
+    assert main(["year-split", "--reports", str(reports), "--out", str(tmp_path)]) == 0
+    assert "January to September 2026" in capsys.readouterr().out
+    assert (tmp_path / "year_split.csv").exists()
+
+
 @pytest.mark.skipif(not mastr.available(),
                     reason="MaStR download absent; see data/raw/mastr/SOURCE.md")
 def test_cli_national_impact_runs(capsys):
