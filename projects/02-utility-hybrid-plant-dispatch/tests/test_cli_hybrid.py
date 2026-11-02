@@ -336,6 +336,33 @@ def test_the_afrr_rows_without_afrr_are_those_of_ladder_and_sizing(monkeypatch, 
         pd.testing.assert_frame_equal(mine[shared], theirs[shared], check_exact=True)
 
 
+def test_the_afrr_b3_without_afrr_is_ladders_b3(monkeypatch, tmp_path):
+    """The test above runs --fast, so it checks B0 to B2 only, and B3's setup in the afrr
+    command was pinned by no test: planning B3 on the realised premium, sizing its price error
+    on the window's own prices, or running it on another seed passed every one. At 60 MW, the
+    run without aFRR must hand B3 what ladder hands it, and its rows, B3's included, must be
+    the rows ladder writes, column for column."""
+    calls, ladder_calls = [], []
+    df = afrr_table(monkeypatch, tmp_path, ["--days", "2"], calls)
+    monkeypatch.setattr(baselines, "b3_rolling", recording_b3(ladder_calls))
+    path = tmp_path / "ladder.csv"
+    assert cli.main(["ladder", "--days", "2", "--out", str(path)]) == 0
+
+    # B3 ran without aFRR and with it at 20, 30 and 60 MW, in that order
+    without_afrr_at_60 = calls[4]
+    assert not without_afrr_at_60[0] and len(ladder_calls) == 1
+    assert all(np.array_equal(a, b)
+               for a, b in zip(without_afrr_at_60[1:], ladder_calls[0][1:], strict=True)), \
+        "B3 plans on ladder's forecasts and premium"
+    mine = df[(df["afrr"] == "off") & (df["conn_mw"] == 60.0)].set_index("rung")
+    theirs = pd.read_csv(path).set_index("rung").loc[mine.index]
+    assert list(mine.index) == [B0, B1, B2, B3]
+    assert set(theirs.columns) <= set(mine.columns), "every column ladder writes"
+    assert {"b3_premium_rate_mean_eur_mwh", "b3_forecast_price_scale", "b3_seed"} <= set(
+        theirs.columns)
+    pd.testing.assert_frame_equal(mine[theirs.columns], theirs, check_exact=True)
+
+
 def test_b3s_share_is_empty_where_b2_gains_nothing_from_afrr(monkeypatch, tmp_path):
     """On a window of one day no product is bid for, so on "bid" no reservation is paid and
     B2 gains from aFRR at most the solver's rounding, here 0.01 EUR. B3's share of that would
