@@ -5,6 +5,7 @@
     python -m hybrid.cli negprice  --year 2025 --days 30   negative-price rule by vintage (RQ4)
     python -m hybrid.cli decompose --year 2025 --days 30   where the battery's value comes from
     python -m hybrid.cli b3-ablation --synthetic-demo      B3: forecast error x terminal value
+    python -m hybrid.cli afrr      --year 2025 --days 30   aFRR capacity, off against on (RQ5)
     python -m hybrid.cli report                            the published tables, to reports/
 
 A window runs --days days of 24 h from --start (MM-DD, Berlin time, 01-01 by default), or
@@ -15,18 +16,23 @@ from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 import pandas as pd
 
 from . import synthetic, tables
+from .afrr_data import CapacityResults, capacity_prices, load_capacity_results
 from .baselines import ladder_tolerance, run_ladder
-from .config import NEGATIVE_PRICE_RULES, MarketConfig, PlantConfig, RunConfig
+from .config import (AFRR_MIN_ENERGY_HOURS, AFRR_PRICE_BASES, NEGATIVE_PRICE_RULES,
+                     MarketConfig, PlantConfig, RunConfig)
 from .data import describe, load_year, market_value_weights, to_plant
 from .market import (market_values, planning_rates, premium_by_technology, premium_eligible,
                      premium_rates, premium_table, rebap_series, vintage_rules)
+from .reserve import CapacityPrices
 
 
 # The default plant, at MarketConfig's applicable values, the 2025 tender ceilings, is
@@ -678,6 +684,164 @@ def cmd_b3_ablation(args) -> None:
         _write(args, out)
 
 
+# The connections afrr sweeps, MW: the sizing sweep's tightest; the widest that the generation
+# exceeds in both years, as decompose's --conn 30; and the plant as built. A module constant,
+# so that no list-valued option can enter an experiment's name.
+_AFRR_CONNECTIONS = (20.0, 30.0, 60.0)
+
+
+class _AfrrCase(NamedTuple):
+    """One connection of the afrr command: per mode, "off" and "on", the run's settings and
+    its `run_ladder` result; and the window and premium columns of their rows."""
+    runs: dict[str, RunConfig]
+    ladders: dict[str, dict]
+    window: dict
+    premium: dict
+
+
+def cmd_afrr(args) -> None:
+    """RQ5: what is aFRR capacity worth to the battery, against its arbitrage? Phase A: capacity
+    reserved by the battery, without activation.
+
+    At each connection of _AFRR_CONNECTIONS the ladder runs twice on one window and one seed,
+    so on the same forecasts: without aFRR, as ladder runs it, and with it, B2 paid on
+    --basis, B3 its accepted bids, and positive reserve keeping --up-hours of its MW. B0, B1
+    and B2 always run, B3 unless --fast. A rung's aFRR value is its net revenue with aFRR
+    less without, at the same connection.
+    Raises ValueError, before anything is solved, for --basis average with B3, which bids; for
+    a year outside afrr_data.RULE_YEARS; and for a window that is not whole Berlin days, such
+    as days of 24 h across a clock change (`afrr_data.capacity_prices`). Raises
+    AssertionError where B2 earns less with aFRR than without.
+    """
+    if args.basis == "average" and not args.fast:
+        raise ValueError("--basis average needs --fast: B3 bids, so it cannot be paid the "
+                         "realised average, which nobody knows at the gate")
+    results = _capacity_results(args)
+    prices = capacity_prices(load_window(args, RunConfig().dt).index, results.table)
+    window_prices = tables.afrr_price_columns(prices)
+    _print_afrr_window(args, window_prices)
+    out = []
+    for conn in _AFRR_CONNECTIONS:
+        plant = PlantConfig(conn_mw=conn)
+        case = _afrr_case(args, plant, prices)
+        values = _afrr_values(case.ladders)
+        rows = [row for mode, res in case.ladders.items()
+                for row in tables.rung_rows(
+                    res, case.runs[mode], case.window, case.premium, conn_mw=conn,
+                    overbuild=plant.overbuild_ratio, afrr=mode, afrr_price_basis=args.basis,
+                    afrr_energy_hours_up=args.up_hours, **window_prices, **values)]
+        _print_afrr(plant, rows, values)
+        out += rows
+    if args.out:
+        _write(args, out)
+
+
+def _capacity_results(args) -> CapacityResults:
+    """The aFRR capacity results of the window's year (`afrr_data.load_capacity_results`),
+    recorded in args.afrr_sources as {year: (url, sha256)}, where the report reads which file
+    an experiment read. The file's SHA-256 identifies it, so it is not noted in args.inputs,
+    whose frames the report hashes and reads Energy-Charts metadata for."""
+    results = load_capacity_results(args.year)
+    args.afrr_sources = {**getattr(args, "afrr_sources", {}),
+                         args.year: (results.url, results.sha256)}
+    return results
+
+
+def _afrr_case(args, plant: PlantConfig, prices: CapacityPrices) -> _AfrrCase:
+    """The ladder at one connection without aFRR and with it, settled and planned as ladder
+    does: the realised premium and, without --fast, B3's planning premium and price-error
+    scale. One seed, so B3 sees the same forecasts in both.
+
+    args: parsed CLI arguments, e.g. basis="bid", up_hours=4.0, fast=True.
+    plant: the plant at this connection. prices: the window's capacity prices.
+    """
+    run, index, wind, pv, price, rebap = _setup(args, plant=plant)
+    table, prem = _premium(args, run, index, wind, pv)
+    plan = None
+    if not args.fast:
+        plan = _b3_planning_premium(args, run, index)
+        run = run.with_(forecast_price_scale=_b3_price_scale(args, run))
+    runs = {"off": run, "on": run.with_(market=replace(
+        run.market, afrr_enabled=True, afrr_price_basis=args.basis,
+        afrr_energy_hours_up=args.up_hours))}
+    ladders = {mode: run_ladder(wind, pv, price, r, prem, rebap, include_b3=not args.fast,
+                                progress=args.progress, b3_premium_rate=plan,
+                                **({"afrr": prices} if mode == "on" else {}))
+               for mode, r in runs.items()}
+    return _AfrrCase(runs, ladders, _window_columns(args, index, run.dt),
+                     _premium_columns(index, table, _DEFAULT_PERIOD, plan))
+
+
+def _afrr_values(ladders: dict[str, dict]) -> dict:
+    """What aFRR adds at one connection, EUR, as columns that repeat on each of its rows: B2's
+    net revenue with aFRR less without, and where B3 ran, B3's and its share of B2's, empty
+    where B2's lies within the ladder's tolerance of B2's revenue with aFRR.
+
+    ladders: {"off": a run_ladder result, "on": the same window's with aFRR}.
+    Raises AssertionError where B2 earns less with aFRR than without by more than that
+    tolerance: its LP keeps the plan without aFRR open, so that is impossible.
+    """
+    net = {mode: {name: r["cost"]["net_revenue"] for name, r in res.items()}
+           for mode, res in ladders.items()}
+    off, on = net["off"][tables.B2], net["on"][tables.B2]
+    tolerance = ladder_tolerance(on)
+    if on - off < -tolerance:
+        raise AssertionError(
+            f"B2 earns {on:,.2f} EUR with aFRR and {off:,.2f} without - impossible, as its LP "
+            "keeps the plan without aFRR open, so something is wrong")
+    values = {"afrr_value_b2_eur": on - off}
+    if tables.B3 in net["on"]:
+        b3 = net["on"][tables.B3] - net["off"][tables.B3]
+        values.update(afrr_value_b3_eur=b3, b3_share_of_afrr_value=(
+            None if abs(on - off) <= tolerance else b3 / (on - off)))
+    return values
+
+
+def _print_afrr_window(args, prices: dict) -> None:
+    """Print the afrr command's window, what B2 is paid, the positive band, and the window's
+    capacity prices and bids accepted (`tables.afrr_price_columns`)."""
+    print(f"aFRR capacity reserved by the battery, without activation (Phase A), "
+          f"{_window_text(args)}")
+    print(f"B2 is paid on {args.basis!r}, B3 its accepted bids; positive reserve keeps "
+          f"{args.up_hours:g} h of its MW")
+    print("realised German average capacity price over the window's products, EUR/MW/h: " +
+          ", ".join(f"{name} mean {prices[f'afrr_{name}_price_mean_eur_mw_h']:.2f}, median "
+                    f"{prices[f'afrr_{name}_price_median_eur_mw_h']:.2f}"
+                    for name in ("up", "down")))
+    shares = [prices[f"afrr_{name}_bid_accepted_share"] for name in ("up", "down")]
+    print("B3's bids, each product's average of the day before, accepted in "
+          + ("no product: no day after the first" if shares[0] is None else
+             f"{shares[0]:.1%} of the up and {shares[1]:.1%} of the down products"))
+
+
+def _print_afrr(plant: PlantConfig, rows: list[dict], values: dict) -> None:
+    """Print one connection's aFRR result from its table rows: for B2 and, where it ran, B3,
+    the aFRR value, the capacity revenue, the mean MW held each way, the reserve not held, the
+    MW-hours held and B3's MW-hours bid; then B3's share of B2's aFRR value."""
+    on = {row["rung"]: row for row in rows if row["afrr"] == "on"}
+    print(f"\naFRR at {plant.conn_mw:.0f} MW (overbuild {plant.overbuild_ratio:.2f}x), "
+          "with aFRR less without:")
+    table = {}
+    for rung, key in ((tables.B2, "afrr_value_b2_eur"), (tables.B3, "afrr_value_b3_eur")):
+        if rung in on:
+            row = on[rung]
+            table[rung[:2]] = {
+                "aFRR value EUR": _shown(values[key], on[tables.B2]["net_revenue_eur"]),
+                "capacity EUR": row["afrr_capacity_revenue_eur"],
+                "mean up MW": row["afrr_up_mean_mw"], "mean down MW": row["afrr_down_mean_mw"],
+                "not held MWh": row["afrr_shortfall_up_mwh"] + row["afrr_shortfall_down_mwh"],
+                "held MW-h": row["afrr_up_mw_h"] + row["afrr_down_mw_h"]}
+            if rung == tables.B3:
+                table["B3"]["bid MW-h"] = row["afrr_bid_up_mw_h"] + row["afrr_bid_down_mw_h"]
+    print(pd.DataFrame.from_dict(table, orient="index").to_string(
+        na_rep="", float_format=lambda x: f"{x:,.2f}"))
+    if "b3_share_of_afrr_value" in values:
+        share = values["b3_share_of_afrr_value"]
+        print("B3's share of B2's aFRR value: "
+              + ("n/a, B2's lies within the solver's rounding" if share is None
+                 else f"{share:.1%}"))
+
+
 def _month_day(text: str) -> str:
     """argparse type of --start: a calendar day as MM-DD, e.g. "07-01"."""
     try:
@@ -713,6 +877,21 @@ def _megawatts(text: str) -> float:
     return mw
 
 
+def _energy_hours(text: str) -> float:
+    """argparse type of --up-hours: the hours of its MW that positive aFRR reserve keeps in the
+    battery, e.g. "4" or "1"; finite and at least the 60 minutes of PQ conditions § 2.7.1
+    (config.AFRR_MIN_ENERGY_HOURS), which MarketConfig would refuse with a traceback."""
+    try:
+        hours = float(text)
+    except ValueError as err:
+        raise argparse.ArgumentTypeError(f"not a number of hours: {text!r}") from err
+    if not (np.isfinite(hours) and hours >= AFRR_MIN_ENERGY_HOURS):
+        raise argparse.ArgumentTypeError(
+            f"a band keeps at least {AFRR_MIN_ENERGY_HOURS:g} hour of its MW (PQ conditions "
+            f"§ 2.7.1), not {text}")
+    return hours
+
+
 def build_parser() -> argparse.ArgumentParser:
     """The command line: one subcommand per experiment, each with its window and settings."""
     p = argparse.ArgumentParser(prog="hybrid", description=__doc__,
@@ -720,7 +899,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="cmd", required=True)
     for name, fn in (("ladder", cmd_ladder), ("sizing", cmd_sizing),
                      ("negprice", cmd_negprice), ("decompose", cmd_decompose),
-                     ("b3-ablation", cmd_b3_ablation)):
+                     ("b3-ablation", cmd_b3_ablation), ("afrr", cmd_afrr)):
         sp = sub.add_parser(name)
         sp.add_argument("--year", type=int, default=2025)
         span = sp.add_mutually_exclusive_group()
@@ -740,6 +919,16 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "decompose":
             sp.add_argument("--conn", type=_megawatts, default=PlantConfig().conn_mw,
                             metavar="MW", help="the connection as built, MW (default: %(default)g)")
+        if name == "afrr":
+            # after --fast, so that an experiment's name reads e.g. afrr_2025_fast_basis-average
+            sp.add_argument("--basis", default=MarketConfig().afrr_price_basis,
+                            choices=AFRR_PRICE_BASES,
+                            help="what B2 is paid for aFRR capacity; B3 is paid its accepted "
+                                 "bids (default: %(default)s)")
+            sp.add_argument("--up-hours", type=_energy_hours,
+                            default=MarketConfig().afrr_energy_hours_up, metavar="HOURS",
+                            help="hours of its MW that positive reserve keeps in the battery "
+                                 "(default: %(default)g)")
         sp.add_argument("--progress", action="store_true")
         sp.add_argument("--out", metavar="PATH",
                         help="also write the result as a CSV, one row per scenario and rung")

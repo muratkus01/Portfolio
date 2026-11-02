@@ -1,10 +1,15 @@
-"""Every CLI command runs end to end, offline, with the data loader stubbed."""
+"""Every CLI command runs end to end, offline, with the data loaders stubbed."""
 from __future__ import annotations
+
+import datetime
+import importlib.util
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
+import hybrid.baselines as baselines
 import hybrid.cli as cli
 from hybrid.config import NEGATIVE_PRICE_RULES
 
@@ -156,3 +161,239 @@ def test_every_negative_price_rule_can_be_chosen(monkeypatch, capsys, rule):
     monkeypatch.setattr(cli, "load_year", fake_year)
     assert cli.main(["ladder", "--fast", "--days", "2", "--neg-rule", rule]) == 0
     assert f"negative-price rule: {rule}" in capsys.readouterr().out
+
+
+# ------------------------------------------------------------------ afrr
+def _load_afrr_fixtures():
+    """tests/afrr_fixtures.py, loaded by its path: the root pyproject.toml runs the tests in
+    importlib mode, which puts no test folder on sys.path."""
+    path = Path(__file__).with_name("afrr_fixtures.py")
+    spec = importlib.util.spec_from_file_location("afrr_fixtures", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+afrr_fixtures = _load_afrr_fixtures()
+B0, B1, B2, B3 = ("B0 no battery", "B1 curtailment avoidance", "B2 perfect foresight",
+                  "B3 rolling MPC")
+JAN_1, JAN_2 = datetime.date(2025, 1, 1), datetime.date(2025, 1, 2)
+MARGINAL = afrr_fixtures.GERMAN["marginal"]
+# On 2 January the bid of POS 08-12, that product's average of 1 January, is rejected, as its
+# marginal lies below it; the bid of NEG 04-08 equals its marginal, which accepts it.
+CELLS = ((JAN_2, "POS_08_12", MARGINAL, 0.5),
+         (JAN_2, "NEG_04_08", MARGINAL, afrr_fixtures.invented_prices(JAN_1, "NEG_04_08")[0]))
+WINDOW_PRICES = ["afrr_up_price_mean_eur_mw_h", "afrr_down_price_mean_eur_mw_h",
+                 "afrr_up_price_median_eur_mw_h", "afrr_down_price_median_eur_mw_h",
+                 "afrr_up_bid_accepted_share", "afrr_down_bid_accepted_share"]
+
+
+def fake_capacity(year: int, cache_dir=None):
+    """Stand-in for afrr_data.load_capacity_results: January of `year` at invented prices,
+    with the rejected and the tied bid of CELLS."""
+    return afrr_fixtures.capacity_results(year, CELLS)
+
+
+def recording_b3(calls: list):
+    """A stand-in for B3, so that nothing but B2 is solved: B2's dispatch on B3's prices. With
+    aFRR it holds half of what that dispatch reserves, as if it had bid twice what it was
+    awarded, and reports two gates, of 0.5 and 1.5 s, one of them failed, and two re-plans
+    failed. It keeps B2's rounding bound, which is B2's alone to report. Each call appends to
+    `calls` whether it had aFRR, and the forecasts and premium rate it was handed."""
+    def b3(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run, export_cap=None,
+           progress=False, premium=None, afrr=None):
+        calls.append((afrr is not None, wind_fc, pv_fc, price_fc, premium[0]))
+        res = baselines.b2_perfect(wind, pv, eff_price, run, export_cap, afrr=afrr)
+        res["solve_time_s"] = np.array([0.25])
+        if afrr is not None:
+            res.update(afrr_bid_up=res["afrr_up"], afrr_bid_down=res["afrr_down"],
+                       afrr_up=res["afrr_up"] / 2, afrr_down=res["afrr_down"] / 2,
+                       afrr_commit_solve_time_s=np.array([0.5, 1.5]), afrr_commit_failures=1,
+                       afrr_replan_failures=2)
+        return res
+    return b3
+
+
+def afrr_table(monkeypatch, tmp_path, argv: list[str],
+               calls: list | None = None) -> pd.DataFrame:
+    """Run the afrr command on fake_year and fake_capacity, with B3 stood in for
+    (`recording_b3`, recording into `calls`), and read back the CSV it wrote."""
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    monkeypatch.setattr(cli, "load_capacity_results", fake_capacity)
+    monkeypatch.setattr(baselines, "b3_rolling", recording_b3([] if calls is None else calls))
+    out = tmp_path / "afrr.csv"
+    assert cli.main(["afrr", *argv, "--out", str(out)]) == 0
+    return pd.read_csv(out)
+
+
+@pytest.mark.parametrize("fast", [False, True], ids=["with B3", "fast"])
+def test_cli_afrr_writes_the_ablation_table(monkeypatch, tmp_path, capsys, fast):
+    """Feature test: no command ran aFRR, so its value had no table. afrr writes one row per
+    connection, mode and rung: the ladder without aFRR and with it at 20, 30 and 60 MW, with
+    B3 where it ran, on the same forecasts and premium in both, each rung's aFRR value and
+    what it reserved, and the window's capacity prices as aggregates only, one value for the
+    whole window."""
+    calls = []
+    df = afrr_table(monkeypatch, tmp_path, ["--days", "2", *(["--fast"] if fast else [])],
+                    calls)
+
+    assert [with_afrr for with_afrr, *_ in calls] == ([] if fast else [False, True] * 3)
+    for without, with_afrr in zip(calls[::2], calls[1::2]):
+        assert all(np.array_equal(a, b) for a, b in zip(without[1:], with_afrr[1:])), \
+            "B3 plans on the same forecasts and premium without aFRR and with it"
+    rungs = [B0, B1, B2] + ([] if fast else [B3])
+    assert list(df[["conn_mw", "afrr", "rung"]].itertuples(index=False, name=None)) == [
+        (conn, mode, rung) for conn in (20.0, 30.0, 60.0) for mode in ("off", "on")
+        for rung in rungs]
+    assert ((df["afrr_price_basis"] == "bid") & (df["afrr_energy_hours_up"] == 4.0)).all()
+    off = df[df["afrr"] == "off"]
+    assert off[["afrr_capacity_revenue_eur", "afrr_up_mw_h", "market_afrr_enabled"]].isna(
+        ).all().all(), "the rows without aFRR carry none of its columns"
+    assert_afrr_values(df, fast)
+    assert_afrr_reservations(df[df["afrr"] == "on"].set_index(["conn_mw", "rung"]), fast)
+    assert_window_prices(df)
+    out = capsys.readouterr().out
+    assert "aFRR at 20 MW (overbuild 4.00x)" in out and "aFRR at 60 MW" in out
+    assert ("B3's share of B2's aFRR value" in out) is not fast
+
+
+def assert_afrr_values(df: pd.DataFrame, fast: bool) -> None:
+    """Each connection's aFRR values are its rungs' net revenue with aFRR less without, on
+    every row of that connection, and B3's share is its value over B2's."""
+    assert ("afrr_value_b3_eur" in df) is not fast
+    for conn, g in df.groupby("conn_mw"):
+        net = g.set_index(["afrr", "rung"])["net_revenue_eur"]
+        b2 = net["on", B2] - net["off", B2]
+        assert b2 > 1.0, f"{conn} MW: capacity is paid on the second day"
+        assert g["afrr_value_b2_eur"].to_numpy() == pytest.approx(np.full(len(g), b2))
+        if not fast:
+            b3 = net["on", B3] - net["off", B3]
+            assert g["afrr_value_b3_eur"].to_numpy() == pytest.approx(np.full(len(g), b3))
+            assert g["b3_share_of_afrr_value"].to_numpy() == pytest.approx(
+                np.full(len(g), b3 / b2))
+
+
+def assert_afrr_reservations(on: pd.DataFrame, fast: bool) -> None:
+    """What each rung reserved, on the rows with aFRR (indexed by connection and rung): the
+    MW-hours held are the mean MW held over the window's 48 hours; B0 and B1 hold none; B2's
+    row alone has its rounding bound; and B3's row alone its bids and gates, the stand-in's
+    bids being twice what it holds."""
+    for name in ("up", "down"):
+        assert on[f"afrr_{name}_mw_h"].to_numpy() == pytest.approx(
+            48 * on[f"afrr_{name}_mean_mw"].to_numpy())
+    rung = on.index.get_level_values("rung")
+    assert (on.loc[rung.isin([B0, B1]), ["afrr_up_mw_h", "afrr_down_mw_h"]] == 0).all().all()
+    assert (on.loc[rung == B2, "afrr_down_mw_h"] > 0).all()
+    assert on.loc[rung == B2, "afrr_rounding_bound_eur"].notna().all()
+    assert on.loc[rung != B2, "afrr_rounding_bound_eur"].isna().all(), "B3's carries B2's"
+    if fast:
+        assert "afrr_bid_up_mw_h" not in on
+        return
+    b3 = on[rung == B3]
+    for name in ("up", "down"):
+        assert b3[f"afrr_bid_{name}_mw_h"].to_numpy() == pytest.approx(
+            2 * b3[f"afrr_{name}_mw_h"].to_numpy())
+    gates = ["afrr_committed_days", "afrr_commit_failures", "afrr_replan_failures",
+             "afrr_commit_solve_time_mean_s", "afrr_commit_solve_time_max_s"]
+    assert (b3[gates] == [2, 1, 2, 1.0, 1.5]).all().all()
+    assert on.loc[rung != B3, ["afrr_bid_up_mw_h", *gates]].isna().all().all()
+
+
+def assert_window_prices(df: pd.DataFrame) -> None:
+    """The table holds no product's own capacity price, only one value per window of each
+    aggregate: per direction the mean and median of the realised German average over the
+    window's 12 products, and the share of the 6 products bid for whose bid was accepted."""
+    assert {column for column in df.columns if "afrr" in column and "price" in column} == {
+        "afrr_price_basis", "market_afrr_price_basis", *WINDOW_PRICES[:4]}
+    assert (df[WINDOW_PRICES].nunique() == 1).all(), "one value for the whole window"
+    row = df.iloc[0]
+    for name, prefix in (("up", "POS"), ("down", "NEG")):
+        average = [afrr_fixtures.invented_prices(day, f"{prefix}_{h:02d}_{h + 4:02d}")[0]
+                   for day in (JAN_1, JAN_2) for h in range(0, 24, 4)]
+        assert row[f"afrr_{name}_price_mean_eur_mw_h"] == pytest.approx(np.mean(average))
+        assert row[f"afrr_{name}_price_median_eur_mw_h"] == pytest.approx(np.median(average))
+    assert (row["afrr_up_bid_accepted_share"], row["afrr_down_bid_accepted_share"]) == (
+        pytest.approx(5 / 6), 1.0), "POS 08-12 rejected, NEG 04-08 tied and accepted"
+
+
+def test_the_afrr_rows_without_afrr_are_those_of_ladder_and_sizing(monkeypatch, tmp_path):
+    """The rows without aFRR must be today's results, column for column: at 60 MW those that
+    ladder writes, and at 20, 30 and 60 MW those of sizing. aFRR's value is measured against
+    them, and they must reproduce the published tables."""
+    tables = {"afrr": afrr_table(monkeypatch, tmp_path, ["--days", "1", "--fast"])}
+    for name, argv in (("ladder", ["ladder", "--fast"]), ("sizing", ["sizing"])):
+        path = tmp_path / f"{name}.csv"
+        assert cli.main([*argv, "--days", "1", "--out", str(path)]) == 0
+        tables[name] = pd.read_csv(path)
+    off = tables["afrr"][tables["afrr"]["afrr"] == "off"]
+    for conn, other in ((60.0, tables["ladder"]),
+                        *((conn, tables["sizing"]) for conn in (20.0, 30.0, 60.0))):
+        mine = off[off["conn_mw"] == conn].set_index("rung")
+        theirs = other if "conn_mw" not in other else other[other["conn_mw"] == conn]
+        theirs = theirs.set_index("rung").loc[mine.index]
+        shared = [column for column in theirs.columns if column in mine.columns]
+        assert len(shared) > 40, "every settlement term, the window and the settings"
+        pd.testing.assert_frame_equal(mine[shared], theirs[shared], check_exact=True)
+
+
+def test_b3s_share_is_empty_where_b2_gains_nothing_from_afrr(monkeypatch, tmp_path):
+    """On a window of one day no product is bid for, so on "bid" no reservation is paid and
+    B2 gains from aFRR at most the solver's rounding, here 0.01 EUR. B3's share of that would
+    be noise, so it is left empty, as decompose leaves its share where the battery's value
+    lies within the ladder's tolerance."""
+    def b2_a_cent_higher_with_afrr(*args, **kwargs):
+        res = baselines.run_ladder(*args, **kwargs)
+        if kwargs.get("afrr") is not None:
+            res[B2]["cost"]["net_revenue"] += 0.01
+        return res
+
+    monkeypatch.setattr(cli, "run_ladder", b2_a_cent_higher_with_afrr)
+    df = afrr_table(monkeypatch, tmp_path, ["--days", "1"])
+
+    assert df["afrr_value_b2_eur"].to_numpy() == pytest.approx(np.full(len(df), 0.01))
+    assert (df["afrr_value_b3_eur"] == 0.0).all()
+    assert df["b3_share_of_afrr_value"].isna().all()
+    assert df[["afrr_up_bid_accepted_share", "afrr_down_bid_accepted_share"]].isna().all().all()
+
+
+@pytest.mark.parametrize("argv, error, message", [
+    (["--up-hours", "0.5"], SystemExit, "at least 1 hour of its MW"),
+    (["--basis", "median"], SystemExit, "invalid choice: 'median'"),
+    (["--basis", "average"], ValueError, "--basis average needs --fast"),
+    (["--start", "03-15", "--days", "30", "--fast"], ValueError, "whole Berlin days"),
+], ids=["band below 60 minutes", "unknown basis", "B3 on the average", "across a clock change"])
+def test_the_afrr_command_refuses_what_it_cannot_run_before_solving(monkeypatch, capsys, argv,
+                                                                   error, message):
+    """Each is refused before the first ladder runs, naming its cause: a positive band shorter
+    than the 60 minutes of PQ conditions § 2.7.1, which MarketConfig would refuse with a
+    traceback; a basis the model does not know; B3 on the realised average, which it cannot
+    bid; and 30 days of 24 h across the clock change of 30 March, which end at 01:00 Berlin,
+    while B3 bids for whole Berlin days."""
+    def no_ladder(*args, **kwargs):
+        raise AssertionError("a ladder ran before the refusal")
+
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    monkeypatch.setattr(cli, "load_capacity_results", fake_capacity)
+    monkeypatch.setattr(cli, "run_ladder", no_ladder)
+    with pytest.raises(error) as refused:
+        cli.main(["afrr", *argv])
+    assert message in (capsys.readouterr().err if error is SystemExit else str(refused.value))
+
+
+def test_the_afrr_command_stops_where_b2_earns_less_with_afrr(monkeypatch, tmp_path):
+    """B2's LP with aFRR keeps its plan without aFRR open, so B2 cannot earn less with aFRR,
+    and a run where it does has a bug: it stops and writes no table. Here the ladder with
+    aFRR reports B2 1 EUR below its revenue, on a day that pays no capacity."""
+    def b2_lower_with_afrr(*args, **kwargs):
+        res = baselines.run_ladder(*args, **kwargs)
+        if kwargs.get("afrr") is not None:
+            res[B2]["cost"]["net_revenue"] -= 1.0
+        return res
+
+    monkeypatch.setattr(cli, "load_year", fake_year)
+    monkeypatch.setattr(cli, "load_capacity_results", fake_capacity)
+    monkeypatch.setattr(cli, "run_ladder", b2_lower_with_afrr)
+    out = tmp_path / "afrr.csv"
+    with pytest.raises(AssertionError, match="B2 earns .* EUR with aFRR and .* without"):
+        cli.main(["afrr", "--days", "1", "--fast", "--out", str(out)])
+    assert not out.exists()

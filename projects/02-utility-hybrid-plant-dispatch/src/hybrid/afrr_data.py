@@ -50,6 +50,19 @@ PINNED_SHA256 = {2024: "f74c4abaaeed69c408b13096736595eda01303d1ae698be0553cb348
 # so no unpinned year can load. Adding a year is a commit of its own, after re-checking the
 # documents that `_refuse_unchecked_year` names.
 RULE_YEARS = (2024, 2025)
+# The rule documents the model was checked against, as run_meta records them for each
+# experiment that reads a results file: (document and version, its date, the rule years it
+# governs). The PQ conditions went from v1.04 to v1.05 during 2024. Both set alike what the
+# model reads from them: a storage unit keeps for FRR at least 60 minutes of its marketed power
+# and 15 minutes of its PQ power, and only the 60 minutes where its storage management secures
+# four hours of delivery.
+RULE_DOCUMENTS = (
+    ("PQ conditions for FCR, aFRR and mFRR, v1.04", "3 June 2022", (2024,)),
+    ("PQ conditions for FCR, aFRR and mFRR, v1.05", "5 July 2024", (2024, 2025)),
+    ("MfRRA, reading version", "8 December 2022", (2024, 2025)),
+    ("BNetzA BK6-15-158", "13 June 2017", (2024, 2025)),
+    ("BNetzA BK6-23-333", "5 November 2024", (2024, 2025)),
+)
 GATE = datetime.time(9, 0)      # Berlin; bids for day D close at 09:00 on D-1, MfRRA § 20 (3)
 AWARD = datetime.time(9, 30)    # Berlin; awards are known by 09:30 on D-1, MfRRA § 20 (3)(c)
 
@@ -126,6 +139,18 @@ def load_capacity_results(year: int, cache_dir: Path | None = None) -> CapacityR
                          "A download is cached only once it matches its pin, so the cached "
                          "file changed since: delete it, and the next load downloads it again")
     return CapacityResults(parse_results(content), url, sha256)
+
+
+def rule_documents(year: int) -> list[tuple[str, str]]:
+    """The rule documents the model was checked against for `year`, from RULE_DOCUMENTS.
+
+    year: a rule year, e.g. 2024.
+    Returns (document and version, its date) pairs in RULE_DOCUMENTS' order, e.g.
+    [("PQ conditions for FCR, aFRR and mFRR, v1.05", "5 July 2024"), ...].
+    Raises ValueError for a year outside RULE_YEARS, as `load_capacity_results` does.
+    """
+    _refuse_unchecked_year(year)
+    return [(name, date) for name, date, years in RULE_DOCUMENTS if year in years]
 
 
 def _refuse_unchecked_year(year: int) -> None:

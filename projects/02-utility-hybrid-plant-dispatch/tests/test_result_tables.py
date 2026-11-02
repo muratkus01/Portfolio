@@ -586,3 +586,99 @@ def test_b3s_afrr_setting_is_recorded_only_where_b3_ran_with_afrr():
     assert tables.settings(on, with_b3=True)[column] == 1.5
     assert column not in tables.settings(on, with_b3=False)
     assert column not in tables.settings(off, with_b3=True)
+
+
+def _load_afrr_fixtures():
+    """tests/afrr_fixtures.py, loaded by its path: the root pyproject.toml runs the tests in
+    importlib mode, which puts no test folder on sys.path."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).with_name("afrr_fixtures.py")
+    spec = importlib.util.spec_from_file_location("afrr_fixtures", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def b3_short_of_reserve(wind, pv, eff_price, wind_fc, pv_fc, price_fc, run, export_cap=None,
+                        progress=False, premium=None, afrr=None):
+    """Stand-in for B3: B2's dispatch on B3's prices; with aFRR, 1 MW of its negative reserve
+    is not held in the first quarter-hour of the second day that holds at least 1 MW, where
+    B3 is paid its bid, so that the cut and the penalty are not 0; and one gate of 0.5 s."""
+    res = baselines.b2_perfect(wind, pv, eff_price, run, export_cap, afrr=afrr)
+    res["solve_time_s"] = np.array([0.25])
+    if afrr is not None:
+        held = (res["afrr_down"] >= 1.0) & (afrr.day == 1)
+        assert held.any(), "the stand-in needs negative reserve to miss"
+        short = np.zeros(len(wind))
+        short[int(np.argmax(held))] = 1.0
+        res.update(afrr_deficit_down=short, afrr_bid_up=res["afrr_up"],
+                   afrr_bid_down=res["afrr_down"], afrr_commit_solve_time_s=np.array([0.5]),
+                   afrr_commit_failures=0, afrr_replan_failures=0)
+    return res
+
+
+AFRR_TERMS = ["afrr_capacity_revenue_eur", "afrr_capacity_cut_eur", "afrr_shortfall_cost_eur"]
+
+
+def test_the_afrr_table_terms_add_up(monkeypatch, tmp_path):
+    """Feature test: with aFRR, net revenue also holds the capacity paid, less the cut of the
+    payment for what was not held and the penalty on it, and every row of the afrr table must
+    add up to it; the rows without aFRR add up without those terms. The run is on "marginal"
+    with a 1-hour positive band, which every row names and the rows with aFRR record."""
+    fixtures = _load_afrr_fixtures()
+    monkeypatch.setattr(cli, "load_capacity_results",
+                        lambda year, cache_dir=None: fixtures.capacity_results(year))
+    monkeypatch.setattr(baselines, "b3_rolling", b3_short_of_reserve)
+    df = result_table(monkeypatch, tmp_path, ["afrr", "--year", "2025", "--days", "2",
+                                              "--basis", "marginal", "--up-hours", "1"])
+
+    on, off = df[df["afrr"] == "on"], df[df["afrr"] == "off"]
+    assert off[AFRR_TERMS].isna().all().all() and on[AFRR_TERMS].notna().all().all()
+    assert_terms_add_up(off)
+    total = (on["spot_revenue_eur"] + on["premium_revenue_eur"] - on["marketing_fee_eur"]
+             - on["degradation_cost_eur"] - on["imbalance_cost_eur"] - on["import_cost_eur"]
+             + on["afrr_capacity_revenue_eur"] - on["afrr_capacity_cut_eur"]
+             - on["afrr_shortfall_cost_eur"])
+    assert on["net_revenue_eur"].to_numpy() == pytest.approx(total.to_numpy())
+    assert (on.loc[on["rung"] == B2, "afrr_capacity_revenue_eur"] > 0).all()
+    b3 = on[on["rung"] == B3]
+    # 1 MW short in one quarter-hour counts for its whole 4-hour product, at 10,000 EUR/MWh
+    assert (b3["afrr_shortfall_down_mwh"] == 4.0).all()
+    assert (b3["afrr_shortfall_up_mwh"] == 0.0).all()
+    assert (b3["afrr_shortfall_cost_eur"] == 40_000.0).all()
+    assert (b3["afrr_capacity_cut_eur"] > 0).all()
+    assert ((df["afrr_price_basis"] == "marginal") & (df["afrr_energy_hours_up"] == 1.0)).all()
+    assert ((on["market_afrr_price_basis"] == "marginal")
+            & (on["market_afrr_energy_hours_up"] == 1.0)).all()
+
+
+def test_the_afrr_price_columns_count_each_product_once():
+    """A window's capacity prices are aggregated over its products, each once, whatever its
+    length: on 30 March 2025 the 00-04 product holds 12 quarter-hours, not 16, so a mean over
+    steps would weight it less. Its average is set far above the others' here, so that the
+    two means differ."""
+    import datetime
+
+    from hybrid import tables
+    from hybrid.afrr_data import capacity_prices, parse_results
+
+    fixtures = _load_afrr_fixtures()
+    days = [datetime.date(2025, 3, 29), datetime.date(2025, 3, 30)]
+    short = (days[1], "POS_00_04")
+    data = fixtures.results_xlsx(days, cells=[(*short, fixtures.GERMAN["average"], 100.0),
+                                              (*short, fixtures.GERMAN["marginal"], 200.0)])
+    start, end = (pd.Timestamp(day, tz="Europe/Berlin") for day in ("2025-03-29", "2025-03-31"))
+    index = pd.date_range(start, end, freq="15min", inclusive="left").tz_convert("UTC")
+    prices = capacity_prices(index, parse_results(data))
+    assert np.sum(prices.block == prices.block[96]) == 12, "00-04 on 30 March"
+
+    cols = tables.afrr_price_columns(prices)
+    up = [100.0 if (day, f"POS_{h:02d}_{h + 4:02d}") == short
+          else fixtures.invented_prices(day, f"POS_{h:02d}_{h + 4:02d}")[0]
+          for day in days for h in range(0, 24, 4)]
+    assert cols["afrr_up_price_mean_eur_mw_h"] == pytest.approx(np.mean(up))
+    assert cols["afrr_up_price_mean_eur_mw_h"] != pytest.approx(np.mean(prices.average_up))
+    assert cols["afrr_up_price_median_eur_mw_h"] == pytest.approx(np.median(up))
+    assert cols["afrr_up_bid_accepted_share"] == cols["afrr_down_bid_accepted_share"] == 1.0

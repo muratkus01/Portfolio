@@ -246,6 +246,77 @@ def test_one_experiment_given_twice_is_refused():
                             "ladder --year 2025 --start 01-01 --days 30 --horizon 48"))
 
 
+def _load_afrr_fixtures():
+    """tests/afrr_fixtures.py, loaded by its path: the root pyproject.toml runs the tests in
+    importlib mode, which puts no test folder on sys.path."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).with_name("afrr_fixtures.py")
+    spec = importlib.util.spec_from_file_location("afrr_fixtures", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_run_meta_records_the_afrr_source_and_rules(stand_ins, monkeypatch, tmp_path):
+    """Feature test: an aFRR experiment rests on a regelleistung.net results file and on rule
+    documents checked for its year. run_meta names, for each experiment that read such a file,
+    its URL and SHA-256, and the documents of that year: in 2024 the PQ conditions changed
+    from v1.04 to v1.05. Another experiment of the same report gains no section."""
+    fixtures = _load_afrr_fixtures()
+    files = {year: fixtures.capacity_results(year) for year in (2024, 2025)}
+    monkeypatch.setattr(cli, "load_capacity_results", lambda year, cache_dir=None: files[year])
+    commands = tmp_path / "set.txt"
+    commands.write_text("afrr --year 2025 --days 1 --fast\nafrr --year 2024 --days 1 --fast\n"
+                        "ladder --year 2025 --days 1 --horizon 4 --fast\n", encoding="utf-8")
+    assert cli.main(["report", "--commands", str(commands),
+                     "--reports-dir", str(tmp_path)]) == 0
+
+    rows = meta(tmp_path)
+    sections = rows.groupby("experiment")["section"].unique().map(set)
+    on_data = {"run", "code", "environment", "input_sha256", "source_url", "capacity_mw",
+               "market_value_proxy_eur_mwh"}
+    assert sections["ladder_2025-01-01_1d_horizon-4_fast"] == on_data
+    rules = {}
+    for year in (2024, 2025):
+        mine = rows[rows["experiment"] == f"afrr_{year}-01-01_1d_fast"]
+        assert set(mine["section"]) == on_data | {"afrr_source", "afrr_rules"}
+        source = mine[mine["section"] == "afrr_source"].set_index("item")["value"].to_dict()
+        assert source == {f"{year} url": files[year].url, f"{year} sha256": files[year].sha256}
+        rules[year] = mine[mine["section"] == "afrr_rules"].set_index("item")["value"].to_dict()
+    assert rules[2025] == {"PQ conditions for FCR, aFRR and mFRR, v1.05": "5 July 2024",
+                           "MfRRA, reading version": "8 December 2022",
+                           "BNetzA BK6-15-158": "13 June 2017",
+                           "BNetzA BK6-23-333": "5 November 2024"}
+    assert rules[2024] == {"PQ conditions for FCR, aFRR and mFRR, v1.04": "3 June 2022",
+                           **rules[2025]}
+
+
+def test_afrr_experiments_are_named_after_their_options():
+    """The aFRR experiments the README is to quote, named after window and options: --basis
+    and --up-hours appear only where they are off their defaults, "bid" and 4 hours, so a
+    line that spells out a default is the same experiment as one that leaves it out."""
+    from hybrid import report
+
+    named = report.experiments((
+        "afrr --year 2024 --full-year --fast", "afrr --year 2025 --full-year --fast",
+        "afrr --year 2024 --full-year --fast --up-hours 1",
+        "afrr --year 2025 --full-year --fast --up-hours 1",
+        "afrr --year 2025 --full-year --fast --basis average",
+        "afrr --year 2025 --full-year --fast --basis marginal",
+        "afrr --year 2025 --start 01-01 --days 30", "afrr --year 2025 --start 07-01 --days 30",
+        "afrr --year 2024 --start 01-01 --days 30", "afrr --year 2024 --start 07-01 --days 30"))
+    assert list(named) == [
+        "afrr_2024_fast", "afrr_2025_fast", "afrr_2024_fast_up-hours-1",
+        "afrr_2025_fast_up-hours-1", "afrr_2025_fast_basis-average",
+        "afrr_2025_fast_basis-marginal", "afrr_2025-01-01_30d", "afrr_2025-07-01_30d",
+        "afrr_2024-01-01_30d", "afrr_2024-07-01_30d"]
+    with pytest.raises(ValueError, match="one experiment, afrr_2025_fast$"):
+        report.experiments(("afrr --year 2025 --full-year --fast",
+                            "afrr --year 2025 --full-year --fast --basis bid --up-hours 4.0"))
+
+
 def test_the_publish_set_is_the_one_the_readme_needs():
     """The pinned experiments, named after command, window and options, and the folder they
     go to."""

@@ -1,4 +1,5 @@
-"""Minimal regelleistung.net aFRR results workbooks, written in memory for offline tests.
+"""Minimal regelleistung.net aFRR results workbooks, written in memory for offline tests, and
+the parsed results that the command tests stub the loader with.
 
 Each workbook carries the real header names of the yearly RESULT_OVERVIEW files and invented
 prices, so no TSO data enters the repository. Its header cells are shared strings and its
@@ -8,6 +9,7 @@ strings only.
 from __future__ import annotations
 
 import datetime
+import hashlib
 import io
 import zipfile
 from xml.sax.saxutils import escape
@@ -107,6 +109,22 @@ def results_xlsx(days, layout="16", blank=(), drop=(), extra=(), cells=()) -> by
             book.writestr(zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0)), text,
                           compress_type=zipfile.ZIP_DEFLATED)
     return buffer.getvalue()
+
+
+def capacity_results(year: int, cells=()):
+    """January of `year` as `afrr_data.load_capacity_results` returns a year's results, for the
+    command tests that stub it: a results_xlsx workbook of invented prices, parsed, with a URL
+    that names no real file and the workbook's own SHA-256.
+
+    cells: as for results_xlsx, e.g. a marginal set below a bid, which rejects it.
+    Returns an afrr_data.CapacityResults.
+    """
+    from hybrid.afrr_data import CapacityResults, parse_results
+
+    days = [datetime.date(year, 1, 1) + datetime.timedelta(days=k) for k in range(31)]
+    data = results_xlsx(days, cells=cells)
+    return CapacityResults(parse_results(data), f"https://example.invalid/aFRR_{year}.xlsx",
+                           hashlib.sha256(data).hexdigest())
 
 
 def rewrite_member(data: bytes, name: str, old: str, new: str) -> bytes:

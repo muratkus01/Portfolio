@@ -19,8 +19,9 @@ import pandas as pd
 
 from .baselines import ladder_tolerance, rung_plant
 from .config import PlantConfig, RunConfig
+from .reserve import CapacityPrices
 
-B3 = "B3 rolling MPC"
+B2, B3 = "B2 perfect foresight", "B3 rolling MPC"
 
 # The settings a row records, by the config class that holds them. A test keeps these lists
 # and INERT_SETTINGS together equal to the classes' fields, so a new setting needs a decision.
@@ -107,9 +108,10 @@ def rung_rows(res: dict, run: RunConfig, window: dict, premium: dict,
     violations, the ladder's tolerance (`baselines.ladder_tolerance`), the energy stored after
     the last step (MWh); where B3 ran, on B3's row and empty on the others, its mean and
     maximum solve time and the values it ran on where its settings leave them to the run: the
-    price error's scale and the mean terminal price of its plans; then the premium, the window
-    and the settings, with the plant the rung ran on: B0 and B2 no battery ran without the
-    battery.
+    price error's scale and the mean terminal price of its plans; where aFRR ran
+    (run.market.afrr_enabled), what each rung reserved (`_afrr_columns`); then the premium,
+    the window and the settings, with the plant the rung ran on: B0 and B2 no battery ran
+    without the battery.
     """
     with_b3 = B3 in res
     b2 = res["B2 perfect foresight"]["cost"]
@@ -125,6 +127,8 @@ def rung_rows(res: dict, run: RunConfig, window: dict, premium: dict,
         row["final_soc_mwh"] = float(r["soc"][-1])
         if with_b3:
             row.update(_b3_columns(r if rung == B3 else {}))
+        if run.market.afrr_enabled:
+            row.update(_afrr_columns(rung, r, run.dt, with_b3))
         rows.append({**row, **premium, **window,
                      **settings(run, with_b3, rung_plant(rung, run.plant))})
     return rows
@@ -140,6 +144,71 @@ def _b3_columns(r: dict) -> dict:
             "b3_solve_time_max_s": None if times is None else float(np.max(times)),
             "b3_price_error_scale_eur_mwh": r.get("price_error_scale_eur_mwh"),
             "b3_terminal_price_mean_eur_mwh": None if prices is None else float(np.mean(prices))}
+
+
+def _afrr_columns(rung: str, r: dict, dt: float, with_b3: bool) -> dict:
+    """What one rung reserved in a run with aFRR, as columns, from its dispatch `r`.
+
+    Every rung: per direction the MW it held, as the mean over the window's steps, and the
+    MW-hours it held; B0, B1 and B2 no battery hold none, so 0. On B2's row, and empty on the
+    others, its rounding bound (EUR, `reserve.rounding_bound`). Where B3 ran, on B3's row and
+    empty on the others, its bids and its gates (`_b3_afrr_columns`).
+    rung: the rung's name. dt: step length in hours. with_b3: whether B3 ran.
+    """
+    zeros = np.zeros(len(r["export"]))
+    cols = {}
+    for name in ("up", "down"):
+        held = np.asarray(r.get(f"afrr_{name}", zeros), dtype=float)
+        cols[f"afrr_{name}_mean_mw"] = float(np.mean(held))
+        cols[f"afrr_{name}_mw_h"] = float(np.sum(held) * dt)
+    cols["afrr_rounding_bound_eur"] = r["afrr_rounding_bound_eur"] if rung == B2 else None
+    if with_b3:
+        cols.update(_b3_afrr_columns(r if rung == B3 else {}, dt))
+    return cols
+
+
+def _b3_afrr_columns(r: dict, dt: float) -> dict:
+    """B3's aFRR bids and gates as columns, from its dispatch `r`, or all empty where r = {}:
+    the MW-hours it bid per direction before each award; its gates, one per day it bid for
+    (afrr_committed_days), and of them those not solved, which bid nothing; the re-plans that
+    held reserve and were not solved; and the mean and maximum seconds of a gate's solve,
+    empty on a window with no gate. dt: step length in hours."""
+    if not r:
+        return dict.fromkeys(("afrr_bid_up_mw_h", "afrr_bid_down_mw_h", "afrr_committed_days",
+                              "afrr_commit_failures", "afrr_replan_failures",
+                              "afrr_commit_solve_time_mean_s", "afrr_commit_solve_time_max_s"))
+    times = np.asarray(r["afrr_commit_solve_time_s"], dtype=float)
+    return {"afrr_bid_up_mw_h": float(np.sum(r["afrr_bid_up"]) * dt),
+            "afrr_bid_down_mw_h": float(np.sum(r["afrr_bid_down"]) * dt),
+            "afrr_committed_days": len(times),
+            "afrr_commit_failures": int(r["afrr_commit_failures"]),
+            "afrr_replan_failures": int(r["afrr_replan_failures"]),
+            "afrr_commit_solve_time_mean_s": float(np.mean(times)) if len(times) else None,
+            "afrr_commit_solve_time_max_s": float(np.max(times)) if len(times) else None}
+
+
+def afrr_price_columns(prices: CapacityPrices) -> dict:
+    """A window's aFRR capacity prices as columns, one value each for the whole window: per
+    direction the mean and the median, over the window's products, of the realised German
+    average (EUR/MW/h), then per direction the share of the products B3 bid for whose bid was
+    accepted, at or below the realised marginal, as `reserve.paid_prices` accepts it; empty
+    where it bid for none, as on a window of one day. Block-level prices stay out of the
+    tables, as the repository commits none.
+
+    prices: the window's CapacityPrices (`afrr_data.capacity_prices`).
+    """
+    first = np.unique(prices.block, return_index=True)[1]
+    average = {name: getattr(prices, f"average_{name}")[first] for name in ("up", "down")}
+    cols = {f"afrr_{name}_price_{stat}_eur_mw_h": float(fn(average[name]))
+            for stat, fn in (("mean", np.mean), ("median", np.median))
+            for name in ("up", "down")}
+    for name in ("up", "down"):
+        bid = getattr(prices, f"bid_{name}")[first]
+        marginal = getattr(prices, f"marginal_{name}")[first]
+        bid_for = np.isfinite(bid)
+        cols[f"afrr_{name}_bid_accepted_share"] = (
+            float(np.mean(bid[bid_for] <= marginal[bid_for])) if bid_for.any() else None)
+    return cols
 
 
 def window_stats(label: str, wind: np.ndarray, pv: np.ndarray, price: np.ndarray,

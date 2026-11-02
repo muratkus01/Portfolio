@@ -11,7 +11,8 @@ reports/<name>.csv, where the name is the command, the window and every option t
 its default (`experiments`). Two files beside the tables gather what they rest on:
 
     window_stats.csv  per window: prices, generation and whether the connection binds
-    run_meta.csv      per experiment: command, commit, environment, input data, wall time
+    run_meta.csv      per experiment: command, commit, environment, input data, wall time,
+                      and for aFRR the results file read and the rules checked against
 
 Each experiment replaces its own rows there under a lock, so parts run apart add up to one
 file, and rerunning an experiment updates its rows only.
@@ -23,7 +24,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import cli, data, synthetic, tables
+from . import afrr_data, cli, data, synthetic, tables
 from .config import RunConfig
 from .market import market_values
 from .provenance import environment, frame_sha256, git_state
@@ -159,19 +160,25 @@ def run_experiment(name: str, command: str, reports: Path, argv: list[str], code
            "started_utc": started.isoformat(timespec="seconds"),
            "wall_time_s": round(time.perf_counter() - t0, 1)}
     meta = [{"experiment": name, "section": section, "item": item, "value": value}
-            for section, item, value in _meta(run, code, env, args.inputs)]
+            for section, item, value in _meta(run, code, env, args.inputs,
+                                              getattr(args, "afrr_sources", {}))]
     tables.merge_csv(reports / "run_meta.csv", meta, "experiment")
     tables.merge_csv(reports / "window_stats.csv", [_window_stats(args)], "window")
 
 
-def _meta(run: dict, code: dict, env: dict, inputs: dict) -> list[tuple]:
+def _meta(run: dict, code: dict, env: dict, inputs: dict,
+          afrr_sources: dict | None = None) -> list[tuple]:
     """run_meta's rows for one experiment, as (section, item, value).
 
     run, code, env: what ran, from which commit, with which versions.
     inputs: the frames the experiment loaded, {label: {"year", "days", "frame"}}.
+    afrr_sources: the aFRR results files it read, {year: (url, sha256)}, as the afrr command
+        records them in args.afrr_sources; none for any other experiment.
     Returns the rows: run, code and environment; the SHA-256 of each input frame; the
-    Energy-Charts requests behind each year loaded; the installed capacity the factors were
-    divided by, per month; and the market-value proxy of each month and year loaded whole.
+    Energy-Charts requests behind each year loaded; where it read aFRR results, each file's
+    URL and SHA-256 and the rule documents of its year (`afrr_data.rule_documents`); the
+    installed capacity the factors were divided by, per month; and the market-value proxy of
+    each month and year loaded whole.
     """
     rows = [("run", key, value) for key, value in run.items()]
     rows += [("code", key, value) for key, value in code.items()]
@@ -180,6 +187,7 @@ def _meta(run: dict, code: dict, env: dict, inputs: dict) -> list[tuple]:
     years = sorted({rec["year"] for rec in inputs.values() if rec["year"] is not None})
     rows += [("source_url", f"{year} {dataset}", url) for year in years
              for dataset, url in data.source_urls(year).items()]
+    rows += _afrr_meta(afrr_sources or {})
     months = {}
     for rec in inputs.values():
         if rec["year"] is not None:
@@ -195,6 +203,22 @@ def _meta(run: dict, code: dict, env: dict, inputs: dict) -> list[tuple]:
                 rows += [("market_value_proxy_eur_mwh", f"{key} {tech}", float(row[tech]))
                          for key, row in values.iterrows() for tech in ("wind", "pv")]
     return rows
+
+
+def _afrr_meta(afrr_sources: dict) -> list[tuple]:
+    """run_meta's aFRR rows, none for an experiment that read no aFRR results file: per file
+    ("afrr_source", "<year> url" and "<year> sha256", ...), then the rule documents its years
+    were checked against, ("afrr_rules", document and version, date), each once.
+
+    afrr_sources: {year: (url, sha256)}, e.g. {2025: ("https://www.regelleistung.net/...",
+        "12e81c23...")}.
+    """
+    rows = []
+    for year, (url, sha256) in sorted(afrr_sources.items()):
+        rows += [("afrr_source", f"{year} url", url), ("afrr_source", f"{year} sha256", sha256)]
+    documents = dict.fromkeys(document for year in sorted(afrr_sources)
+                              for document in afrr_data.rule_documents(year))
+    return rows + [("afrr_rules", name, date) for name, date in documents]
 
 
 def _window_stats(args) -> dict:
