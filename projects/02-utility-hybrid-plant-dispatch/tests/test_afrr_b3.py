@@ -5,14 +5,22 @@ The battery is the default one: 20 MW, 40 MWh, a state of charge from 2 to 38 MW
 efficiencies of 0.95. Every test here fails on c7b98ed, where a ladder with aFRR refuses B3
 and b3_rolling takes no capacity prices; those of B3's rules fail on 4eb0fee, whose B3 has
 no derating, curtails at a non-negative price only through the safety layer, and sinks no
-deficit.
+deficit. Tests added in review pin rules the first ones left unchecked, and one, B3 dipping
+below its positive band to keep its negative reserve, fails on 980b3b8, whose safety layer
+refused that dip.
 """
 from __future__ import annotations
 
+import datetime
+import importlib.util
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 import pytest
 
 from hybrid import afrr_rungs, baselines, plant
+from hybrid.afrr_data import capacity_prices, parse_results
 from hybrid.baselines import b3_rolling, ladder_tolerance, make_forecasts, run_ladder
 from hybrid.config import MarketConfig, PlantConfig, RunConfig
 from hybrid.market import effective_price, premium_eligible
@@ -42,16 +50,19 @@ def _window(n: int, seed: int = 0):
     return wind, pv, price
 
 
-def _prices(n: int, bid_up, bid_down, start_h: int = 0, rejected=()) -> CapacityPrices:
+def _prices(n: int, bid_up, bid_down, start_h: int = 0, rejected=(),
+            tied=()) -> CapacityPrices:
     """Capacity prices on n quarter-hours from start_h o'clock on day 0, on days without a
     clock change: six 4-hour products a day, the gate at 09:00 and the award at 09:30 of
     each day whose next day lies in the window. bid_up, bid_down: B3's bid, EUR/MW/h, per
     product of the window in time order, or one for all; NaN on day 0 whatever is given. The
     bid is accepted, at a marginal of twice it, but in the products `rejected`, whose marginal
-    is half of it; the realised average is the bid, and 10 EUR/MW/h on day 0."""
+    is half of it, and in the products `tied`, whose marginal is the bid; the realised
+    average is the bid, and 10 EUR/MW/h on day 0."""
     quarter = 4 * start_h + np.arange(n)
     day, block = quarter // 96, quarter // 16 - quarter[0] // 16
-    accepted = np.where(np.isin(block, rejected), 0.5, 2.0)
+    accepted = np.where(np.isin(block, rejected), 0.5,
+                        np.where(np.isin(block, tied), 1.0, 2.0))
     fields = {}
     for name, bid in (("up", bid_up), ("down", bid_down)):
         per_product = np.broadcast_to(np.asarray(bid, dtype=float), (int(block[-1]) + 1,))
@@ -444,11 +455,13 @@ def test_b3_holds_its_bids_as_if_accepted_until_the_award(monkeypatch):
     """Between the gate and the award B3 does not know which bids won, so its re-plans hold
     every bid as if accepted; from the award on, a rejected bid holds nothing. On a 24-hour
     horizon the gate's own re-plan, at 09:00, sees the next day's first products: it holds
-    the 00-04 bid, which is rejected, and the re-plan at 09:30 holds 0 there. B3 re-plans at
-    each gate and award, whatever its resolve_every: here only there."""
+    the 00-04 bid, which is rejected, and the re-plan at 09:30 holds 0 there; the 04-08 bid
+    equals its marginal, and a tie counts as accepted (`reserve.paid_prices`), so it is held.
+    B3 re-plans at each gate and award, whatever its resolve_every: here only there."""
     plans = _gate_plans(monkeypatch)
     args, prices = _gate_window(2, 30.0, 50.0, 20.0, 5.0)
-    prices = _prices(len(prices.block), 20.0, 5.0, start_h=9, rejected=(4,))   # day 1, 00-04
+    # day 1: 00-04 rejected, 04-08 tied
+    prices = _prices(len(prices.block), 20.0, 5.0, start_h=9, rejected=(4,), tied=(5,))
     res = b3_rolling(*args[:-1], args[-1].with_(horizon_steps=96), resolve_every=10 ** 6,
                      afrr=prices)
     replans = [spec for spec, plan in plans if not spec.integer]
@@ -460,7 +473,10 @@ def test_b3_holds_its_bids_as_if_accepted_until_the_award(monkeypatch):
     assert gate.fixed_up[4] == res["afrr_bid_up"][first]
     assert gate.fixed_down[4] == res["afrr_bid_down"][first]
     assert award.fixed_up[4] == award.fixed_down[4] == 0.0
-    assert award.fixed_up[5] == res["afrr_up"][first + 16] == res["afrr_bid_up"][first + 16]
+    for direction in ("up", "down"):
+        bid = res[f"afrr_bid_{direction}"][first + 16]
+        held = (getattr(award, f"fixed_{direction}")[5], res[f"afrr_{direction}"][first + 16])
+        assert bid >= 1.0 and held == (bid, bid), direction
 
 
 def test_b3_bids_on_the_premium_it_knows_at_its_gate(monkeypatch):
@@ -485,6 +501,117 @@ def test_b3_bids_on_the_premium_it_knows_at_its_gate(monkeypatch):
     monkeypatch.setattr(afrr_rungs, "_planning_price", lambda price, *args: price)
     assert not all(np.array_equal(a, b) for a, b in zip(bids(later), known))
 
+
+def test_the_gate_bids_on_the_energy_stored_at_nine(monkeypatch):
+    """A gate knows the energy stored at 09:00, not the window's start: the battery starts
+    full at midnight and sells it all at 300 EUR/MWh before 02:00, and with no wind to charge
+    from, the gate bids no positive reserve for day 1, which pays 30 EUR/MW/h. Negative
+    control: a gate planned from the window's 38 MWh bids some, which the empty battery
+    cannot hold."""
+    n, zero = 192, np.zeros(192)
+    price = np.where(np.arange(n) < 8, 300.0, 50.0)
+    run = _run().with_(plant=PlantConfig(soc_init_frac=0.95))
+    prices = _prices(n, 30.0, 0.0)
+
+    def run_b3():
+        return b3_rolling(zero, zero, price, zero, zero, price, run, resolve_every=10 ** 6,
+                          afrr=prices)
+
+    res = run_b3()
+    assert res["soc"][GATE - 1] == pytest.approx(PLANT.soc_min, abs=1e-6)
+    assert not np.any(res["afrr_bid_up"])
+    bid = afrr_rungs._Book.bid
+    monkeypatch.setattr(afrr_rungs._Book, "bid",
+                        lambda book, t, soc, *args: bid(book, t, run.plant.soc_init, *args))
+    assert run_b3()["afrr_bid_up"].max() >= 1.0
+
+
+@pytest.fixture(scope="module")
+def evening_then_morning():
+    """B3 on two days from a gate, on 30 MW of wind and energy at 50 EUR/MWh, forecast as
+    they are, where two products pay: 20 MW down in 20-24 on day 1 (product 9) and up in
+    00-04 on day 2 (product 10). Its plans see 4 hours ahead, as in the other tests here, or
+    24, the default; it re-plans only at the gates and awards. Returns ({horizon in steps:
+    B3's result}, the window's prices)."""
+    bid_up, bid_down = np.zeros(16), np.zeros(16)
+    bid_down[9], bid_up[10] = 20.0, 30.0
+    args, prices = _gate_window(2, 30.0, 50.0, bid_up, bid_down)
+    return {steps: b3_rolling(*args[:-1], args[-1].with_(horizon_steps=steps),
+                              resolve_every=10 ** 6, afrr=prices)
+            for steps in (16, 96)}, prices
+
+
+def test_the_gate_holds_what_b3_holds_on_the_gate_day(evening_then_morning):
+    """A gate holds the rest of its own day as B3 holds it there. 20 MW down in 20-24 on day 1
+    keep the battery at most at 19 MWh and forbid it to charge then (R2, R6), so at midnight
+    it holds at most 19 MWh, and the gate at 09:00 on day 1 bids 4 MW up in 00-04 on day 2,
+    what 17 MWh above the minimum deliver for 4 hours, not the 8 MW the battery could hold
+    alone."""
+    runs, prices = evening_then_morning
+    for res in runs.values():
+        assert _per_product(res["afrr_bid_down"], prices)[9] == 20.0
+        assert _per_product(res["afrr_bid_up"], prices)[10] == 4.0
+
+
+def test_b3_holds_an_award_only_where_its_plans_see_it_in_time(evening_then_morning):
+    """What B3 holds rests on how far its plans see. The 4 MW up of 00-04 on day 2 need their
+    energy stored before 20:00, when the 20 MW down forbid charging. Plans that see 24
+    hours, the default, store it, and B3 holds all it was awarded. Plans that see 4 hours, as
+    the other tests here use, see 00-04 only once charging is forbidden, and B3 misses the
+    4 MW: a limit of the horizon, so runs on such a horizon do not show that B3 holds its
+    awards."""
+    runs, prices = evening_then_morning
+    morning = prices.block == 10
+    assert runs[96]["afrr_up"][morning].min() == 4.0
+    assert not np.any(runs[96]["afrr_deficit_up"]) and not np.any(runs[96]["afrr_deficit_down"])
+    assert runs[16]["afrr_deficit_up"][morning].max() > 3.0
+
+
+def _fixture_prices(first: datetime.date, days: int) -> CapacityPrices:
+    """Capacity prices of `days` Berlin days from `first`, on the window's UTC quarter-hours,
+    read from an offline results workbook with invented prices (tests/afrr_fixtures.py)."""
+    path = Path(__file__).with_name("afrr_fixtures.py")
+    spec = importlib.util.spec_from_file_location("afrr_fixtures", path)
+    fixtures = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixtures)
+    start, end = (pd.Timestamp(day.isoformat(), tz="Europe/Berlin")
+                  for day in (first, first + datetime.timedelta(days=days)))
+    index = pd.date_range(start, end, freq="15min", inclusive="left").tz_convert("UTC")
+    workbook = fixtures.results_xlsx([first + datetime.timedelta(days=k) for k in range(days)])
+    return capacity_prices(index, parse_results(workbook))
+
+
+def test_b3_counts_each_product_for_its_own_hours_across_the_clock_changes(monkeypatch):
+    """B3 is paid and charged for each product's own hours, so on the clock-change days of
+    2025 the 00-04 product counts 3 hours in March and 5 in October, in the gate that bids it
+    and in the re-plans that hold it, and B3 holds it for its 12 or 20 quarter-hours. The gate
+    before the 23-hour day decides its 92 quarter-hours, the one before the 25-hour day 100.
+    Invented prices from the offline workbook, 30 MW of wind and energy at 50 EUR/MWh."""
+    specs, spec = [], afrr_rungs._Book.spec
+
+    def recorded(book, start, stop, decide=None):
+        specs.append((start, decide, spec(book, start, stop, decide)))
+        return specs[-1][-1]
+
+    monkeypatch.setattr(afrr_rungs._Book, "spec", recorded)
+    for first, hours, steps in ((datetime.date(2025, 3, 29), 3.0, 92),
+                                (datetime.date(2025, 10, 25), 5.0, 100)):
+        specs.clear()
+        prices = _fixture_prices(first, 2)
+        n = len(prices.block)
+        wind, price = np.full(n, 30.0), np.full(n, 50.0)
+        res = b3_rolling(wind, np.zeros(n), price, wind, np.zeros(n), price,
+                         _run().with_(horizon_steps=96), resolve_every=10 ** 6, afrr=prices)
+        midnight = int(np.flatnonzero(prices.day == 1)[0])
+        product = prices.block == prices.block[midnight]
+        seen = [(start, decide, s) for start, decide, s in specs
+                if start <= midnight < start + len(s.block)]
+        assert np.count_nonzero(product) == 4 * hours
+        assert [decide.sum() for _, decide, _ in seen if decide is not None] == [steps]
+        assert len(seen) >= 2 and all(s.hours[s.block[midnight - start]] == hours
+                                      for start, _, s in seen), first
+        bid = res["afrr_bid_down"][midnight]
+        assert bid >= 1.0 and np.all(res["afrr_down"][product] == bid), first
 
 # ------------------------------------------------------------------ B3's rules (C8)
 def _gate_bids(args, prices, **run) -> list[np.ndarray]:
@@ -576,6 +703,24 @@ def test_the_derating_applies_only_while_a_reservation_is_in_the_plan(monkeypatc
     b3_rolling(*args[:-1], day_ahead.with_(forecast_sigma=0.0), resolve_every=10 ** 6,
                afrr=prices)
     assert len(plans) == 3 and all(spec.derate == 0.0 for spec, _ in plans)
+
+def test_r8_prices_the_export_a_derated_forecast_lacks():
+    """R8 asks the export of a fixed negative reservation to hold on derated generation, less
+    what the plan may fall short of it, so a plan whose derated export cannot cover the
+    reservation prices the shortfall and stays solvable. 10 MW down for 4 hours on 10 MW of
+    wind, from an empty battery, derated by 0.3 from the plan's first step, as a gate derates:
+    the export covers 7 MW, so the plan counts 3 MW not held at the penalty plus the
+    20 EUR/MW/h they are paid, 120,240 EUR below the plan that trusts the forecast."""
+    block = np.zeros(16, dtype=int)
+    wind, pv, price = np.full(16, 10.0), np.zeros(16), np.full(16, 50.0)
+
+    def objective(derate):
+        plan = afrr_rungs.solve_window_reserve(wind, pv, price, DT, _run(), PLANT.soc_min,
+                                               _spec(block, 10.0, 20.0, derate=derate))
+        return plan.objective
+
+    assert objective(0.0) - objective(0.3) == pytest.approx((10_000.0 + 20.0) * 3.0 * 4.0,
+                                                            rel=1e-6)
 
 
 def test_b3s_derating_is_set_by_its_forecast_error():
@@ -703,6 +848,31 @@ def test_a_deficit_already_incurred_makes_later_dips_in_its_product_free(monkeyp
     for start, s in replans:
         assert deficit[start - 1] < deficit[60:start].max(), start
         assert s.sunk_down[0] == deficit[60:start].max() and s.sunk_up[0] == 0.0, start
+
+def test_b3_sinks_a_positive_deficit_as_it_sinks_a_negative_one(monkeypatch):
+    """B3 hands its re-plans the largest deficit measured so far in each product in both
+    directions. The gate bids positive reserve for 00-04 on day 1 on 20 MW of wind forecast
+    for the evening, to store energy worth 150 EUR/MWh from 04:00; the wind never blows, the
+    battery meets the product empty, and every later re-plan in it bounds the product's
+    positive shortfall below by what was measured."""
+    specs, spec = [], afrr_rungs._Book.spec
+
+    def recorded(book, start, stop, decide=None):
+        specs.append((start, decide, spec(book, start, stop, decide)))
+        return specs[-1][-1]
+
+    monkeypatch.setattr(afrr_rungs._Book, "spec", recorded)
+    n = 92                                                  # 09:00 on day 0 to 08:00 on day 1
+    calm, forecast = np.zeros(n), np.r_[np.full(60, 20.0), np.zeros(32)]
+    price = np.where(np.arange(n) < 76, 50.0, 150.0)
+    prices = _prices(n, [0.0] * 4 + [30.0, 0.0], 0.0, start_h=9)     # 00-04 on day 1
+    res = b3_rolling(calm, np.zeros(n), price, forecast, np.zeros(n), price, _run(),
+                     resolve_every=4, afrr=prices)
+    deficit = res["afrr_deficit_up"]
+    replans = [(start, s) for start, decide, s in specs if decide is None and 60 < start < 76]
+    assert len(replans) == 3 and deficit[60:76].max() >= 1.0
+    for start, s in replans:
+        assert s.sunk_up[0] == deficit[60:start].max() and s.sunk_down[0] == 0.0, start
 
 
 def test_a_reserve_spec_refuses_a_sunk_deficit_or_derating_it_cannot_read():
