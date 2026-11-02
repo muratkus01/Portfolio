@@ -1,8 +1,11 @@
-"""B3 with aFRR: its bids at the 09:00 gate, the 09:30 award, and its re-plans around them.
+"""B3 with aFRR: its bids at the 09:00 gate, the 09:30 award, its re-plans around them, and
+the rules that keep its awards through forecast errors.
 
 The battery is the default one: 20 MW, 40 MWh, a state of charge from 2 to 38 MWh and
 efficiencies of 0.95. Every test here fails on c7b98ed, where a ladder with aFRR refuses B3
-and b3_rolling takes no capacity prices.
+and b3_rolling takes no capacity prices; those of B3's rules fail on 4eb0fee, whose B3 has
+no derating, curtails at a non-negative price only through the safety layer, and sinks no
+deficit.
 """
 from __future__ import annotations
 
@@ -14,7 +17,8 @@ from hybrid.baselines import b3_rolling, ladder_tolerance, make_forecasts, run_l
 from hybrid.config import MarketConfig, PlantConfig, RunConfig
 from hybrid.market import effective_price, premium_eligible
 from hybrid.plant import dispatch_step, simulate
-from hybrid.reserve import PLAN_MARGIN, CapacityPrices, ReserveRule, paid_prices
+from hybrid.reserve import (PLAN_MARGIN, CapacityPrices, ReserveRule, ReserveSpec,
+                            add_reserve_terms, paid_prices)
 
 DT = 0.25
 PLANT = PlantConfig()
@@ -85,8 +89,8 @@ def three_days():
     eff = effective_price(price, run.market, rate, DT)
     premium = (rate, premium_eligible(price, run.market, DT))
     forecasts = make_forecasts(wind, pv, eff, run, np.random.default_rng(1))
-    executed, specs = [], []
-    spec = afrr_rungs._Book.spec
+    executed, specs, solved = [], [], {}
+    spec, solve = afrr_rungs._Book.spec, afrr_rungs.solve_window_reserve
 
     def recorded(*args):
         # dispatch_step's arguments in order: wind, pv, soc, p_bat, curtail_frac, dt, cfg,
@@ -99,13 +103,21 @@ def three_days():
         specs.append((start, stop, decide, spec(book, start, stop, decide)))
         return specs[-1][-1]
 
+    def recorded_plan(*args, **kwargs):
+        # by the spec it was solved for, which `specs` keeps alive, so no id is reused
+        solved[id(args[6])] = solve(*args, **kwargs)
+        return solved[id(args[6])]
+
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(afrr_rungs, "dispatch_step", recorded)
         patch.setattr(afrr_rungs._Book, "spec", recorded_spec)
+        patch.setattr(afrr_rungs, "solve_window_reserve", recorded_plan)
         res = b3_rolling(wind, pv, eff, *forecasts, run, resolve_every=4, premium=premium,
                          afrr=prices)
     return {"wind": wind, "pv": pv, "eff": eff, "forecasts": forecasts, "premium": premium,
-            "prices": prices, "run": run, "res": res, "executed": executed, "specs": specs}
+            "prices": prices, "run": run, "res": res, "executed": executed, "specs": specs,
+            "plans": {start: solved[id(spec)] for start, _, decide, spec in specs
+                      if decide is None}}
 
 
 def _rerun(case: dict, prices: CapacityPrices | None = None, truth=None) -> dict:
@@ -295,17 +307,18 @@ def test_b3_is_paid_its_accepted_bids_whatever_b2_is_paid(monkeypatch):
     assert res[B2]["cost"]["afrr_capacity_revenue"] > 0
 
 
-def _gate_window(days: int, wind: float, price, bid_up, bid_down, **market):
+def _gate_window(days: int, wind, price, bid_up, bid_down, plant: PlantConfig = PLANT,
+                 **market):
     """A window that starts at a gate, 09:00 on day 0, and runs to the end of day `days`:
-    constant wind behind 60 MW and no PV, at `price` per step (one for all, or per step),
-    forecast as they are. B3 re-plans only where it must, at the gates and the awards, so the
-    window is quick to run; it is for tests of what B3 bids. Returns (the arguments of
-    b3_rolling up to the run's settings, the window's prices)."""
+    wind on `plant`, 60 MW of connection by default, and no PV, at `price` per step (each one
+    for all, or per step), forecast as they are. B3 re-plans only where it must, at the gates
+    and the awards, so the window is quick to run; it is for tests of what B3 bids. Returns
+    (the arguments of b3_rolling up to the run's settings, the window's prices)."""
     n = 60 + 96 * days
-    eff = np.broadcast_to(np.asarray(price, dtype=float), (n,)).copy()
+    eff, wind = (np.broadcast_to(np.asarray(x, dtype=float), (n,)).copy() for x in (price, wind))
     prices = _prices(n, bid_up, bid_down, start_h=9)
-    gen = (np.full(n, float(wind)), np.zeros(n))
-    return (*gen, eff, *gen, eff, _run(**market)), prices
+    gen = (wind, np.zeros(n))
+    return (*gen, eff, *gen, eff, _run(**market).with_(plant=plant)), prices
 
 
 def _gate_plans(monkeypatch) -> list:
@@ -473,3 +486,219 @@ def test_b3_bids_on_the_premium_it_knows_at_its_gate(monkeypatch):
     assert all(np.array_equal(a, b) for a, b in zip(bids(later), known))
     monkeypatch.setattr(afrr_rungs, "_planning_price", lambda price, *args: price)
     assert not all(np.array_equal(a, b) for a, b in zip(bids(later), known))
+
+
+# ------------------------------------------------------------------ B3's rules (C8)
+def _gate_bids(args, prices, **run) -> list[np.ndarray]:
+    """What B3 bids, per product of day 1, up and down, at the gate of a `_gate_window`, with
+    the run's settings changed by `run`."""
+    res = b3_rolling(*args[:-1], args[-1].with_(**run), resolve_every=10 ** 6, afrr=prices)
+    day1 = _per_product(prices.day == 1, prices)
+    return [_per_product(res[f"afrr_bid_{d}"], prices)[day1] for d in ("up", "down")]
+
+
+def test_b3_bids_no_upward_reserve_when_the_connection_always_binds():
+    """Generation always 1.2 x a 20 MW connection, energy at 100 EUR/MWh and capacity at
+    20 EUR/MW/h: positive reserve keeps its MW free below the connection, which costs exported
+    energy worth more than it earns, so B3 bids none in all six products, as B2 holds none,
+    and negative reserve rides on the export. Its derating leaves the connection and the
+    objective on the central forecast. Negative control: derating all generation by 0.3, as
+    the first draft did, makes the connection look loose, and the gate bids 3 MW up."""
+    args, prices = _gate_window(1, 24.0, 100.0, 20.0, 20.0, plant=PlantConfig(conn_mw=20.0))
+    up, down = _gate_bids(args, prices)
+    assert not np.any(up) and np.all(down >= 1.0)
+
+    wind, pv, eff, wind_fc, pv_fc, price_fc, run = args
+    derated = (wind, pv, eff, 0.7 * wind_fc, pv_fc, price_fc, run)
+    up, _ = _gate_bids(derated, prices, afrr_forecast_margin_sigmas=0.0)
+    assert up.tolist() == [3.0] * 5 + [0.0]
+
+
+def test_the_gate_counts_on_derated_generation_for_what_its_reservations_need():
+    """Where a plan holds reserve, the export that covers negative reserve and the charging
+    that fills positive reserve's band hold on generation derated by twice B3's forecast
+    error, 0.3 at its 0.15. With 10 MW of wind from midnight and an empty battery, the
+    export covers 7 MW of negative reserve, not 10. With 2 MW of wind charging the battery
+    from the gate on, B3 stores 1.4 MW of it, enough for 4 MW up from midnight, not 6. With
+    perfect forecasts, sigma 0, it counts on all of the wind."""
+    night = np.r_[np.zeros(60), np.full(96, 10.0)]
+    args, prices = _gate_window(1, night, 50.0, 0.0, 20.0)
+    assert _gate_bids(args, prices)[1].tolist() == [7.0] * 6
+    assert _gate_bids(args, prices, forecast_sigma=0.0)[1].tolist() == [10.0] * 6
+
+    args, prices = _gate_window(1, 2.0, 50.0, 30.0, 0.0)
+    derated, central = _gate_bids(args, prices)[0], _gate_bids(args, prices, forecast_sigma=0.0)[0]
+    assert (derated[0], central[0]) == (4.0, 6.0)
+    assert np.all(derated <= central)
+
+
+def _spec(block, fixed_down, paid_down, integer=False, **kwargs) -> ReserveSpec:
+    """A ReserveSpec on the products of `block` that holds negative reserve only: fixed_down
+    and paid_down per product, or one for all; nothing up; B3's rule."""
+    count = int(np.max(block)) + 1
+    down = (np.broadcast_to(np.asarray(x, dtype=float), (count,)) for x in (fixed_down, paid_down))
+    zero = np.zeros(count)
+    return ReserveSpec(zero, next(down), zero, next(down), np.bincount(block) * DT,
+                       np.asarray(block), RULE, 10_000.0, integer, 0.0, **kwargs)
+
+
+def test_the_derating_applies_only_while_a_reservation_is_in_the_plan(monkeypatch):
+    """The derating (R8) applies only to a plan that holds reserve. A spec that holds nothing
+    adds no term to the LP. One that holds negative reserve bounds the charging on every step
+    from derate_from and the export on the steps of its negative reservation, at 0.7 of the
+    generation. B3 derates by twice its forecast error, 0.3 at today's 0.15: from a gate's
+    first step, from a re-plan's second, whose first is the truth; with perfect forecasts,
+    sigma 0, it derates nothing."""
+    n, block = 32, np.arange(32) // 16
+    wind, pv, price = _window(n, seed=1)
+
+    def model(spec):
+        m, v = baselines._energy_lp(wind, pv, price - 60.0, DT, _run(), 12.0)
+        add_reserve_terms(m, v, spec, PLANT, 12.0, np.full(n, 60.0), gen=wind + pv)
+        return m.constraints
+
+    assert not [name for name in model(_spec(block, 0.0, 10.0, derate=0.3)) if "R8" in name]
+    held = model(_spec(block, [3.0, 0.0], 10.0, derate=0.3, derate_from=1))
+    assert sorted(name for name in held if name.startswith("R8_charge")) == sorted(
+        f"R8_charge_{t}" for t in range(1, n))
+    assert sorted(name for name in held if name.startswith("R8_export")) == sorted(
+        f"R8_export_{t}" for t in range(1, 16))
+    assert held["R8_charge_5"].constant == pytest.approx(-0.7 * (wind[5] + pv[5]), rel=1e-12)
+
+    plans = _gate_plans(monkeypatch)
+    args, prices = _gate_window(1, 30.0, 50.0, 20.0, 5.0)
+    # on a 24-hour horizon the gate's own re-plan sees the next day's reservations
+    day_ahead = args[-1].with_(horizon_steps=96)
+    b3_rolling(*args[:-1], day_ahead, resolve_every=10 ** 6, afrr=prices)
+    gate, replan = (next(spec for spec, _ in plans if spec.integer is kind)
+                    for kind in (True, False))
+    assert (gate.derate, gate.derate_from) == (pytest.approx(0.3), 0)
+    assert (replan.derate, replan.derate_from) == (pytest.approx(0.3), 1)
+    plans.clear()
+    b3_rolling(*args[:-1], day_ahead.with_(forecast_sigma=0.0), resolve_every=10 ** 6,
+               afrr=prices)
+    assert len(plans) == 3 and all(spec.derate == 0.0 for spec, _ in plans)
+
+
+def test_b3s_derating_is_set_by_its_forecast_error():
+    """B3 derates by afrr_forecast_margin_sigmas forecast errors, all of the generation at
+    most, and refuses a number of errors it cannot read."""
+    assert RunConfig().afrr_derate == pytest.approx(0.3)
+    assert RunConfig(forecast_sigma=0.8).afrr_derate == 1.0
+    assert RunConfig(afrr_forecast_margin_sigmas=0.0).afrr_derate == 0.0
+    for sigmas in (-0.5, float("nan"), float("inf")):
+        with pytest.raises(ValueError, match="afrr_forecast_margin_sigmas"):
+            RunConfig(afrr_forecast_margin_sigmas=sigmas)
+
+
+def test_b3_curtails_as_planned_before_a_negative_product(monkeypatch):
+    """Spill at a positive price, then negative reserve: from midnight 30 MW of wind meet a
+    20 MW connection, and from 04:00 the battery holds 20 MW down, which needs 19 MWh of room
+    below its maximum. B3's plans store some of the spill and curtail the rest, to keep that
+    room. Executing what a fresh plan curtails, B3 holds the reservation. Negative control:
+    with today's rule, which leaves the curtailment to the safety layer at a positive price,
+    the layer stores the spill first, the battery fills, and the product falls short."""
+    n = 92                                                  # 09:00 on day 0 to 08:00 on day 1
+    wind = np.r_[np.full(60, 10.0), np.full(16, 30.0), np.full(16, 25.0)]
+    eff = np.full(n, 50.0)
+    prices = _prices(n, 0.0, [0.0] * 5 + [20.0], start_h=9)        # 04-08 on day 1
+    run = _run().with_(plant=PlantConfig(conn_mw=20.0))
+
+    def short_mwh():
+        res = b3_rolling(wind, np.zeros(n), eff, wind, np.zeros(n), eff, run, afrr=prices)
+        assert res["afrr_down"][76] == 20.0
+        return res["afrr_deficit_down"].max() * 4.0, res["soc"][75]
+
+    held = short_mwh()
+    assert held[0] == 0.0 and held[1] <= PLANT.soc_max - 20.0 * PLANT.eta_c
+    rule = afrr_rungs._executed_curtailment
+    monkeypatch.setattr(afrr_rungs, "_executed_curtailment",
+                        lambda planned, k, price, holds: rule(planned, k, price, False))
+    assert short_mwh()[0] > 10.0
+
+
+def test_planned_curtailment_is_executed_only_from_a_fresh_plan(three_days):
+    """In the step a plan holding reserve is made in, on the true generation, B3 curtails as
+    the plan does, also at a non-negative price. In the steps that follow it, with
+    resolve_every 4, the plan's curtailment was computed on forecasts, so today's rule
+    applies: none at a non-negative price, the connection left to the safety layer; and so
+    it does in plans that hold nothing."""
+    case = three_days
+    eff, prices, plans = case["eff"], case["prices"], case["plans"]
+    executed = np.array([step["curtail_frac"] for step in case["executed"]])
+    fresh = {t for t in range(288) if t % 4 == 0 or prices.gate[t] or prices.award[t]}
+
+    assert all(executed[t] == plan.curt[0] for t, plan in plans.items())
+    assert any(eff[t] >= 0.0 and plan.curt[0] > 0.0 for t, plan in plans.items())
+    later = [t for t in range(288) if t not in fresh or t not in plans]
+    assert not np.any(executed[later][eff[later] >= 0.0])
+    followed = [(t, plans[s].curt[t - s]) for t in later if t not in fresh
+                for s in [max(f for f in fresh if f <= t)] if s in plans]
+    assert any(eff[t] >= 0.0 and curtail > 0.0 for t, curtail in followed)
+
+
+def test_a_deficit_already_incurred_makes_later_dips_in_its_product_free(monkeypatch):
+    """Once a deficit is measured in a product, the settlement charges it for all of the
+    product whatever follows, so a re-plan spends nothing to recover it: its shortfall there
+    is bounded below by the deficit. 10 MW down are held at night on 7 MW of wind, with 20 MWh
+    in store and energy worth 200 EUR/MWh in the next product. With 3 MW already sunk, the
+    plan exports the wind alone and keeps the energy for later; with none sunk, it would
+    discharge 3 MW to cover the reservation. And B3 hands its re-plans the largest deficit
+    measured so far in each product, not the last: a gate bids on 20 MW of wind forecast for
+    the night that blows at 5, and at 18 in the step before each re-plan."""
+    block = np.arange(32) // 16
+    wind, pv = np.full(32, 7.0), np.zeros(32)
+    price = np.r_[np.full(16, 50.0), np.full(16, 200.0)]
+    run = _run()
+
+    def plan(sunk):
+        spec = _spec(block, [10.0, 0.0], [20.0, 0.0], sunk_down=[sunk, 0.0])
+        return afrr_rungs.solve_window_reserve(wind, pv, price, DT, run, 20.0, spec)
+
+    assert np.allclose(plan(3.0).p_bat[:16], 0.0, atol=1e-9)
+    assert np.allclose(plan(0.0).p_bat[:16], 3.0, atol=1e-9)
+    m, v = baselines._energy_lp(wind, pv, price, DT, run, 20.0)
+    add_reserve_terms(m, v, _spec(block, [10.0, 0.0], [20.0, 0.0], sunk_down=[3.0, 0.0]),
+                      PLANT, 20.0, np.full(32, 60.0))
+    assert m.variablesDict()["u_down_0"].lowBound == 3.0
+
+    specs, spec = [], afrr_rungs._Book.spec
+
+    def recorded(book, start, stop, decide=None):
+        specs.append((start, decide, spec(book, start, stop, decide)))
+        return specs[-1][-1]
+
+    monkeypatch.setattr(afrr_rungs._Book, "spec", recorded)
+    n = 92                                                  # 09:00 on day 0 to 08:00 on day 1
+    truth = np.r_[np.full(60, 10.0), np.tile([5.0, 5.0, 5.0, 18.0], 4), np.full(16, 20.0)]
+    forecast = np.r_[np.full(60, 10.0), np.full(32, 20.0)]
+    eff = np.full(n, 50.0)
+    prices = _prices(n, 0.0, [0.0] * 4 + [20.0, 0.0], start_h=9)     # 00-04 on day 1
+    res = b3_rolling(truth, np.zeros(n), eff, forecast, np.zeros(n), eff, run, resolve_every=4,
+                     afrr=prices)
+    deficit = res["afrr_deficit_down"]
+    replans = [(start, s) for start, decide, s in specs if decide is None and 60 < start < 76]
+    assert len(replans) == 3 and deficit[60:76].max() > 1.0
+    for start, s in replans:
+        assert deficit[start - 1] < deficit[60:start].max(), start
+        assert s.sunk_down[0] == deficit[60:start].max() and s.sunk_up[0] == 0.0, start
+
+
+def test_a_reserve_spec_refuses_a_sunk_deficit_or_derating_it_cannot_read():
+    """A sunk deficit lies between 0 and its fixed reservation and is 0 where the plan
+    decides; the derating lies between 0 and 1 and starts at a step of at least 0; and a
+    spec that derates needs the plan's generation. Anything else is refused."""
+    block = np.repeat([0, 1], 4)
+    for kwargs in ({"sunk_down": [11.0, 0.0]}, {"sunk_down": [-1.0, 0.0]},
+                   {"sunk_down": [np.nan, 0.0]}, {"sunk_down": [0.0, 0.0, 0.0]},
+                   {"derate": -0.1}, {"derate": 1.5}, {"derate": np.nan},
+                   {"derate_from": -1}, {"derate_from": 1.0}, {"derate_from": True}):
+        with pytest.raises(ValueError, match="ReserveSpec"):
+            _spec(block, [10.0, 0.0], 20.0, **kwargs)
+    with pytest.raises(ValueError, match="ReserveSpec: a sunk deficit"):
+        _spec(block, [np.nan, 0.0], 20.0, integer=True, sunk_down=[1.0, 0.0])
+    for gen in (None, np.zeros(5)):
+        m, v = baselines._energy_lp(np.zeros(8), np.zeros(8), np.zeros(8), DT, _run(), 20.0)
+        with pytest.raises(ValueError, match="needs the plan's generation"):
+            add_reserve_terms(m, v, _spec(block, [10.0, 0.0], 20.0, derate=0.3), PLANT, 20.0,
+                              np.full(8, 60.0), gen=gen)

@@ -192,6 +192,14 @@ class ReserveSpec:
         the floor (rule.floor_mwh); False decides continuously, which needs a floor of 0.
     margin: decisions plan their energy and export on r x (1 + margin) and are paid r,
         e.g. PLAN_MARGIN; fixed reservations plan on r. Finite and at least 0.
+    sunk_up, sunk_down: per product, the MW of a fixed reservation already measured as not
+        held, from 0 to the reservation, and 0 where decided; None for 0 everywhere. The
+        plan's shortfall there is at least that, at no further cost, as the settlement
+        charges a product's largest shortfall once: B3's re-plans pass what they measured.
+    derate: from 0 to 1, e.g. 0.3; above 0, the charging the plan counts on and the export
+        that covers its negative reservations must hold on generation derated by it (R8),
+        where it holds reserve. derate_from: the plan's first step R8 applies to, at least 0:
+        0 at B3's gate, 1 in its re-plans, whose first step is the truth.
     The arrays are kept as read-only copies. Raises ValueError where the fields do not fit.
     """
     fixed_up: np.ndarray
@@ -204,10 +212,18 @@ class ReserveSpec:
     penalty: float
     integer: bool
     margin: float
+    sunk_up: np.ndarray | None = None
+    sunk_down: np.ndarray | None = None
+    derate: float = 0.0
+    derate_from: int = 0
 
     def __post_init__(self) -> None:
-        for name in ("fixed_up", "fixed_down", "paid_up", "paid_down", "hours", "block"):
-            array = np.array(getattr(self, name), dtype=None if name == "block" else float)
+        for name in ("fixed_up", "fixed_down", "paid_up", "paid_down", "hours", "block",
+                     "sunk_up", "sunk_down"):
+            value = getattr(self, name)
+            if value is None:                       # sunk_*: nothing measured as not held
+                value = np.zeros(len(self.hours))
+            array = np.array(value, dtype=None if name == "block" else float)
             array.setflags(write=False)
             object.__setattr__(self, name, array)
         problem = _spec_problem(self)
@@ -246,9 +262,10 @@ class ReserveSpec:
 def _spec_problem(spec: ReserveSpec) -> str | None:
     """What does not fit in `spec`, in words, or None where everything does."""
     fixed, paid = (spec.fixed_up, spec.fixed_down), (spec.paid_up, spec.paid_down)
+    sunk = (spec.sunk_up, spec.sunk_down)
     count = len(spec.hours)
-    if count == 0 or any(a.shape != (count,) for a in (*fixed, *paid, spec.hours)):
-        return "fixed_*, paid_* and hours hold one value per product, for at least one"
+    if count == 0 or any(a.shape != (count,) for a in (*fixed, *paid, *sunk, spec.hours)):
+        return "fixed_*, paid_*, sunk_* and hours hold one value per product, for at least one"
     block = spec.block
     if (block.ndim != 1 or not np.issubdtype(block.dtype, np.integer)
             or np.any(np.diff(block) < 0)
@@ -271,6 +288,20 @@ def _spec_problem(spec: ReserveSpec) -> str | None:
         # binary indicator can express
         return ("a continuous decision cannot keep the floor; decide in whole MW, or set "
                 "the floor to 0, as B2 does")
+    return _derating_problem(spec, fixed, sunk)
+
+
+def _derating_problem(spec: ReserveSpec, fixed: tuple, sunk: tuple) -> str | None:
+    """What does not fit in `spec`'s sunk deficits and derating (R8), or None."""
+    # NaN marks a decision, which holds all it decides, so nothing of it can be sunk
+    if any(np.any(~(np.isfinite(s) & (s >= 0) & (s <= np.where(np.isnan(f), 0.0, f))))
+           for s, f in zip(sunk, fixed)):
+        return "a sunk deficit lies between 0 and its fixed reservation, and is 0 where decided"
+    if not (math.isfinite(spec.derate) and 0.0 <= spec.derate <= 1.0):
+        return "derate lies between 0 and 1"
+    if isinstance(spec.derate_from, bool) or not (isinstance(spec.derate_from, (int, np.integer))
+                                                   and spec.derate_from >= 0):
+        return "derate_from is a step of the plan, at least 0"
     return None
 
 
@@ -353,7 +384,8 @@ class _Held(NamedTuple):
 
 
 def add_reserve_terms(m: pulp.LpProblem, v: dict, spec: ReserveSpec, plant: PlantConfig,
-                      soc0: float, cap: np.ndarray) -> tuple[list, list]:
+                      soc0: float, cap: np.ndarray,
+                      gen: np.ndarray | None = None) -> tuple[list, list]:
     """Add `spec`'s aFRR reservations to a window LP of `baselines._energy_lp`.
 
     On every step of a product that a direction reserves or decides: battery-power headroom
@@ -363,21 +395,27 @@ def add_reserve_terms(m: pulp.LpProblem, v: dict, spec: ReserveSpec, plant: Plan
     the state of charge is linear within a step, so this holds the energy at every instant,
     as the safety layer measures it. The objective gains the settlement's terms
     (`market.settle`): the capacity paid, c x r x hours, and for a fixed reservation the
-    penalty plus c per MWh not held, on u for all of its product's hours. A product that a
-    direction neither reserves nor decides adds nothing, so a spec with every reservation
-    fixed at 0 leaves `m` as it was.
+    penalty plus c per MWh not held, on u for all of its product's hours. With spec.derate
+    above 0, the plan's charging and the export of its negative reservations hold on derated
+    generation as well (R8, `_add_derating`). A product that a direction neither reserves
+    nor decides adds nothing, so a spec with every reservation fixed at 0 leaves `m` as it
+    was.
     u is one variable per product, as the settlement charges a product's largest shortfall
-    for all of it: once a fixed reservation falls short, the plan may move the state of
-    charge within that shortfall for the rest of the product at no further cost. The safety
-    layer lets the battery move no further past a band than it already is
-    (`plant.battery_interval`), so a replay may not follow such a move and then earns less
-    than the plan's objective. Decisions have no slack, so for them the two agree.
+    for all of it, and it is at least what is sunk of the product: once a fixed reservation
+    falls short, the plan may move the state of charge within that shortfall for the rest of
+    the product at no further cost. The safety layer lets the battery move no further past a
+    band than it already is (`plant.battery_interval`), so a replay may not follow such a
+    move, and then holds more than its plan needs and earns less than the plan's objective.
+    Export short of a negative reservation it does follow: the layer never forces a
+    discharge. Decisions have no slack, so for them the two agree.
     m, v: the model and its variables (`baselines._energy_lp`). spec: the reservations, one
         product per step of the model. plant: the plant the model was built for.
     soc0: energy stored at the start, MWh. cap: export limit per step, MW.
+    gen: the generation the model was built on, MW per step; needed where spec.derate > 0.
     Returns (up, down): per product, the reservation as the model holds it, a variable where
     decided and a number where fixed, to read the plan with once it is solved.
-    Raises ValueError unless spec holds one product per step of the model.
+    Raises ValueError unless spec holds one product per step of the model, and where the
+    spec derates without the generation.
     """
     if len(spec.block) != len(v["soc"]):
         raise ValueError(f"spec has {len(spec.block)} steps and the model {len(v['soc'])}")
@@ -391,20 +429,44 @@ def add_reserve_terms(m: pulp.LpProblem, v: dict, spec: ReserveSpec, plant: Plan
             start = soc0 if t == 0 else v["soc"][t - 1]
             _add_bands(m, start, f"{b}_start", up[b], down[b], spec.rule, plant)
         _add_bands(m, v["soc"][t], f"{b}_{t}", up[b], down[b], spec.rule, plant)
+    if spec.derate > 0:
+        _add_derating(m, v, spec, down, gen)
     m.setObjective(m.objective + _reserve_value(spec, up, down))
     return ([0.0 if held is None else held.r for held in up],
             [0.0 if held is None else held.r for held in down])
 
 
+def _add_derating(m: pulp.LpProblem, v: dict, spec: ReserveSpec, down: list,
+                  gen: np.ndarray | None) -> None:
+    """R8 on every step of a plan that holds reserve, from spec.derate_from on: the charging
+    the plan counts on, which fills positive reserve's band, and the export that covers
+    negative reserve hold on generation derated by spec.derate, where the central forecast
+    may be too high. The objective and the connection headroom (R3) keep the central
+    forecast: derated there, the connection would look looser than it is, and the plan would
+    underprice the curtailment that positive reserve forces.
+    down: per product, the negative reservation as `_held` returns it, or None."""
+    if gen is None or len(gen) != len(spec.block):
+        raise ValueError("a spec that derates needs the plan's generation, one value per step")
+    keep = 1.0 - spec.derate
+    for t in range(spec.derate_from, len(spec.block)):
+        low = keep * float(gen[t])
+        m += v["ch"][t] <= low, f"R8_charge_{t}"
+        held = down[spec.block[t]]
+        if held is not None:
+            m += low + v["dis"][t] - v["ch"][t] >= held.k * held.r - held.u, f"R8_export_{t}"
+
+
 def _held(m: pulp.LpProblem, spec: ReserveSpec, direction: str, b: int,
           plant: PlantConfig) -> _Held | None:
     """Product b's reservation in `direction` ("up" or "down") as LP terms, or None where it
-    is fixed at 0. A whole-MW decision under a floor gets its indicator, tied to it here."""
+    is fixed at 0. A whole-MW decision under a floor gets its indicator, tied to it here; a
+    fixed one's shortfall is at least what is sunk of it."""
     fixed = float(getattr(spec, f"fixed_{direction}")[b])
     if fixed == 0.0:
         return None
     if not math.isnan(fixed):
-        return _Held(fixed, pulp.LpVariable(f"u_{direction}_{b}", 0.0, fixed), None, 1.0)
+        sunk = float(getattr(spec, f"sunk_{direction}")[b])
+        return _Held(fixed, pulp.LpVariable(f"u_{direction}_{b}", sunk, fixed), None, 1.0)
     category = pulp.LpInteger if spec.integer else pulp.LpContinuous
     r = pulp.LpVariable(f"r_{direction}_{b}", 0.0, plant.bess_mw, cat=category)
     z = None

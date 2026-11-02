@@ -38,6 +38,8 @@ AFRR_SETTINGS = ("afrr_enabled", "afrr_price_basis", "afrr_energy_hours_up",
 # other rungs, whose rows in that run carry them as well.
 B3_SETTINGS = ("horizon_steps", "terminal_value", "terminal_price", "forecast_sigma",
                "forecast_rho", "forecast_price_scale", "seed")
+# B3's aFRR settings, recorded only where B3 ran with aFRR enabled, as b3_<name>.
+B3_AFRR_SETTINGS = ("afrr_forecast_margin_sigmas",)
 # Declared, but no command reads them, so a row that listed them would suggest they were
 # modelled: the ramp limit; the redispatch fields, as no command applies an order; and the
 # reBAP fields, which settle nothing because no rung commits a schedule
@@ -71,7 +73,8 @@ def window_columns(inputs: str, year: int | None, steps: int, dt: float,
 
 def settings(run: RunConfig, with_b3: bool, plant: PlantConfig | None = None) -> dict:
     """The settings a result ran with, as columns: plant_*, market_* (the aFRR ones only
-    where run.market.afrr_enabled is True), and b3_* where B3 ran.
+    where run.market.afrr_enabled is True), and b3_* where B3 ran (its aFRR one only where
+    aFRR is enabled as well).
 
     run: the run's settings. with_b3: whether B3 ran in it.
     plant: the plant the row's rung ran on (`baselines.rung_plant`), run.plant by default.
@@ -85,6 +88,8 @@ def settings(run: RunConfig, with_b3: bool, plant: PlantConfig | None = None) ->
         cols.update({f"market_{name}": getattr(run.market, name) for name in AFRR_SETTINGS})
     if with_b3:
         cols.update({f"b3_{name}": getattr(run, name) for name in B3_SETTINGS})
+    if with_b3 and run.market.afrr_enabled:
+        cols.update({f"b3_{name}": getattr(run, name) for name in B3_AFRR_SETTINGS})
     return cols
 
 

@@ -198,9 +198,27 @@ class RunConfig:
     # horizon, the only prices B3's first plan sees (`baselines.make_forecasts`).
     forecast_price_scale: float | None = None
     seed: int = 0
+    # B3 with aFRR derates the generation its plans count on for a reservation, the charging
+    # that fills positive reserve's band and the export that covers negative reserve, by this
+    # many of its forecast errors, forecast_sigma, and by all of it at most: 0.30 at today's
+    # sigma (R8, `reserve.add_reserve_terms`). Set by B3's own forecast error, not tuned; 0
+    # with perfect forecasts.
+    afrr_forecast_margin_sigmas: float = 2.0
 
     plant: PlantConfig = field(default_factory=PlantConfig)
     market: MarketConfig = field(default_factory=MarketConfig)
+
+    def __post_init__(self) -> None:
+        sigmas = self.afrr_forecast_margin_sigmas
+        if not (math.isfinite(sigmas) and sigmas >= 0):
+            raise ValueError(f"afrr_forecast_margin_sigmas must be finite and at least 0, "
+                             f"not {sigmas!r}")
+
+    @property
+    def afrr_derate(self) -> float:
+        """The share by which B3 with aFRR derates the generation its reservations rest on:
+        afrr_forecast_margin_sigmas x forecast_sigma, at most 1."""
+        return min(1.0, self.afrr_forecast_margin_sigmas * self.forecast_sigma)
 
     @property
     def steps_per_day(self) -> int:

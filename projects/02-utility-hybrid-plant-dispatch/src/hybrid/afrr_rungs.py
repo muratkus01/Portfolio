@@ -40,7 +40,8 @@ def solve_window_reserve(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray
     """
     m, v = _energy_lp(wind, pv, eff_price, dt, run, soc0, terminal_price, export_cap)
     up, down = add_reserve_terms(m, v, spec, run.plant, soc0,
-                                 _export_limit(len(wind), run.plant, export_cap))
+                                 _export_limit(len(wind), run.plant, export_cap),
+                                 gen=np.asarray(wind, float) + np.asarray(pv, float))
     m.solve(pulp.PULP_CBC_CMD(msg=False))
     # A time limit stops CBC early and PuLP still sets status to Optimal; only sol_status
     # tells a proven optimum from the best plan found so far.
@@ -146,6 +147,11 @@ def b3_reserve(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray, wind_fc:
     never revises them. A plan whose horizon holds no reserve is today's B3 plan, so before
     its first gate B3 runs as it does without aFRR, step for step. The window's first day has
     no gate inside the window, so B3 reserves nothing on it.
+    Three rules keep what it was awarded through its forecast errors, where a plan holds
+    reserve: the plans derate the generation a reservation rests on by run.afrr_derate (R8);
+    the step a plan is made in, on the true generation, curtails as planned
+    (`_executed_curtailment`); and a product's deficit, once measured, is sunk in the later
+    plans (`_Book.record`), which spend nothing to recover it.
     wind, pv, eff_price, wind_fc, pv_fc, price_fc, run, premium, export_cap, resolve_every,
     progress: as for `baselines.b3_rolling`. prices: the window's capacity prices
     (`afrr_data.capacity_prices`); B3 reads their realised marginal only at the award.
@@ -177,14 +183,11 @@ def b3_reserve(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray, wind_fc:
             offset = t
         k = t - offset
         pb = float(plan[0][k]) if k < len(plan[0]) else 0.0
-        cf = float(plan[1][k]) if k < len(plan[1]) else 0.0
-        # today's rule (`b3_rolling`): at a non-negative price the connection is left to the
-        # safety layer, as the plan's curtailment was computed on forecasts
-        if eff_price[t] >= 0.0:
-            cf = 0.0
+        cf = _executed_curtailment(plan[1], k, float(eff_price[t]), plan[2])
         r = dispatch_step(float(wind[t]), float(pv[t]), soc, pb, cf, run.dt, cfg,
                           None if export_cap is None else float(export_cap[t]),
                           Reservation(float(book.up[t]), float(book.down[t]), book.rule))
+        book.record(t, r)
         p_proposed[t], curt_applied[t] = pb, cf
         soc = r["soc"]
         if progress and t % max(1, n // 10) == 0:
@@ -206,15 +209,15 @@ def b3_reserve(wind: np.ndarray, pv: np.ndarray, eff_price: np.ndarray, wind_fc:
 
 def _replan(t: int, soc: float, truth: tuple, forecasts: tuple, premium, book: _Book,
             export_cap: np.ndarray | None, solve_times: list[float],
-            terminal_prices: list[float]) -> tuple[np.ndarray, np.ndarray]:
+            terminal_prices: list[float]) -> tuple[np.ndarray, np.ndarray, bool]:
     """B3's plan made in step t, as today's B3 makes it (`baselines.b3_rolling`): over its
     horizon, on the truth in step t and the forecasts after it, the premium priced at step t's
     rate. Where B3 holds or has bid reserve in the horizon, the plan holds it fixed, and
     each MWh it falls short costs the penalty plus the bid (`_Book.spec`).
     truth: (wind, pv, eff_price) per step of the window; forecasts: their forecasts.
     Appends the solve's seconds and the plan's terminal price to the two lists.
-    Returns (battery power, curtailment fraction) per step of the horizon; zeros where the
-    plan is not solved, as today's B3 idles then.
+    Returns (battery power, curtailment fraction) per step of the horizon, zeros where the
+    plan is not solved, as today's B3 idles then; and whether the plan holds reserve.
     """
     run = book.run
     stop = min(t + run.horizon_steps, len(truth[0]))
@@ -224,7 +227,8 @@ def _replan(t: int, soc: float, truth: tuple, forecasts: tuple, premium, book: _
     ec = None if export_cap is None else export_cap[t:stop]
     terminal_prices.append(default_terminal_price(pr, run))
     started = time.perf_counter()
-    if book.reserves(t, stop):
+    holds = book.reserves(t, stop)
+    if holds:
         plan = solve_window_reserve(w, s, pr, run.dt, run, soc, book.spec(t, stop),
                                     terminal_price=terminal_prices[-1], export_cap=ec)
         sol = None if plan is None else (plan.p_bat, plan.curt)
@@ -232,7 +236,23 @@ def _replan(t: int, soc: float, truth: tuple, forecasts: tuple, premium, book: _
         sol = baselines.solve_window(w, s, pr, run.dt, run, soc,
                                      terminal_price=terminal_prices[-1], export_cap=ec)
     solve_times.append(time.perf_counter() - started)
-    return sol if sol is not None else (np.zeros(stop - t), np.zeros(stop - t))
+    return (*(sol if sol is not None else (np.zeros(stop - t), np.zeros(stop - t))), holds)
+
+
+def _executed_curtailment(planned: np.ndarray, k: int, price: float, holds: bool) -> float:
+    """The share of generation B3 curtails in the k-th step of a plan, as planned, but at a
+    non-negative price: today's rule (`baselines.b3_rolling`) curtails none there and leaves
+    the connection to the safety layer, which stores spill in the battery first, as the
+    plan's curtailment was computed on forecasts. Before a negative reservation that storing
+    can fill the battery above the room the product will need, so in the step a plan holding
+    reserve was made in (k == 0), whose generation is the truth, B3 curtails as planned.
+    planned: the plan's curtailment fractions. price: the step's effective price, EUR/MWh.
+    holds: whether the plan holds reserve.
+    """
+    curtail = float(planned[k]) if k < len(planned) else 0.0
+    if price >= 0.0 and not (k == 0 and holds):
+        return 0.0
+    return curtail
 
 
 def _planning_price(price: np.ndarray, premium, start: int, stop: int) -> np.ndarray:
@@ -255,10 +275,11 @@ def _gate_stop(day: np.ndarray, t: int) -> int:
 
 class _Book:
     """B3's aFRR commitments over a window, per step: what it bid at each gate, and what it
-    holds, which is its bid until the award and the accepted bid after it.
+    holds, which is its bid until the award and the accepted bid after it; and per product
+    the largest deficit measured so far, its sunk deficit.
 
     prices: the window's capacity prices. run: the run's settings; its market sets the energy
-    rule, with the floor, as B3 bids whole MW, and the penalty.
+    rule, with the floor, as B3 bids whole MW, and the penalty; run.afrr_derate sets R8.
     """
 
     def __init__(self, prices: CapacityPrices, run: RunConfig) -> None:
@@ -271,6 +292,7 @@ class _Book:
                                 market.afrr_floor_hours * run.plant.bess_mw)
         self.up, self.down = np.zeros(n), np.zeros(n)
         self.bid_up, self.bid_down = np.zeros(n), np.zeros(n)
+        self.sunk_up, self.sunk_down = np.zeros(len(self.hours)), np.zeros(len(self.hours))
         self.gate_seconds: list[float] = []
         self.failures = 0
 
@@ -278,10 +300,19 @@ class _Book:
         """Whether B3 holds or has bid reserve in any step from start to stop - 1."""
         return bool(np.any(self.up[start:stop] > 0) or np.any(self.down[start:stop] > 0))
 
+    def record(self, t: int, step: dict) -> None:
+        """Add what step t executed (`plant.dispatch_step`'s result) to its product's sunk
+        deficit: the settlement charges a product's largest shortfall once, for all of it."""
+        product = self.product[t]
+        self.sunk_up[product] = max(self.sunk_up[product], step["afrr_deficit_up"])
+        self.sunk_down[product] = max(self.sunk_down[product], step["afrr_deficit_down"])
+
     def spec(self, start: int, stop: int, decide: np.ndarray | None = None) -> ReserveSpec:
         """Steps start to stop - 1 as a plan's ReserveSpec: each product fixed at what B3 holds
-        there and paid its bid, 0 where it has none; or, where `decide` (one bool per step) is
-        True and the bid pays, decided in whole MW with the floor, as a gate decides."""
+        there and paid its bid, 0 where it has none, with its sunk deficit; or, where `decide`
+        (one bool per step) is True and the bid pays, decided in whole MW with the floor, as a
+        gate decides. R8 applies from the plan's first step at a gate, which plans on the
+        forecasts alone, and from its second in a re-plan, whose first step is the truth."""
         steps = slice(start, stop)
         paid = [np.nan_to_num(bid[steps], nan=0.0)
                 for bid in (self.prices.bid_up, self.prices.bid_down)]
@@ -296,7 +327,10 @@ class _Book:
                            paid_up=paid[0][first], paid_down=paid[1][first],
                            hours=self.hours[labels], block=local.ravel(), rule=self.rule,
                            penalty=self.run.market.afrr_shortfall_penalty_eur_mwh,
-                           integer=decide is not None, margin=0.0)
+                           integer=decide is not None, margin=0.0,
+                           sunk_up=self.sunk_up[labels], sunk_down=self.sunk_down[labels],
+                           derate=self.run.afrr_derate,
+                           derate_from=0 if decide is not None else 1)
 
     def bid(self, t: int, soc: float, forecasts: tuple, premium) -> None:
         """B3's bids at the gate in step t, for the next day, held from then on as if accepted.

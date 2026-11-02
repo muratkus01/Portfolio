@@ -538,7 +538,8 @@ def test_every_setting_is_recorded_or_named_inert():
     from hybrid import tables
 
     recorded = (set(tables.PLANT_SETTINGS) | set(tables.MARKET_SETTINGS)
-                | set(tables.AFRR_SETTINGS) | set(tables.B3_SETTINGS))
+                | set(tables.AFRR_SETTINGS) | set(tables.B3_SETTINGS)
+                | set(tables.B3_AFRR_SETTINGS))
     declared = {f.name for cls in (PlantConfig, MarketConfig, RunConfig) for f in fields(cls)}
     # the step length is a window column, and plant and market are recorded field by field
     assert recorded | set(tables.INERT_SETTINGS) | {"dt", "plant", "market"} == declared
@@ -564,6 +565,24 @@ def test_the_afrr_settings_are_recorded_only_where_afrr_is_enabled():
         "market_afrr_enabled": True, "market_afrr_price_basis": "marginal",
         "market_afrr_energy_hours_up": 4.0, "market_afrr_energy_hours_down": 1.0,
         "market_afrr_floor_hours": 0.25, "market_afrr_shortfall_penalty_eur_mwh": 10_000.0}
-    # beside the other market settings, before B3's
+    # beside the other market settings, before B3's, and B3's aFRR one after them
     assert list(on) == (list(off) + [f"market_{name}" for name in tables.AFRR_SETTINGS]
-                        + [f"b3_{name}" for name in tables.B3_SETTINGS])
+                        + [f"b3_{name}" for name in tables.B3_SETTINGS]
+                        + [f"b3_{name}" for name in tables.B3_AFRR_SETTINGS])
+
+
+def test_b3s_afrr_setting_is_recorded_only_where_b3_ran_with_afrr():
+    """B3's derating is recorded as b3_afrr_forecast_margin_sigmas where B3 ran with aFRR
+    enabled, and nowhere else: not where aFRR is off, as in every committed table, and not
+    on a run without B3. On 4eb0fee RunConfig has no such setting."""
+    from dataclasses import replace
+
+    from hybrid import tables
+
+    off = RunConfig(afrr_forecast_margin_sigmas=1.5)
+    on = off.with_(market=replace(off.market, afrr_enabled=True))
+    column = "b3_afrr_forecast_margin_sigmas"
+
+    assert tables.settings(on, with_b3=True)[column] == 1.5
+    assert column not in tables.settings(on, with_b3=False)
+    assert column not in tables.settings(off, with_b3=True)
